@@ -459,20 +459,20 @@ static func parry_stats_summary_line(stats: Dictionary) -> String:
 ## Rollup from **`CombatF5SoakTrace`** session counters at **`soak_fight_end`** (grep **`hit_outcome_stats`**).
 static func hit_outcome_stats_summary_line(session_counts: Dictionary) -> String:
     return (
-        "hit_outcome_stats hit=%d glancing=%d negligible=%d deflected=%d other=%d resolve=%d avoided_miss=%d avoided_do"
-        + (
-            "dge=%d"
-            % [
-                int(session_counts.get("hit_outcome_hit", 0)),
-                int(session_counts.get("hit_outcome_glancing", 0)),
-                int(session_counts.get("hit_outcome_negligible", 0)),
-                int(session_counts.get("hit_outcome_deflected", 0)),
-                int(session_counts.get("hit_outcome_other", 0)),
-                int(session_counts.get("hit_resolve", 0)),
-                int(session_counts.get("strike_avoided_miss", 0)),
-                int(session_counts.get("strike_avoided_dodge", 0)),
-            ]
+        (
+            "hit_outcome_stats hit=%d glancing=%d negligible=%d deflected=%d "
+            + "other=%d resolve=%d avoided_miss=%d avoided_dodge=%d"
         )
+        % [
+            int(session_counts.get("hit_outcome_hit", 0)),
+            int(session_counts.get("hit_outcome_glancing", 0)),
+            int(session_counts.get("hit_outcome_negligible", 0)),
+            int(session_counts.get("hit_outcome_deflected", 0)),
+            int(session_counts.get("hit_outcome_other", 0)),
+            int(session_counts.get("hit_resolve", 0)),
+            int(session_counts.get("strike_avoided_miss", 0)),
+            int(session_counts.get("strike_avoided_dodge", 0)),
+        ]
     )
 
 

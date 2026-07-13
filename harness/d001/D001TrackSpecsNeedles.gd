@@ -43,9 +43,9 @@ const NEEDLE_ENGAGEMENT_DEBUG_POSITIONAL_DIS_LAYER := "layer=positional_dis"
 
 static func _camp_ea_profile_active(normalized: PackedStringArray) -> bool:
     for line in normalized:
-        if skip_profile_detection_line(line):
+        if CombatD001TrackSpecs.skip_profile_detection_line(line):
             continue
-        if is_camp_ea_world_trace_line(line):
+        if CombatD001TrackSpecs.is_camp_ea_world_trace_line(line):
             return true
     return false
 

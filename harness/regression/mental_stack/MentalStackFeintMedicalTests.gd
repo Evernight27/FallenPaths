@@ -1,5 +1,7 @@
 class_name MentalStackFeintMedicalTests
 extends CombatRegressionHarnessCore
+
+
 static func _run_mental_stack_feint_resistance_low_readiness_still_falls_for(failures: PackedStringArray) -> void:
     # Verify that a low-readiness defender (guard=0.5) does NOT block feints  -  existing damp chain applies.
     CombatConstants.set_feature_ms_feint_resistance_load(true)

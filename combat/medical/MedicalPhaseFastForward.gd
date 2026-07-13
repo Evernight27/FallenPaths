@@ -1,5 +1,11 @@
 class_name MedicalPhaseFastForward
-extends RefCounted
+extends MedicalPhaseBatchResolve
+
+const CombatDebug := preload("res://combat/CombatDebug.gd")
+const Proficiency := preload("res://core/EntityProficiency.gd")
+const AIPicker := preload("res://combat/CombatAIActionPicker.gd")
+const OperationalLog := preload("res://core/OperationalLog.gd")
+const CombatConstantsScript := preload("res://combat/CombatConstants.gd")
 
 ## Medical phase queries: danger, urgency, untreated wounds, end-of-phase, ally medical actions, campaign
 ## **`batch_resolve_on_campaign_exit`**.
@@ -8,8 +14,6 @@ extends RefCounted
 ## ->''--''''A!''--'''s''?" LIVE_PATHS **`#wf-tier-44-pa`** (clear). Does **not** change **`weapon_form`** / home guard.
 ## Manager must have: combatants (Array), medical_phase (bool), medical_phase_winner (String), get_health_entity(node)
 ## -> Node (or use CombatantEntityAccess).
-
-static var _company_state: Variant = null
 
 
 static func _batch_apply_direct_pressure(
@@ -28,7 +32,7 @@ static func _batch_apply_direct_pressure(
             manager, performer, CombatantEntityAccess.get_entity_from_manager(manager, target), part
         )
     if applied:
-        _CombatDebug.medical_session(
+        CombatDebug.medical_session(
             (
                 "Medical batch: %s apply_direct_pressure on %s => held"
                 % [CombatantEntityAccess.get_display_name(performer), part]
@@ -39,16 +43,16 @@ static func _batch_apply_direct_pressure(
             var perf_entity = CombatantEntityAccess.get_entity_from_manager(manager, performer)
             var tgt_entity = CombatantEntityAccess.get_entity_from_manager(manager, target)
             if perf_entity != null and perf_entity.has("_proficiency_bonus"):
-                _Proficiency.award_stat_gain(
+                Proficiency.award_stat_gain(
                     perf_entity,
                     "intelligence",
-                    _Proficiency.GAIN_MEDICAL_ACTION_BASE * _Proficiency.GAIN_DIRECT_PRESSURE_INT_MULT
+                    Proficiency.GAIN_MEDICAL_ACTION_BASE * Proficiency.GAIN_DIRECT_PRESSURE_INT_MULT
                 )
             if tgt_entity != null and tgt_entity.has("_proficiency_bonus"):
-                _Proficiency.award_stat_gain(
+                Proficiency.award_stat_gain(
                     tgt_entity,
                     "endurance",
-                    _Proficiency.GAIN_BLOOD_PERIL_BASE * _Proficiency.GAIN_DIRECT_PRESSURE_PATIENT_END_MULT
+                    Proficiency.GAIN_BLOOD_PERIL_BASE * Proficiency.GAIN_DIRECT_PRESSURE_PATIENT_END_MULT
                 )
     return applied
 
@@ -77,30 +81,30 @@ static func _batch_outcome_for_method(
 ## Returns the medical item type multiplier for batch resolve proficiency gains.
 static func _get_batch_item_mult(move_id: String) -> float:
     match move_id:
-        _combat_constants.MOVE_ID_BANDAGE_SELF, _combat_constants.MOVE_TARGET_APPLY_BANDAGE:
-            return _Proficiency.get_medical_item_mult("bandage")
-        _combat_constants.MOVE_ID_PACK_WOUND, _combat_constants.MOVE_TARGET_APPLY_PACKING:
-            return _Proficiency.get_medical_item_mult("pack")
-        _combat_constants.MOVE_TARGET_APPLY_STABILIZE, _combat_constants.MOVE_ID_STABILIZE_WOUND:
-            return _Proficiency.get_medical_item_mult("pack")
-        _combat_constants.MOVE_ID_APPLY_TOURNIQUET:
-            return _Proficiency.get_medical_item_mult("tourniquet")
+        CombatConstantsScript.MOVE_ID_BANDAGE_SELF, CombatConstantsScript.MOVE_TARGET_APPLY_BANDAGE:
+            return Proficiency.get_medical_item_mult("bandage")
+        CombatConstantsScript.MOVE_ID_PACK_WOUND, CombatConstantsScript.MOVE_TARGET_APPLY_PACKING:
+            return Proficiency.get_medical_item_mult("pack")
+        CombatConstantsScript.MOVE_TARGET_APPLY_STABILIZE, CombatConstantsScript.MOVE_ID_STABILIZE_WOUND:
+            return Proficiency.get_medical_item_mult("pack")
+        CombatConstantsScript.MOVE_ID_APPLY_TOURNIQUET:
+            return Proficiency.get_medical_item_mult("tourniquet")
         _:
             return 1.0
 
 
 static func _log_batch_resolve_result(manager: Node, parts_before: int) -> void:
-    var parts_after: int = winner_side_untreated_part_count(manager)
-    var can_end: bool = can_end_medical_phase(manager)
-    if _OperationalLog.is_play_session_active():
-        _OperationalLog.play_combat(
+    var parts_after: int = MedicalPhaseController.winner_side_untreated_part_count(manager)
+    var can_end: bool = MedicalPhaseController.can_end_medical_phase(manager)
+    if OperationalLog.is_play_session_active():
+        OperationalLog.play_combat(
             (
                 "medical_batch_resolve parts_before=%d parts_after=%d can_end=%s"
                 % [parts_before, parts_after, str(can_end).to_lower()]
             )
         )
     elif not can_end:
-        _CombatDebug.combat_session(
+        CombatDebug.combat_session(
             "batch_resolve_medical_phase parts_before=%d parts_after=%d can_end=false" % [parts_before, parts_after]
         )
 
@@ -112,7 +116,7 @@ static func _log_batch_resolve_result(manager: Node, parts_before: int) -> void:
 static func _fast_forward_drive_sync(manager: Node, sim_state: Dictionary) -> String:
     var break_reason: String = "sim_cap"
     while true:
-        var chunk: Dictionary = fast_forward_advance_chunk(
+        var chunk: Dictionary = MedicalPhaseController.fast_forward_advance_chunk(
             manager, sim_state, float(sim_state["sim_cap"]), INSTANT_FAST_FORWARD_MAX_ITERATIONS
         )
         if chunk.get("continue_loop", false) != true:
@@ -151,7 +155,7 @@ static func _instant_complete_fast_forward_step(manager: Node, sim_state: Dictio
             sim_state["sim_seconds"] = sim_seconds
             sim_state["stagnant_steps"] = 0
             return {"continue_loop": true, "stepped": true}
-        if winner_side_untreated_part_count(manager) > 0:
+        if MedicalPhaseController.winner_side_untreated_part_count(manager) > 0:
             MedicalPhaseBatchResolve._get_process_tick().tick(manager, INSTANT_FAST_FORWARD_IDLE_STEP_S)
             sim_seconds += INSTANT_FAST_FORWARD_IDLE_STEP_S
             sim_state["sim_seconds"] = sim_seconds
@@ -179,28 +183,44 @@ static func _log_instant_complete_result(
 ) -> void:
     var sim_seconds: float = sim_state.get("sim_seconds", 0.0)
     var total_iterations: int = sim_state.get("total_iterations", 0)
-    var can_end: bool = can_end_medical_phase(manager)
+    var can_end: bool = MedicalPhaseController.can_end_medical_phase(manager)
     var reason: String = break_reason if not break_reason.is_empty() else "sim_cap"
-    if _OperationalLog.is_play_session_active():
+    if OperationalLog.is_play_session_active():
         if can_end:
-            _OperationalLog.play_combat(
-                (
-                    ("medical_fast_forward complete sim_s=%.1f can_end=true parts_left=%d " + "iters=%d reason=%s")
-                    % [sim_seconds, winner_side_untreated_part_count(manager), total_iterations, reason]
+            (
+                OperationalLog
+                . play_combat(
+                    (
+                        ("medical_fast_forward complete sim_s=%.1f can_end=true parts_left=%d " + "iters=%d reason=%s")
+                        % [
+                            sim_seconds,
+                            MedicalPhaseController.winner_side_untreated_part_count(manager),
+                            total_iterations,
+                            reason,
+                        ]
+                    )
                 )
             )
         else:
-            _OperationalLog.play_combat(
-                (
+            (
+                OperationalLog
+                . play_combat(
                     (
-                        "medical_fast_forward incomplete sim_s=%.1f can_end=false parts_left=%d "
-                        + "iters=%d reason=%s ->''--''''A!''--'''s''? field care may still be needed"
+                        (
+                            "medical_fast_forward incomplete sim_s=%.1f can_end=false parts_left=%d "
+                            + "iters=%d reason=%s ->''--''''A!''--'''s''? field care may still be needed"
+                        )
+                        % [
+                            sim_seconds,
+                            MedicalPhaseController.winner_side_untreated_part_count(manager),
+                            total_iterations,
+                            reason,
+                        ]
                     )
-                    % [sim_seconds, winner_side_untreated_part_count(manager), total_iterations, reason]
                 )
             )
     elif not can_end:
-        _CombatDebug.combat_session(
+        CombatDebug.combat_session(
             (
                 "fast_forward_medical_phase sim_s=%.1f can_end=false iters=%d reason=%s"
                 % [sim_seconds, total_iterations, reason]
@@ -215,13 +235,13 @@ static func _next_fast_forward_delta(manager: Node) -> float:
         if raw is not Dictionary:
             continue
         var ev: Dictionary = raw
-        if should_block_scheduled_event(manager, ev):
+        if MedicalPhaseController.should_block_scheduled_event(manager, ev):
             continue
         var resolve_at: float = float(ev.get("resolve_at", INF))
         if resolve_at > clock:
             best = minf(best, resolve_at - clock)
     for c in manager.combatants:
-        if not is_winner_side(manager, c):
+        if not MedicalPhaseController.is_winner_side(manager, c):
             continue
         var st: String = CombatantEntityAccess.state_str(c)
         if st == CombatConstants.STATE_MEDICAL_WIND_UP:
@@ -240,7 +260,7 @@ static func _next_fast_forward_delta(manager: Node) -> float:
             if CombatantEntityAccess.gauge_float(c) < CombatConstants.GAUGE_FULL_THRESHOLD:
                 best = minf(best, INSTANT_FAST_FORWARD_IDLE_STEP_S)
     if best == INF:
-        if winner_side_untreated_part_count(manager) > 0:
+        if MedicalPhaseController.winner_side_untreated_part_count(manager) > 0:
             return INSTANT_FAST_FORWARD_IDLE_STEP_S
         return 0.0
     return maxf(best, INSTANT_FAST_FORWARD_MIN_STEP_S)
@@ -258,7 +278,7 @@ static func _has_pending_recovery_end(manager: Node, combatant_id: int) -> bool:
 
 static func _ensure_winner_recovery_end_events(manager: Node) -> void:
     for c in manager.combatants:
-        if not is_winner_side(manager, c):
+        if not MedicalPhaseController.is_winner_side(manager, c):
             continue
         if CombatantEntityAccess.state_str(c) != CombatConstants.STATE_RECOVERING:
             continue
@@ -287,7 +307,7 @@ static func _ensure_winner_recovery_end_events(manager: Node) -> void:
 static func _unstick_medical_turns(manager: Node) -> bool:
     var unstick: bool = false
     for c in manager.combatants:
-        if not is_winner_side(manager, c) or not CombatantEntityAccess.alive_bool(c):
+        if not MedicalPhaseController.is_winner_side(manager, c) or not CombatantEntityAccess.alive_bool(c):
             continue
         if CombatantEntityAccess.state_str(c) != CombatConstants.STATE_WAITING:
             continue
@@ -302,7 +322,7 @@ static func _unstick_medical_turns(manager: Node) -> bool:
 static func _resolve_stalled_winner_turns(manager: Node) -> bool:
     var acted: bool = false
     for c in manager.combatants:
-        if not is_winner_side(manager, c) or not CombatantEntityAccess.alive_bool(c):
+        if not MedicalPhaseController.is_winner_side(manager, c) or not CombatantEntityAccess.alive_bool(c):
             continue
         if CombatantEntityAccess.state_str(c) != CombatConstants.STATE_WAITING:
             continue
@@ -313,7 +333,7 @@ static func _resolve_stalled_winner_turns(manager: Node) -> bool:
         actions = CombatMedicalCoordination.filter_actions_for_pick(manager, cid, actions)
         if actions.is_empty():
             continue
-        _AIPicker.resolve_picked_turn_or_skip(manager, cid, actions, "player")
+        AIPicker.resolve_picked_turn_or_skip(manager, cid, actions, "player")
         acted = true
     return acted
 

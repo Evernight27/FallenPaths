@@ -3,6 +3,7 @@ extends CombatantIdentityAccess
 
 ## Combat state: stamina, gauge, alive, vitals, incapacitation.
 
+
 static func timestamp_cooldown_active(manager: Node, until: float, inactive_below: float = 0.0) -> bool:
     if manager == null:
         return false
@@ -38,16 +39,6 @@ static func cooldown_remaining_s(manager: Node, until: float, inactive_below: fl
 ## Opponent band from actor `distance_to` (default **LONG** when unset).
 
 
-## Opponent band from actor `distance_to` (default **LONG** when unset).
-static func alive_bool(combatant: Dictionary, default_alive: bool = false) -> bool:
-    var v = combatant.get("alive", default_alive)
-    return v == true
-
-
-## `state` string; uses `default_state` when missing.
-
-
-## `state` string; uses `default_state` when missing.
 static func state_str(combatant: Dictionary, default_state: String = "") -> String:
     return str(combatant.get("state", default_state))
 
@@ -66,7 +57,9 @@ static func gauge_float(combatant: Dictionary, default_gauge: float = 0.0) -> fl
 
 ## Stamina (0 - `STAMINA_MAX` when key missing uses `default_if_missing`; use `0.0` when "missing = zero" for cost
 ## checks).
-static func stamina_float(combatant: Dictionary, default_if_missing: float = CombatConstants.STAMINA_MAX) -> float:
+static func stamina_float(
+    combatant: Dictionary, default_if_missing: float = CombatConstantsStamina.STAMINA_MAX
+) -> float:
     return float(combatant.get("stamina", default_if_missing))
 
 
@@ -74,7 +67,9 @@ static func stamina_float(combatant: Dictionary, default_if_missing: float = Com
 
 
 ## Breath (alternate/alias burst pool; canonical in new code per anti-patterns).
-static func breath_float(combatant: Dictionary, default_if_missing: float = CombatConstants.STAMINA_MAX) -> float:
+static func breath_float(
+    combatant: Dictionary, default_if_missing: float = CombatConstantsStamina.STAMINA_MAX
+) -> float:
     if combatant.has("breath"):
         return float(combatant["breath"])
     return stamina_float(combatant, default_if_missing)
@@ -101,13 +96,15 @@ static func stamina_effective_max(combatant: Dictionary) -> float:
 
 ## MXm: cumulative fight exhaustion index (0 - `EXHAUSTION_MAX`).
 static func exhaustion_float(combatant: Dictionary, default_if_missing: float = 0.0) -> float:
-    return float(combatant.get(CombatConstants.COMBATANT_KEY_EXHAUSTION, default_if_missing))
+    return float(combatant.get(CombatConstantsStamina.COMBATANT_KEY_EXHAUSTION, default_if_missing))
 
 
 static func set_exhaustion_float(combatant: Dictionary, value: float) -> void:
     if combatant.is_empty():
         return
-    combatant[CombatConstants.COMBATANT_KEY_EXHAUSTION] = clampf(value, 0.0, CombatConstants.EXHAUSTION_MAX)
+    combatant[CombatConstantsStamina.COMBATANT_KEY_EXHAUSTION] = clampf(
+        value, 0.0, CombatConstantsStamina.EXHAUSTION_MAX
+    )
 
 
 ## Combat `stance` string (harness compatibility alias)  -  **`form_str`** fallback only; production bias uses
@@ -116,7 +113,9 @@ static func set_exhaustion_float(combatant: Dictionary, value: float) -> void:
 
 ## Combat `stance` string (harness compatibility alias)  -  **`form_str`** fallback only; production bias uses
 ## **`form_str`** + **`CombatWeaponForm.mod`**.
-static func stance_str(combatant: Dictionary, default_stance: String = CombatConstants.STANCE_BALANCED) -> String:
+static func stance_str(
+    combatant: Dictionary, default_stance: String = CombatConstantsFormationMove.STANCE_BALANCED
+) -> String:
     return str(combatant.get("stance", default_stance))
 
 
@@ -130,8 +129,8 @@ static func stance_str(combatant: Dictionary, default_stance: String = CombatCon
 ## **`guard_line`**). LIVE_PATHS **`#wf-assign-form-contract`**.
 static func form_str(combatant: Dictionary) -> String:
     if combatant.is_empty():
-        return CombatConstants.STANCE_BALANCED
-    var raw: String = str(combatant.get(CombatConstants.COMBATANT_KEY_WEAPON_FORM, "")).strip_edges()
+        return CombatConstantsFormationMove.STANCE_BALANCED
+    var raw: String = str(combatant.get(CombatConstantsMentalStack.COMBATANT_KEY_WEAPON_FORM, "")).strip_edges()
     if not raw.is_empty():
         return raw.to_lower()
     return stance_str(combatant).strip_edges().to_lower()
@@ -189,20 +188,6 @@ static func is_dead(combatant: Dictionary) -> bool:
     if node == null or not node.has_method("is_dead"):
         return false
     return node.is_dead()
-
-
-static func has_left_battlefield(combatant: Dictionary) -> bool:
-    return combatant.get("combat_absent", false) or state_str(combatant) == CombatConstants.STATE_FLED
-
-
-## `alive` combatant flag, on the field, and not `is_dead` on the scene node.
-
-
-## `alive` combatant flag, on the field, and not `is_dead` on the scene node.
-static func is_alive_in_combat(combatant: Dictionary) -> bool:
-    if has_left_battlefield(combatant):
-        return false
-    return alive_bool(combatant) and not is_dead(combatant)
 
 
 static func is_on_battlefield(combatant: Dictionary) -> bool:
@@ -266,7 +251,7 @@ static func finalize_dead_combatant_if_node_dead(manager: Node, c: Dictionary) -
         return false
     c["alive"] = false
     _get_footwork().clear_on_death(c)
-    c["state"] = CombatConstants.STATE_DEAD
+    c["state"] = CombatConstantsState.STATE_DEAD
     _get_state_handlers().cancel_events_for_dead_combatant(manager, c)
     return true
 
@@ -294,9 +279,9 @@ static func retreat_formation_body_damage_warranted(c: Dictionary, manager: Node
     var node: Variant = node_variant(c)
     if node == null:
         return false
-    if get_blood_volume_from_node(node as Node) < CombatConstants.FORMATION_RETREAT_BLOOD_VOLUME_MAX:
+    if get_blood_volume_from_node(node as Node) < CombatConstantsFormation.FORMATION_RETREAT_BLOOD_VOLUME_MAX:
         return true
-    if manager != null and is_in_immediate_peril(manager, c):
+    if manager != null and _get_medical_phase().is_in_immediate_peril(manager, c):
         return true
     return false
 
@@ -337,41 +322,13 @@ static func get_targetable_parts_from_node(node: Node) -> Array:
 ## Returns true if combatant's node is incapacitated (consciousness/cowering) or has yielded.
 
 
-## Returns true if combatant's node is incapacitated (consciousness/cowering) or has yielded.
-static func is_incapacitated(combatant: Dictionary) -> bool:
-    if is_yielded(combatant):
-        return true
-    var node = node_variant(combatant)
-    if node == null or not node.has_method("is_incapacitated"):
-        return false
-    return node.is_incapacitated()
-
-
-## Voluntary surrender: non-standing but remains on the field.
-
-
-## Voluntary surrender: non-standing but remains on the field.
 static func is_yielded(combatant: Dictionary) -> bool:
-    return state_str(combatant) == CombatConstants.STATE_YIELDED
+    return state_str(combatant) == CombatConstantsState.STATE_YIELDED
 
 
 ## True when consciousness is below incapacitation floor (unconscious; cannot act or move).
 
 
-## True when consciousness is below incapacitation floor (unconscious; cannot act or move).
-static func is_unconscious(combatant: Dictionary) -> bool:
-    var node = node_variant(combatant)
-    if node == null or not node.has_method("is_unconscious"):
-        return false
-    return node.is_unconscious()
-
-
-## Tier 6.1: arm loss during combat  -  sync cowering, cancel stale turns, abort wind-up (see
-## **`CombatMobilityRetreat`**).
-
-
-## Tier 6.1: arm loss during combat  -  sync cowering, cancel stale turns, abort wind-up (see
-## **`CombatMobilityRetreat`**).
 static func react_attacking_arm_lost_if_needed(manager: Node, combatant: Dictionary) -> void:
     _get_mobility_retreat().react_attacking_arm_lost_if_needed(manager, combatant)
 

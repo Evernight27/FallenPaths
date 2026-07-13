@@ -153,17 +153,17 @@ func _process_layer(
             ):
                 push_warning(
                     (
-                        "[Armor] Area coupling factor %.3f outside tuning range [%.2f, %.2f] (contact=%.2f cm, ref=%.2f"
-                        + (
-                            "). Adjust BLUNT_COUPLING_REFERENCE_CM or weapon contact."
-                            % [
-                                area_factor,
-                                ArmorConstants.BLUNT_AREA_FACTOR_WARN_MIN,
-                                ArmorConstants.BLUNT_AREA_FACTOR_WARN_MAX,
-                                blunt_contact_cm,
-                                ref_cm
-                            ]
+                        (
+                            "[Armor] Area coupling factor %.3f outside tuning range [%.2f, %.2f] "
+                            + "(contact=%.2f cm, ref=%.2f). Adjust BLUNT_COUPLING_REFERENCE_CM or weapon contact."
                         )
+                        % [
+                            area_factor,
+                            ArmorConstants.BLUNT_AREA_FACTOR_WARN_MIN,
+                            ArmorConstants.BLUNT_AREA_FACTOR_WARN_MAX,
+                            blunt_contact_cm,
+                            ref_cm,
+                        ]
                     )
                 )
 
@@ -173,15 +173,15 @@ func _process_layer(
         ):
             push_warning(
                 (
-                    "[Armor] Blunt transmission %.3f outside [%.2f, %.2f]. Check layer blunt_transmission, cushion, rig"
-                    + (
-                        "idity, or BLUNT_COUPLING_REFERENCE_CM."
-                        % [
-                            after_transmission / maxf(damage, 0.01),
-                            ArmorConstants.BLUNT_TRANSMISSION_WARN_MIN,
-                            ArmorConstants.BLUNT_TRANSMISSION_WARN_MAX
-                        ]
+                    (
+                        "[Armor] Blunt transmission %.3f outside [%.2f, %.2f]. Check layer blunt_transmission, "
+                        + "cushion, rigidity, or BLUNT_COUPLING_REFERENCE_CM."
                     )
+                    % [
+                        after_transmission / maxf(damage, 0.01),
+                        ArmorConstants.BLUNT_TRANSMISSION_WARN_MIN,
+                        ArmorConstants.BLUNT_TRANSMISSION_WARN_MAX,
+                    ]
                 )
             )
 

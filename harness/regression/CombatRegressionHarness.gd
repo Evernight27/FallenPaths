@@ -240,5 +240,3 @@ static func run_all() -> Dictionary:
     CombatConstants.set_feature_position_angle_footwork_load(true)
     flush_harness_live_nodes()
     return {"ok": failures.is_empty(), "failures": failures}
-
-

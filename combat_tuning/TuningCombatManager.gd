@@ -43,22 +43,22 @@ func _end_combat_phase(winner: String, defeated_node: Node) -> void:
 	var alive_by_side: Dictionary = {}
 	var fled_by_side: Dictionary = {}
 	for c in combatants:
-		var sd: String = _EntityAccess.side_str(c)
-		if _EntityAccess.alive_bool(c):
+		var sd: String = CombatantEntityAccess.side_str(c)
+		if CombatantEntityAccess.alive_bool(c):
 			alive_by_side[sd] = alive_by_side.get(sd, 0) + 1
 		if (
 			bool(c.get("combat_absent", false))
-			or _EntityAccess.state_str(c) == CombatConstants.STATE_FLED
+			or CombatantEntityAccess.state_str(c) == CombatConstants.STATE_FLED
 		):
 			fled_by_side[sd] = fled_by_side.get(sd, 0) + 1
-	var standing_by_side: Dictionary = _StandingHelper.get_standing_by_side(combatants)
+	var standing_by_side: Dictionary = CombatStandingHelper.get_standing_by_side(combatants)
 	var def_node: String = str(defeated_node.name) if defeated_node != null else "null"
-	if not _OperationalLog.play_session_is_editor_f5():
-		_Debug.combat_session(
+	if not OperationalLog.play_session_is_editor_f5():
+		CombatDebug.combat_session(
 			"phase_end winner=%s defeated_node=%s alive_by_side=%s standing_by_side=%s fled_by_side=%s (tuning skip medical)"
 			% [winner, def_node, alive_by_side, standing_by_side, fled_by_side]
 		)
-	_F5SoakTrace.log_fight_end_summary(winner, false)
+	CombatF5SoakTrace.log_fight_end_summary(winner, false)
 	medical_phase = false
 	medical_phase_winner = winner
 	combat_resolution_closed = true

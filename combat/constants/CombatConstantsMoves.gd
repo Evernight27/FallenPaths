@@ -54,6 +54,7 @@ const MOVE_ID_STABILIZE_WOUND := "stabilize_wound"
 
 const MOVE_ID_WAIT := "wait"
 
+
 static func guard_line_for_focus_move_id(move_id: String) -> String:
     match move_id:
         MOVE_ID_FOCUS_HIGH:
@@ -68,25 +69,20 @@ static func guard_line_for_focus_move_id(move_id: String) -> String:
             return ""
 
 
-
 static func is_direct_pressure_move(move_id: String) -> bool:
     return move_id == MOVE_ID_APPLY_DIRECT_PRESSURE
-
 
 
 static func is_dressing_medical_move(move_id: String) -> bool:
     return move_id in DRESSING_MEDICAL_MOVE_IDS
 
 
-
 static func is_focus_line_move(move_id: String) -> bool:
     return move_id in FOCUS_LINE_MOVE_IDS
 
 
-
 static func is_medical_move(move_id: String) -> bool:
     return move_id in MEDICAL_MOVE_IDS
-
 
 
 static func is_medical_target_method(target_method: String) -> bool:
@@ -100,24 +96,21 @@ static func is_medical_target_method(target_method: String) -> bool:
         ]
     )
 
+
 static func is_pack_wound_move(move_id: String) -> bool:
     return move_id == MOVE_ID_PACK_WOUND
-
 
 
 static func is_stabilize_wound_move(move_id: String) -> bool:
     return move_id == MOVE_ID_STABILIZE_WOUND
 
 
-
 static func is_tourniquet_move(move_id: String) -> bool:
     return move_id == MOVE_ID_APPLY_TOURNIQUET
 
 
-
 static func is_wind_up_medical_move(move_id: String) -> bool:
     return is_medical_move(move_id) and not is_direct_pressure_move(move_id)
-
 
 
 static func medical_outcome_string(target_method: String, ok: bool) -> String:

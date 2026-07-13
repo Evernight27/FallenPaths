@@ -1,5 +1,7 @@
 class_name RotateFileDoctrineTests
 extends CombatRegressionHarnessCore
+
+
 ## Tier 1: **`rotate_file`** listed for adjacent rank-0 allies on a multi-file line.
 static func _run_rotate_file_listed_for_adjacent_front_rank_allies(failures: PackedStringArray) -> void:
     var mgr: Node = _MgrScript.new()

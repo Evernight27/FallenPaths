@@ -1,5 +1,7 @@
 class_name ParryCalibrationBlockTests
 extends CombatRegressionHarnessCore
+
+
 ## Tier 3.2 + 3.0: parry clash context preserves bind/deflect calibration + strike kinematics; asserts geometry + move
 ## ids vs **`DefenseResolutionHandler._resolve_parry`** and **`WeaponDamageHelper`** / **`StrikeRealismProfile`**; Tier
 ## **3.1** **`strike_measure_ratio`** vs **`pa`** after **`stamp_attack_pair_geometry_on_dict`** +

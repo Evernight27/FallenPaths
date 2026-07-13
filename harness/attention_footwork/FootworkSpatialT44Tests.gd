@@ -605,9 +605,7 @@ static func _run_footwork_wf_t1_octant_suite(failures: PackedStringArray) -> voi
     AttentionFootworkFocusLineFootworkPickerTests._run_footwork_eight_line_home_guard_parry_step(failures)
     AttentionFootworkFocusLineFootworkPickerTests._run_footwork_octant_windup_step_diagonals(failures)
     AttentionFootworkFocusLineFootworkPickerTests._run_footwork_defender_dodge_step_stamps_octant_low_left(failures)
-    AttentionFootworkFocusLineFootworkPickerTests._run_footwork_defender_dodge_step_stamps_octant_right_leg(
-        failures
-    )
+    AttentionFootworkFocusLineFootworkPickerTests._run_footwork_defender_dodge_step_stamps_octant_right_leg(failures)
     AttentionFootworkFocusLineFootworkPickerTests._run_footwork_parry_eval_step_octant_home(failures)
     AttentionFootworkFocusLineFootworkPickerTests._run_footwork_dodge_eval_step_octant_arm(failures)
     AttentionFootworkFocusLineFootworkPickerTests._run_footwork_defender_parry_step_lt_dodge_on_octant(failures)

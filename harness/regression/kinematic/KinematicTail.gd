@@ -64,9 +64,8 @@ static func run_core(failures: PackedStringArray) -> void:
 static func run(failures: PackedStringArray) -> void:
     KinematicDeliveryGuardMatrixTests._run_kinematic_delivery_line_to_angle_unknown_line_returns_zero(failures)
     KinematicDeliveryGuardMatrixTests._run_kinematic_delivery_guard_wobble_heavy_mass_increases_spread(failures)
-    (
-        KinematicDeliveryGuardMatrixTests
-        . _run_kinematic_delivery_strike_momentum_mult_integration_pre_blunt_not_pen(failures)
+    KinematicDeliveryGuardMatrixTests._run_kinematic_delivery_strike_momentum_mult_integration_pre_blunt_not_pen(
+        failures
     )
     KinematicDeliveryGuardMatrixTests._run_kinematic_delivery_low_striker_stamina_lowers_strike_ke(failures)
     KinematicDeliveryGuardMatrixTests._run_kinematic_delivery_get_attack_path_all_line_pairs_nonempty(failures)
@@ -77,80 +76,50 @@ static func run(failures: PackedStringArray) -> void:
     KinematicDeliveryClosingDefenseTests._run_choose_defense_misaligned_prefers_dodge(failures)
     KinematicDeliveryClosingDefenseTests._run_choose_defense_aligned_can_parry(failures)
     KinematicDeliveryGuardMatrixTests._run_iv5_parry_clash_context_carries_interpose(failures)
-    KinematicDeliveryGuardMatrixTests._run_kinematic_delivery_near_full_parry_respects_min_cut_ratio_floor(
+    KinematicDeliveryGuardMatrixTests._run_kinematic_delivery_near_full_parry_respects_min_cut_ratio_floor(failures)
+    KinematicDeliveryGuardMatrixTests._run_kinematic_delivery_discrete_line_alignment_matches_with_deflect_no_angles(
         failures
     )
-    (
-        KinematicDeliveryGuardMatrixTests
-        . _run_kinematic_delivery_discrete_line_alignment_matches_with_deflect_no_angles(failures)
-    )
-    KinematicDeliveryGuardMatrixTests._run_kinematic_delivery_mixed_archetype_integration_ke_matches_helper(
-        failures
-    )
+    KinematicDeliveryGuardMatrixTests._run_kinematic_delivery_mixed_archetype_integration_ke_matches_helper(failures)
     KinematicDeliveryGuardMatrixTests._run_kinematic_delivery_angle_diff_symmetry_and_zero(failures)
-    KinematicDeliveryGuardMatrixTests._run_kinematic_delivery_closing_speed_engagement_angle_scales_strike_ke(
+    KinematicDeliveryGuardMatrixTests._run_kinematic_delivery_closing_speed_engagement_angle_scales_strike_ke(failures)
+    KinematicDeliveryGuardMatrixTests._run_kinematic_delivery_armored_chest_reduces_tissue_and_reports_mech_post_armor(
         failures
-    )
-    (
-        KinematicDeliveryGuardMatrixTests
-        . _run_kinematic_delivery_armored_chest_reduces_tissue_and_reports_mech_post_armor(failures)
     )
     KinematicDeliveryGuardMatrixTests._run_kinematic_delivery_unarmed_pre_blunt_matches_helper(failures)
     KinematicDeliveryGuardMatrixTests._run_kinematic_delivery_unarmed_partial_parry_scales_pre_blunt(failures)
-    KinematicDeliveryDepthTacticalTests._run_kinematic_delivery_depth_polearm_thrust_ctx_scales_strike_ke(
-        failures
-    )
+    KinematicDeliveryDepthTacticalTests._run_kinematic_delivery_depth_polearm_thrust_ctx_scales_strike_ke(failures)
     KinematicDeliveryDepthTacticalTests._run_kinematic_delivery_tactical_ambush_mult_scales_strike_ke(failures)
-    KinematicDeliveryGuardMatrixTests._run_kinematic_delivery_gambeson_and_cuirass_chest_both_below_bare(
-        failures
-    )
+    KinematicDeliveryGuardMatrixTests._run_kinematic_delivery_gambeson_and_cuirass_chest_both_below_bare(failures)
     KinematicDeliveryDepthTacticalTests._run_kinematic_delivery_depth_polearm_allows_low_false_no_closing_boost(
         failures
     )
     KinematicDeliveryDepthTacticalTests._run_kinematic_delivery_pa_stamp_open_lane_strike_ke_matches_manual_ctx(
         failures
     )
-    KinematicDeliveryDepthTacticalTests._run_kinematic_delivery_attack_angle_deg_variance_off_balance_spreads(
-        failures
-    )
-    KinematicDeliveryDepthTacticalTests._run_kinematic_delivery_attack_angle_deg_variance_weapon_mass_spreads(
-        failures
-    )
+    KinematicDeliveryDepthTacticalTests._run_kinematic_delivery_attack_angle_deg_variance_off_balance_spreads(failures)
+    KinematicDeliveryDepthTacticalTests._run_kinematic_delivery_attack_angle_deg_variance_weapon_mass_spreads(failures)
     KinematicDeliveryDepthTacticalTests._run_kinematic_delivery_tactical_ambush_mult_unity_no_boost(failures)
     KinematicDeliveryDepthTacticalTests._run_kinematic_delivery_engagement_angle_unknown_matches_front(failures)
     KinematicDeliveryDepthTacticalTests._run_kinematic_delivery_parry_v_intent_thrust_archetype(failures)
-    KinematicDeliveryDepthTacticalTests._run_kinematic_delivery_thrust_integration_pre_cut_scales_sqrt_ke(
-        failures
-    )
+    KinematicDeliveryDepthTacticalTests._run_kinematic_delivery_thrust_integration_pre_cut_scales_sqrt_ke(failures)
     KinematicDeliveryDepthTacticalTests._run_kinematic_delivery_mace_integration_pre_blunt_rises_with_vo(failures)
     KinematicDeliveryDepthTacticalTests._run_kinematic_delivery_thrust_integration_pen_sharp_scales_ke_exponent(
         failures
     )
     KinematicDeliveryDepthTacticalTests._run_kinematic_delivery_resolve_hit_part_angle_path_keys(failures)
     KinematicDeliveryDepthTacticalTests._run_kinematic_delivery_empty_arch_spear_thrust_infers_delivery(failures)
-    KinematicDeliveryDepthTacticalTests._run_kinematic_delivery_move_def_angle_offset_seeded_deterministic(
-        failures
-    )
-    KinematicDeliveryDepthTacticalTests._run_kinematic_delivery_derived_velocity_misalign_skips_oblique_pen(
-        failures
-    )
-    KinematicDeliveryDepthTacticalTests._run_kinematic_delivery_mace_integration_pen_blunt_mpa_rises_with_vo(
-        failures
-    )
+    KinematicDeliveryDepthTacticalTests._run_kinematic_delivery_move_def_angle_offset_seeded_deterministic(failures)
+    KinematicDeliveryDepthTacticalTests._run_kinematic_delivery_derived_velocity_misalign_skips_oblique_pen(failures)
+    KinematicDeliveryDepthTacticalTests._run_kinematic_delivery_mace_integration_pen_blunt_mpa_rises_with_vo(failures)
     KinematicDeliveryDepthTacticalTests._run_kinematic_delivery_low_striker_stamina_lowers_pre_cut(failures)
-    KinematicDeliveryDepthTacticalTests._run_kinematic_delivery_move_def_angle_variance_wider_than_bare_line(
-        failures
-    )
+    KinematicDeliveryDepthTacticalTests._run_kinematic_delivery_move_def_angle_variance_wider_than_bare_line(failures)
     KinematicDeliveryDepthTacticalTests._run_kinematic_delivery_choose_defense_parry_p_a_matches_v_intent_formula(
         failures
     )
     KinematicDeliveryClosingDefenseTests._run_kinematic_delivery_rear_afterblow_compose_on_strike_ke(failures)
-    KinematicDeliveryClosingDefenseTests._run_kinematic_delivery_weapon_form_damage_scales_pre_cut_integration(
-        failures
-    )
-    KinematicDeliveryClosingDefenseTests._run_kinematic_delivery_closing_speed_engagement_angle_scales_pre_cut(
-        failures
-    )
+    KinematicDeliveryClosingDefenseTests._run_kinematic_delivery_weapon_form_damage_scales_pre_cut_integration(failures)
+    KinematicDeliveryClosingDefenseTests._run_kinematic_delivery_closing_speed_engagement_angle_scales_pre_cut(failures)
     KinematicDeliveryClosingDefenseTests._run_kinematic_delivery_mixed_integration_pre_cut_scales_sqrt_ke(failures)
     KinematicDeliveryClosingDefenseTests._run_kinematic_delivery_closing_speed_clamps_at_ceiling(failures)
     KinematicDeliveryClosingDefenseTests._run_kinematic_delivery_variance_off_balance_and_stamina_compose(failures)
@@ -161,26 +130,16 @@ static func run(failures: PackedStringArray) -> void:
         failures
     )
     KinematicDeliveryClosingDefenseTests._run_kinematic_delivery_unarmed_afterblow_scales_pre_blunt(failures)
-    KinematicDeliveryClosingDefenseTests._run_kinematic_delivery_dagger_integration_pre_cut_scales_sqrt_ke(
+    KinematicDeliveryClosingDefenseTests._run_kinematic_delivery_dagger_integration_pre_cut_scales_sqrt_ke(failures)
+    KinematicDeliveryClosingDefenseTests._run_kinematic_delivery_blunt_damage_mult_integration_scales_pre_blunt_only(
         failures
     )
-    (
-        KinematicDeliveryClosingDefenseTests
-        . _run_kinematic_delivery_blunt_damage_mult_integration_scales_pre_blunt_only(failures)
-    )
-    KinematicDeliveryClosingDefenseTests._run_kinematic_delivery_deflected_line_stab_opposite_severity_bind(
-        failures
-    )
+    KinematicDeliveryClosingDefenseTests._run_kinematic_delivery_deflected_line_stab_opposite_severity_bind(failures)
     KinematicDeliveryClosingDefenseTests._run_kinematic_delivery_empty_arch_sword_thrust_infers_delivery(failures)
-    KinematicDeliveryClosingDefenseTests._run_kinematic_delivery_partial_parry_cut_to_blunt_integration_sword(
+    KinematicDeliveryClosingDefenseTests._run_kinematic_delivery_partial_parry_cut_to_blunt_integration_sword(failures)
+    KinematicDeliveryClosingDefenseTests._run_kinematic_delivery_pinned_vo_misalign_scales_pen_integration(failures)
+    KinematicDeliveryClosingDefenseTests._run_kinematic_delivery_striker_stamina_strike_ke_matches_sqrt_stamina_scale(
         failures
-    )
-    KinematicDeliveryClosingDefenseTests._run_kinematic_delivery_pinned_vo_misalign_scales_pen_integration(
-        failures
-    )
-    (
-        KinematicDeliveryClosingDefenseTests
-        . _run_kinematic_delivery_striker_stamina_strike_ke_matches_sqrt_stamina_scale(failures)
     )
     KinematicDeliveryClosingDefenseTests._run_kinematic_delivery_afterblow_scales_pre_cut_integration(failures)
     KinematicDeliveryClosingDefenseTests._run_kinematic_delivery_mace_blunt_contact_cm_matches_helper_integration(

@@ -67,7 +67,7 @@ static func try_afterblow(
     if attacking_arm.is_empty():
         _abort_afterblow_wind_up_no_arm(manager, target_id, tgt)
         return false
-    var arm_inoperable: bool = BodyPartQuery._is_arm_destroyed(tgt_n, attacking_arm) if tgt_n != null else true
+    var arm_inoperable: bool = BodyPartQuery.is_arm_destroyed(tgt_n, attacking_arm) if tgt_n != null else true
     if hit_part == attacking_arm and arm_inoperable:
         _abort_afterblow_wind_up_no_arm(manager, target_id, tgt)
         return false

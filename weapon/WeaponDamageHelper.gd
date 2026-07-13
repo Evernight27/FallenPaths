@@ -381,9 +381,10 @@ static func compute_penetration(
     if attack_type == null or not (attack_type is String):
         attack_type = WeaponConstants.ATTACK_TYPE_CUT
 
+    var contact_cm: float
     if damage_type == WeaponConstants.DAMAGE_TYPE_SHARP:
         # Sharp: Williams nonlinear  -  pen = (KE/J_BASE)^exp * area_factor. E â t^1.67 â pen â KE^0.6.
-        var contact_cm: float = _get_effective_sharp_contact_cm(weapon, attack_type)
+        contact_cm = _get_effective_sharp_contact_cm(weapon, attack_type)
         contact_cm = maxf(contact_cm, WeaponConstants.MIN_CONTACT_WIDTH_CM)
         var area_factor: float = pow(
             WeaponConstants.BASELINE_CONTACT_CM / contact_cm, WeaponConstants.CONTACT_AREA_EXPONENT
@@ -394,9 +395,7 @@ static func compute_penetration(
         pen_mm_rha = minf(pen_mm_rha, WeaponConstants.PENETRATION_KE_CAP_MM_RHA)
         return {"penetration_sharp": pen_mm_rha}
     # Blunt: transmission-only. Returns momentum_per_area and contact_cm for area coupling.
-    var contact_cm: float = _get_blunt_contact_for_penetration(
-        weapon, attack_instance, armor_resistance_rha_mm, pen_sharp_mm
-    )
+    contact_cm = _get_blunt_contact_for_penetration(weapon, attack_instance, armor_resistance_rha_mm, pen_sharp_mm)
     var tgt_m: float = opts.get("target_effective_mass_kg", -1.0) if opts is Dictionary else -1.0
     var momentum_per_area: float = _compute_blunt_momentum_per_area_with_contact(
         weapon, attack_instance, contact_cm, tgt_m

@@ -1,5 +1,7 @@
 class_name KinematicDeliveryPartialParryTests
 extends CombatRegressionHarnessCore
+
+
 static func _kin_fixtures_all_damage() -> Array:
     var out: Array = _kin_fixtures_with_sharp_pen()
     out.append_array(_kin_fixtures_blunt())

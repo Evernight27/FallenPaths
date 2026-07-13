@@ -73,9 +73,9 @@ static var _process_tick_cache: Variant = null
 
 
 static func _get_company_state() -> GDScript:
-    if MedicalPhaseController._company_state == null:
-        MedicalPhaseController._company_state = load("res://world/CompanyState.gd")
-    return MedicalPhaseController._company_state
+    if MedicalPhaseBatchResolve._company_state == null:
+        MedicalPhaseBatchResolve._company_state = load("res://world/CompanyState.gd")
+    return MedicalPhaseBatchResolve._company_state
 
 
 # Runtime preload --'''s'''''? circular dependency (CounterTempo preloads MedicalPhaseController).
@@ -165,7 +165,7 @@ static func _batch_complete_in_progress_windups(manager: Node) -> void:
     for c in manager.combatants:
         if c is not Dictionary:
             continue
-        if not is_winner_side(manager, c) or not CombatantEntityAccess.alive_bool(c):
+        if not MedicalPhaseController.is_winner_side(manager, c) or not CombatantEntityAccess.alive_bool(c):
             continue
         if CombatantEntityAccess.state_str(c) != CombatConstants.STATE_MEDICAL_WIND_UP:
             continue
@@ -187,7 +187,7 @@ static func _batch_scrub_winner_busy_states_for_exit(manager: Node) -> void:
     for c in manager.combatants:
         if c is not Dictionary:
             continue
-        if not is_winner_side(manager, c) or not CombatantEntityAccess.alive_bool(c):
+        if not MedicalPhaseController.is_winner_side(manager, c) or not CombatantEntityAccess.alive_bool(c):
             continue
         var st: String = CombatantEntityAccess.state_str(c)
         if st in busy_exit_states:
@@ -201,7 +201,10 @@ static func _batch_scrub_winner_busy_states_for_exit(manager: Node) -> void:
 
 static func _batch_best_effort_dress_winner_side(manager: Node) -> void:
     var rounds: int = 0
-    while rounds < CAMPAIGN_BATCH_DRESS_MAX_ROUNDS and winner_side_untreated_part_count(manager) > 0:
+    while (
+        rounds < CAMPAIGN_BATCH_DRESS_MAX_ROUNDS
+        and MedicalPhaseController.winner_side_untreated_part_count(manager) > 0
+    ):
         rounds += 1
         var targets: Array = MedicalPhaseBatchResolve._batch_collect_urgent_untreated_parts(manager)
         if targets.is_empty():
@@ -244,24 +247,24 @@ static func _batch_collect_urgent_untreated_parts(manager: Node) -> Array:
     for c in manager.combatants:
         if c is not Dictionary:
             continue
-        if not is_winner_side(manager, c) or not CombatantEntityAccess.alive_bool(c):
+        if not MedicalPhaseController.is_winner_side(manager, c) or not CombatantEntityAccess.alive_bool(c):
             continue
-        if not has_untreated_wounds(manager, c):
+        if not MedicalPhaseController.has_untreated_wounds(manager, c):
             continue
         var entity: Node = CombatantEntityAccess.get_entity_from_manager(manager, c)
         if entity == null:
             continue
         var cid: int = CombatantEntityAccess.id_int(c)
         for part in EntityWounds.sorted_untreated_part_names(entity):
-            var urgency: float = get_medical_urgency_deterministic(manager, c)
-            urgency += get_part_intervention_threat(manager, c, part)
+            var urgency: float = MedicalPhaseController.get_medical_urgency_deterministic(manager, c)
+            urgency += MedicalPhaseController.get_part_intervention_threat(manager, c, part)
             out.append({"target_id": cid, "part": part, "urgency": urgency})
     out.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return a.get("urgency", 0.0) > b.get("urgency", 0.0))
     return out
 
 
 static func _batch_performer_available(manager: Node, c: Dictionary) -> bool:
-    if not is_winner_side(manager, c) or not CombatantEntityAccess.alive_bool(c):
+    if not MedicalPhaseController.is_winner_side(manager, c) or not CombatantEntityAccess.alive_bool(c):
         return false
     var st: String = CombatantEntityAccess.state_str(c)
     return (
@@ -293,7 +296,7 @@ static func _batch_medical_actions_for_part(manager: Node, performer_id: int, ta
     if performer.is_empty() or target.is_empty():
         return []
     var out: Array = []
-    for raw_act in get_ally_medical_actions(manager, performer, target, part):
+    for raw_act in MedicalPhaseController.get_ally_medical_actions(manager, performer, target, part):
         if raw_act is not Dictionary:
             continue
         var act: Dictionary = raw_act
@@ -347,9 +350,7 @@ static func _batch_apply_medical_action(
     var ok: bool = MedicalPhaseFastForward._batch_medical_procedure_succeeded(result)
     var who_m: String = CombatantEntityAccess.get_display_name(performer)
     var med_log: String = move_id if target_id == performer_id else "%s (ally)" % move_id
-    var outcome: String = MedicalPhaseFastForward._batch_outcome_for_method(
-        target_method, result, wind_up_cfg, move_id
-    )
+    var outcome: String = MedicalPhaseFastForward._batch_outcome_for_method(target_method, result, wind_up_cfg, move_id)
     CombatDebug.medical_session("Medical batch: %s %s on %s => %s" % [who_m, med_log, part, outcome])
     var world: Node2D = MedicalPhaseBatchResolve._get_company_state().resolve_world_from_battle(manager)
     if world != null:

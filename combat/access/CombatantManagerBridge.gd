@@ -16,6 +16,71 @@ static var _state_handlers_cache: Variant = null
 static var _mobility_retreat_cache: Variant = null
 static var _rout_cache: Variant = null
 
+
+## Opponent band from actor `distance_to` (default **LONG** when unset).
+static func alive_bool(combatant: Dictionary, default_alive: bool = false) -> bool:
+    var v = combatant.get("alive", default_alive)
+    return v == true
+
+
+## `state` string; uses `default_state` when missing.
+
+## `state` string; uses `default_state` when missing.
+
+
+## `alive` combatant flag, on the field, and not `is_dead` on the scene node.
+static func is_alive_in_combat(combatant: Dictionary) -> bool:
+    if has_left_battlefield(combatant):
+        return false
+    if not alive_bool(combatant):
+        return false
+    var node = node_variant(combatant)
+    if node != null and node.has_method("is_dead") and node.is_dead():
+        return false
+    return true
+
+
+## True when consciousness is below incapacitation floor (unconscious; cannot act or move).
+static func is_unconscious(combatant: Dictionary) -> bool:
+    var node = node_variant(combatant)
+    if node == null or not node.has_method("is_unconscious"):
+        return false
+    return node.is_unconscious()
+
+
+## Tier 6.1: arm loss during combat  -  sync cowering, cancel stale turns, abort wind-up (see
+## **`CombatMobilityRetreat`**).
+
+## Tier 6.1: arm loss during combat  -  sync cowering, cancel stale turns, abort wind-up (see
+## **`CombatMobilityRetreat`**).
+
+
+static func has_left_battlefield(combatant: Dictionary) -> bool:
+    if combatant.get("combat_absent", false):
+        return true
+    return str(combatant.get("state", "")) == "fled"
+
+
+## `alive` combatant flag, on the field, and not `is_dead` on the scene node.
+
+## `alive` combatant flag, on the field, and not `is_dead` on the scene node.
+
+
+## Returns true if combatant's node is incapacitated (consciousness/cowering) or has yielded.
+static func is_incapacitated(combatant: Dictionary) -> bool:
+    if bool(combatant.get("yielded", false)) or str(combatant.get("state", "")) == "yielded":
+        return true
+    var node = node_variant(combatant)
+    if node == null or not node.has_method("is_incapacitated"):
+        return false
+    return node.is_incapacitated()
+
+
+## Voluntary surrender: non-standing but remains on the field.
+
+## Voluntary surrender: non-standing but remains on the field.
+
+
 static func _get_combat_constants() -> GDScript:
     if CombatantManagerBridge._combat_constants == null:
         CombatantManagerBridge._combat_constants = load("res://combat/CombatConstants.gd")
@@ -209,6 +274,7 @@ static func combat_clock_float(manager: Node) -> float:
 static func combat_clock_plus(manager: Node, offset_s: float) -> float:
     return combat_clock_float(manager) + offset_s
 
+
 ## True while combat clock is before `until`. Values below `inactive_below` are treated as off.
 static func manager_schedule_event(manager: Node, ev: Dictionary) -> void:
     if manager != null and manager.has_method("_schedule_event"):
@@ -226,8 +292,6 @@ static func manager_apply_formation_hit_reaction_if_needed(
     if manager != null and manager.has_method("_apply_formation_hit_reaction_if_needed"):
         manager._apply_formation_hit_reaction_if_needed(combatant_id, intensity)
 
-
 ## Returns permanent bleeding rate from node. Default fallback if unavailable.
-
 
 ## Returns permanent bleeding rate from node. Default fallback if unavailable.

@@ -1,7 +1,8 @@
 class_name CombatantWeaponAccess
-extends CombatantManagerBridge
+extends CombatantCombatStateAccess
 
 ## Weapon and armor accessors for combatant nodes.
+
 
 static func weapon_attack_types(weapon: Variant) -> Array:
     if weapon == null or not weapon.has_method("get_available_attack_types"):
@@ -211,8 +212,6 @@ static func get_total_armor_mass_kg_from_node(node: Node) -> float:
             total += piece.get_total_mass_kg()
     return total
 
-
 ## Returns performance modifier (pain/consciousness) from combatant's node. Default 1.0 if unavailable.
-
 
 ## Returns performance modifier (pain/consciousness) from combatant's node. Default 1.0 if unavailable.

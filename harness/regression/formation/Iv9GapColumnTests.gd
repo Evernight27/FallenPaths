@@ -1,5 +1,7 @@
 class_name Iv9GapColumnTests
 extends CombatRegressionHarnessCore
+
+
 ## IV-9 slice 2: `FormationSlots.occupied_files_for_rank` detects intentional file gaps.
 static func _run_iv9_gap_column_occupied_files_suite(failures: PackedStringArray) -> void:
     var sync_line: String = CombatConstants.iv9_gap_column_doc_sync_line()

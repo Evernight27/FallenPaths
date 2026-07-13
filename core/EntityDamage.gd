@@ -163,17 +163,17 @@ static func apply_damage_split(
                     CombatDebug
                     . log(
                         (
-                            "[Armor] %s %s: joule-authoritative cut=%.1f blunt=%.1f ke_frac=%.3f (scalar ArmorPiece ski"
-                            + (
-                                "pped)"
-                                % [
-                                    entity.name,
-                                    part,
-                                    final_cut,
-                                    final_blunt,
-                                    joule_ke.get("transmitted_ke_fraction", 1.0),
-                                ]
+                            (
+                                "[Armor] %s %s: joule-authoritative cut=%.1f blunt=%.1f ke_frac=%.3f "
+                                + "(scalar ArmorPiece skipped)"
                             )
+                            % [
+                                entity.name,
+                                part,
+                                final_cut,
+                                final_blunt,
+                                joule_ke.get("transmitted_ke_fraction", 1.0),
+                            ]
                         )
                     )
                 )
@@ -234,11 +234,14 @@ static func apply_damage_split(
                 )
                 final_blunt = maxf(0.0, result_blunt.get("damage", 0.0))
             if CombatConstants.combat_debug_active():
-                CombatDebug.log(
-                    (
-                        "[Armor] %s %s: pre cut=%.1f blunt=%.1f | transmitted_raw=%.1f direct_blunt=%.1f | pen_shar"
-                        + (
-                            "p=%.2f mm RHA | blunt: => post-armor cut=%.1f blunt=%.1f"
+                (
+                    CombatDebug
+                    . log(
+                        (
+                            (
+                                "[Armor] %s %s: pre cut=%.1f blunt=%.1f | transmitted_raw=%.1f direct_blunt=%.1f | "
+                                + "pen_sharp=%.2f mm RHA | blunt: => post-armor cut=%.1f blunt=%.1f"
+                            )
                             % [
                                 entity.name,
                                 part,
@@ -248,7 +251,7 @@ static func apply_damage_split(
                                 blunt_pre_val,
                                 pen_s,
                                 final_cut,
-                                final_blunt
+                                final_blunt,
                             ]
                         )
                     )
@@ -368,34 +371,34 @@ static func apply_damage_split(
             CombatDebug
             . log(
                 (
-                    "[Bone/tissue] %s %s (%s): mechanism=%s%s total_post_armor=%.1f | "
-                    + "threshold=%d fraction=%.2f => allocated bone=%.2f tissue=%.2f | "
-                    + "severance_ease=%.2f => applied cut=%.2f blunt=%.2f bone=%.2f | part"
-                    + (
-                        " state: cut %.2f->%.2f blunt %.2f->%.2f bone %.2f->%.2f"
-                        % [
-                            entity.name,
-                            part,
-                            sub_region,
-                            mfb_mechanism,
-                            " curve=%s" % applied_mechanism if force_curves else "",
-                            total_final,
-                            bone_threshold,
-                            bone_fraction,
-                            allocated_bone,
-                            to_tissue_total,
-                            severance_ease,
-                            to_cut,
-                            to_blunt,
-                            to_bone,
-                            cur_cut,
-                            cut_after,
-                            cur_blunt,
-                            blunt_after,
-                            cur_bone,
-                            bone_after,
-                        ]
+                    (
+                        "[Bone/tissue] %s %s (%s): mechanism=%s%s total_post_armor=%.1f | "
+                        + "threshold=%d fraction=%.2f => allocated bone=%.2f tissue=%.2f | "
+                        + "severance_ease=%.2f => applied cut=%.2f blunt=%.2f bone=%.2f | "
+                        + "part state: cut %.2f->%.2f blunt %.2f->%.2f bone %.2f->%.2f"
                     )
+                    % [
+                        entity.name,
+                        part,
+                        sub_region,
+                        mfb_mechanism,
+                        " curve=%s" % applied_mechanism if force_curves else "",
+                        total_final,
+                        bone_threshold,
+                        bone_fraction,
+                        allocated_bone,
+                        to_tissue_total,
+                        severance_ease,
+                        to_cut,
+                        to_blunt,
+                        to_bone,
+                        cur_cut,
+                        cut_after,
+                        cur_blunt,
+                        blunt_after,
+                        cur_bone,
+                        bone_after,
+                    ]
                 )
             )
         )
@@ -451,8 +454,11 @@ static func apply_damage_split(
                         entity.bone_health[part] = 0.0
                         CombatDebug.log(
                             (
-                                "[Severance] %s %s: early severance triggered (remaining ratio < threshold) => part"
-                                + " destroyed" % [entity.name, part]
+                                (
+                                    "[Severance] %s %s: early severance triggered "
+                                    + "(remaining ratio < threshold) => part destroyed"
+                                )
+                                % [entity.name, part]
                             )
                         )
     if entity._is_part_severed(part):

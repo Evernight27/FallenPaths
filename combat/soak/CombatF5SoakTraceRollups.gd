@@ -1,5 +1,11 @@
 class_name CombatF5SoakTraceRollups
 extends RefCounted
+
+const OperationalLog := preload("res://core/OperationalLog.gd")
+const EngagementDiag := preload("res://combat/CombatEngagementDiagnostics.gd")
+const TrackSpecs := preload("res://harness/CombatD001TrackSpecs.gd")
+const SoakPresets := preload("res://world/SoakEncounterPresets.gd")
+
 const _CAMP_OPTIONAL_PLAY_HINTS := {
     "camp_field_care": "after messy win grep FP_WORLD field_care: hint on map",
     "camp_field_care_action": "map Party -> bandage or pressure one part (grep FP_WORLD field_care bandage part=)",
@@ -25,6 +31,7 @@ const MAX_FIGHT_TRACE_LINES := 5000
 ## **`ingest_world_trace_line`** (via **`OperationalLog.play_world`**) appends Camp S8 markers for post-medical
 ## supplement.
 
+static var _combat_constants_cache: Variant = null
 static var _player_turn_hints_cache: Variant = null
 
 static var _session_counts: Dictionary = {}
@@ -59,6 +66,12 @@ static var _last_research_feel_line: String = ""
 static var _last_cowering_fall_back_listed_line: String = ""
 static var _last_fall_back_pick_line: String = ""
 static var _last_medical_action_pick_line: String = ""
+
+
+static func _get_combat_constants() -> GDScript:
+    if _combat_constants_cache == null:
+        _combat_constants_cache = load("res://combat/CombatConstants.gd")
+    return _combat_constants_cache
 
 
 static func _get_player_turn_hints() -> Variant:

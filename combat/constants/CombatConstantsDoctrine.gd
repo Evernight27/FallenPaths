@@ -51,9 +51,9 @@ const PLUG_FORWARD_AI_LOW_WEIGHT := 0.3
 
 const PLUG_FORWARD_DURATION_S := 0.6
 
+
 static func encounter_formation_doctrine_string(encounter: Dictionary, primary_key: String, alt_key: String) -> String:
     return formation_doctrine_string_from_dict(encounter, primary_key, alt_key)
-
 
 
 static func formation_doctrine_string_from_dict(source: Dictionary, primary_key: String, alt_key: String) -> String:
@@ -61,7 +61,6 @@ static func formation_doctrine_string_from_dict(source: Dictionary, primary_key:
     if s.is_empty():
         s = source.get(alt_key, "").strip_edges()
     return s
-
 
 
 static func rout_thresholds_for_encounter_and_preset(
@@ -80,17 +79,17 @@ static func rout_thresholds_for_encounter_and_preset(
         else CombatConstantsEncounter.ENCOUNTER_KEY_FLEE_CASUALTY_RATIO_MIN_ENEMY
     )
     if encounter.has(enc_coh_key):
-        var coh_key: String = CombatConstantsDepthPolearm.ROUT_THRESHOLD_KEY_FLEE_LINE_COHESION_MAX
+        var coh_key: String = CombatConstantsFormation.ROUT_THRESHOLD_KEY_FLEE_LINE_COHESION_MAX
         out[coh_key] = clampf(float(encounter[enc_coh_key]), 0.05, 0.95)
     if encounter.has(enc_cas_key):
-        var cas_key: String = CombatConstantsDepthPolearm.ROUT_THRESHOLD_KEY_FLEE_CASUALTY_RATIO_MIN
+        var cas_key: String = CombatConstantsFormation.ROUT_THRESHOLD_KEY_FLEE_CASUALTY_RATIO_MIN
         out[cas_key] = clampf(float(encounter[enc_cas_key]), 0.05, 0.90)
-    if preset.has(CombatConstantsDepthPolearm.FORMATION_PRESET_KEY_FLEE_LINE_COHESION_MAX):
-        out[CombatConstantsDepthPolearm.ROUT_THRESHOLD_KEY_FLEE_LINE_COHESION_MAX] = clampf(
-            float(preset[CombatConstantsDepthPolearm.FORMATION_PRESET_KEY_FLEE_LINE_COHESION_MAX]), 0.05, 0.95
+    if preset.has(CombatConstantsFormation.FORMATION_PRESET_KEY_FLEE_LINE_COHESION_MAX):
+        out[CombatConstantsFormation.ROUT_THRESHOLD_KEY_FLEE_LINE_COHESION_MAX] = clampf(
+            float(preset[CombatConstantsFormation.FORMATION_PRESET_KEY_FLEE_LINE_COHESION_MAX]), 0.05, 0.95
         )
-    if preset.has(CombatConstantsDepthPolearm.FORMATION_PRESET_KEY_FLEE_CASUALTY_RATIO_MIN):
-        out[CombatConstantsDepthPolearm.ROUT_THRESHOLD_KEY_FLEE_CASUALTY_RATIO_MIN] = clampf(
-            float(preset[CombatConstantsDepthPolearm.FORMATION_PRESET_KEY_FLEE_CASUALTY_RATIO_MIN]), 0.05, 0.90
+    if preset.has(CombatConstantsFormation.FORMATION_PRESET_KEY_FLEE_CASUALTY_RATIO_MIN):
+        out[CombatConstantsFormation.ROUT_THRESHOLD_KEY_FLEE_CASUALTY_RATIO_MIN] = clampf(
+            float(preset[CombatConstantsFormation.FORMATION_PRESET_KEY_FLEE_CASUALTY_RATIO_MIN]), 0.05, 0.90
         )
     return out

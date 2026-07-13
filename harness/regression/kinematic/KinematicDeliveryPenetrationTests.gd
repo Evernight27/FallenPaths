@@ -1,5 +1,7 @@
 class_name KinematicDeliveryPenetrationTests
 extends CombatRegressionHarnessCore
+
+
 ## Tier 5.1 (optional long-tail): **`AttackResolver.penetration_oblique_angle_factor`** matches parry vs
 ## misaligned-guard **`lerp`** rules; **`velocity_override` < 0** -> **1** (no penetration oblique here).
 static func _run_kinematic_delivery_penetration_oblique_angle_factor_attack_resolver(

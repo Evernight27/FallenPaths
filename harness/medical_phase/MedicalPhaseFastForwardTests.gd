@@ -332,7 +332,7 @@ static func _run_fast_forward_time_slice_completes_medical_windup(failures: Pack
     while guard < 200000:
         guard += 1
         var slice: Dictionary = MedicalPhaseController.fast_forward_advance_time_slice(
-            mgr, sim_state, sim_cap, MedicalPhaseController.INTERACTIVE_FAST_FORWARD_FRAME_BUDGET_US
+            mgr, sim_state, sim_cap, MedicalPhaseBatchResolve.INTERACTIVE_FAST_FORWARD_FRAME_BUDGET_US
         )
         if not bool(slice.get("continue_loop", false)):
             break_reason = str(slice.get("break_reason", "sim_cap"))

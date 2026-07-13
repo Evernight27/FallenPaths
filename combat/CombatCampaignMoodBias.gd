@@ -66,8 +66,11 @@ static func wait_action_weight_mult(mood_bias: float) -> float:
         return 1.0
     # At NEUTRAL threshold: no extra weight over default weapon-form wait mult.
     # Below NEUTRAL: increase wait weight up to LOW_MAX at mood=0.
-    var t: float = clampf((MOOD_BIAS_NEUTRAL_THRESHOLD - mood_bias) / MOOD_BIAS_NEUTRAL_THRESHOLD, 0.0, 1.0)
-    return lerpf(1.0, MOOD_WAIT_MULT_LOW_MAX, t)
+    return lerpf(
+        1.0,
+        MOOD_WAIT_MULT_LOW_MAX,
+        clampf((MOOD_BIAS_NEUTRAL_THRESHOLD - mood_bias) / MOOD_BIAS_NEUTRAL_THRESHOLD, 0.0, 1.0)
+    )
 
 
 ## XCamp-3.9: returns a weight multiplier for attack/close actions based on campaign mood bias.
@@ -80,10 +83,16 @@ static func offense_action_weight_mult(mood_bias: float) -> float:
     # At NEUTRAL: neutral (1.0). Below NEUTRAL: damp up to LOW_MIN at mood=0.
     # Above NEUTRAL toward HIGH: boost up to HIGH_MAX at mood=HIGH.
     if mood_bias <= MOOD_BIAS_NEUTRAL_THRESHOLD:
-        var t: float = clampf((MOOD_BIAS_NEUTRAL_THRESHOLD - mood_bias) / MOOD_BIAS_NEUTRAL_THRESHOLD, 0.0, 1.0)
-        return lerpf(1.0, MOOD_OFFENSE_MULT_LOW_MIN, t)
-    var t: float = clampf((mood_bias - MOOD_BIAS_NEUTRAL_THRESHOLD) / MOOD_BIAS_RANGE_HIGH, 0.0, 1.0)
-    return lerpf(1.0, MOOD_OFFENSE_MULT_HIGH_MAX, t)
+        return lerpf(
+            1.0,
+            MOOD_OFFENSE_MULT_LOW_MIN,
+            clampf((MOOD_BIAS_NEUTRAL_THRESHOLD - mood_bias) / MOOD_BIAS_NEUTRAL_THRESHOLD, 0.0, 1.0)
+        )
+    return lerpf(
+        1.0,
+        MOOD_OFFENSE_MULT_HIGH_MAX,
+        clampf((mood_bias - MOOD_BIAS_NEUTRAL_THRESHOLD) / MOOD_BIAS_RANGE_HIGH, 0.0, 1.0)
+    )
 
 
 ## XCamp-3.9: returns a weight multiplier for focus-line moves based on campaign mood bias.
@@ -94,10 +103,16 @@ static func focus_line_action_weight_mult(mood_bias: float) -> float:
     if mood_bias > MOOD_BIAS_HIGH_THRESHOLD:
         return 1.0
     if mood_bias <= MOOD_BIAS_NEUTRAL_THRESHOLD:
-        var t: float = clampf((MOOD_BIAS_NEUTRAL_THRESHOLD - mood_bias) / MOOD_BIAS_NEUTRAL_THRESHOLD, 0.0, 1.0)
-        return lerpf(1.0, MOOD_FOCUS_MULT_LOW_MAX, t)
-    var t: float = clampf((mood_bias - MOOD_BIAS_NEUTRAL_THRESHOLD) / MOOD_BIAS_RANGE_HIGH, 0.0, 1.0)
-    return lerpf(1.0, MOOD_FOCUS_MULT_HIGH_MIN, t)
+        return lerpf(
+            1.0,
+            MOOD_FOCUS_MULT_LOW_MAX,
+            clampf((MOOD_BIAS_NEUTRAL_THRESHOLD - mood_bias) / MOOD_BIAS_NEUTRAL_THRESHOLD, 0.0, 1.0)
+        )
+    return lerpf(
+        1.0,
+        MOOD_FOCUS_MULT_HIGH_MIN,
+        clampf((mood_bias - MOOD_BIAS_NEUTRAL_THRESHOLD) / MOOD_BIAS_RANGE_HIGH, 0.0, 1.0)
+    )
 
 
 ## XCamp-3.9: returns a weight multiplier for flee actions based on campaign mood bias.
@@ -108,10 +123,14 @@ static func flee_action_weight_mult(mood_bias: float) -> float:
     if mood_bias > MOOD_BIAS_HIGH_THRESHOLD:
         return 1.0
     if mood_bias <= MOOD_BIAS_NEUTRAL_THRESHOLD:
-        var t: float = clampf((MOOD_BIAS_NEUTRAL_THRESHOLD - mood_bias) / MOOD_BIAS_NEUTRAL_THRESHOLD, 0.0, 1.0)
-        return lerpf(1.0, MOOD_FLEE_MULT_LOW_MAX, t)
-    var t: float = clampf((mood_bias - MOOD_BIAS_NEUTRAL_THRESHOLD) / MOOD_BIAS_RANGE_HIGH, 0.0, 1.0)
-    return lerpf(1.0, MOOD_FLEE_MULT_HIGH_MIN, t)
+        return lerpf(
+            1.0,
+            MOOD_FLEE_MULT_LOW_MAX,
+            clampf((MOOD_BIAS_NEUTRAL_THRESHOLD - mood_bias) / MOOD_BIAS_NEUTRAL_THRESHOLD, 0.0, 1.0)
+        )
+    return lerpf(
+        1.0, MOOD_FLEE_MULT_HIGH_MIN, clampf((mood_bias - MOOD_BIAS_NEUTRAL_THRESHOLD) / MOOD_BIAS_RANGE_HIGH, 0.0, 1.0)
+    )
 
 
 ## XCamp-3.9: returns a weight multiplier for swap_rank/fall_back disengage moves based on mood bias.
@@ -122,10 +141,16 @@ static func disengage_action_weight_mult(mood_bias: float) -> float:
     if mood_bias > MOOD_BIAS_HIGH_THRESHOLD:
         return 1.0
     if mood_bias <= MOOD_BIAS_NEUTRAL_THRESHOLD:
-        var t: float = clampf((MOOD_BIAS_NEUTRAL_THRESHOLD - mood_bias) / MOOD_BIAS_NEUTRAL_THRESHOLD, 0.0, 1.0)
-        return lerpf(1.0, MOOD_DISENGAGE_MULT_LOW_MAX, t)
-    var t: float = clampf((mood_bias - MOOD_BIAS_NEUTRAL_THRESHOLD) / MOOD_BIAS_RANGE_HIGH, 0.0, 1.0)
-    return lerpf(1.0, MOOD_DISENGAGE_MULT_HIGH_MIN, t)
+        return lerpf(
+            1.0,
+            MOOD_DISENGAGE_MULT_LOW_MAX,
+            clampf((MOOD_BIAS_NEUTRAL_THRESHOLD - mood_bias) / MOOD_BIAS_NEUTRAL_THRESHOLD, 0.0, 1.0)
+        )
+    return lerpf(
+        1.0,
+        MOOD_DISENGAGE_MULT_HIGH_MIN,
+        clampf((mood_bias - MOOD_BIAS_NEUTRAL_THRESHOLD) / MOOD_BIAS_RANGE_HIGH, 0.0, 1.0)
+    )
 
 
 ## XCamp-3.9: batch apply all mood bias multipliers to a combatant's action weights.

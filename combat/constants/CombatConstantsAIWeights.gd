@@ -1,6 +1,8 @@
 class_name CombatConstantsAIWeights
 extends RefCounted
 
+const FeatureFlags := preload("res://combat/CombatConstantsFeatureFlags.gd")
+
 const AI_ATTEMPT_CLOSE_BIND_CLOSE_MULT := 1.28  # Mapped wing out of reach --" close bind beats wait/shuffle
 
 const AI_ATTEMPT_CLOSE_LONG_CLOSE_ONLY_MULT := 0.82  # Mapped rank-0 LONG close-only --" rotate can compete
@@ -24,7 +26,7 @@ const AI_FLEE_LOW_COHESION_MULT := 1.08
 const AI_FLEE_ROUTINE_WEIGHT := 0.22
 
 const AI_FOCUS_LINE_PARTY_LEADER_TELEGRAPH_MATCH_WEIGHT := (
-    _FeatureFlags.AI_FOCUS_LINE_PARTY_LEADER_TELEGRAPH_MATCH_WEIGHT
+    FeatureFlags.AI_FOCUS_LINE_PARTY_LEADER_TELEGRAPH_MATCH_WEIGHT
 )
 
 const AI_ROTATE_FILE_LINE_PLUG_MIN_WEIGHT := 0.62  # Skirmish shuffle when line has rank-0 holes (III-6 maintain)
@@ -75,6 +77,7 @@ const SWAP_RANK_AI_MIN_FITNESS_GAP := 0.20
 
 const SWAP_RANK_AI_URGENT_MIN_GAP := 0.10
 
+
 static func ai_offense_stamina_weight_mult(stamina_ratio: float) -> float:
     if stamina_ratio >= AI_STAMINA_ENGAGE_FLOOR_RATIO:
         return 1.0
@@ -88,7 +91,6 @@ static func ai_offense_stamina_weight_mult(stamina_ratio: float) -> float:
             stamina_ratio / maxf(AI_STAMINA_EXHAUSTION_DEEP_THRESHOLD, 0.001)
         )
     return w
-
 
 
 static func iv7b_stamina_engage_doc_sync_line() -> String:

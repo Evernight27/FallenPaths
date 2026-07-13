@@ -536,11 +536,14 @@ static func _resolve_parry(
     var pre_leak_ratio: float = remaining_ratio
     remaining_ratio = minf(1.0, remaining_ratio + geometric_leak)
     if CombatConstants.combat_debug_active():
-        CombatDebug.calibration_log(
-            (
-                "parry_partial c_d_final=%.2f p_a=%.2f align=%.3f eff_align=%.3f pre_leak=%.2f leak=%.2f final_rati"
-                + (
-                    "o=%.2f glancing_exp=%.2f m_a_vel=%.2f%s"
+        (
+            CombatDebug
+            . calibration_log(
+                (
+                    (
+                        "parry_partial c_d_final=%.2f p_a=%.2f align=%.3f eff_align=%.3f pre_leak=%.2f leak=%.2f "
+                        + "final_ratio=%.2f glancing_exp=%.2f m_a_vel=%.2f%s"
+                    )
                     % [
                         c_d_final,
                         parry_p_a,
@@ -551,7 +554,7 @@ static func _resolve_parry(
                         remaining_ratio,
                         glancing_exp,
                         m_a_velocity,
-                        interpose_note
+                        interpose_note,
                     ]
                 )
             )

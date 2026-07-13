@@ -1,6 +1,7 @@
 class_name CombatConstantsGuardLinesHelpers
 extends RefCounted
 
+
 static func guard_line_for_body_part(part: String) -> String:
     var p: String = str(part).strip_edges()
     if p.is_empty():
@@ -34,7 +35,6 @@ static func guard_line_for_body_part(part: String) -> String:
         if str(CombatConstantsGuardZone.LINE_TO_DEFAULT_PART[line_key]) == p:
             return str(line_key)
     return CombatConstantsGuardZone.GUARD_DEFAULT
-
 
 
 static func guard_zone_for_guard_line(line: String) -> String:

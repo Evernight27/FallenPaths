@@ -438,11 +438,8 @@ static func _run_feint_guard_zone_modifier_telegraph_mismatch_penalty_and_readju
         "guard_line": "low",
         CombatConstants.COMBATANT_KEY_INCOMING_ATTACK_TELEGRAPH_PART: "head",
     }
-    var readjust_bonus_seed: int = (
-        FeintTempoWindupListingTests
-        . _feint_guard_zone_sample_global_seed_for_modifier(
-            pa_feint, tgt_readjust, parts, "oberhau_feint", -1.0, CombatConstants.GUARD_ZONE_BONUS
-        )
+    var readjust_bonus_seed: int = FeintTempoWindupListingTests._feint_guard_zone_sample_global_seed_for_modifier(
+        pa_feint, tgt_readjust, parts, "oberhau_feint", -1.0, CombatConstants.GUARD_ZONE_BONUS
     )
     if readjust_bonus_seed < 0:
         CombatRegressionHarness._fail(
@@ -458,11 +455,8 @@ static func _run_feint_guard_zone_modifier_telegraph_mismatch_penalty_and_readju
         )
     var pa_plain: Dictionary = {"target_part": "head", "attack_type": "oberhau"}
     var tgt_plain: Dictionary = {"guard_zone": "head", "guard_line": "high"}
-    var plain_bonus_seed: int = (
-        FeintTempoWindupListingTests
-        . _feint_guard_zone_sample_global_seed_for_modifier(
-            pa_plain, tgt_plain, parts, "oberhau", -1.0, CombatConstants.GUARD_ZONE_BONUS
-        )
+    var plain_bonus_seed: int = FeintTempoWindupListingTests._feint_guard_zone_sample_global_seed_for_modifier(
+        pa_plain, tgt_plain, parts, "oberhau", -1.0, CombatConstants.GUARD_ZONE_BONUS
     )
     if plain_bonus_seed < 0:
         CombatRegressionHarness._fail(
@@ -840,9 +834,9 @@ static func _run_feint_move_listing_reveal_progress_dampens_early_wind_up(failur
     ):
         var readiness_check: float = PassiveParryContext.get_passive_parry_readiness(enemy)
         if readiness_check <= 0.75:
-            settled_m_reveal = (
-                FeintTempoWindupListingTests._feint_listing_defender_footwork_state_mult_for_target(enemy)
-            )
+            settled_m_reveal = (FeintTempoWindupListingTests._feint_listing_defender_footwork_state_mult_for_target(
+                enemy
+            ))
     var a_plain: Dictionary = {"move_id": "oberhau", "target_id": e_id}
     var w_plain: float = CombatAIActionPicker._get_action_weight(a_plain, p_id, mgr, true)
     var want_early: float = (
@@ -883,9 +877,8 @@ static func _run_feint_move_listing_reveal_progress_dampens_early_wind_up(failur
     player["state"] = CombatConstants.STATE_WAITING
     player.erase("pending_attack")
     var w_waiting: float = CombatAIActionPicker._get_action_weight(a_feint, p_id, mgr, true)
-    var read_waiting: float = (
-        FeintTempoWindupListingTests
-        . _feint_listing_read_m_expect_for_move_on_target(enemy, p_id, "oberhau_feint")
+    var read_waiting: float = FeintTempoWindupListingTests._feint_listing_read_m_expect_for_move_on_target(
+        enemy, p_id, "oberhau_feint"
     )
     if not is_equal_approx(w_waiting, w_late):
         CombatRegressionHarness._fail(

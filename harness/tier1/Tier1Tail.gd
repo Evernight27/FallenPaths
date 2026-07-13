@@ -11,16 +11,10 @@ static func run_early(failures: PackedStringArray) -> void:
     Tier1DepthPolearmEngagementTests._run_depth_polearm_only_file_opposed_line(failures)
     Tier1DepthPolearmEngagementTests._run_depth_polearm_threatens_line_target_pure_guards(failures)
     Tier1DepthPolearmEngagementTests._run_depth_polearm_valid_line_threat_false_when_lane_closed(failures)
-    Tier1DepthPolearmEngagementTests._run_depth_polearm_valid_line_threat_agrees_with_threatens_when_lane_open(
-        failures
-    )
+    Tier1DepthPolearmEngagementTests._run_depth_polearm_valid_line_threat_agrees_with_threatens_when_lane_open(failures)
     Tier1DepthPolearmEngagementTests._run_depth_polearm_opp_matches_rank0_agrees_with_valid_line_threat(failures)
-    Tier1DepthPolearmEngagementTests._run_depth_polearm_melee_pair_rank_allowed_agrees_with_valid_line_threat(
-        failures
-    )
-    Tier1DepthPolearmEngagementTests._run_depth_polearm_can_melee_threaten_respects_valid_line_for_home_depth(
-        failures
-    )
+    Tier1DepthPolearmEngagementTests._run_depth_polearm_melee_pair_rank_allowed_agrees_with_valid_line_threat(failures)
+    Tier1DepthPolearmEngagementTests._run_depth_polearm_can_melee_threaten_respects_valid_line_for_home_depth(failures)
     Tier1DepthPolearmEngagementTests._run_depth_polearm_layout_fuzz(failures)
     Tier1DepthPolearmEngagementTests._run_front_rank_pair_melee_listed(failures)
     Tier1DepthPolearmEngagementTests._run_iv3_true_duel_classifier_suite(failures)
@@ -173,9 +167,7 @@ static func run_late(failures: PackedStringArray) -> void:
     Tier1DepthPolearmDoctrineTests._run_stamp_attack_pair_geometry_depth_defaults_non_depth_attack(failures)
     Tier1DepthPolearmDoctrineTests._run_depth_polearm_parts_filter_tracks_allows_low(failures)
     Tier1DepthPolearmDoctrineTests._run_depth_polearm_parts_filter_wedge_opens_legs_strict_tight(failures)
-    Tier1DepthPolearmDoctrineTests._run_depth_polearm_restricted_profile_requires_lane_stress_for_allows_low(
-        failures
-    )
+    Tier1DepthPolearmDoctrineTests._run_depth_polearm_restricted_profile_requires_lane_stress_for_allows_low(failures)
     Tier1DepthPolearmDoctrineTests._run_depth_polearm_allows_low_formation_dict_cache_matches_null(failures)
     Tier1DepthPolearmDoctrineTests._run_depth_polearm_parts_filter_pass_through_when_no_depth_lane_use(failures)
     Tier1DepthPolearmDoctrineTests._run_depth_polearm_allows_low_assume_skips_closed_lane_guard(failures)

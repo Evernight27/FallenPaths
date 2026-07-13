@@ -1,5 +1,8 @@
 class_name CombatF5SoakTraceUiMatch
-extends RefCounted
+extends CombatF5SoakTraceRollups
+
+const F5Validator := preload("res://harness/CombatF5SoakLogValidator.gd")
+const ListedActions := preload("res://combat/CombatListedActions.gd")
 
 ## Editor F5 **D-001** traces  -  mirror on-screen battle UI in **`FP_COMBAT`** Output (grep, no human glance).
 ## **`turn_ready_gauge`**: full label via **`BattleUIUpdater`**  -  suffix order **Step -> Grd/Atk -> Form** when
@@ -9,8 +12,6 @@ extends RefCounted
 ## **`ingest_trace_line`** (via **`OperationalLog.play_combat`**) feeds **`soak_coverage`** at fight end.
 ## **`ingest_world_trace_line`** (via **`OperationalLog.play_world`**) appends Camp S8 markers for post-medical
 ## supplement.
-
-static var _player_turn_hints_cache: Variant = null
 
 
 static func _merged_camp_validation_lines() -> PackedStringArray:
@@ -93,13 +94,13 @@ static func _log_soak_coverage_camp_supplement() -> void:
     _last_camp_supplement_key = dedupe_key
     var profiles: PackedStringArray = PackedStringArray(
         [
-            _TrackSpecs.PROFILE_ALWAYS,
-            _TrackSpecs.PROFILE_CAMP_EA,
+            TrackSpecs.PROFILE_ALWAYS,
+            TrackSpecs.PROFILE_CAMP_EA,
         ]
     )
-    var result: Dictionary = _F5Validator.validate(merged, profiles)
+    var result: Dictionary = F5Validator.validate(merged, profiles)
     (
-        _OperationalLog
+        OperationalLog
         . play_combat(
             (
                 (
@@ -131,20 +132,20 @@ static func _log_soak_coverage_camp_supplement() -> void:
             if camp_stats.has(stat_key):
                 camp_stat_parts.append("%s=%d" % [stat_key, int(camp_stats[stat_key])])
         if not camp_stat_parts.is_empty():
-            _OperationalLog.play_combat("soak_coverage camp grep_stats %s" % " ".join(camp_stat_parts))
+            OperationalLog.play_combat("soak_coverage camp grep_stats %s" % " ".join(camp_stat_parts))
     var tracks: Dictionary = result.get("tracks", {}) as Dictionary
     for track_id in tracks.keys():
         if not str(track_id).begins_with("camp_"):
             continue
         var track_result: Dictionary = tracks[track_id] as Dictionary
         if bool(track_result.get("pass", false)):
-            _OperationalLog.play_combat(
+            OperationalLog.play_combat(
                 "soak_coverage camp pass [%s] %s" % [track_id, str(track_result.get("detail", ""))]
             )
             continue
         var optional: bool = bool(track_result.get("optional", false))
         var tag: String = "warn" if optional else "fail"
-        _OperationalLog.play_combat(
+        OperationalLog.play_combat(
             "soak_coverage camp %s [%s] %s" % [tag, track_id, str(track_result.get("detail", ""))]
         )
     var optional_missing: PackedStringArray = PackedStringArray()
@@ -158,7 +159,7 @@ static func _log_soak_coverage_camp_supplement() -> void:
             continue
         optional_missing.append(str(track_id))
     if not optional_missing.is_empty():
-        _OperationalLog.play_combat(
+        OperationalLog.play_combat(
             (
                 "soak_coverage camp hint optional still missing: %s  -  separate F5 runs or docs/f5_soak_log.camp_f"
                 + "ull.example.txt" % ", ".join(optional_missing)
@@ -168,26 +169,26 @@ static func _log_soak_coverage_camp_supplement() -> void:
             var hint: String = str(_CAMP_OPTIONAL_PLAY_HINTS.get(track_id, ""))
             if hint.is_empty():
                 continue
-            _OperationalLog.play_combat("soak_coverage camp next [%s] %s" % [track_id, hint])
+            OperationalLog.play_combat("soak_coverage camp next [%s] %s" % [track_id, hint])
 
 
 static func _validator_profiles_for_fight() -> PackedStringArray:
-    var profiles: PackedStringArray = PackedStringArray([_TrackSpecs.PROFILE_ALWAYS])
+    var profiles: PackedStringArray = PackedStringArray([TrackSpecs.PROFILE_ALWAYS])
     match _fight_profile:
-        _SoakPresets.PRESET_II2B_SWORD_DUEL, "ii2b":
-            profiles.append(_TrackSpecs.PROFILE_PRESET_II2B)
-        _SoakPresets.PRESET_II3_SURROUND, "ii3":
-            profiles.append(_TrackSpecs.PROFILE_PRESET_II3)
-        _SoakPresets.PRESET_II5_COWERING, "ii5":
-            profiles.append(_TrackSpecs.PROFILE_PRESET_II5)
-        _SoakPresets.PRESET_II6_AMBIENT_SHOCK, "ii6":
-            profiles.append(_TrackSpecs.PROFILE_PRESET_II6)
-        _SoakPresets.PRESET_II8_FORMATION, "ii8":
-            profiles.append(_TrackSpecs.PROFILE_PRESET_II8)
-        _SoakPresets.PRESET_II4D_EXHAUSTION, "ii4d":
-            profiles.append(_TrackSpecs.PROFILE_PRESET_II4D)
+        SoakPresets.PRESET_II2B_SWORD_DUEL, "ii2b":
+            profiles.append(TrackSpecs.PROFILE_PRESET_II2B)
+        SoakPresets.PRESET_II3_SURROUND, "ii3":
+            profiles.append(TrackSpecs.PROFILE_PRESET_II3)
+        SoakPresets.PRESET_II5_COWERING, "ii5":
+            profiles.append(TrackSpecs.PROFILE_PRESET_II5)
+        SoakPresets.PRESET_II6_AMBIENT_SHOCK, "ii6":
+            profiles.append(TrackSpecs.PROFILE_PRESET_II6)
+        SoakPresets.PRESET_II8_FORMATION, "ii8":
+            profiles.append(TrackSpecs.PROFILE_PRESET_II8)
+        SoakPresets.PRESET_II4D_EXHAUSTION, "ii4d":
+            profiles.append(TrackSpecs.PROFILE_PRESET_II4D)
         _:
-            profiles.append(_TrackSpecs.PROFILE_7V7)
+            profiles.append(TrackSpecs.PROFILE_7V7)
     return profiles
 
 
@@ -206,7 +207,7 @@ static func _maybe_flush_deferred_soak_coverage() -> void:
     CombatF5SoakTraceRollups._log_soak_coverage()
     if not _soak_coverage_deferred_note_logged:
         _soak_coverage_deferred_note_logged = true
-        _OperationalLog.play_combat(
+        OperationalLog.play_combat(
             "soak_coverage note counts include post-victory medical triage (deferred from soak_fight_end)"
         )
 
@@ -219,7 +220,7 @@ static func _emit_turn_ready_formation_fp(combatant_id: int, who: String, fp_lin
     if text.is_empty() or text == _last_turn_ready_formation_fp_line:
         return
     _last_turn_ready_formation_fp_line = text
-    _OperationalLog.play_combat("turn_ready_formation_line id=%d %s line=%s" % [combatant_id, who, text])
+    OperationalLog.play_combat("turn_ready_formation_line id=%d %s line=%s" % [combatant_id, who, text])
 
 
 ## Party diagram header above player rows (**#8**  -  grep **`diagram_banner player:`**).
@@ -256,7 +257,7 @@ static func _tooltip_match_counter_key(match_s: String) -> String:
 
 
 static func _formation_stamp_on_combatant(c: Dictionary) -> String:
-    return str(c.get(_combat_constants.COMBATANT_KEY_FORMATION_MOVES_TURN_HINT, "")).strip_edges()
+    return str(c.get(_get_combat_constants().COMBATANT_KEY_FORMATION_MOVES_TURN_HINT, "")).strip_edges()
 
 
 static func _formation_line_from_tooltip(c: Dictionary, manager: Node) -> String:
@@ -340,7 +341,7 @@ static func _turn_ui_match_context(
         and fp_line.is_empty()
         and not hold_line.is_empty()
         and (
-            _ListedActions.action_list_is_reserve_posture_only(actions)
+            ListedActions.action_list_is_reserve_posture_only(actions)
             or CombatF5SoakTraceUiMatch._fight_finish_hold_line_hint_text(hold_line)
         )
     ):

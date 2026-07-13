@@ -79,9 +79,7 @@ static func _run_sim_calibration_audit_committed_ke_in_band(failures: PackedStri
         return
     var oberhau_commit: float = CombatWeaponPosition.commit_fraction_from_move_def(WeaponConstants.get_move("oberhau"))
     var ai_bare: AttackInstance = SimulationCombatTests._oberhau_swing_instance(1.0, -1.0)
-    var ai_committed: AttackInstance = SimulationCombatTests._oberhau_swing_instance(
-        1.0, oberhau_commit
-    )
+    var ai_committed: AttackInstance = SimulationCombatTests._oberhau_swing_instance(1.0, oberhau_commit)
     var ke_bare: float = WeaponDamageHelper.compute_kinetic_energy_j(sword, ai_bare)
     var ke_commit: float = WeaponDamageHelper.compute_kinetic_energy_j(sword, ai_committed)
     if not CombatDesignAnchors.committed_strike_ke_in_strict_band(ke_commit):
@@ -117,9 +115,7 @@ static func _run_sim_subregion_deterministic_same_inputs(failures: PackedStringA
     var a: String = CombatHitSubRegion.resolve_sub_region("right_arm", "high", "high", align, "oberhau", intercept_idx)
     var b: String = CombatHitSubRegion.resolve_sub_region("right_arm", "high", "high", align, "oberhau", intercept_idx)
     if a.is_empty() or a != b:
-        SimulationCombatTests._fail(
-            failures, "sim_subregion_det: want stable non-empty got a=%s b=%s" % [a, b]
-        )
+        SimulationCombatTests._fail(failures, "sim_subregion_det: want stable non-empty got a=%s b=%s" % [a, b])
 
 
 ## S2: high attack vs high guard on arm path -> proximal site (upper_arm).
@@ -223,13 +219,8 @@ static func _has_fracture_wound(ent: Node, part: String) -> bool:
 static func _run_sim_mfb_cut_only_no_fracture(failures: PackedStringArray) -> void:
     var ent: Node = CombatRegressionHarness._new_entity("SWORD")
     var res: Dictionary = ent.take_damage_split(16.0, 0.0, "right_arm", 0.4, -1.0, -1.0, {"hit_sub_region": "forearm"})
-    if (
-        SimulationCombatTests._has_fracture_wound(ent, "right_arm")
-        or float(res.get("final_bone", 0.0)) > 0.01
-    ):
-        SimulationCombatTests._fail(
-            failures, "sim_mfb_cut_low_pen: sharp-dominant low pen should not chip bone"
-        )
+    if SimulationCombatTests._has_fracture_wound(ent, "right_arm") or float(res.get("final_bone", 0.0)) > 0.01:
+        SimulationCombatTests._fail(failures, "sim_mfb_cut_low_pen: sharp-dominant low pen should not chip bone")
 
 
 ## S3: blunt-dominant arm hit with KE above sub-region anchor -> fracture.
@@ -240,10 +231,7 @@ static func _run_sim_mfb_mace_arm_fracture(failures: PackedStringArray) -> void:
     var res: Dictionary = ent.take_damage_split(
         0.0, 8.0, "right_arm", -1.0, -1.0, -1.0, {"hit_sub_region": "elbow", "strike_ke_j": strike_ke}
     )
-    if (
-        not SimulationCombatTests._has_fracture_wound(ent, "right_arm")
-        and float(res.get("final_bone", 0.0)) < 0.5
-    ):
+    if not SimulationCombatTests._has_fracture_wound(ent, "right_arm") and float(res.get("final_bone", 0.0)) < 0.5:
         SimulationCombatTests._fail(
             failures, "sim_mfb_mace_arm: want fracture or final_bone at KE %.1f (anchor %.1f)" % [strike_ke, j_anchor]
         )
@@ -257,19 +245,13 @@ static func _run_sim_mfb_deep_cut_bone_optional(failures: PackedStringArray) -> 
         "disable_layer_tissue": true,
     }
     var res_sh: Dictionary = shallow.take_damage_split(11.0, 0.0, "right_arm", 0.5, -1.0, -1.0, extras_mfb)
-    if (
-        SimulationCombatTests._has_fracture_wound(shallow, "right_arm")
-        or float(res_sh.get("final_bone", 0.0)) > 0.01
-    ):
+    if SimulationCombatTests._has_fracture_wound(shallow, "right_arm") or float(res_sh.get("final_bone", 0.0)) > 0.01:
         SimulationCombatTests._fail(failures, "sim_mfb_deep_cut: shallow pen should not chip bone")
     var deep: Node = CombatRegressionHarness._new_entity("SWORD")
     var res_dp: Dictionary = deep.take_damage_split(
         11.0, 0.0, "right_arm", CombatDamageMechanism.MFB_CUT_BONE_MIN_PENETRATION_MM + 1.5, -1.0, -1.0, extras_mfb
     )
-    if (
-        float(res_dp.get("final_bone", 0.0)) < 0.5
-        and not SimulationCombatTests._has_fracture_wound(deep, "right_arm")
-    ):
+    if float(res_dp.get("final_bone", 0.0)) < 0.5 and not SimulationCombatTests._has_fracture_wound(deep, "right_arm"):
         SimulationCombatTests._fail(
             failures,
             (
@@ -289,9 +271,7 @@ static func _entity_for_species(sp: SpeciesResource) -> CoreEntity:
 ## S4: same raw tissue damage -> same severity on human vs goblin arm (absolute bands on).
 static func _run_sim_severity_absolute_stable(failures: PackedStringArray) -> void:
     if not BleedingConstants.FEATURE_ABSOLUTE_SEVERITY_BANDS:
-        SimulationCombatTests._fail(
-            failures, "sim_severity_abs: FEATURE_ABSOLUTE_SEVERITY_BANDS must be on"
-        )
+        SimulationCombatTests._fail(failures, "sim_severity_abs: FEATURE_ABSOLUTE_SEVERITY_BANDS must be on")
         return
     var dmg: float = 5.5
     var part: String = "right_arm"
@@ -308,9 +288,7 @@ static func _run_sim_severity_absolute_stable(failures: PackedStringArray) -> vo
             )
         )
     if sev_h != BleedingConstants.SEVERITY_SEVERE:
-        SimulationCombatTests._fail(
-            failures, "sim_severity_abs: pinned dmg %.1f want severe got %s" % [dmg, sev_h]
-        )
+        SimulationCombatTests._fail(failures, "sim_severity_abs: pinned dmg %.1f want severe got %s" % [dmg, sev_h])
     var bone_h: String = EntityWounds.severity_from_bone_damage(human, part, 3.2)
     var bone_g: String = EntityWounds.severity_from_bone_damage(goblin, part, 3.2)
     if bone_h != bone_g or bone_h != BleedingConstants.SEVERITY_SEVERE:
@@ -574,17 +552,13 @@ static func _run_sim_joule_armor_authoritative_ke_frac(failures: PackedStringArr
     var mech: float = float(res.get("mechanical_post_armor", 0.0))
     var want_mech: float = cut_pre * frac
     if frac < 0.0:
-        SimulationCombatTests._fail(
-            failures, "sim_joule_authoritative: missing transmitted_ke_fraction on result"
-        )
+        SimulationCombatTests._fail(failures, "sim_joule_authoritative: missing transmitted_ke_fraction on result")
     if want_mech > 0.01 and absf(mech - want_mech) > want_mech * 0.15:
         SimulationCombatTests._fail(
             failures, "sim_joule_authoritative: mech %.2f want cut*frac=%.2f (frac=%.3f)" % [mech, want_mech, frac]
         )
     if float(res.get("armor_ke_absorbed_j", 0.0)) <= 1.0:
-        SimulationCombatTests._fail(
-            failures, "sim_joule_authoritative: want armor_ke_absorbed_j > 1 when forced"
-        )
+        SimulationCombatTests._fail(failures, "sim_joule_authoritative: want armor_ke_absorbed_j > 1 when forced")
 
 
 ## S10: joule path must not double-absorb below ke_frac floor (regression guard).
@@ -639,9 +613,7 @@ static func _run_sim_blood_ml_pool_human_goblin_mass_scale(failures: PackedStrin
         )
     var want_gob: float = BloodVolumeMl.blood_volume_ml_max_for_reference_mass(38.0)
     if not is_equal_approx(gob_max, want_gob):
-        SimulationCombatTests._fail(
-            failures, "sim_blood_ml: goblin max want %.0f got %.0f" % [want_gob, gob_max]
-        )
+        SimulationCombatTests._fail(failures, "sim_blood_ml: goblin max want %.0f got %.0f" % [want_gob, gob_max])
     BloodVolumeMl._harness_force_literal_blood_ml = false
 
 
@@ -707,9 +679,7 @@ static func _run_sim_notify_died_emits_once(failures: PackedStringArray) -> void
     ent._notify_died()
     ent._notify_died()
     if int(fired_box[0]) != 1:
-        SimulationCombatTests._fail(
-            failures, "notify_died: want 1 died signal got %d" % int(fired_box[0])
-        )
+        SimulationCombatTests._fail(failures, "notify_died: want 1 died signal got %d" % int(fired_box[0]))
     var bleed_ent: CoreEntity = CombatRegressionHarness._new_entity("SWORD")
     bleed_ent.take_damage_split(6.0, 2.0, "chest")
     if EntityWounds.get_total_bleeding_rate(bleed_ent) <= 0.0:
@@ -774,9 +744,7 @@ static func _run_sim_layer_tissue_shallow_pen_reduces_bone(failures: PackedStrin
             )
         )
     if float(off.get("to_bone", 0.0)) <= 0.0:
-        SimulationCombatTests._fail(
-            failures, "sim_layer_tissue_shallow: need baseline bone from pen for comparison"
-        )
+        SimulationCombatTests._fail(failures, "sim_layer_tissue_shallow: need baseline bone from pen for comparison")
     if float(on.get("to_bone", 0.0)) >= float(off.get("to_bone", 0.0)):
         SimulationCombatTests._fail(
             failures,
@@ -880,9 +848,7 @@ static func _run_sim_pen_entity_damage_armor_reduces_bone(failures: PackedString
 ## S7: ATLS hemorrhage class boundaries (remaining blood %).
 static func _run_sim_atls_consciousness_class_boundaries(failures: PackedStringArray) -> void:
     if not BleedingConstants.FEATURE_ATLS_STEPPED_BLOOD_CONSCIOUSNESS:
-        SimulationCombatTests._fail(
-            failures, "sim_atls: FEATURE_ATLS_STEPPED_BLOOD_CONSCIOUSNESS must be on"
-        )
+        SimulationCombatTests._fail(failures, "sim_atls: FEATURE_ATLS_STEPPED_BLOOD_CONSCIOUSNESS must be on")
         return
     if BleedingConstants.atls_hemorrhage_class_from_remaining_pct(90.0) != 1:
         SimulationCombatTests._fail(failures, "sim_atls: 90%% remaining want class I")

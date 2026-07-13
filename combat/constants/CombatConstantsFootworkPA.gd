@@ -15,8 +15,10 @@ const POSITION_ANGLE_DEFENDER_OFFSET_SCALE_DODGE := 0.85
 
 const POSITION_ANGLE_DEFENDER_OFFSET_SCALE_PARRY := 0.55
 
+
 static func position_angle_defender_offset_deg_for_line(line: String, scale: float) -> float:
     return position_angle_offset_deg_for_attack_line(line) * scale
+
 
 static func position_angle_offset_deg_for_attack_line(line: String) -> float:
     var k: String = line.strip_edges()

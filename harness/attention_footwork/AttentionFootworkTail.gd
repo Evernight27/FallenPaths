@@ -10,28 +10,18 @@ static func run(failures: PackedStringArray) -> void:
     AttentionFootworkAttentionLoadTests._run_attention_being_wind_up_targeted_when_telegraph_set(failures)
     AttentionFootworkAttentionLoadTests._run_attention_counter_tempo_salience_matches_can_act(failures)
     AttentionFootworkAttentionLoadTests._run_attention_load_stacks_peril_and_incoming(failures)
-    AttentionFootworkAttentionLoadTests._run_focus_intensity_scales_feint_readthrough_and_guard_zone(
-        failures
-    )
+    AttentionFootworkAttentionLoadTests._run_focus_intensity_scales_feint_readthrough_and_guard_zone(failures)
     AttentionFootworkAttentionLoadTests._run_attention_load_dampens_focus_effective_readiness(failures)
     AttentionFootworkAttentionLoadTests._run_mental_stack_medical_overrides_attack(failures)
     AttentionFootworkAttentionLoadTests._run_mental_stack_incoming_windup_prefers_defense(failures)
-    AttentionFootworkAttentionLoadTests._run_mental_stack_counter_over_plain_attack_when_window_open(
-        failures
-    )
-    AttentionFootworkAttentionLoadTests._run_mental_stack_attack_layer_matches_stance_alias_weights(
-        failures
-    )
-    AttentionFootworkAttentionLoadTests._run_yomi_guard_tendency_boosts_feint_after_repeated_high(
-        failures
-    )
+    AttentionFootworkAttentionLoadTests._run_mental_stack_counter_over_plain_attack_when_window_open(failures)
+    AttentionFootworkAttentionLoadTests._run_mental_stack_attack_layer_matches_stance_alias_weights(failures)
+    AttentionFootworkAttentionLoadTests._run_yomi_guard_tendency_boosts_feint_after_repeated_high(failures)
     AttentionFootworkAttentionLoadTests._run_yomi_updates_on_parry_deflect_clears_on_hit(failures)
     AttentionFootworkAttentionLoadTests._run_attention_ui_hint_formats_when_telegraph_set(failures)
     AttentionFootworkAttentionLoadTests._run_attention_refresh_waiting_tick_stamps_ui_hint(failures)
     AttentionFootworkAttentionLoadTests._run_yomi_focus_drift_sets_habitual_part_on_ai(failures)
-    AttentionFootworkAttentionLoadTests._run_yomi_focus_drift_keeps_habit_when_telegraph_line_mismatches(
-        failures
-    )
+    AttentionFootworkAttentionLoadTests._run_yomi_focus_drift_keeps_habit_when_telegraph_line_mismatches(failures)
     AttentionFootworkAttentionLoadTests._run_guard_from_move_syncs_focus_part_with_guard_line(failures)
     AttentionFootworkAttentionLoadTests._run_mental_stack_stamps_layer_on_medical_pick(failures)
     AttentionFootworkAttentionLoadTests._run_mental_stack_self_peril_before_ally_medical(failures)
@@ -39,9 +29,7 @@ static func run(failures: PackedStringArray) -> void:
     AttentionFootworkAttentionLoadTests._run_mental_stack_hold_line_attempt_close_wing(failures)
     AttentionFootworkAttentionLoadTests._run_mental_stack_hold_line_attempt_close_mop_up(failures)
     AttentionFootworkAttentionLoadTests._run_mental_stack_hold_line_attempt_close_mop_up_mid(failures)
-    AttentionFootworkMentalStackFormationPlugTests._run_mental_stack_close_beats_focus_mop_up_under_telegraph(
-        failures
-    )
+    AttentionFootworkMentalStackFormationPlugTests._run_mental_stack_close_beats_focus_mop_up_under_telegraph(failures)
     AttentionFootworkMentalStackFormationPlugTests._run_hold_line_hint_mop_up(failures)
     AttentionFootworkMentalStackFormationPlugTests._run_hold_line_hint_mop_up_strikes_listed(failures)
     AttentionFootworkMentalStackFormationPlugTests._run_hold_line_hint_mop_up_rear_rank(failures)
@@ -63,25 +51,17 @@ static func run(failures: PackedStringArray) -> void:
     AttentionFootworkFocusLineFootworkPickerTests._run_mental_stack_rout_skipped_fight_finish(failures)
     AttentionFootworkFocusLineFootworkPickerTests._run_mental_stack_rout_firm_line_no_stamp(failures)
     AttentionFootworkFocusLineFootworkPickerTests._run_mental_stack_exhaustion_tunnel_prefers_disengage(failures)
-    AttentionFootworkFocusLineFootworkPickerTests._run_mental_stack_exhaustion_tunnel_flee_beats_rotate_file(
-        failures
-    )
-    AttentionFootworkFocusLineFootworkPickerTests._run_mental_stack_critical_stamina_flee_beats_rotate_file(
-        failures
-    )
+    AttentionFootworkFocusLineFootworkPickerTests._run_mental_stack_exhaustion_tunnel_flee_beats_rotate_file(failures)
+    AttentionFootworkFocusLineFootworkPickerTests._run_mental_stack_critical_stamina_flee_beats_rotate_file(failures)
     AttentionFootworkFocusLineFootworkPickerTests._run_p4a_ms_l7_exhaustion_threshold_parity(failures)
     AttentionFootworkFocusLineFootworkPickerTests._run_focus_line_actions_listed_when_attention_enabled(failures)
     AttentionFootworkFocusLineFootworkPickerTests._run_append_combat_wait_lists_wait_for_focus_only_menu(failures)
-    AttentionFootworkFocusLineFootworkPickerTests._run_append_combat_wait_lists_wait_for_close_and_focus_menu(
-        failures
-    )
+    AttentionFootworkFocusLineFootworkPickerTests._run_append_combat_wait_lists_wait_for_close_and_focus_menu(failures)
     AttentionFootworkFocusLineFootworkPickerTests._run_focus_line_noop_skips_without_guard_change(failures)
     AttentionFootworkFocusLineFootworkPickerTests._run_focus_line_resolve_sets_guard_and_focus(failures)
     AttentionFootworkFocusLineFootworkPickerTests._run_focus_line_party_leader_prefers_telegraph_match(failures)
     AttentionFootworkFocusLineFootworkPickerTests._run_yomi_parry_deflect_boosts_feint_listing_mult(failures)
-    AttentionFootworkFocusLineFootworkPickerTests._run_yomi_defense_readiness_mult_boosts_after_parry_deflect(
-        failures
-    )
+    AttentionFootworkFocusLineFootworkPickerTests._run_yomi_defense_readiness_mult_boosts_after_parry_deflect(failures)
     AttentionFootworkFocusLineFootworkPickerTests._run_attention_ui_hint_includes_mental_stack_layer(failures)
     AttentionFootworkFocusLineFootworkPickerTests._run_footwork_attack_step_offset_stamped_on_windup(failures)
     AttentionFootworkFocusLineFootworkPickerTests._run_footwork_attack_eval_no_stamp_offset(failures)
@@ -109,9 +89,7 @@ static func run(failures: PackedStringArray) -> void:
     AttentionFootworkSpatialT44Tests._run_footwork_formation_move_scrubs_leaked_offset(failures)
     AttentionFootworkMedicalPhaseUiTests._run_footwork_medical_wind_up_scrubs_leaked_offset(failures)
     AttentionFootworkMedicalPhaseUiTests._run_footwork_receiving_medical_scrubs_leaked_offset(failures)
-    AttentionFootworkMedicalPhaseUiTests._run_footwork_formation_flow_waiting_scrubs_leaked_offset(
-        failures
-    )
+    AttentionFootworkMedicalPhaseUiTests._run_footwork_formation_flow_waiting_scrubs_leaked_offset(failures)
     AttentionFootworkMedicalPhaseUiTests._run_footwork_return_to_waiting_scrubs_leaked_offset(failures)
     AttentionFootworkMedicalPhaseUiTests._run_footwork_parry_idle_clears_pa_before_waiting(failures)
     AttentionFootworkMedicalPhaseUiTests._run_footwork_medical_phase_halt_scrubs_leaked_offset(failures)
@@ -121,9 +99,7 @@ static func run(failures: PackedStringArray) -> void:
     AttentionFootworkMedicalPhaseUiTests._run_footwork_death_tick_scrubs_leaked_offset(failures)
     AttentionFootworkMedicalPhaseUiTests._run_footwork_finalize_dead_combatant_clears_offset(failures)
     AttentionFootworkMedicalPhaseUiTests._run_footwork_formation_move_start_scrubs_leaked_offset(failures)
-    AttentionFootworkMedicalPhaseUiTests._run_footwork_medical_start_scrubs_target_receiving_offset(
-        failures
-    )
+    AttentionFootworkMedicalPhaseUiTests._run_footwork_medical_start_scrubs_target_receiving_offset(failures)
     AttentionFootworkMedicalPhaseUiTests._run_footwork_enter_short_recovery_clears_offset(failures)
     AttentionFootworkMedicalPhaseUiTests._run_footwork_parry_stamp_scrubs_leaked_idle_offset(failures)
     AttentionFootworkMedicalPhaseUiTests._run_footwork_dodge_stamp_scrubs_leaked_idle_offset(failures)
@@ -132,108 +108,71 @@ static func run(failures: PackedStringArray) -> void:
     AttentionFootworkMedicalPhaseUiTests._run_footwork_back_rank_abort_clears_depth_windup(failures)
     AttentionFootworkMedicalPhaseUiTests._run_footwork_ui_hint_clears_on_combat_start(failures)
     AttentionFootworkMedicalPhaseUiTests._run_footwork_ui_hint_stale_stamp_prefers_live_offset(failures)
-    AttentionFootworkMedicalPhaseUiTests._run_combat_ui_hints_footwork_stale_stamp_prefers_live_offset(
-        failures
-    )
+    AttentionFootworkMedicalPhaseUiTests._run_combat_ui_hints_footwork_stale_stamp_prefers_live_offset(failures)
     AttentionFootworkMedicalPhaseUiTests._run_combat_ui_hints_gauge_tooltip_counter_ready(failures)
-    AttentionFootworkMedicalPhaseUiTests._run_battle_ui_gauge_tooltip_live_counter_tempo_needs_manager(
-        failures
-    )
+    AttentionFootworkMedicalPhaseUiTests._run_battle_ui_gauge_tooltip_live_counter_tempo_needs_manager(failures)
     AttentionFootworkMedicalPhaseUiTests._run_medical_phase_hints_emit_once_per_fight(failures)
     AttentionFootworkMedicalPhaseUiTests._run_medical_phase_hints_emit_once_per_world_session(failures)
-    AttentionFootworkMedicalPhaseUiTests._run_medical_phase_hints_emit_again_on_new_fight_without_world(
-        failures
-    )
+    AttentionFootworkMedicalPhaseUiTests._run_medical_phase_hints_emit_again_on_new_fight_without_world(failures)
     AttentionFootworkMedicalPhaseUiTests._run_medical_phase_hints_campaign_early_exit(failures)
     AttentionFootworkMedicalPhaseUiTests._run_medical_phase_hints_campaign_early_exit_ready(failures)
     AttentionFootworkMedicalPhaseUiTests._run_medical_phase_hints_campaign_each_contract_fight(failures)
     AttentionFootworkMedicalPhaseUiTests._run_medical_phase_hints_campaign_supply_each_fight(failures)
     AttentionFootworkMedicalPhaseUiTests._run_medical_phase_gauge_tooltip_campaign_early_exit(failures)
     AttentionFootworkMedicalPhaseUiTests._run_medical_phase_gauge_tooltip_campaign_ready(failures)
-    AttentionFootworkMedicalPhaseUiTests._run_medical_phase_gauge_tooltip_pressure_and_winner_lock(
-        failures
-    )
+    AttentionFootworkMedicalPhaseUiTests._run_medical_phase_gauge_tooltip_pressure_and_winner_lock(failures)
     AttentionFootworkMedicalPhaseUiTests._run_medical_phase_gauge_tooltip_medical_busy_receiving(failures)
     AttentionFootworkMedicalPhaseUiTests._run_medical_phase_gauge_tooltip_medical_busy_wind_up(failures)
-    AttentionFootworkMedicalPhaseUiTests._run_battle_ui_gauge_label_receiving_care_during_medical_phase(
-        failures
-    )
+    AttentionFootworkMedicalPhaseUiTests._run_battle_ui_gauge_label_receiving_care_during_medical_phase(failures)
     AttentionFootworkMedicalPhaseUiTests._run_battle_ui_gauge_label_medical_wind_up_primary(failures)
     AttentionFootworkCombatUiSnapshotGaugeTests._run_combat_ui_hints_cowering_gauge_tooltip(failures)
     AttentionFootworkCombatUiSnapshotGaugeTests._run_combat_ui_hints_formation_cowering_tooltip(failures)
-    AttentionFootworkCombatUiSnapshotGaugeTests._run_battle_ui_gauge_label_live_counter_tempo_needs_manager(
-        failures
-    )
-    AttentionFootworkCombatUiSnapshotGaugeTests._run_combat_ui_hints_formation_counter_tempo_needs_manager(
-        failures
-    )
+    AttentionFootworkCombatUiSnapshotGaugeTests._run_battle_ui_gauge_label_live_counter_tempo_needs_manager(failures)
+    AttentionFootworkCombatUiSnapshotGaugeTests._run_combat_ui_hints_formation_counter_tempo_needs_manager(failures)
     AttentionFootworkCombatUiSnapshotGaugeTests._run_combat_ui_hints_attention_stale_stamp_prefers_live(failures)
-    AttentionFootworkCombatUiSnapshotGaugeTests._run_combat_ui_hints_attention_live_refresh_load_during_windup(
-        failures
-    )
+    AttentionFootworkCombatUiSnapshotGaugeTests._run_combat_ui_hints_attention_live_refresh_load_during_windup(failures)
     AttentionFootworkCombatUiSnapshotGaugeTests._run_strike_stamping_weapon_eff_dist_sanity(failures)
-    AttentionFootworkCombatUiSnapshotGaugeTests._run_footwork_ui_hint_ignores_orphan_stamp_without_offset(
-        failures
-    )
+    AttentionFootworkCombatUiSnapshotGaugeTests._run_footwork_ui_hint_ignores_orphan_stamp_without_offset(failures)
     AttentionFootworkCombatUiSnapshotGaugeTests._run_footwork_diagram_label_suffix_compact(failures)
-    AttentionFootworkCombatUiSnapshotGaugeTests._run_footwork_snapshot_includes_position_hint_when_enabled(
-        failures
-    )
+    AttentionFootworkCombatUiSnapshotGaugeTests._run_footwork_snapshot_includes_position_hint_when_enabled(failures)
     AttentionFootworkCombatUiSnapshotGaugeTests._run_footwork_snapshot_ui_hint_from_unstamped_offset(failures)
     AttentionFootworkCombatUiSnapshotGaugeTests._run_footwork_snapshot_omits_position_when_disabled(failures)
-    AttentionFootworkCombatUiSnapshotGaugeTests._run_combat_snapshot_exports_attention_ui_hint_when_stamped(
-        failures
-    )
+    AttentionFootworkCombatUiSnapshotGaugeTests._run_combat_snapshot_exports_attention_ui_hint_when_stamped(failures)
     AttentionFootworkCombatUiSnapshotGaugeTests._run_combat_snapshot_exports_counter_tempo_ui_hint_when_stamped(
         failures
     )
-    (
-        AttentionFootworkCombatUiSnapshotGaugeTests
-        . _run_combat_snapshot_suppresses_next_override_during_counter_tempo(failures)
-    )
-    AttentionFootworkCombatUiSnapshotGaugeTests._run_combat_snapshot_derives_attention_ui_hint_from_telegraph(
+    AttentionFootworkCombatUiSnapshotGaugeTests._run_combat_snapshot_suppresses_next_override_during_counter_tempo(
         failures
     )
-    (
-        AttentionFootworkCombatUiSnapshotGaugeTests
-        . _run_combat_snapshot_derives_counter_tempo_ui_hint_from_open_window(failures)
+    AttentionFootworkCombatUiSnapshotGaugeTests._run_combat_snapshot_derives_attention_ui_hint_from_telegraph(failures)
+    AttentionFootworkCombatUiSnapshotGaugeTests._run_combat_snapshot_derives_counter_tempo_ui_hint_from_open_window(
+        failures
     )
     AttentionFootworkCombatUiSnapshotGaugeTests._run_battle_ui_gauge_label_counter_beats_status_override(failures)
-    AttentionFootworkCombatUiSnapshotGaugeTests._run_battle_ui_gauge_label_status_override_includes_attention(
-        failures
-    )
+    AttentionFootworkCombatUiSnapshotGaugeTests._run_battle_ui_gauge_label_status_override_includes_attention(failures)
     AttentionFootworkCombatUiSnapshotGaugeTests._run_battle_ui_gauge_label_counter_wind_up_prefix(failures)
     AttentionFootworkCombatUiSnapshotGaugeTests._run_combat_snapshot_omits_closing_override_during_counter_tempo(
         failures
     )
     AttentionFootworkCombatUiSnapshotGaugeTests._run_battle_ui_gauge_label_matches_snapshot_row(failures)
     AttentionFootworkCombatUiSnapshotGaugeTests._run_battle_ui_gauge_suffix_step_atk_form_order(failures)
-    (
-        AttentionFootworkCombatUiSnapshotGaugeTests
-        . _run_battle_ui_gauge_label_renders_exported_hints_when_features_off(failures)
+    AttentionFootworkCombatUiSnapshotGaugeTests._run_battle_ui_gauge_label_renders_exported_hints_when_features_off(
+        failures
     )
     AttentionFootworkCombatUiSnapshotGaugeTests._run_battle_ui_gauge_label_recovering_includes_exported_attention(
         failures
     )
-    AttentionFootworkCombatUiSnapshotGaugeTests._run_player_counter_tempo_turn_ready_hint_when_window_open(
-        failures
-    )
+    AttentionFootworkCombatUiSnapshotGaugeTests._run_player_counter_tempo_turn_ready_hint_when_window_open(failures)
     AttentionFootworkCombatUiSnapshotGaugeTests._run_battle_ui_gauge_bar_always_stamina_even_during_counter_tempo(
         failures
     )
-    AttentionFootworkCombatUiSnapshotGaugeTests._run_footwork_guard_line_for_body_part_maps_legs_and_chest(
-        failures
-    )
-    AttentionFootworkCombatUiSnapshotGaugeTests._run_footwork_choose_defense_dodge_does_not_keep_parry_offset(
-        failures
-    )
+    AttentionFootworkCombatUiSnapshotGaugeTests._run_footwork_guard_line_for_body_part_maps_legs_and_chest(failures)
+    AttentionFootworkCombatUiSnapshotGaugeTests._run_footwork_choose_defense_dodge_does_not_keep_parry_offset(failures)
     AttentionFootworkCombatUiSnapshotGaugeTests._run_footwork_arc_contact_applies_offset_once(failures)
     AttentionFootworkCombatUiSnapshotGaugeTests._run_footwork_arc_end_fallback_prefers_intended_over_attack_angle(
         failures
     )
     AttentionFootworkCombatUiSnapshotGaugeTests._run_footwork_windup_arc_intended_includes_attacker_step(failures)
-    AttentionFootworkCombatUiSnapshotGaugeTests._run_footwork_partial_follow_through_freezes_resolve_angles(
-        failures
-    )
+    AttentionFootworkCombatUiSnapshotGaugeTests._run_footwork_partial_follow_through_freezes_resolve_angles(failures)
     AttentionFootworkCombatUiSnapshotGaugeTests._run_footwork_disabled_skips_windup_stamp(failures)
     AttentionFootworkAiWeaponFormPickTests._run_ai_pick_weapon_form_stat_part_weights(failures)

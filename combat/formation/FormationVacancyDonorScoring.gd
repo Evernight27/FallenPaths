@@ -110,7 +110,7 @@ static func _is_ineligible_vacancy_donor(manager: Node, c: Dictionary) -> bool:
         if clk < until:
             var fid_geom: String = ZoneOfControl.zone_geometry_fid_str(manager, c)
             # Frontline-first override: if rank 0 has holes, let reserves donate even during autofill cooldown.
-            if not formation_has_rank0_hole(manager, fid_geom):
+            if not CombatFormationVacancyPlugs.formation_has_rank0_hole(manager, fid_geom):
                 return true
     return false
 

@@ -3,6 +3,7 @@ extends CombatantWeaponAccess
 
 ## Entity and scene medical / wound accessors.
 
+
 static func get_wounded_parts(combatant: Dictionary, manager: Node = null) -> Array:
     if manager != null:
         return entity_get_wounded_parts(manager, combatant)
@@ -296,10 +297,10 @@ static func get_medical_windup_speed_modifier(manager: Node, performer: Dictiona
     med_eff = maxf(0.5, med_eff)
     if id_int(performer) == id_int(target):
         var perf: float = get_performance_modifier(performer)
-        return maxf(CombatConstants.PERF_MOD_MIN, perf) * med_eff
+        return maxf(CombatConstantsParry.PERF_MOD_MIN, perf) * med_eff
     var patient_perf: float = get_performance_modifier(target)
     var thrash: float = (
-        clampf(1.0 - patient_perf, 0.0, 1.0) * CombatConstants.MEDICAL_ALLY_TASK_PATIENT_THRASH_MAX_PENALTY
+        clampf(1.0 - patient_perf, 0.0, 1.0) * CombatConstantsMoves.MEDICAL_ALLY_TASK_PATIENT_THRASH_MAX_PENALTY
     )
     return med_eff * (1.0 - thrash)
 
@@ -320,17 +321,17 @@ static func get_effective_medical_windup_speed_modifier(
     if perf_node != null and "_proficiency_bonus" in perf_node:
         eff_int = float(perf_node.intelligence or 0) + float(perf_node._proficiency_bonus.get("intelligence", 0) or 0)
     else:
-        eff_int = float(performer.get("intelligence", CombatConstants.DEFAULT_STAT_VALUE))
+        eff_int = float(performer.get("intelligence", CombatConstantsMisc.DEFAULT_STAT_VALUE))
     var med_eff: float = clampf(
-        eff_int / 100.0, CombatConstants.STAT_EFFECT_MULT_MIN, CombatConstants.STAT_EFFECT_MULT_MAX
+        eff_int / 100.0, CombatConstantsTuning.STAT_EFFECT_MULT_MIN, CombatConstantsTuning.STAT_EFFECT_MULT_MAX
     )
     med_eff = maxf(0.5, med_eff)
     if id_int(performer) == id_int(target):
         var perf: float = get_performance_modifier(performer)
-        return maxf(CombatConstants.PERF_MOD_MIN, perf) * med_eff
+        return maxf(CombatConstantsParry.PERF_MOD_MIN, perf) * med_eff
     var patient_perf: float = get_performance_modifier(target)
     var thrash: float = (
-        clampf(1.0 - patient_perf, 0.0, 1.0) * CombatConstants.MEDICAL_ALLY_TASK_PATIENT_THRASH_MAX_PENALTY
+        clampf(1.0 - patient_perf, 0.0, 1.0) * CombatConstantsMoves.MEDICAL_ALLY_TASK_PATIENT_THRASH_MAX_PENALTY
     )
     return med_eff * (1.0 - thrash)
 
@@ -345,9 +346,9 @@ static func get_medical_windup_assist_duration_divisor(manager: Node, target: Di
     if tgt_entity == null or part.is_empty():
         return divisor
     if part_has_active_direct_pressure_on_entity(tgt_entity, part):
-        divisor += CombatConstants.MEDICAL_WINDUP_PRIMARY_HOLDER_DURATION_BONUS
+        divisor += CombatConstantsMoves.MEDICAL_WINDUP_PRIMARY_HOLDER_DURATION_BONUS
     if tgt_entity.get("direct_pressure_assist_held_by") != null and tgt_entity.direct_pressure_assist_held_by != null:
-        divisor += CombatConstants.MEDICAL_WINDUP_STACK_ASSIST_DURATION_BONUS
+        divisor += CombatConstantsMoves.MEDICAL_WINDUP_STACK_ASSIST_DURATION_BONUS
     return divisor
 
 
@@ -365,5 +366,3 @@ static func get_medical_effectiveness_from_node(node: Node) -> float:
     if node.has_method("_get_medical_effectiveness"):
         return node._get_medical_effectiveness()
     return 1.0
-
-

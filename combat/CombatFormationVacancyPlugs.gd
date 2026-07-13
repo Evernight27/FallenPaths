@@ -299,11 +299,12 @@ static func reconcile_vacancy_plugs_formation(manager: Node, fid: String) -> boo
     if exhausted_unstable and OS.is_debug_build():
         push_warning(
             (
-                "CombatFormationFlow: vacancy reconcile used all %d rounds with a change on the last round (fid=%s). Sl"
-                + (
-                    "ots may still have holes; check plug rules or raise FORMATION_VACANCY_RECONCILE_MAX_ROUNDS."
-                    % [max_rounds, fid]
+                (
+                    "CombatFormationFlow: vacancy reconcile used all %d rounds with a change on the last round "
+                    + "(fid=%s). Slots may still have holes; check plug rules or raise "
+                    + "FORMATION_VACANCY_RECONCILE_MAX_ROUNDS."
                 )
+                % [max_rounds, fid]
             )
         )
     FormationVacancyPlugMoves._log_rank0_vacancy_gaps_if_debug(manager, fid)

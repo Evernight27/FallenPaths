@@ -524,16 +524,16 @@ static func _apply_direct_pressure_from_ally(entity: Node, part: String, perform
     entity.direct_pressure_held_by = performer_entity
     log_medical_session(
         (
-            "%s direct_pressure_from_ally part=%s (TCCC sustained compression; venous ~%.0f%% / arterial ~%.0f%% flow r"
-            + (
-                "etained while held)"
-                % [
-                    entity.name,
-                    part,
-                    BleedingConstants.DIRECT_PRESSURE_HELD_FLOW_RETAINED_VENOUS * 100.0,
-                    BleedingConstants.DIRECT_PRESSURE_HELD_FLOW_RETAINED_ARTERIAL * 100.0,
-                ]
+            (
+                "%s direct_pressure_from_ally part=%s (TCCC sustained compression; "
+                + "venous ~%.0f%% / arterial ~%.0f%% flow retained while held)"
             )
+            % [
+                entity.name,
+                part,
+                BleedingConstants.DIRECT_PRESSURE_HELD_FLOW_RETAINED_VENOUS * 100.0,
+                BleedingConstants.DIRECT_PRESSURE_HELD_FLOW_RETAINED_ARTERIAL * 100.0,
+            ]
         )
     )
     return true
@@ -551,16 +551,16 @@ static func apply_direct_pressure(entity: Node, part: String, effectiveness: flo
     entity.self_direct_pressure_part = part
     log_medical_session(
         (
-            "%s direct_pressure self part=%s (TCCC sustained compression; venous ~%.0f%% / arterial ~%.0f%% flow retain"
-            + (
-                "ed while held)"
-                % [
-                    entity.name,
-                    part,
-                    BleedingConstants.DIRECT_PRESSURE_HELD_FLOW_RETAINED_VENOUS * 100.0,
-                    BleedingConstants.DIRECT_PRESSURE_HELD_FLOW_RETAINED_ARTERIAL * 100.0,
-                ]
+            (
+                "%s direct_pressure self part=%s (TCCC sustained compression; "
+                + "venous ~%.0f%% / arterial ~%.0f%% flow retained while held)"
             )
+            % [
+                entity.name,
+                part,
+                BleedingConstants.DIRECT_PRESSURE_HELD_FLOW_RETAINED_VENOUS * 100.0,
+                BleedingConstants.DIRECT_PRESSURE_HELD_FLOW_RETAINED_ARTERIAL * 100.0,
+            ]
         )
     )
     return true

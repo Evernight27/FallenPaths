@@ -1,2 +1,2 @@
 class_name CombatantEntityAccess
-extends CombatantCombatStateAccess
+extends CombatantMedicalEntityAccess

@@ -42,9 +42,7 @@ static func _run_mat_energy_flag_off_no_entity_fields(failures: PackedStringArra
         return
     var ent: Node = CombatRegressionHarness._new_entity("SWORD")
     if not ent.tissue_energy_capacity_j.is_empty() or not ent.tissue_energy_remaining_j.is_empty():
-        SimulationCombatTests._fail(
-            failures, "mat_energy: J pools should be empty when production flag off"
-        )
+        SimulationCombatTests._fail(failures, "mat_energy: J pools should be empty when production flag off")
 
 
 ## M6: J path debits internal reservoir and syncs display pools (production or force).
@@ -65,9 +63,7 @@ static func _run_mat_energy_entity_j_path_debits_internal(failures: PackedString
     var cut_before: float = float(ent.body_cutting.get(part, 0.0))
     var res: Dictionary = ent.take_damage_split(6.0, 2.0, part, 4.0, -1.0, -1.0, extras)
     if float(res.get("tissue_energy_remaining_j", -1.0)) < 0.0:
-        SimulationCombatTests._fail(
-            failures, "mat_energy_j_path: want tissue_energy_remaining_j on result"
-        )
+        SimulationCombatTests._fail(failures, "mat_energy_j_path: want tissue_energy_remaining_j on result")
     var rem_after: float = float(ent.tissue_energy_remaining_j.get(part, 0.0))
     if rem_after >= cap_before - 0.5:
         SimulationCombatTests._fail(
@@ -113,9 +109,7 @@ static func _run_research_clinical_ttd_band(failures: PackedStringArray) -> void
         BleedingConstants.REFERENCE_UNCONTROLLED_BLEED_RATE, BleedingConstants.MAX_BLOOD_VOLUME, 1.0
     )
     if ttd_s < 30.0 or ttd_s > 120.0:
-        SimulationCombatTests._fail(
-            failures, "research_ttd: %.1fs outside clinical 30-120s band" % ttd_s
-        )
+        SimulationCombatTests._fail(failures, "research_ttd: %.1fs outside clinical 30-120s band" % ttd_s)
 
 
 ## Research gate: species `.tres` masses and human tissue sum match design anchors.
@@ -169,9 +163,7 @@ static func _run_research_blood_ml_nominal_70_per_kg(failures: PackedStringArray
     if not is_equal_approx(
         BloodVolumeMl.blood_volume_ml_max_for_reference_mass(ref_kg), BloodVolumeMl.REFERENCE_BLOOD_VOLUME_ML_ADULT
     ):
-        SimulationCombatTests._fail(
-            failures, "research_blood_ml: pool max != REFERENCE_BLOOD_VOLUME_ML_ADULT"
-        )
+        SimulationCombatTests._fail(failures, "research_blood_ml: pool max != REFERENCE_BLOOD_VOLUME_ML_ADULT")
 
 
 ## Research gate: ATLS 10th ed. class boundaries from remaining %.
@@ -223,9 +215,7 @@ static func _run_research_reference_bleed_derivation(failures: PackedStringArray
         )
     var ttd_s: float = float(deriv.get("clinical_ttd_s", 0.0))
     if ttd_s < 30.0 or ttd_s > 120.0:
-        SimulationCombatTests._fail(
-            failures, "research_bleed_deriv: calibrated TTD %.1fs outside 30-120s" % ttd_s
-        )
+        SimulationCombatTests._fail(failures, "research_bleed_deriv: calibrated TTD %.1fs outside 30-120s" % ttd_s)
     if not bool(deriv.get("ml_ttd_parity_ok", false)):
         SimulationCombatTests._fail(
             failures, "research_bleed_deriv: percent and mL TTD paths diverge at reference bleed"
@@ -277,9 +267,7 @@ static func _run_research_arterial_chance_literature(failures: PackedStringArray
 ## Research gate: distal blunt tolerance < proximal (biomechanics ordering).
 static func _run_research_blunt_anchor_ordering(failures: PackedStringArray) -> void:
     if not CombatResearchAnchors.blunt_anchor_ordering_ok():
-        SimulationCombatTests._fail(
-            failures, "research_blunt_order: want elbow < forearm < thigh J anchors"
-        )
+        SimulationCombatTests._fail(failures, "research_blunt_order: want elbow < forearm < thigh J anchors")
 
 
 ## Research gate: committed oberhau KE in HEMA calibration band.
@@ -330,9 +318,7 @@ static func _run_research_direct_pressure_ttd_halving(failures: PackedStringArra
 ## Research gate: cut bleed rates exceed crush at every severity; ladders monotonic.
 static func _run_research_bleeding_ladder_monotonic(failures: PackedStringArray) -> void:
     if not CombatResearchAnchors.cut_bleeding_exceeds_crush_at_all_severities():
-        SimulationCombatTests._fail(
-            failures, "research_bleed_ladder: cut rates must exceed crush at all severities"
-        )
+        SimulationCombatTests._fail(failures, "research_bleed_ladder: cut rates must exceed crush at all severities")
     if not CombatResearchAnchors.bleeding_severity_ladder_monotonic():
         SimulationCombatTests._fail(
             failures, "research_bleed_ladder: minor<moderate<severe<critical within cut and crush"
@@ -345,17 +331,11 @@ static func _run_research_bleeding_ladder_monotonic(failures: PackedStringArray)
 ## Research gate: shallow penetration < deep for severity and arterial mults.
 static func _run_research_pen_depth_monotonic(failures: PackedStringArray) -> void:
     if not BleedingConstants.FEATURE_PENETRATION_DEPTH_SEVERITY:
-        SimulationCombatTests._fail(
-            failures, "research_pen_depth: FEATURE_PENETRATION_DEPTH_SEVERITY must be on"
-        )
+        SimulationCombatTests._fail(failures, "research_pen_depth: FEATURE_PENETRATION_DEPTH_SEVERITY must be on")
     if not CombatResearchAnchors.penetration_depth_mult_monotonic():
-        SimulationCombatTests._fail(
-            failures, "research_pen_depth: severity mult must rise shallow->deep"
-        )
+        SimulationCombatTests._fail(failures, "research_pen_depth: severity mult must rise shallow->deep")
     if not CombatResearchAnchors.penetration_arterial_mult_monotonic():
-        SimulationCombatTests._fail(
-            failures, "research_pen_depth: arterial mult must rise shallow->deep"
-        )
+        SimulationCombatTests._fail(failures, "research_pen_depth: arterial mult must rise shallow->deep")
 
 
 ## Research gate: clotting half-life increases with wound severity; bandage in 60 - 300 s band.
@@ -392,9 +372,7 @@ static func _run_research_clotting_half_life_order(failures: PackedStringArray) 
 ## Research gate: literal mL TTD matches percent-scale TTD at 75 kg (FEATURE_LITERAL_BLOOD_ML).
 static func _run_research_ml_percent_ttd_parity(failures: PackedStringArray) -> void:
     if not BleedingConstants.FEATURE_LITERAL_BLOOD_ML:
-        SimulationCombatTests._fail(
-            failures, "research_ml_ttd: FEATURE_LITERAL_BLOOD_ML must be on for parity gate"
-        )
+        SimulationCombatTests._fail(failures, "research_ml_ttd: FEATURE_LITERAL_BLOOD_ML must be on for parity gate")
     if not CombatResearchAnchors.ml_percent_ttd_parity_ok():
         SimulationCombatTests._fail(
             failures, "research_ml_ttd: percent and mL exsanguination paths diverge at reference mass"
@@ -452,9 +430,7 @@ static func _run_research_goblin_blood_ml_per_kg(failures: PackedStringArray) ->
 ## Research gate: scalp bleed mult exceeds limb baseline (vascular scalp literature).
 static func _run_research_scalp_vs_limb_bleed(failures: PackedStringArray) -> void:
     if not CombatResearchAnchors.scalp_bleed_mult_exceeds_limb():
-        SimulationCombatTests._fail(
-            failures, "research_scalp: scalp multiplier must exceed forearm and be >= 1.4"
-        )
+        SimulationCombatTests._fail(failures, "research_scalp: scalp multiplier must exceed forearm and be >= 1.4")
 
 
 ## Research gate: absolute tissue/bone severity thresholds ordered.
@@ -518,9 +494,7 @@ static func _run_research_pain_hits_to_nrs4(failures: PackedStringArray) -> void
 ## Research gate: NRS thresholds strictly ordered (4 < 6 < 7 < 8 < 10).
 static func _run_research_pain_nrs_thresholds_ordered(failures: PackedStringArray) -> void:
     if not CombatResearchAnchors.nrs_thresholds_ordered():
-        SimulationCombatTests._fail(
-            failures, "research_pain_nrs: NRS thresholds must be strictly ordered"
-        )
+        SimulationCombatTests._fail(failures, "research_pain_nrs: NRS thresholds must be strictly ordered")
 
 
 ## Research gate: smaller goblin tissue sum -> lower pain_reference (more pain per hit).
@@ -561,9 +535,7 @@ static func _run_research_forearm_arterial_epidemiology(failures: PackedStringAr
 ## Research gate: human chest largest tissue segment (gameplay mass proportions).
 static func _run_research_human_chest_largest_segment(failures: PackedStringArray) -> void:
     if not CombatResearchAnchors.human_chest_largest_tissue_segment():
-        SimulationCombatTests._fail(
-            failures, "research_anatomy: human chest must be largest tissue segment"
-        )
+        SimulationCombatTests._fail(failures, "research_anatomy: human chest must be largest tissue segment")
 
 
 ## Research gate: post-S11 full production headless gate id.
@@ -590,9 +562,7 @@ static func _run_research_production_full_stack_gate(failures: PackedStringArray
 ## Research gate: M6 arm tissue J capacity ~100 @ body_max 12; display half ~6 at 50%% J.
 static func _run_research_tissue_energy_arm_anchor(failures: PackedStringArray) -> void:
     if not BleedingConstants.FEATURE_TISSUE_ENERGY_POOL:
-        SimulationCombatTests._fail(
-            failures, "research_tissue_energy: FEATURE_TISSUE_ENERGY_POOL must be on"
-        )
+        SimulationCombatTests._fail(failures, "research_tissue_energy: FEATURE_TISSUE_ENERGY_POOL must be on")
     if not CombatResearchAnchors.tissue_energy_arm_capacity_matches_design():
         (
             SimulationCombatTests
@@ -651,9 +621,7 @@ static func _run_research_derived_limb_species_flags(failures: PackedStringArray
 ## Research gate: blunt flesh KE budget reduces KE reaching bone at committed oberhau.
 static func _run_research_blunt_ke_budget_reduces_bone(failures: PackedStringArray) -> void:
     if not BleedingConstants.FEATURE_BLUNT_TISSUE_KE_GATE:
-        SimulationCombatTests._fail(
-            failures, "research_blunt_ke: FEATURE_BLUNT_TISSUE_KE_GATE must be on"
-        )
+        SimulationCombatTests._fail(failures, "research_blunt_ke: FEATURE_BLUNT_TISSUE_KE_GATE must be on")
     if not CombatResearchAnchors.blunt_ke_budget_reduces_bone_load():
         (
             SimulationCombatTests
@@ -755,9 +723,7 @@ static func _run_research_joule_sqrt_transmission(failures: PackedStringArray) -
 ## Research gate: material curves on -> full blend weight 1.0 (M2 production).
 static func _run_research_material_curve_full_blend(failures: PackedStringArray) -> void:
     if not BleedingConstants.FEATURE_MATERIAL_FAILURE_CURVES:
-        SimulationCombatTests._fail(
-            failures, "research_mat_curve: FEATURE_MATERIAL_FAILURE_CURVES must be on"
-        )
+        SimulationCombatTests._fail(failures, "research_mat_curve: FEATURE_MATERIAL_FAILURE_CURVES must be on")
     if not CombatResearchAnchors.material_curves_full_blend_when_on():
         SimulationCombatTests._fail(
             failures,
@@ -807,9 +773,7 @@ static func _run_research_triage_danger_seconds_vs_ttd(failures: PackedStringArr
 static func _run_f5_headless_forearm_graze(failures: PackedStringArray) -> void:
     var m: Dictionary = CombatCalibrationAudit.f5_forearm_graze_metrics()
     if float(m.get("final_bone", 0.0)) >= 0.01:
-        SimulationCombatTests._fail(
-            failures, "f5_graze: final_bone %.2f should be 0" % float(m.get("final_bone", 0.0))
-        )
+        SimulationCombatTests._fail(failures, "f5_graze: final_bone %.2f should be 0" % float(m.get("final_bone", 0.0)))
     if float(m.get("final_cut", 0.0)) <= 0.0:
         SimulationCombatTests._fail(failures, "f5_graze: want tissue cut damage on graze")
     if float(m.get("penetration_to_tissue_mm", 99.0)) > 1.5:

@@ -877,9 +877,7 @@ static func _run_kinematic_delivery_entity_split_total_includes_final_bone(failu
         var tag: String = str(cfx["tag"])
         var vo: float = KinematicDeliveryGuardMatrixTests._kin_fixture_vo(cfx, vo_pin)
         var arch: Dictionary = CombatRegressionHarness._kin_arch_for_move(move)
-        var rd: Dictionary = KinematicDeliveryClosingDefenseTests._kin_result_split_fields_sample(
-            vo, wid, move, arch
-        )
+        var rd: Dictionary = KinematicDeliveryClosingDefenseTests._kin_result_split_fields_sample(vo, wid, move, arch)
         var fc: float = float(rd["final_cut"])
         var fb: float = float(rd["final_blunt"])
         var bone: float = float(rd["final_bone"])

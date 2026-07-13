@@ -347,11 +347,11 @@ static func _append_material_failure_curves_section(lines: PackedStringArray) ->
     )
     lines.append(
         (
-            "law=cut piecewise yield=%.1f ultimate=%.1f mm; blunt bone = MFB j_excess; depth mult delegates Bleedin"
-            + (
-                "gConstants"
-                % [MaterialFailureCurves.CUT_TISSUE_YIELD_PEN_MM, MaterialFailureCurves.cut_tissue_ultimate_pen_mm()]
+            (
+                "law=cut piecewise yield=%.1f ultimate=%.1f mm; blunt bone = MFB j_excess; depth mult delegates Bleedin"
+                + "gConstants"
             )
+            % [MaterialFailureCurves.CUT_TISSUE_YIELD_PEN_MM, MaterialFailureCurves.cut_tissue_ultimate_pen_mm()]
         )
     )
 
@@ -409,19 +409,19 @@ static func _append_material_failure_production_section(lines: PackedStringArray
         lines
         . append(
             (
-                "production_flags curves=%s layer_curves=%s layer_tissue=%s damage_D=%s energy_pool=%s joule_armor=%s l"
-                + (
-                    "iteral_blood_ml=%s"
-                    % [
-                        str(BleedingConstants.FEATURE_MATERIAL_FAILURE_CURVES).to_lower(),
-                        str(BleedingConstants.FEATURE_LAYER_TISSUE_CURVES).to_lower(),
-                        str(BleedingConstants.FEATURE_LAYER_TISSUE).to_lower(),
-                        str(BleedingConstants.FEATURE_TISSUE_DAMAGE_D).to_lower(),
-                        str(BleedingConstants.FEATURE_TISSUE_ENERGY_POOL).to_lower(),
-                        str(CombatConstants.FEATURE_JOULE_ARMOR_BUDGET).to_lower(),
-                        str(BleedingConstants.FEATURE_LITERAL_BLOOD_ML).to_lower(),
-                    ]
+                (
+                    "production_flags curves=%s layer_curves=%s layer_tissue=%s damage_D=%s "
+                    + "energy_pool=%s joule_armor=%s literal_blood_ml=%s"
                 )
+                % [
+                    str(BleedingConstants.FEATURE_MATERIAL_FAILURE_CURVES).to_lower(),
+                    str(BleedingConstants.FEATURE_LAYER_TISSUE_CURVES).to_lower(),
+                    str(BleedingConstants.FEATURE_LAYER_TISSUE).to_lower(),
+                    str(BleedingConstants.FEATURE_TISSUE_DAMAGE_D).to_lower(),
+                    str(BleedingConstants.FEATURE_TISSUE_ENERGY_POOL).to_lower(),
+                    str(CombatConstants.FEATURE_JOULE_ARMOR_BUDGET).to_lower(),
+                    str(BleedingConstants.FEATURE_LITERAL_BLOOD_ML).to_lower(),
+                ]
             )
         )
     )
@@ -566,18 +566,18 @@ static func _append_production_sim_flags_inventory(lines: PackedStringArray) -> 
         lines
         . append(
             (
-                "pen_depth=%s blunt_tissue_ke=%s atls_stepped=%s absolute_severity=%s joule_armor=%s literal_blood_ml=%"
-                + (
-                    "s"
-                    % [
-                        str(BleedingConstants.FEATURE_PENETRATION_DEPTH_SEVERITY).to_lower(),
-                        str(BleedingConstants.FEATURE_BLUNT_TISSUE_KE_GATE).to_lower(),
-                        str(BleedingConstants.FEATURE_ATLS_STEPPED_BLOOD_CONSCIOUSNESS).to_lower(),
-                        str(BleedingConstants.FEATURE_ABSOLUTE_SEVERITY_BANDS).to_lower(),
-                        str(CombatConstants.FEATURE_JOULE_ARMOR_BUDGET).to_lower(),
-                        str(BleedingConstants.FEATURE_LITERAL_BLOOD_ML).to_lower(),
-                    ]
+                (
+                    "pen_depth=%s blunt_tissue_ke=%s atls_stepped=%s absolute_severity=%s "
+                    + "joule_armor=%s literal_blood_ml=%s"
                 )
+                % [
+                    str(BleedingConstants.FEATURE_PENETRATION_DEPTH_SEVERITY).to_lower(),
+                    str(BleedingConstants.FEATURE_BLUNT_TISSUE_KE_GATE).to_lower(),
+                    str(BleedingConstants.FEATURE_ATLS_STEPPED_BLOOD_CONSCIOUSNESS).to_lower(),
+                    str(BleedingConstants.FEATURE_ABSOLUTE_SEVERITY_BANDS).to_lower(),
+                    str(CombatConstants.FEATURE_JOULE_ARMOR_BUDGET).to_lower(),
+                    str(BleedingConstants.FEATURE_LITERAL_BLOOD_ML).to_lower(),
+                ]
             )
         )
     )
@@ -685,19 +685,19 @@ static func _append_f5_scenario_headless_section(lines: PackedStringArray, failu
         lines
         . append(
             (
-                "armored_chest bare_pen=%.2f armored_pen=%.2f bare_dmg=%.1f armored_dmg=%.1f ke_frac=%.3f ke_absorbed_J"
-                + (
-                    "=%.0f verdict=%s"
-                    % [
-                        float(chest.get("bare_tissue_pen_mm", 0.0)),
-                        float(chest.get("armored_tissue_pen_mm", 0.0)),
-                        float(chest.get("bare_damage_sum", 0.0)),
-                        float(chest.get("armored_damage_sum", 0.0)),
-                        float(chest.get("transmitted_ke_fraction", -1.0)),
-                        float(chest.get("armor_ke_absorbed_j", 0.0)),
-                        "pass" if chest_ok else "warn",
-                    ]
+                (
+                    "armored_chest bare_pen=%.2f armored_pen=%.2f bare_dmg=%.1f armored_dmg=%.1f "
+                    + "ke_frac=%.3f ke_absorbed_J=%.0f verdict=%s"
                 )
+                % [
+                    float(chest.get("bare_tissue_pen_mm", 0.0)),
+                    float(chest.get("armored_tissue_pen_mm", 0.0)),
+                    float(chest.get("bare_damage_sum", 0.0)),
+                    float(chest.get("armored_damage_sum", 0.0)),
+                    float(chest.get("transmitted_ke_fraction", -1.0)),
+                    float(chest.get("armor_ke_absorbed_j", 0.0)),
+                    "pass" if chest_ok else "warn",
+                ]
             )
         )
     )

@@ -165,21 +165,20 @@ static func begin_play_session(
     emit(
         TAG_SESSION_BEGIN,
         (
-            "%s flow_logs=%s hit_summary=%s per_hit_debug=%s research_feel=%s%s  -  copy full Output; "
-            + "grep hit_resolve reason= strike_avoided reason= diagram_banner player: engagement_debug "
-            + "opposition offset engagement_transition encounter_context parry_partial rem= "
-            + "hit_outcome_stats parry_stats soak_fight_end hit_coverage_hint F"
-            + (
-                "P_COMBAT FP_ERROR SCRIPT_ERROR"
-                % [
-                    main_scene,
-                    CombatConstants.combat_event_debug_active(),
-                    CombatConstants.combat_hit_summary_active(),
-                    CombatConstants.combat_debug_active(),
-                    str(dev_research_feel).to_lower(),
-                    soak_note,
-                ]
+            (
+                "%s flow_logs=%s hit_summary=%s per_hit_debug=%s research_feel=%s%s  -  copy full Output; "
+                + "grep hit_resolve reason= strike_avoided reason= diagram_banner player: engagement_debug "
+                + "opposition offset engagement_transition encounter_context parry_partial rem= "
+                + "hit_outcome_stats parry_stats soak_fight_end hit_coverage_hint FP_COMBAT FP_ERROR SCRIPT_ERROR"
             )
+            % [
+                main_scene,
+                CombatConstants.combat_event_debug_active(),
+                CombatConstants.combat_hit_summary_active(),
+                CombatConstants.combat_debug_active(),
+                str(dev_research_feel).to_lower(),
+                soak_note,
+            ]
         )
     )
 
@@ -425,19 +424,19 @@ static func write_d001_soak_report(ok: bool, preset_results: Dictionary, failure
                 lines
                 . append(
                     (
-                        "  parry_stats deflect=%d bind=%d partial=%d riposte=%d counter_tempo=%d flurry_opened=%d flurr"
-                        + (
-                            "y=%d"
-                            % [
-                                ps.get("parry_deflect", 0),
-                                ps.get("parry_bind", 0),
-                                ps.get("parry_partial", 0),
-                                ps.get("riposte_chain", 0),
-                                ps.get("counter_tempo", 0),
-                                ps.get("flurry_bind_opened", 0),
-                                ps.get("flurry_bind", 0),
-                            ]
+                        (
+                            "  parry_stats deflect=%d bind=%d partial=%d riposte=%d counter_tempo=%d "
+                            + "flurry_opened=%d flurry=%d"
                         )
+                        % [
+                            ps.get("parry_deflect", 0),
+                            ps.get("parry_bind", 0),
+                            ps.get("parry_partial", 0),
+                            ps.get("riposte_chain", 0),
+                            ps.get("counter_tempo", 0),
+                            ps.get("flurry_bind_opened", 0),
+                            ps.get("flurry_bind", 0),
+                        ]
                     )
                 )
             )
@@ -517,8 +516,11 @@ static func write_f5_soak_capture(combat_lines: PackedStringArray) -> void:
     var out: PackedStringArray = PackedStringArray()
     out.append(
         (
-            "%s: headless d001 capture (auto from CombatD001SoakRunner  -  validate with scripts/validate_f5_soak_l"
-            + "og.ps1)" % TAG_SESSION_BEGIN
+            (
+                "%s: headless d001 capture (auto from CombatD001SoakRunner  -  validate with scripts/validate_f5_soak_l"
+                + "og.ps1)"
+            )
+            % TAG_SESSION_BEGIN
         )
     )
     for raw in combat_lines:

@@ -1,5 +1,7 @@
 class_name SoakFpOperationalLogDedupeTests
 extends CombatRegressionHarnessCore
+
+
 static func _run_turn_ready_gauge_fp_line_dedupe(failures: PackedStringArray) -> void:
     _F5SoakTrace.prepare_fight_end_log()
     _OperationalLog.set_capture_enabled(true)

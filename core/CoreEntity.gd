@@ -214,7 +214,7 @@ func _get_targetable_parts() -> Array:
 
 
 func _is_part_severed(part: String) -> bool:
-    return BodyPartQuery._is_part_severed(self, part)
+    return BodyPartQuery.is_part_severed(self, part)
 
 
 func _is_part_crushed(part: String) -> bool:
@@ -234,11 +234,7 @@ func _is_bone_broken(part: String) -> bool:
 
 
 func _get_bone_functionality_factor(part: String) -> float:
-    return BodyPartQuery._get_bone_functionality_factor(self, part)
-
-
-func _is_part_severed(part: String) -> bool:
-    return BodyPartQuery._is_part_severed(self, part)
+    return BodyPartQuery.get_bone_functionality_factor(self, part)
 
 
 func _get_offhand() -> String:
@@ -250,11 +246,11 @@ func _get_offhand() -> String:
 
 
 func _is_arm_destroyed(part: String) -> bool:
-    return BodyPartQuery._is_arm_destroyed(self, part)
+    return BodyPartQuery.is_arm_destroyed(self, part)
 
 
 func _get_arm_functionality(part: String) -> float:
-    return BodyPartQuery._get_arm_functionality(self, part)
+    return BodyPartQuery.get_arm_functionality(self, part)
 
 
 func _get_leg_functionality() -> float:
@@ -262,7 +258,7 @@ func _get_leg_functionality() -> float:
 
 
 func _get_part_dodge_modifier(part: String) -> float:
-    return BodyPartQuery._get_part_dodge_modifier(self, part)
+    return BodyPartQuery.get_part_dodge_modifier(self, part)
 
 
 # Effective speed for gauge fill / mobility: base agility f -  leg functionality (research: leg fracture |' major
@@ -492,10 +488,6 @@ func get_wounded_parts() -> Array:
 
 func _get_wounds_snapshot() -> Dictionary:
     return EntityWounds.get_wounds(self)
-
-
-func _get_wound_healing_progress(injury: Dictionary) -> float:
-    return EntityWounds._get_wound_healing_progress(self, injury)
 
 
 func _get_game_time_seconds() -> float:

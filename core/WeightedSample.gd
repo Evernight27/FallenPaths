@@ -19,7 +19,6 @@ static func pick_random(weights: Dictionary, deterministic: bool = false, _stabl
         return weights.keys()[0] if not weights.is_empty() else ""
     var r: float
     if deterministic:
-        var saved_seed: float = randf()
         # Note: Godot has no built-in seed restore; callers needing full determinism should use pick_deterministic.
         r = randf() * total
     else:

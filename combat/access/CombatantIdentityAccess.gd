@@ -1,7 +1,8 @@
 class_name CombatantIdentityAccess
-extends CombatantMedicalEntityAccess
+extends CombatantManagerBridge
 
 ## Identity, side, rank, file, formation, and display accessors.
+
 
 static func is_living_same_side(actor: Dictionary, other: Dictionary) -> bool:
     if not alive_bool(other):
@@ -55,10 +56,10 @@ static func is_living_hostile_to(actor: Dictionary, other: Dictionary) -> bool:
     return true
 
 
-## Alive fighter on **`side`** ( **`CombatConstants.SIDE_PLAYER`** / **`CombatConstants.SIDE_ENEMY`** ).
+## Alive fighter on **`side`** ( **`CombatConstantsMisc.SIDE_PLAYER`** / **`CombatConstantsMisc.SIDE_ENEMY`** ).
 
 
-## Alive fighter on **`side`** ( **`CombatConstants.SIDE_PLAYER`** / **`CombatConstants.SIDE_ENEMY`** ).
+## Alive fighter on **`side`** ( **`CombatConstantsMisc.SIDE_PLAYER`** / **`CombatConstantsMisc.SIDE_ENEMY`** ).
 static func is_alive_on_side(combatant: Dictionary, side: String) -> bool:
     return alive_bool(combatant) and side_str(combatant) == side
 
@@ -114,11 +115,11 @@ static func is_on_side(combatant: Dictionary, side: String) -> bool:
 
 
 static func is_player_side(combatant: Dictionary) -> bool:
-    return is_on_side(combatant, CombatConstants.SIDE_PLAYER)
+    return is_on_side(combatant, CombatConstantsMisc.SIDE_PLAYER)
 
 
 static func is_enemy_side(combatant: Dictionary) -> bool:
-    return is_on_side(combatant, CombatConstants.SIDE_ENEMY)
+    return is_on_side(combatant, CombatConstantsMisc.SIDE_ENEMY)
 
 
 ## IV-11: stamp flags from register node (player leader / enemy commander only).
@@ -129,9 +130,9 @@ static func leader_register_flags_from_node(node: Node, side: String) -> Diction
     var party_leader := false
     var enemy_leader := false
     if node != null:
-        if side == CombatConstants.SIDE_PLAYER and node.get("is_party_leader") == true:
+        if side == CombatConstantsMisc.SIDE_PLAYER and node.get("is_party_leader") == true:
             party_leader = true
-        elif side == CombatConstants.SIDE_ENEMY and node.get("is_enemy_leader") == true:
+        elif side == CombatConstantsMisc.SIDE_ENEMY and node.get("is_enemy_leader") == true:
             enemy_leader = true
     return {"is_party_leader": party_leader, "is_enemy_leader": enemy_leader}
 
@@ -173,7 +174,9 @@ static func opponent_side_for(actor: Dictionary) -> String:
 
 ## `player` ->''f''s'f''s'? `enemy` roster / formation id flip (same strings as **`side_str`**).
 static func opponent_side_label(side: String) -> String:
-    return CombatConstants.SIDE_ENEMY if side == CombatConstants.SIDE_PLAYER else CombatConstants.SIDE_PLAYER
+    return (
+        CombatConstantsMisc.SIDE_ENEMY if side == CombatConstantsMisc.SIDE_PLAYER else CombatConstantsMisc.SIDE_PLAYER
+    )
 
 
 ## Resolves the health/wounds holder for a combat scene node (e.g. Character ->''f''s'f''s' -> CoreEntity). Prefers
@@ -210,15 +213,15 @@ static func file_int(combatant: Dictionary, default_file: int = 0) -> int:
     return int(combatant.get("file", default_file))
 
 
-## Lateral offset within the file column; clamped to **`CombatConstants.LANE_OFFSET_ABS_MAX`**.
+## Lateral offset within the file column; clamped to **`CombatConstantsFormation.LANE_OFFSET_ABS_MAX`**.
 
 
-## Lateral offset within the file column; clamped to **`CombatConstants.LANE_OFFSET_ABS_MAX`**.
+## Lateral offset within the file column; clamped to **`CombatConstantsFormation.LANE_OFFSET_ABS_MAX`**.
 static func lane_offset_float(combatant: Dictionary) -> float:
     return clampf(
-        float(combatant.get("lane_offset", CombatConstants.LANE_OFFSET_DEFAULT)),
-        -CombatConstants.LANE_OFFSET_ABS_MAX,
-        CombatConstants.LANE_OFFSET_ABS_MAX
+        float(combatant.get("lane_offset", CombatConstantsFormation.LANE_OFFSET_DEFAULT)),
+        -CombatConstantsFormation.LANE_OFFSET_ABS_MAX,
+        CombatConstantsFormation.LANE_OFFSET_ABS_MAX
     )
 
 
@@ -227,7 +230,7 @@ static func lane_offset_float(combatant: Dictionary) -> float:
 
 ## Monotonic combat clock on the manager (`0` when missing).
 static func distance_to_opponent_band(
-    actor: Dictionary, opponent_id: int, default_band: String = CombatConstants.DISTANCE_LONG
+    actor: Dictionary, opponent_id: int, default_band: String = CombatConstantsDistance.DISTANCE_LONG
 ) -> String:
     return str(nested_dictionary_read(actor, "distance_to").get(opponent_id, default_band))
 
@@ -281,8 +284,8 @@ static func get_display_name(combatant: Variant, fallback_id: int = -1) -> Strin
 
 ## Returns true if combatant's node has a weapon.
 static func sync_close_distance_pair(atk: Dictionary, tgt: Dictionary, attacker_id: int, target_id: int) -> void:
-    nested_dictionary_for_mutation(atk, "distance_to")[target_id] = CombatConstants.DISTANCE_CLOSE
-    nested_dictionary_for_mutation(tgt, "distance_to")[attacker_id] = CombatConstants.DISTANCE_CLOSE
+    nested_dictionary_for_mutation(atk, "distance_to")[target_id] = CombatConstantsDistance.DISTANCE_CLOSE
+    nested_dictionary_for_mutation(tgt, "distance_to")[attacker_id] = CombatConstantsDistance.DISTANCE_CLOSE
 
 
 static func formation_morale_cohesion_factor(manager: Node, c: Dictionary) -> float:
@@ -292,10 +295,8 @@ static func formation_morale_cohesion_factor(manager: Node, c: Dictionary) -> fl
     if fid.is_empty():
         return 1.0
     var form: Dictionary = _get_formation_slots().formation_record_for_manager(manager, fid)
-    return clampf(form.get("morale_cohesion_factor", 1.0), CombatConstants.MORALE_COHESION_FACTOR_MIN, 1.0)
-
+    return clampf(form.get("morale_cohesion_factor", 1.0), CombatConstantsEngagement.MORALE_COHESION_FACTOR_MIN, 1.0)
 
 ## Returns leg functionality 0 - 1. Default 1.0 if unavailable.
-
 
 ## Returns leg functionality 0 - 1. Default 1.0 if unavailable.

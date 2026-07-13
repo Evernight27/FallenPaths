@@ -591,8 +591,11 @@ static func gauge_tooltip_lines(c: Dictionary, manager: Node = null) -> PackedSt
     if st in [CombatConstants.STATE_SWAP_RANK, CombatConstants.STATE_FALLING_BACK, CombatConstants.STATE_PLUG_FORWARD]:
         tips.append(
             (
-                "Formation move ' heavy hits (intensity ->''--'''''degf''s'' %.0f) may cancel; lighter hits extend "
-                + "duration." % CombatConstants.FORMATION_HIT_CANCEL_INTENSITY
+                (
+                    "Formation move ' heavy hits (intensity ->''--'''''degf''s'' %.0f) may cancel; lighter hits extend "
+                    + "duration."
+                )
+                % CombatConstants.FORMATION_HIT_CANCEL_INTENSITY
             )
         )
     return tips

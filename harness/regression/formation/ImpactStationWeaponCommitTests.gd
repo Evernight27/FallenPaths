@@ -1,5 +1,7 @@
 class_name ImpactStationWeaponCommitTests
 extends CombatRegressionHarnessCore
+
+
 ## IV-7b: low stamina dampens attack / close listing weights via canonical engage floor.
 static func _run_iv7b_stamina_engage_floor_suite(failures: PackedStringArray) -> void:
     var sync_line: String = CombatConstants.iv7b_stamina_engage_doc_sync_line()

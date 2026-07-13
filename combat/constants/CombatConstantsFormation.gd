@@ -1,6 +1,8 @@
 class_name CombatConstantsFormation
 extends RefCounted
 
+const FormationMove := preload("res://combat/CombatConstantsFormationMove.gd")
+
 const AUTO_DOCTRINE_NUMERIC_SUPERIORITY_FRONT_MARGIN := 1
 
 const COMBAT_FORMATION_PLUG_MOVE_DEBUG := false
@@ -43,7 +45,7 @@ const FORMATION_MIN_FRONT_FIGHTERS_PER_SIDE := 2
 
 const FORMATION_MIN_FRONT_FILL_RATIO := 0.67
 
-const FORMATION_MOVEMENT_MOVE_IDS: Array[String] = _FormationMove.FORMATION_MOVEMENT_MOVE_IDS
+const FORMATION_MOVEMENT_MOVE_IDS: Array[String] = FormationMove.FORMATION_MOVEMENT_MOVE_IDS
 
 const FORMATION_PLUG_EFFECTIVENESS_EXPONENT := 2.6
 
@@ -145,9 +147,9 @@ const ZOC_INCURSION_ZONE_PENALTY := 0.38
 
 const ZOC_REAR_SUPPORT_FROM_FRONT := 0.2
 
+
 static func line_discipline_allows_solo_fall_back(discipline: String) -> bool:
     return str(discipline).strip_edges().to_lower() == LINE_DISCIPLINE_LOOSE
-
 
 
 static func line_discipline_posture_extra_deltas(discipline: String) -> Vector2:
@@ -157,7 +159,6 @@ static func line_discipline_posture_extra_deltas(discipline: String) -> Vector2:
     if d == LINE_DISCIPLINE_LOOSE:
         return Vector2(-0.03, -0.04)
     return Vector2.ZERO
-
 
 
 static func normalize_spear_lane_profile(raw: Variant) -> String:

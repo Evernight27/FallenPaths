@@ -1,7 +1,6 @@
 class_name CompanyState
 extends RefCounted
 
-
 ## Thin facade over split company modules -- backward-compatible re-export for all 141+ static functions.
 ## Module ownership:
 ##   CompanyEconomy.gd  -- state accessors, gold, supplies, wages, renown, provisions, med supply wiring
@@ -71,7 +70,6 @@ const MOOD_STANCE_WALL_THRESHOLD: float = 25.0
 const MOOD_STANCE_WRATH_THRESHOLD: float = 70.0
 
 static var proficiency_enabled: bool = true
-
 
 ## === Stub / Gate Readers ===
 
@@ -662,6 +660,8 @@ static func format_provisions_day_tick_suffix(world: Node2D) -> String:
     if get_food_supplies(world) >= need:
         return ""
     return " -- rations short (mood -1)"
+
+
 static func should_show_next_provisions_hint(world: Node2D) -> bool:
     return CompanyEconomy.should_show_next_provisions_hint(world)
 

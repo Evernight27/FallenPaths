@@ -9,6 +9,19 @@ extends RefCounted
 const DAMAGE_TYPE_SHARP: String = "sharp"
 const DAMAGE_TYPE_BLUNT: String = "blunt"
 
+# Archetype / kinematic IDs (owned by WeaponTemplateDefinitions; re-exported for WeaponConstants.X resolution)
+const ARCHETYPE_STAB := WeaponTemplateDefinitions.ARCHETYPE_STAB
+const ARCHETYPE_SLASH := WeaponTemplateDefinitions.ARCHETYPE_SLASH
+const ARCHETYPE_OVERHEAD := WeaponTemplateDefinitions.ARCHETYPE_OVERHEAD
+const ARCHETYPE_QUICK_SLASH := WeaponTemplateDefinitions.ARCHETYPE_QUICK_SLASH
+const ARCHETYPE_POMMEL := WeaponTemplateDefinitions.ARCHETYPE_POMMEL
+const ARCHETYPE_HEAVY_BLUNT := WeaponTemplateDefinitions.ARCHETYPE_HEAVY_BLUNT
+const ARCHETYPE_THRUSTING_BLUNT := WeaponTemplateDefinitions.ARCHETYPE_THRUSTING_BLUNT
+const KINEMATIC_DELIVERY_THRUST := WeaponTemplateDefinitions.KINEMATIC_DELIVERY_THRUST
+const KINEMATIC_DELIVERY_SWING := WeaponTemplateDefinitions.KINEMATIC_DELIVERY_SWING
+const KINEMATIC_DELIVERY_MIXED := WeaponTemplateDefinitions.KINEMATIC_DELIVERY_MIXED
+const DEFAULT_COOLDOWN := WeaponTemplateDefinitions.DEFAULT_COOLDOWN
+
 # Attack types: stab (point), cut/slash (edge), blunt/swing (head).
 # Contact area per attack: stab -> point_width, cut -> blade_width, blunt -> head_diameter.
 const ATTACK_TYPE_STAB: String = "stab"

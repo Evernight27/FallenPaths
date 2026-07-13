@@ -34,7 +34,7 @@ static func _move_definitions_build() -> Dictionary:
             # Sword (Liechtenauer/KDF): thrust, Oberhau, Unterhau, horizontal (Zwerchau-style), pommel, parry-counters
             "name": "Point thrust",
             "contact_type": ATTACK_TYPE_STAB,
-            "archetype_id": ARCHETYPE_STAB,
+            "archetype_id": WeaponTemplateDefinitions.ARCHETYPE_STAB,
             "base_cooldown": 2.2,
             "attack_line": "high",
             "preferred_parts": ["chest"],
@@ -46,7 +46,7 @@ static func _move_definitions_build() -> Dictionary:
         {
             "name": "Downward diagonal cut",
             "contact_type": ATTACK_TYPE_CUT,
-            "archetype_id": ARCHETYPE_OVERHEAD,
+            "archetype_id": WeaponTemplateDefinitions.ARCHETYPE_OVERHEAD,
             "base_cooldown": 2.4,
             "attack_line": "high_right",
             "preferred_parts": ["head"],
@@ -61,7 +61,7 @@ static func _move_definitions_build() -> Dictionary:
             # (two-line commitment cost).
             "name": "Feint high, cut low",
             "contact_type": ATTACK_TYPE_CUT,
-            "archetype_id": ARCHETYPE_OVERHEAD,
+            "archetype_id": WeaponTemplateDefinitions.ARCHETYPE_OVERHEAD,
             "base_cooldown": 2.6,
             "attack_line": "high_right",
             "preferred_parts": ["head"],
@@ -78,7 +78,7 @@ static func _move_definitions_build() -> Dictionary:
             # telegraph); feint_windup_duration_mult < cut feint (stab archetype already tighter).
             "name": "Feint line, thrust true",
             "contact_type": ATTACK_TYPE_STAB,
-            "archetype_id": ARCHETYPE_STAB,
+            "archetype_id": WeaponTemplateDefinitions.ARCHETYPE_STAB,
             "base_cooldown": 2.4,
             "attack_line": "high",
             "preferred_parts": ["chest"],
@@ -94,7 +94,7 @@ static func _move_definitions_build() -> Dictionary:
         {
             "name": "Upward diagonal cut",
             "contact_type": ATTACK_TYPE_CUT,
-            "archetype_id": ARCHETYPE_SLASH,
+            "archetype_id": WeaponTemplateDefinitions.ARCHETYPE_SLASH,
             "base_cooldown": 2.2,
             "attack_line": "low_left",
             "preferred_parts": ["left_leg", "right_leg"],
@@ -107,7 +107,7 @@ static func _move_definitions_build() -> Dictionary:
         {
             "name": "Horizontal cut (cross)",
             "contact_type": ATTACK_TYPE_CUT,
-            "archetype_id": ARCHETYPE_SLASH,
+            "archetype_id": WeaponTemplateDefinitions.ARCHETYPE_SLASH,
             "base_cooldown": 2.0,
             "attack_line": "left",
             "preferred_parts": ["left_arm", "right_arm", "chest"],
@@ -120,7 +120,7 @@ static func _move_definitions_build() -> Dictionary:
         {
             "name": "Pommel strike (blunt)",
             "contact_type": ATTACK_TYPE_BLUNT,
-            "archetype_id": ARCHETYPE_POMMEL,
+            "archetype_id": WeaponTemplateDefinitions.ARCHETYPE_POMMEL,
             "base_cooldown": 1.8,
             "attack_line": "high",
             "preferred_parts": ["head"],
@@ -132,7 +132,7 @@ static func _move_definitions_build() -> Dictionary:
         {
             "name": "Parry and riposte",
             "contact_type": ATTACK_TYPE_STAB,
-            "archetype_id": ARCHETYPE_STAB,
+            "archetype_id": WeaponTemplateDefinitions.ARCHETYPE_STAB,
             "base_cooldown": 2.0,
             "is_parry": true,
             "attack_line": "high",
@@ -145,7 +145,7 @@ static func _move_definitions_build() -> Dictionary:
         {
             "name": "Parry and cut",
             "contact_type": ATTACK_TYPE_CUT,
-            "archetype_id": ARCHETYPE_SLASH,
+            "archetype_id": WeaponTemplateDefinitions.ARCHETYPE_SLASH,
             "base_cooldown": 1.9,
             "is_parry": true,
             "attack_line": "left",
@@ -158,7 +158,7 @@ static func _move_definitions_build() -> Dictionary:
             # Axe (Le Jeu de la Hache): spike, overhead chop, diagonal chop, poll
             "name": "Spike thrust",
             "contact_type": ATTACK_TYPE_STAB,
-            "archetype_id": ARCHETYPE_STAB,
+            "archetype_id": WeaponTemplateDefinitions.ARCHETYPE_STAB,
             "base_cooldown": 3.2,
             "attack_line": "high",
             "preferred_parts": ["chest"],
@@ -171,7 +171,7 @@ static func _move_definitions_build() -> Dictionary:
         {
             "name": "Overhead chop",
             "contact_type": ATTACK_TYPE_CUT,
-            "archetype_id": ARCHETYPE_OVERHEAD,
+            "archetype_id": WeaponTemplateDefinitions.ARCHETYPE_OVERHEAD,
             "base_cooldown": 3.5,
             "attack_line": "high",
             "preferred_parts": ["head"],
@@ -184,7 +184,7 @@ static func _move_definitions_build() -> Dictionary:
         {
             "name": "Diagonal chop",
             "contact_type": ATTACK_TYPE_CUT,
-            "archetype_id": ARCHETYPE_SLASH,
+            "archetype_id": WeaponTemplateDefinitions.ARCHETYPE_SLASH,
             "base_cooldown": 3.0,
             "attack_line": "high_left",
             "preferred_parts": ["left_arm", "right_arm", "chest"],
@@ -196,7 +196,7 @@ static func _move_definitions_build() -> Dictionary:
         {
             "name": "Back-of-head strike (blunt)",
             "contact_type": ATTACK_TYPE_BLUNT,
-            "archetype_id": ARCHETYPE_HEAVY_BLUNT,
+            "archetype_id": WeaponTemplateDefinitions.ARCHETYPE_HEAVY_BLUNT,
             "base_cooldown": 3.0,
             "attack_line": "high",
             "preferred_parts": ["head"],
@@ -208,7 +208,7 @@ static func _move_definitions_build() -> Dictionary:
         {
             "name": "Parry and chop",
             "contact_type": ATTACK_TYPE_CUT,
-            "archetype_id": ARCHETYPE_SLASH,
+            "archetype_id": WeaponTemplateDefinitions.ARCHETYPE_SLASH,
             "base_cooldown": 3.0,
             "is_parry": true,
             "attack_line": "left",
@@ -221,7 +221,7 @@ static func _move_definitions_build() -> Dictionary:
             # Mace: overhead, side, direct  -  heavy weapon, more wobble
             "name": "Overhead strike",
             "contact_type": ATTACK_TYPE_BLUNT,
-            "archetype_id": ARCHETYPE_HEAVY_BLUNT,
+            "archetype_id": WeaponTemplateDefinitions.ARCHETYPE_HEAVY_BLUNT,
             "base_cooldown": 3.5,
             "attack_line": "high",
             "preferred_parts": ["head"],
@@ -233,7 +233,7 @@ static func _move_definitions_build() -> Dictionary:
         {
             "name": "Side strike",
             "contact_type": ATTACK_TYPE_BLUNT,
-            "archetype_id": ARCHETYPE_HEAVY_BLUNT,
+            "archetype_id": WeaponTemplateDefinitions.ARCHETYPE_HEAVY_BLUNT,
             "base_cooldown": 3.2,
             "attack_line": "right",
             "preferred_parts": ["left_arm", "right_arm"],
@@ -245,7 +245,7 @@ static func _move_definitions_build() -> Dictionary:
         {
             "name": "Direct blow",
             "contact_type": ATTACK_TYPE_BLUNT,
-            "archetype_id": ARCHETYPE_HEAVY_BLUNT,
+            "archetype_id": WeaponTemplateDefinitions.ARCHETYPE_HEAVY_BLUNT,
             "base_cooldown": 3.0,
             "attack_line": "high",
             "preferred_parts": ["head", "chest"],
@@ -257,7 +257,7 @@ static func _move_definitions_build() -> Dictionary:
         {
             "name": "Parry and strike",
             "contact_type": ATTACK_TYPE_BLUNT,
-            "archetype_id": ARCHETYPE_HEAVY_BLUNT,
+            "archetype_id": WeaponTemplateDefinitions.ARCHETYPE_HEAVY_BLUNT,
             "base_cooldown": 3.0,
             "is_parry": true,
             "attack_line": "high",
@@ -270,7 +270,7 @@ static func _move_definitions_build() -> Dictionary:
             # Dagger / rondel  -  small, quick, tighter control
             "name": "Quick thrust",
             "contact_type": ATTACK_TYPE_STAB,
-            "archetype_id": ARCHETYPE_STAB,
+            "archetype_id": WeaponTemplateDefinitions.ARCHETYPE_STAB,
             "base_cooldown": 0.7,
             "attack_line": "high",
             "preferred_parts": ["chest"],
@@ -283,7 +283,7 @@ static func _move_definitions_build() -> Dictionary:
         {
             "name": "Strong thrust (armor-piercing)",
             "contact_type": ATTACK_TYPE_STAB,
-            "archetype_id": ARCHETYPE_STAB,
+            "archetype_id": WeaponTemplateDefinitions.ARCHETYPE_STAB,
             "base_cooldown": 1.0,
             "attack_line": "high",
             "preferred_parts": ["chest"],
@@ -296,7 +296,7 @@ static func _move_definitions_build() -> Dictionary:
         {
             "name": "Quick slash",
             "contact_type": ATTACK_TYPE_CUT,
-            "archetype_id": ARCHETYPE_QUICK_SLASH,
+            "archetype_id": WeaponTemplateDefinitions.ARCHETYPE_QUICK_SLASH,
             "base_cooldown": 0.6,
             "attack_line": "left",
             "preferred_parts": ["left_arm", "right_arm"],
@@ -309,7 +309,7 @@ static func _move_definitions_build() -> Dictionary:
         {
             "name": "Pommel blow",
             "contact_type": ATTACK_TYPE_BLUNT,
-            "archetype_id": ARCHETYPE_POMMEL,
+            "archetype_id": WeaponTemplateDefinitions.ARCHETYPE_POMMEL,
             "base_cooldown": 0.5,
             "attack_line": "high",
             "preferred_parts": ["head"],
@@ -321,7 +321,7 @@ static func _move_definitions_build() -> Dictionary:
         {
             "name": "Parry and stab",
             "contact_type": ATTACK_TYPE_STAB,
-            "archetype_id": ARCHETYPE_STAB,
+            "archetype_id": WeaponTemplateDefinitions.ARCHETYPE_STAB,
             "base_cooldown": 0.6,
             "is_parry": true,
             "attack_line": "high",
@@ -335,7 +335,7 @@ static func _move_definitions_build() -> Dictionary:
             # Spear (Fiore): thrust, angled thrust, slash, pole swing
             "name": "Forward thrust",
             "contact_type": ATTACK_TYPE_STAB,
-            "archetype_id": ARCHETYPE_STAB,
+            "archetype_id": WeaponTemplateDefinitions.ARCHETYPE_STAB,
             "base_cooldown": 3.0,
             "attack_line": "high",
             "preferred_parts": ["chest"],
@@ -348,7 +348,7 @@ static func _move_definitions_build() -> Dictionary:
         {
             "name": "Angled thrust",
             "contact_type": ATTACK_TYPE_STAB,
-            "archetype_id": ARCHETYPE_STAB,
+            "archetype_id": WeaponTemplateDefinitions.ARCHETYPE_STAB,
             "base_cooldown": 2.8,
             "attack_line": "high",
             "preferred_parts": ["chest"],
@@ -361,7 +361,7 @@ static func _move_definitions_build() -> Dictionary:
         {
             "name": "Slash with spearhead",
             "contact_type": ATTACK_TYPE_CUT,
-            "archetype_id": ARCHETYPE_SLASH,
+            "archetype_id": WeaponTemplateDefinitions.ARCHETYPE_SLASH,
             "base_cooldown": 2.8,
             "attack_line": "left",
             "preferred_parts": ["left_arm", "right_arm"],
@@ -373,7 +373,7 @@ static func _move_definitions_build() -> Dictionary:
         {
             "name": "Pole swing (blunt)",
             "contact_type": ATTACK_TYPE_BLUNT,
-            "archetype_id": ARCHETYPE_HEAVY_BLUNT,
+            "archetype_id": WeaponTemplateDefinitions.ARCHETYPE_HEAVY_BLUNT,
             "base_cooldown": 2.5,
             "attack_line": "left",
             "preferred_parts": ["left_arm", "right_arm", "head"],
@@ -387,7 +387,7 @@ static func _move_definitions_build() -> Dictionary:
             # thrust), low_thrust (leg/groin)
             "name": "Crossing cut (Zwerchau)",
             "contact_type": ATTACK_TYPE_CUT,
-            "archetype_id": ARCHETYPE_SLASH,
+            "archetype_id": WeaponTemplateDefinitions.ARCHETYPE_SLASH,
             "base_cooldown": 2.3,
             "attack_line": "high_left",
             "preferred_parts": ["head", "chest"],
@@ -401,7 +401,7 @@ static func _move_definitions_build() -> Dictionary:
         {
             "name": "Bind and press",
             "contact_type": ATTACK_TYPE_STAB,
-            "archetype_id": ARCHETYPE_STAB,
+            "archetype_id": WeaponTemplateDefinitions.ARCHETYPE_STAB,
             "base_cooldown": 2.1,
             "attack_line": "high",
             "preferred_parts": ["chest"],
@@ -414,7 +414,7 @@ static func _move_definitions_build() -> Dictionary:
         {
             "name": "Low thrust (Grifo)",
             "contact_type": ATTACK_TYPE_STAB,
-            "archetype_id": ARCHETYPE_STAB,
+            "archetype_id": WeaponTemplateDefinitions.ARCHETYPE_STAB,
             "base_cooldown": 2.0,
             "attack_line": "low",
             "preferred_parts": ["left_leg", "right_leg"],
@@ -429,7 +429,7 @@ static func _move_definitions_build() -> Dictionary:
             # overhead_feint, parry_thrust_axe
             "name": "Horizontal chop",
             "contact_type": ATTACK_TYPE_CUT,
-            "archetype_id": ARCHETYPE_SLASH,
+            "archetype_id": WeaponTemplateDefinitions.ARCHETYPE_SLASH,
             "base_cooldown": 2.8,
             "attack_line": "left",
             "preferred_parts": ["left_arm", "right_arm", "chest"],
@@ -441,7 +441,7 @@ static func _move_definitions_build() -> Dictionary:
         {
             "name": "Low chop",
             "contact_type": ATTACK_TYPE_CUT,
-            "archetype_id": ARCHETYPE_SLASH,
+            "archetype_id": WeaponTemplateDefinitions.ARCHETYPE_SLASH,
             "base_cooldown": 2.9,
             "attack_line": "low_left",
             "preferred_parts": ["left_leg", "right_leg"],
@@ -453,7 +453,7 @@ static func _move_definitions_build() -> Dictionary:
         {
             "name": "Reverse spike thrust",
             "contact_type": ATTACK_TYPE_STAB,
-            "archetype_id": ARCHETYPE_STAB,
+            "archetype_id": WeaponTemplateDefinitions.ARCHETYPE_STAB,
             "base_cooldown": 2.0,
             "attack_line": "high",
             "preferred_parts": ["chest"],
@@ -466,7 +466,7 @@ static func _move_definitions_build() -> Dictionary:
         {
             "name": "Feint overhead chop",
             "contact_type": ATTACK_TYPE_CUT,
-            "archetype_id": ARCHETYPE_OVERHEAD,
+            "archetype_id": WeaponTemplateDefinitions.ARCHETYPE_OVERHEAD,
             "base_cooldown": 3.2,
             "attack_line": "high",
             "preferred_parts": ["head"],
@@ -481,7 +481,7 @@ static func _move_definitions_build() -> Dictionary:
         {
             "name": "Parry and spike thrust",
             "contact_type": ATTACK_TYPE_STAB,
-            "archetype_id": ARCHETYPE_STAB,
+            "archetype_id": WeaponTemplateDefinitions.ARCHETYPE_STAB,
             "base_cooldown": 2.5,
             "is_parry": true,
             "attack_line": "high",
@@ -496,7 +496,7 @@ static func _move_definitions_build() -> Dictionary:
             # parry_thrust_mace
             "name": "Rising mace blow",
             "contact_type": ATTACK_TYPE_BLUNT,
-            "archetype_id": ARCHETYPE_HEAVY_BLUNT,
+            "archetype_id": WeaponTemplateDefinitions.ARCHETYPE_HEAVY_BLUNT,
             "base_cooldown": 3.0,
             "attack_line": "low_left",
             "preferred_parts": ["left_leg", "right_leg"],
@@ -508,7 +508,7 @@ static func _move_definitions_build() -> Dictionary:
         {
             "name": "Low mace strike",
             "contact_type": ATTACK_TYPE_BLUNT,
-            "archetype_id": ARCHETYPE_HEAVY_BLUNT,
+            "archetype_id": WeaponTemplateDefinitions.ARCHETYPE_HEAVY_BLUNT,
             "base_cooldown": 2.8,
             "attack_line": "low",
             "preferred_parts": ["left_leg", "right_leg"],
@@ -520,7 +520,7 @@ static func _move_definitions_build() -> Dictionary:
         {
             "name": "Spike thrust (armor gap)",
             "contact_type": ATTACK_TYPE_BLUNT,
-            "archetype_id": ARCHETYPE_THRUSTING_BLUNT,
+            "archetype_id": WeaponTemplateDefinitions.ARCHETYPE_THRUSTING_BLUNT,
             "base_cooldown": 2.5,
             "attack_line": "high",
             "preferred_parts": ["head", "chest"],
@@ -533,7 +533,7 @@ static func _move_definitions_build() -> Dictionary:
         {
             "name": "Feint overhead smash",
             "contact_type": ATTACK_TYPE_BLUNT,
-            "archetype_id": ARCHETYPE_OVERHEAD,
+            "archetype_id": WeaponTemplateDefinitions.ARCHETYPE_OVERHEAD,
             "base_cooldown": 3.2,
             "attack_line": "high",
             "preferred_parts": ["head"],
@@ -548,7 +548,7 @@ static func _move_definitions_build() -> Dictionary:
         {
             "name": "Parry and spike",
             "contact_type": ATTACK_TYPE_BLUNT,
-            "archetype_id": ARCHETYPE_THRUSTING_BLUNT,
+            "archetype_id": WeaponTemplateDefinitions.ARCHETYPE_THRUSTING_BLUNT,
             "base_cooldown": 2.4,
             "is_parry": true,
             "attack_line": "high",
@@ -562,7 +562,7 @@ static func _move_definitions_build() -> Dictionary:
             # DAGGER additions (Fiore expansion): reverse_thrust, grab_strike, low_thrust_dagger, feint_thrust_dagger
             "name": "Inverted grip thrust (Rovera)",
             "contact_type": ATTACK_TYPE_STAB,
-            "archetype_id": ARCHETYPE_STAB,
+            "archetype_id": WeaponTemplateDefinitions.ARCHETYPE_STAB,
             "base_cooldown": 0.8,
             "attack_line": "low",
             "preferred_parts": ["left_leg", "right_leg"],
@@ -575,7 +575,7 @@ static func _move_definitions_build() -> Dictionary:
         {
             "name": "Grapple pommel strike",
             "contact_type": ATTACK_TYPE_BLUNT,
-            "archetype_id": ARCHETYPE_POMMEL,
+            "archetype_id": WeaponTemplateDefinitions.ARCHETYPE_POMMEL,
             "base_cooldown": 0.9,
             "attack_line": "high",
             "preferred_parts": ["head"],
@@ -587,7 +587,7 @@ static func _move_definitions_build() -> Dictionary:
         {
             "name": "Low thrust (groin/legs)",
             "contact_type": ATTACK_TYPE_STAB,
-            "archetype_id": ARCHETYPE_STAB,
+            "archetype_id": WeaponTemplateDefinitions.ARCHETYPE_STAB,
             "base_cooldown": 0.75,
             "attack_line": "low",
             "preferred_parts": ["left_leg", "right_leg"],
@@ -600,7 +600,7 @@ static func _move_definitions_build() -> Dictionary:
         {
             "name": "Feint thrust",
             "contact_type": ATTACK_TYPE_STAB,
-            "archetype_id": ARCHETYPE_STAB,
+            "archetype_id": WeaponTemplateDefinitions.ARCHETYPE_STAB,
             "base_cooldown": 0.9,
             "attack_line": "high",
             "preferred_parts": ["chest"],
@@ -616,7 +616,7 @@ static func _move_definitions_build() -> Dictionary:
             # SPEAR additions (Fiore expansion): false_cut, inside_stab, shaft_thrust, low_thrust_spear
             "name": "False cut and thrust",
             "contact_type": ATTACK_TYPE_STAB,
-            "archetype_id": ARCHETYPE_STAB,
+            "archetype_id": WeaponTemplateDefinitions.ARCHETYPE_STAB,
             "base_cooldown": 2.8,
             "attack_line": "high",
             "preferred_parts": ["chest"],
@@ -632,7 +632,7 @@ static func _move_definitions_build() -> Dictionary:
         {
             "name": "Close-range stab",
             "contact_type": ATTACK_TYPE_STAB,
-            "archetype_id": ARCHETYPE_STAB,
+            "archetype_id": WeaponTemplateDefinitions.ARCHETYPE_STAB,
             "base_cooldown": 1.5,
             "attack_line": "high",
             "preferred_parts": ["chest"],
@@ -645,7 +645,7 @@ static func _move_definitions_build() -> Dictionary:
         {
             "name": "Shaft butt strike",
             "contact_type": ATTACK_TYPE_BLUNT,
-            "archetype_id": ARCHETYPE_HEAVY_BLUNT,
+            "archetype_id": WeaponTemplateDefinitions.ARCHETYPE_HEAVY_BLUNT,
             "base_cooldown": 2.0,
             "attack_line": "high",
             "preferred_parts": ["head"],
@@ -657,7 +657,7 @@ static func _move_definitions_build() -> Dictionary:
         {
             "name": "Low thrust (legs)",
             "contact_type": ATTACK_TYPE_STAB,
-            "archetype_id": ARCHETYPE_STAB,
+            "archetype_id": WeaponTemplateDefinitions.ARCHETYPE_STAB,
             "base_cooldown": 2.6,
             "attack_line": "low",
             "preferred_parts": ["left_leg", "right_leg"],
@@ -670,7 +670,7 @@ static func _move_definitions_build() -> Dictionary:
         {
             "name": "Parry and stab",
             "contact_type": ATTACK_TYPE_STAB,
-            "archetype_id": ARCHETYPE_STAB,
+            "archetype_id": WeaponTemplateDefinitions.ARCHETYPE_STAB,
             "base_cooldown": 2.7,
             "is_parry": true,
             "attack_line": "high",

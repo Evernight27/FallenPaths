@@ -1,6 +1,8 @@
 class_name CombatConstantsDepthPolearm
 extends RefCounted
 
+const Formation := preload("res://combat/constants/CombatConstantsFormation.gd")
+
 const DEPTH_POLEARM_AI_ATTEMPT_CLOSE_MULT := 0.82
 
 const DEPTH_POLEARM_AI_DOCTRINE_HOLD_NON_STAB_MULT := 1.06
@@ -55,6 +57,7 @@ const ENCOUNTER_KEY_DEPTH_POLEARM_AI_MULTS_ENEMY := "depth_polearm_ai_doctrine_m
 
 const ENCOUNTER_KEY_DEPTH_POLEARM_AI_MULTS_PLAYER := "depth_polearm_ai_doctrine_mults_player"
 
+
 static func default_depth_polearm_ai_doctrine_mults_dict() -> Dictionary:
     return {
         DEPTH_POLEARM_AI_MULT_KEY_PINCH_STAB: DEPTH_POLEARM_AI_DOCTRINE_PINCH_STAB_MULT,
@@ -64,7 +67,6 @@ static func default_depth_polearm_ai_doctrine_mults_dict() -> Dictionary:
         DEPTH_POLEARM_AI_MULT_KEY_HOLD_NON_STAB: DEPTH_POLEARM_AI_DOCTRINE_HOLD_NON_STAB_MULT,
         DEPTH_POLEARM_AI_MULT_KEY_PROBING_NON_STAB: DEPTH_POLEARM_AI_DOCTRINE_PROBING_NON_STAB_MULT,
     }
-
 
 
 static func depth_polearm_ai_doctrine_mults_for_encounter_and_preset(
@@ -77,9 +79,8 @@ static func depth_polearm_ai_doctrine_mults_for_encounter_and_preset(
         else ENCOUNTER_KEY_DEPTH_POLEARM_AI_MULTS_ENEMY
     )
     var after_enc: Dictionary = merge_depth_polearm_ai_doctrine_mults(base, encounter.get(enc_key))
-    var preset_overlay: Variant = preset.get(FORMATION_PRESET_KEY_DEPTH_POLEARM_AI_MULTS)
+    var preset_overlay: Variant = preset.get(Formation.FORMATION_PRESET_KEY_DEPTH_POLEARM_AI_MULTS)
     return merge_depth_polearm_ai_doctrine_mults(after_enc, preset_overlay)
-
 
 
 static func merge_depth_polearm_ai_doctrine_mults(base: Dictionary, overlay: Variant) -> Dictionary:

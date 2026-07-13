@@ -69,16 +69,16 @@ static func get_attacking_arm(entity: Node) -> String:
     var dominant_hand: String = entity.dominant_hand if "dominant_hand" in entity else BodyPartConstants.PART_RIGHT_ARM
     var offhand_functionality: float = entity.offhand_functionality if "offhand_functionality" in entity else 0.8
     var offhand: String = _get_offhand(entity)
-    var dom_ok: bool = not BodyPartQuery._is_arm_destroyed(entity, dominant_hand)
-    var off_ok: bool = not BodyPartQuery._is_arm_destroyed(entity, offhand)
+    var dom_ok: bool = not BodyPartQuery.is_arm_destroyed(entity, dominant_hand)
+    var off_ok: bool = not BodyPartQuery.is_arm_destroyed(entity, offhand)
     if not dom_ok and not off_ok:
         return ""
     if dom_ok and not off_ok:
         return dominant_hand
     if off_ok and not dom_ok:
         return offhand
-    var dom_eff: float = BodyPartQuery._get_arm_functionality(entity, dominant_hand) * 1.0
-    var off_eff: float = BodyPartQuery._get_arm_functionality(entity, offhand) * offhand_functionality
+    var dom_eff: float = BodyPartQuery.get_arm_functionality(entity, dominant_hand) * 1.0
+    var off_eff: float = BodyPartQuery.get_arm_functionality(entity, offhand) * offhand_functionality
     return dominant_hand if dom_eff >= off_eff else offhand
 
 
@@ -89,7 +89,7 @@ static func get_attack_damage_modifier(entity: Node) -> float:
     var dominant_hand: String = entity.dominant_hand if "dominant_hand" in entity else BodyPartConstants.PART_RIGHT_ARM
     var offhand_functionality: float = entity.offhand_functionality if "offhand_functionality" in entity else 0.8
     var base: float = 1.0 if arm == dominant_hand else offhand_functionality
-    var arm_func: float = BodyPartQuery._get_arm_functionality(entity, arm)
+    var arm_func: float = BodyPartQuery.get_arm_functionality(entity, arm)
     var arm_pain_mod: float = 1.0
     if entity.has_method("_get_effective_pain_for_region"):
         arm_pain_mod = PainConsciousnessConstants.get_pain_performance_modifier(

@@ -84,9 +84,7 @@ static func _simulate_fight(mgr: Node, max_sec: float, preset_id: String) -> voi
         if mgr.medical_phase:
             break
     D001RunnerHelpers._auto_resolve_ready_combatants(mgr, preset_id)
-    CombatF5SoakTrace.log_fight_end_summary(
-        D001RunnerHelpers._infer_soak_fight_winner(mgr), bool(mgr.medical_phase)
-    )
+    CombatF5SoakTrace.log_fight_end_summary(D001RunnerHelpers._infer_soak_fight_winner(mgr), bool(mgr.medical_phase))
     if restore_hit_summary:
         CombatConstants.clear_combat_hit_summary_override()
 
@@ -229,10 +227,7 @@ static func _ensure_ii5_cowering_fall_back_executed(mgr: Node, combatant_id: int
         return
     for _i in 80:
         mgr._process(TICK_DT)
-        if (
-            D001Ii5Ii6RunnerTests._count_needle(OperationalLog.get_captured_lines(), "cowering_fall_back executed")
-            >= 1
-        ):
+        if D001Ii5Ii6RunnerTests._count_needle(OperationalLog.get_captured_lines(), "cowering_fall_back executed") >= 1:
             return
     var c: Variant = mgr._get_by_id(combatant_id)
     if c is not Dictionary:

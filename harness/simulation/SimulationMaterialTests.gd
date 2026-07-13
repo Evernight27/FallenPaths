@@ -8,9 +8,7 @@ const GoblinSpecies := preload("res://species/goblin.tres")
 
 static func _run_sim_depth_shallow_pen_lowers_severity(failures: PackedStringArray) -> void:
     if not BleedingConstants.FEATURE_PENETRATION_DEPTH_SEVERITY:
-        SimulationCombatTests._fail(
-            failures, "sim_depth_severity: FEATURE_PENETRATION_DEPTH_SEVERITY must be on"
-        )
+        SimulationCombatTests._fail(failures, "sim_depth_severity: FEATURE_PENETRATION_DEPTH_SEVERITY must be on")
         return
     var ent: CoreEntity = SimulationCombatTests._entity_for_species(HumanSpecies)
     var part: String = "right_arm"
@@ -46,9 +44,7 @@ static func _run_sim_depth_deep_pen_raises_severity(failures: PackedStringArray)
 ## S8: blunt KE budget in soft tissue suppresses low-energy arm fracture.
 static func _run_sim_blunt_tissue_ke_reduces_fracture(failures: PackedStringArray) -> void:
     if not BleedingConstants.FEATURE_BLUNT_TISSUE_KE_GATE:
-        SimulationCombatTests._fail(
-            failures, "sim_blunt_tissue_ke: FEATURE_BLUNT_TISSUE_KE_GATE must be on"
-        )
+        SimulationCombatTests._fail(failures, "sim_blunt_tissue_ke: FEATURE_BLUNT_TISSUE_KE_GATE must be on")
         return
     var part: String = "right_arm"
     var sub: String = "elbow"
@@ -101,9 +97,7 @@ static func _run_sim_layer_stack_two_sheets_absorb_pen(failures: PackedStringArr
     CombatLayerTissue._harness_force_layer_tissue = false
     var layers_mid: Array = mid.get("layers_absorbed_mm", [])
     if layers_mid.size() < 2:
-        SimulationCombatTests._fail(
-            failures, "sim_layer_stack: want 2 soft-tissue sheets in layers_absorbed_mm"
-        )
+        SimulationCombatTests._fail(failures, "sim_layer_stack: want 2 soft-tissue sheets in layers_absorbed_mm")
     if float(mid.get("penetration_to_bone_mm", -1.0)) > 0.01:
         SimulationCombatTests._fail(
             failures,
@@ -137,17 +131,13 @@ static func _run_sim_layer_tissue_entity_path_reduces_bone(failures: PackedStrin
     var bone_off: float = float(res_off.get("final_bone", 0.0))
     var bone_on: float = float(res_on.get("final_bone", 0.0))
     if bone_off <= 0.0:
-        SimulationCombatTests._fail(
-            failures, "sim_layer_entity: off-path want bone chip at pen %.1f" % pen
-        )
+        SimulationCombatTests._fail(failures, "sim_layer_entity: off-path want bone chip at pen %.1f" % pen)
     if bone_on >= bone_off - 0.01:
         SimulationCombatTests._fail(
             failures, "sim_layer_entity: layer on bone %.2f should be < off %.2f" % [bone_on, bone_off]
         )
     if float(res_on.get("penetration_to_bone_mm", 99.0)) >= pen - 0.5:
-        SimulationCombatTests._fail(
-            failures, "sim_layer_entity: want reduced penetration_to_bone_mm in result"
-        )
+        SimulationCombatTests._fail(failures, "sim_layer_entity: want reduced penetration_to_bone_mm in result")
 
 
 ## M1: pen and KE curves monotonic; no EntityDamage mutation.
@@ -170,9 +160,7 @@ static func _run_mat_curve_monotonic_pen_and_ke(failures: PackedStringArray) -> 
             failures, "mat_curve_monotonic: blunt bone KE+8=%.2f KE+40=%.2f want increase" % [bone_lo, bone_hi]
         )
     if MaterialFailureCurves.blunt_bone_damage_from_ke(j_anchor - 1.0, part, sub) > 0.01:
-        SimulationCombatTests._fail(
-            failures, "mat_curve_monotonic: blunt bone below anchor should be 0"
-        )
+        SimulationCombatTests._fail(failures, "mat_curve_monotonic: blunt bone below anchor should be 0")
 
 
 ## M1: blunt bone curve matches MFB `j_excess_to_bone_damage` at harness anchor.
@@ -197,9 +185,7 @@ static func _run_mat_curve_matches_mfb_baseline_at_anchor(failures: PackedString
             failures, "mat_curve_mfb_anchor: KE %.0f bone %.2f vs expected %.2f" % [ke_ref, ref_bone, expected_ref]
         )
     if MaterialFailureCurves.cut_bone_damage_from_pen(1.0, part, sub) > 0.01:
-        SimulationCombatTests._fail(
-            failures, "mat_curve_mfb_anchor: cut bone below MFB pen floor should be 0"
-        )
+        SimulationCombatTests._fail(failures, "mat_curve_mfb_anchor: cut bone below MFB pen floor should be 0")
     var cut_deep: float = MaterialFailureCurves.cut_tissue_damage_from_pen(6.0, part)
     var cut_shallow: float = MaterialFailureCurves.cut_tissue_damage_from_pen(0.8, part)
     if cut_deep <= cut_shallow * 1.5:
@@ -332,9 +318,7 @@ static func _run_mat_armored_pen_reduces_curve_damage(failures: PackedStringArra
         + float(res_arm.get("final_bone", 0.0))
     )
     if bare_sum <= 0.5:
-        SimulationCombatTests._fail(
-            failures, "mat_armored_pen: bare path want damage at pen %.1f" % pen
-        )
+        SimulationCombatTests._fail(failures, "mat_armored_pen: bare path want damage at pen %.1f" % pen)
     if arm_sum > bare_sum + 0.01:
         SimulationCombatTests._fail(
             failures, "mat_armored_pen: armored total %.2f should be <= bare %.2f" % [arm_sum, bare_sum]
@@ -409,9 +393,7 @@ static func _run_mat_layer_entity_path_reduces_bone(failures: PackedStringArray)
     var bone_flat: float = float(res_flat.get("final_bone", 0.0))
     var bone_curve: float = float(res_curve.get("final_bone", 0.0))
     if bone_flat <= 0.0 and bone_curve <= 0.0:
-        SimulationCombatTests._fail(
-            failures, "mat_layer_entity: need bone chip at pen %.1f for comparison" % pen
-        )
+        SimulationCombatTests._fail(failures, "mat_layer_entity: need bone chip at pen %.1f for comparison" % pen)
     if bone_curve > bone_flat + 0.01:
         SimulationCombatTests._fail(
             failures, "mat_layer_entity: curve+layer bone %.2f should be <= flat path %.2f" % [bone_curve, bone_flat]
@@ -452,9 +434,7 @@ static func _run_mat_production_curves_flag_enabled(failures: PackedStringArray)
 ## M5 enablement PR #2: flat layer tissue production on.
 static func _run_mat_production_layer_tissue_flag_enabled(failures: PackedStringArray) -> void:
     if not BleedingConstants.FEATURE_LAYER_TISSUE:
-        SimulationCombatTests._fail(
-            failures, "mat_production: FEATURE_LAYER_TISSUE must be true (enablement PR #2)"
-        )
+        SimulationCombatTests._fail(failures, "mat_production: FEATURE_LAYER_TISSUE must be true (enablement PR #2)")
 
 
 ## M5 enablement PR #3: layer yield/rupture production on.
@@ -464,9 +444,7 @@ static func _run_mat_production_layer_curves_flag_enabled(failures: PackedString
             failures, "mat_production: FEATURE_LAYER_TISSUE_CURVES must be true (enablement PR #3)"
         )
     if not BleedingConstants.FEATURE_LAYER_TISSUE:
-        SimulationCombatTests._fail(
-            failures, "mat_production: FEATURE_LAYER_TISSUE required before layer curves"
-        )
+        SimulationCombatTests._fail(failures, "mat_production: FEATURE_LAYER_TISSUE required before layer curves")
 
 
 ## PR #3: production yield/rupture path matches explicit `force_layer_tissue_curves`.
@@ -611,13 +589,9 @@ static func _run_mat_production_joule_disable_restores_scalar_armor(failures: Pa
             failures, "mat_joule_disable: joule mech %.2f should differ from scalar %.2f on cuirass" % [mech_j, mech_s]
         )
     if float(res_j.get("armor_ke_absorbed_j", 0.0)) <= 1.0:
-        SimulationCombatTests._fail(
-            failures, "mat_joule_disable: joule path should report armor_ke_absorbed_j > 1"
-        )
+        SimulationCombatTests._fail(failures, "mat_joule_disable: joule path should report armor_ke_absorbed_j > 1")
     if float(res_s.get("armor_ke_absorbed_j", 0.0)) > 0.01:
-        SimulationCombatTests._fail(
-            failures, "mat_joule_disable: scalar path should not populate armor_ke_absorbed_j"
-        )
+        SimulationCombatTests._fail(failures, "mat_joule_disable: scalar path should not populate armor_ke_absorbed_j")
 
 
 ## S11-B: literal blood mL production flag on.
@@ -673,9 +647,7 @@ static func _run_mat_production_blood_ttd_matches_percent(failures: PackedString
     ent.apply_species()
     var max_ml: float = ent.blood_volume_ml_max
     if max_ml < 1.0:
-        SimulationCombatTests._fail(
-            failures, "mat_blood_ttd: missing blood_volume_ml_max on production entity"
-        )
+        SimulationCombatTests._fail(failures, "mat_blood_ttd: missing blood_volume_ml_max on production entity")
         return
     var buffer_ml: float = (
         max_ml
@@ -751,9 +723,7 @@ static func _run_mat_production_sim_flags_snapshot(failures: PackedStringArray) 
     ]
     for row: Array in checks:
         if not bool(row[1]):
-            SimulationCombatTests._fail(
-                failures, "mat_flags_snapshot: %s must be true in production" % String(row[0])
-            )
+            SimulationCombatTests._fail(failures, "mat_flags_snapshot: %s must be true in production" % String(row[0]))
     if BleedingConstants.FEATURE_TISSUE_DAMAGE_D:
         SimulationCombatTests._fail(
             failures, "mat_flags_snapshot: FEATURE_TISSUE_DAMAGE_D must stay false (M4 cancelled)"
@@ -791,13 +761,9 @@ static func _run_mat_production_f5_headless_proxies(failures: PackedStringArray)
         )
     if CombatConstants.FEATURE_JOULE_ARMOR_BUDGET:
         if float(chest.get("transmitted_ke_fraction", -1.0)) < 0.0:
-            SimulationCombatTests._fail(
-                failures, "mat_f5: armored chest missing joule transmitted_ke_fraction"
-            )
+            SimulationCombatTests._fail(failures, "mat_f5: armored chest missing joule transmitted_ke_fraction")
         if float(chest.get("armor_ke_absorbed_j", 0.0)) <= 1.0:
-            SimulationCombatTests._fail(
-                failures, "mat_f5: armored chest want armor_ke_absorbed_j > 1 with joule on"
-            )
+            SimulationCombatTests._fail(failures, "mat_f5: armored chest want armor_ke_absorbed_j > 1 with joule on")
     var mace: Dictionary = CombatCalibrationAudit.f5_mace_elbow_metrics()
     if float(mace.get("final_bone", 0.0)) < 0.5:
         SimulationCombatTests._fail(
@@ -864,37 +830,23 @@ static func _run_mat_production_energy_damage_within_five_pct(failures: PackedSt
     var tissue_hp: float = float(m.get("tissue_applied_hp", 0.0))
     var tissue_j: float = float(m.get("tissue_applied_j", 0.0))
     if not SimulationMaterialTests._mat_within_pct_tolerance(tissue_hp, tissue_j, 0.05):
-        SimulationCombatTests._fail(
-            failures, "mat_energy_parity: J %.2f vs HP %.2f (>5%%)" % [tissue_j, tissue_hp]
-        )
+        SimulationCombatTests._fail(failures, "mat_energy_parity: J %.2f vs HP %.2f (>5%%)" % [tissue_j, tissue_hp])
 
 
 ## M5: only M4 damage_D remains off (cancelled).
 static func _run_mat_production_deferred_flags_off(failures: PackedStringArray) -> void:
     if not BleedingConstants.FEATURE_MATERIAL_FAILURE_CURVES:
-        SimulationCombatTests._fail(
-            failures, "mat_production: FEATURE_MATERIAL_FAILURE_CURVES must be true"
-        )
+        SimulationCombatTests._fail(failures, "mat_production: FEATURE_MATERIAL_FAILURE_CURVES must be true")
     if not BleedingConstants.FEATURE_LAYER_TISSUE or not BleedingConstants.FEATURE_LAYER_TISSUE_CURVES:
-        SimulationCombatTests._fail(
-            failures, "mat_production: layer tissue + layer curves must be true"
-        )
+        SimulationCombatTests._fail(failures, "mat_production: layer tissue + layer curves must be true")
     if not BleedingConstants.FEATURE_TISSUE_ENERGY_POOL:
-        SimulationCombatTests._fail(
-            failures, "mat_production: FEATURE_TISSUE_ENERGY_POOL must be true after PR #5"
-        )
+        SimulationCombatTests._fail(failures, "mat_production: FEATURE_TISSUE_ENERGY_POOL must be true after PR #5")
     if BleedingConstants.FEATURE_TISSUE_DAMAGE_D:
-        SimulationCombatTests._fail(
-            failures, "mat_production: FEATURE_TISSUE_DAMAGE_D must be false (M4 cancelled)"
-        )
+        SimulationCombatTests._fail(failures, "mat_production: FEATURE_TISSUE_DAMAGE_D must be false (M4 cancelled)")
     if not CombatConstants.FEATURE_JOULE_ARMOR_BUDGET:
-        SimulationCombatTests._fail(
-            failures, "mat_production: FEATURE_JOULE_ARMOR_BUDGET must be true after S11-A"
-        )
+        SimulationCombatTests._fail(failures, "mat_production: FEATURE_JOULE_ARMOR_BUDGET must be true after S11-A")
     if not BleedingConstants.FEATURE_LITERAL_BLOOD_ML:
-        SimulationCombatTests._fail(
-            failures, "mat_production: FEATURE_LITERAL_BLOOD_ML must be true after S11-B"
-        )
+        SimulationCombatTests._fail(failures, "mat_production: FEATURE_LITERAL_BLOOD_ML must be true after S11-B")
 
 
 ## M5: calibration audit material sections + anchor gate (runs audit inline, not stale file).

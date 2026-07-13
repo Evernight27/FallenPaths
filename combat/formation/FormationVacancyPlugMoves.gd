@@ -125,9 +125,7 @@ static func _evaluate_best_lateral_plug_for_cell(
             continue
         if FormationVacancyDonorScoring._vacancy_lateral_is_reverse_blocked(manager, aid, nf, file, fill_rank):
             continue
-        if FormationVacancyDonorScoring._vacancy_lateral_undo_blocked_persistent(
-            manager, ally_l, nf, file, fill_rank
-        ):
+        if FormationVacancyDonorScoring._vacancy_lateral_undo_blocked_persistent(manager, ally_l, nf, file, fill_rank):
             continue
         if (
             fill_rank == 0
@@ -426,7 +424,7 @@ static func _should_compact_native_line_files(manager: Node, fid: String) -> boo
         var formation: Dictionary = FormationSlots.formation_record_for_manager(manager, fid)
         if formation.is_empty():
             return false
-        if not formation_has_rank0_hole(manager, fid):
+        if not CombatFormationVacancyPlugs.formation_has_rank0_hole(manager, fid):
             return false
         var formation_ranks: int = maxi(1, int(formation.get("ranks", 1)))
         if formation_ranks <= 1:

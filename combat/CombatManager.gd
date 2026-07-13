@@ -331,7 +331,7 @@ func start(player_formation: Dictionary = {}, enemy_formation: Dictionary = {}):
             cd.erase(CombatConstants.COMBATANT_KEY_RIPOSTE_CHAIN_TARGET_ID)
             cd.erase(CombatConstants.COMBATANT_KEY_SUSPEND_BLEED_TICK)
             CombatFlurryBind.clear(cd)
-            MedicalPhaseController._reset_fled_and_combat_absent(cd)
+            MedicalPhaseBatchResolve._reset_fled_and_combat_absent(cd)
             CombatAttention.clear_focus_and_yomi(cd)
             CombatFootwork.clear_on_exchange_end(cd)
             cd.erase(CombatConstants.COMBATANT_KEY_FORM_SWITCH_COOLDOWN_UNTIL)
@@ -525,7 +525,7 @@ func _run_interactive_medical_fast_forward_pass(max_sim_seconds: float = -1.0) -
     var break_reason: String = "sim_cap"
     while true:
         var slice: Dictionary = MedicalPhaseController.fast_forward_advance_time_slice(
-            self, sim_state, sim_cap, MedicalPhaseController.INTERACTIVE_FAST_FORWARD_FRAME_BUDGET_US
+            self, sim_state, sim_cap, MedicalPhaseBatchResolve.INTERACTIVE_FAST_FORWARD_FRAME_BUDGET_US
         )
         if not bool(slice.get("continue_loop", false)):
             break_reason = str(slice.get("break_reason", "sim_cap"))

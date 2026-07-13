@@ -593,9 +593,7 @@ static func _run_feint_move_listing_weight_mult_prefers_feint_over_plain_oberhau
     var read_m: float = FeintTempoWindupListingTests._feint_listing_read_m_expect_for_move_on_target(
         enemy, p_id, "oberhau_feint"
     )
-    var settled_m: float = (
-        FeintTempoWindupListingTests._feint_listing_defender_footwork_state_mult_for_target(enemy)
-    )
+    var settled_m: float = FeintTempoWindupListingTests._feint_listing_defender_footwork_state_mult_for_target(enemy)
     var w_plain: float = CombatAIActionPicker._get_action_weight(a_plain, p_id, mgr, true)
     var w_feint: float = CombatAIActionPicker._get_action_weight(a_feint, p_id, mgr, true)
     var want: float = w_plain * CombatConstants.AI_IS_FEINT_MOVE_LISTING_WEIGHT_MULT * read_m * settled_m
@@ -630,9 +628,7 @@ static func _run_feint_move_listing_weight_mult_prefers_feint_over_plain_thrust(
     var read_m: float = FeintTempoWindupListingTests._feint_listing_read_m_expect_for_move_on_target(
         enemy, p_id, "thrust_feint"
     )
-    var settled_m: float = (
-        FeintTempoWindupListingTests._feint_listing_defender_footwork_state_mult_for_target(enemy)
-    )
+    var settled_m: float = FeintTempoWindupListingTests._feint_listing_defender_footwork_state_mult_for_target(enemy)
     var w_plain: float = CombatAIActionPicker._get_action_weight(a_plain, p_id, mgr, true)
     var w_feint: float = CombatAIActionPicker._get_action_weight(a_feint, p_id, mgr, true)
     var want: float = w_plain * CombatConstants.AI_IS_FEINT_MOVE_LISTING_WEIGHT_MULT * read_m * settled_m
@@ -671,9 +667,7 @@ static func _run_feint_move_listing_readiness_scales_feint_weight_high_guard_vs_
     var read_m_lo: float = FeintTempoWindupListingTests._feint_listing_read_m_expect_for_move_on_target(
         enemy, p_id, "oberhau_feint"
     )
-    var settled_m_lo: float = (
-        FeintTempoWindupListingTests._feint_listing_defender_footwork_state_mult_for_target(enemy)
-    )
+    var settled_m_lo: float = FeintTempoWindupListingTests._feint_listing_defender_footwork_state_mult_for_target(enemy)
     var want_lo: float = w_plain_lo * CombatConstants.AI_IS_FEINT_MOVE_LISTING_WEIGHT_MULT * read_m_lo * settled_m_lo
     if absf(w_feint_lo - want_lo) > 0.0001 * maxf(1.0, absf(w_plain_lo)):
         CombatRegressionHarness._fail(
@@ -697,9 +691,7 @@ static func _run_feint_move_listing_readiness_scales_feint_weight_high_guard_vs_
     ):
         var readiness_check: float = PassiveParryContext.get_passive_parry_readiness(enemy)
         if readiness_check <= 0.75:
-            settled_m_hi = (
-                FeintTempoWindupListingTests._feint_listing_defender_footwork_state_mult_for_target(enemy)
-            )
+            settled_m_hi = (FeintTempoWindupListingTests._feint_listing_defender_footwork_state_mult_for_target(enemy))
     var want_hi: float = (
         w_plain_hi * CombatConstants.AI_IS_FEINT_MOVE_LISTING_WEIGHT_MULT * read_m_hi * settled_m_hi * stance_m_hi
     )
@@ -750,8 +742,8 @@ static func _run_feint_move_listing_readiness_scales_feint_weight_high_guard_vs_
     var read_m_lo_t: float = FeintTempoWindupListingTests._feint_listing_read_m_expect_for_move_on_target(
         enemy, p_id, "thrust_feint"
     )
-    var settled_m_lo_t: float = (
-        FeintTempoWindupListingTests._feint_listing_defender_footwork_state_mult_for_target(enemy)
+    var settled_m_lo_t: float = FeintTempoWindupListingTests._feint_listing_defender_footwork_state_mult_for_target(
+        enemy
     )
     var want_lo: float = (
         w_plain_lo * CombatConstants.AI_IS_FEINT_MOVE_LISTING_WEIGHT_MULT * read_m_lo_t * settled_m_lo_t
@@ -780,9 +772,9 @@ static func _run_feint_move_listing_readiness_scales_feint_weight_high_guard_vs_
     ):
         var readiness_check: float = PassiveParryContext.get_passive_parry_readiness(enemy)
         if readiness_check <= 0.75:
-            settled_m_hi_t = (
-                FeintTempoWindupListingTests._feint_listing_defender_footwork_state_mult_for_target(enemy)
-            )
+            settled_m_hi_t = (FeintTempoWindupListingTests._feint_listing_defender_footwork_state_mult_for_target(
+                enemy
+            ))
     var want_hi: float = (
         w_plain_hi * CombatConstants.AI_IS_FEINT_MOVE_LISTING_WEIGHT_MULT * read_m_hi_t * settled_m_hi_t * stance_m_hi_t
     )

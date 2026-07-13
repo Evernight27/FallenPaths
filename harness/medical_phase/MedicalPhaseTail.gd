@@ -31,9 +31,7 @@ static func run_fast_phase_halt_checks(failures: PackedStringArray) -> void:
     MedicalPhaseGateTests._run_direct_pressure_release_rebleeds_without_dressing(failures)
     MedicalFieldTreatmentTests._run_field_care_pressure_before_bandage_parity(failures)
     MedicalFieldTreatmentTests._run_field_care_pressure_before_pack_parity(failures)
-    MedicalFieldTreatmentTests._run_entity_medical_dressing_requires_compression_when_bleeding(
-        failures
-    )
+    MedicalFieldTreatmentTests._run_entity_medical_dressing_requires_compression_when_bleeding(failures)
     MedicalFieldTreatmentTests._run_failed_packing_retains_direct_pressure(failures)
     MedicalPhaseGateTests._run_dressings_blocked_without_pressure_when_bleeding(failures)
     MedicalPhaseGateTests._run_dressings_still_offered_after_failure_out_of_peril(failures)
@@ -125,9 +123,7 @@ static func run(failures: PackedStringArray) -> void:
     MedicalFieldTreatmentTests._run_direct_pressure_flow_retention_venous_vs_arterial_parity(failures)
     MedicalFieldTreatmentTests._run_field_care_pressure_before_bandage_parity(failures)
     MedicalFieldTreatmentTests._run_field_care_pressure_before_pack_parity(failures)
-    MedicalFieldTreatmentTests._run_entity_medical_dressing_requires_compression_when_bleeding(
-        failures
-    )
+    MedicalFieldTreatmentTests._run_entity_medical_dressing_requires_compression_when_bleeding(failures)
     MedicalFieldTreatmentTests._run_failed_packing_retains_direct_pressure(failures)
     MedicalFieldTreatmentTests._run_research_anchor_clotting_half_life_physics(failures)
     MedicalFieldTreatmentTests._run_medical_triage_reference_bleed_peril_parity(failures)

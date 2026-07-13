@@ -65,14 +65,14 @@ static func body_functionality_ratio(combatant: Dictionary, manager: Node = null
         return clampf(perf, 0.0, 1.0)
     var samples: PackedFloat32Array = PackedFloat32Array(
         [
-            BodyPartQuery._get_arm_functionality(node, "right_arm"),
-            BodyPartQuery._get_arm_functionality(node, "left_arm"),
+            BodyPartQuery.get_arm_functionality(node, "right_arm"),
+            BodyPartQuery.get_arm_functionality(node, "left_arm"),
             BodyPartQuery.get_leg_functionality(node),
         ]
     )
     for part in ["head", "chest"]:
         if BodyPartQuery.is_part_physically_operable(node, part):
-            samples.append(BodyPartQuery._get_bone_functionality_factor(node, part))
+            samples.append(BodyPartQuery.get_bone_functionality_factor(node, part))
         else:
             samples.append(0.0)
     if samples.is_empty():

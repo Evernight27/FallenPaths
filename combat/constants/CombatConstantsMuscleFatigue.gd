@@ -27,11 +27,11 @@ const MUSCLE_FATIGUE_WIND_UP_PERF_FLOOR: float = 0.45
 
 static var _feature_muscle_group_fatigue_load: int = -1
 
+
 static func is_feature_muscle_group_fatigue_enabled() -> bool:
     if _feature_muscle_group_fatigue_load >= 0:
         return _feature_muscle_group_fatigue_load != 0
     return FEATURE_MUSCLE_GROUP_FATIGUE
-
 
 
 static func set_feature_muscle_group_fatigue_load(enabled: bool) -> void:

@@ -123,19 +123,19 @@ static func append_research_benchmark_lines(lines: PackedStringArray) -> void:
         lines
         . append(
             (
-                "species_reference_mass human=%.1f@%.0fkg goblin=%.1f@%.0fkg human_tissue_sum=%d goblin_tissue_sum=%d v"
-                + (
-                    "erdict=%s"
-                    % [
-                        _HumanSpecies.resolved_reference_mass_kg(),
-                        _DesignAnchors.REFERENCE_ADULT_MASS_KG,
-                        _GoblinSpecies.resolved_reference_mass_kg(),
-                        GOBLIN_REFERENCE_MASS_KG,
-                        _HumanSpecies.live_tissue_sum(),
-                        _GoblinSpecies.live_tissue_sum(),
-                        "pass" if species_reference_mass_anchors_match() else "warn",
-                    ]
+                (
+                    "species_reference_mass human=%.1f@%.0fkg goblin=%.1f@%.0fkg "
+                    + "human_tissue_sum=%d goblin_tissue_sum=%d verdict=%s"
                 )
+                % [
+                    _HumanSpecies.resolved_reference_mass_kg(),
+                    _DesignAnchors.REFERENCE_ADULT_MASS_KG,
+                    _GoblinSpecies.resolved_reference_mass_kg(),
+                    GOBLIN_REFERENCE_MASS_KG,
+                    _HumanSpecies.live_tissue_sum(),
+                    _GoblinSpecies.live_tissue_sum(),
+                    "pass" if species_reference_mass_anchors_match() else "warn",
+                ]
             )
         )
     )
@@ -179,11 +179,11 @@ static func append_research_benchmark_lines(lines: PackedStringArray) -> void:
     )
     lines.append(
         (
-            "cut_bone_pen_gate_mm game_MFB=%.1f curve_graze_yield=%.1f literature_deep_laceration_reaches_cortex no"
-            + (
-                "te=abstract_RHA_mm_not_CT"
-                % [_DamageMechanism.MFB_CUT_BONE_MIN_PENETRATION_MM, _MaterialFailureCurves.CUT_TISSUE_YIELD_PEN_MM]
+            (
+                "cut_bone_pen_gate_mm game_MFB=%.1f curve_graze_yield=%.1f literature_deep_laceration_reaches_cortex no"
+                + "te=abstract_RHA_mm_not_CT"
             )
+            % [_DamageMechanism.MFB_CUT_BONE_MIN_PENETRATION_MM, _MaterialFailureCurves.CUT_TISSUE_YIELD_PEN_MM]
         )
     )
     lines.append(
@@ -252,11 +252,11 @@ static func append_research_benchmark_lines(lines: PackedStringArray) -> void:
     )
     lines.append(
         (
-            "penetration_depth_full_mm game=%.1f curve_ultimate_mm=%.1f literature_penetrating_trauma_track_depth_v"
-            + (
-                "aries verdict=pass"
-                % [_Bleeding.PENETRATION_DEPTH_SEVERITY_FULL_MM, _MaterialFailureCurves.cut_tissue_ultimate_pen_mm()]
+            (
+                "penetration_depth_full_mm game=%.1f curve_ultimate_mm=%.1f literature_penetrating_trauma_track_depth_v"
+                + "aries verdict=pass"
             )
+            % [_Bleeding.PENETRATION_DEPTH_SEVERITY_FULL_MM, _MaterialFailureCurves.cut_tissue_ultimate_pen_mm()]
         )
     )
     lines.append(
@@ -691,22 +691,22 @@ static func append_research_benchmark_lines(lines: PackedStringArray) -> void:
         lines
         . append(
             (
-                "medical_triage danger_remaining=%.0f peril=%.0f death=%.0f class_III_min=%.0f class_IV_window=%s dange"
-                + (
-                    "r_s=%.0f peril_s=%.0f reference_TTD_s=%.1f peril<TTD=%s verdict=%s"
-                    % [
-                        _Bleeding.MEDICAL_TRIAGE_DANGER_BLOOD_REMAINING,
-                        _Bleeding.MEDICAL_TRIAGE_PERIL_BLOOD_REMAINING,
-                        _Bleeding.BLOOD_LOSS_DEATH_THRESHOLD,
-                        _Bleeding.ATLS_CLASS_III_MIN_REMAINING,
-                        str(medical_triage_blood_bands_in_class_iv_window()).to_lower(),
-                        _Bleeding.MEDICAL_TRIAGE_DANGER_SECONDS,
-                        _Bleeding.MEDICAL_TRIAGE_PERIL_SECONDS,
-                        clinical_ttd_seconds(1.0),
-                        str(_Bleeding.MEDICAL_TRIAGE_PERIL_SECONDS < clinical_ttd_seconds(1.0)).to_lower(),
-                        "pass" if medical_triage_thresholds_ordered() else "warn",
-                    ]
+                (
+                    "medical_triage danger_remaining=%.0f peril=%.0f death=%.0f class_III_min=%.0f "
+                    + "class_IV_window=%s danger_s=%.0f peril_s=%.0f reference_TTD_s=%.1f peril<TTD=%s verdict=%s"
                 )
+                % [
+                    _Bleeding.MEDICAL_TRIAGE_DANGER_BLOOD_REMAINING,
+                    _Bleeding.MEDICAL_TRIAGE_PERIL_BLOOD_REMAINING,
+                    _Bleeding.BLOOD_LOSS_DEATH_THRESHOLD,
+                    _Bleeding.ATLS_CLASS_III_MIN_REMAINING,
+                    str(medical_triage_blood_bands_in_class_iv_window()).to_lower(),
+                    _Bleeding.MEDICAL_TRIAGE_DANGER_SECONDS,
+                    _Bleeding.MEDICAL_TRIAGE_PERIL_SECONDS,
+                    clinical_ttd_seconds(1.0),
+                    str(_Bleeding.MEDICAL_TRIAGE_PERIL_SECONDS < clinical_ttd_seconds(1.0)).to_lower(),
+                    "pass" if medical_triage_thresholds_ordered() else "warn",
+                ]
             )
         )
     )

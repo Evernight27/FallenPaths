@@ -302,7 +302,7 @@ static func _get_action_weight(
             # Deeper rank swapping up (relief) '"" only swap_rank is offered for this path in builder.
             if mid != CombatConstants.MOVE_ID_SWAP_RANK:
                 return CombatConstants.SWAP_RANK_AI_LOW_WEIGHT
-            if is_relief_swap_tactically_allowed(c, partner):
+            if CombatAIActionPicker.is_relief_swap_tactically_allowed(c, partner):
                 return CombatConstants.SWAP_RANK_AI_HIGH_WEIGHT
             var fid_plug: String = CombatantEntityAccess.formation_id_str(c)
             if (
@@ -315,7 +315,7 @@ static func _get_action_weight(
             ):
                 return CombatConstants.SWAP_RANK_AI_LINE_PLUG_WEIGHT
             return CombatConstants.SWAP_RANK_AI_LOW_WEIGHT
-        if not partner.is_empty() and is_disengage_swap_tactically_allowed(c, partner, manager):
+        if not partner.is_empty() and CombatAIActionPicker.is_disengage_swap_tactically_allowed(c, partner, manager):
             var mood_dm: float = CombatCampaignMoodBias.disengage_action_weight_mult(
                 CombatCampaignMoodBias.mood_bias_for_combatant(manager, c)
             )
@@ -878,13 +878,13 @@ static func _get_medical_weight(a: Dictionary, combatant_id: int, manager: Node)
     var tgt_id: int = a.get("target_id", -1)
     var part: String = a.get("target_part", "")
     if not CombatMedicalCoordination.medical_action_allowed(manager, combatant_id, tgt_id, part, mid):
-        return MedicalPhaseController.MEDICAL_AI_WEIGHT_COORDINATION_BLOCKED
+        return MedicalPhaseBatchResolve.MEDICAL_AI_WEIGHT_COORDINATION_BLOCKED
     var tgt: Dictionary = CombatantEntityAccess.manager_get_combatant(manager, tgt_id)
     var performer: Dictionary = CombatantEntityAccess.manager_get_combatant(manager, combatant_id)
     var perf_entity: Node = CombatantEntityAccess.get_entity_from_manager(manager, performer)
     var eff_raw: float = CombatantEntityAccess.get_medical_effectiveness_from_node(perf_entity)
     var eff: float = clampf(
-        eff_raw, MedicalPhaseController.MEDICAL_AI_EFF_CLAMP_MIN, MedicalPhaseController.MEDICAL_AI_EFF_CLAMP_MAX
+        eff_raw, MedicalPhaseBatchResolve.MEDICAL_AI_EFF_CLAMP_MIN, MedicalPhaseBatchResolve.MEDICAL_AI_EFF_CLAMP_MAX
     )
     var urgency: float = (
         MedicalPhaseController.get_medical_urgency_deterministic(manager, tgt) if not tgt.is_empty() else 0.0
@@ -892,19 +892,19 @@ static func _get_medical_weight(a: Dictionary, combatant_id: int, manager: Node)
     var part_threat: float = 0.0
     if not tgt.is_empty() and not part.is_empty():
         part_threat = MedicalPhaseController.get_part_intervention_threat(manager, tgt, part)
-    var w: float = 1.0 + urgency * (MedicalPhaseController.MEDICAL_URGENCY_WEIGHT_MAX - 1.0)
-    w += part_threat * MedicalPhaseController.MEDICAL_AI_PART_THREAT_MULT
+    var w: float = 1.0 + urgency * (MedicalPhaseBatchResolve.MEDICAL_URGENCY_WEIGHT_MAX - 1.0)
+    w += part_threat * MedicalPhaseBatchResolve.MEDICAL_AI_PART_THREAT_MULT
     var advanced: bool = CombatConstants.is_wind_up_medical_move(mid)
     if advanced:
-        w *= pow(eff, MedicalPhaseController.MEDICAL_AI_ADVANCED_SKILL_EXP)
+        w *= pow(eff, MedicalPhaseBatchResolve.MEDICAL_AI_ADVANCED_SKILL_EXP)
     elif mid == CombatConstants.MOVE_ID_APPLY_DIRECT_PRESSURE:
         var span: float = maxf(
-            MedicalPhaseController.MEDICAL_AI_EFF_CLAMP_MAX - MedicalPhaseController.MEDICAL_AI_EFF_CLAMP_MIN, 0.01
+            MedicalPhaseBatchResolve.MEDICAL_AI_EFF_CLAMP_MAX - MedicalPhaseBatchResolve.MEDICAL_AI_EFF_CLAMP_MIN, 0.01
         )
-        var t: float = clampf((eff - MedicalPhaseController.MEDICAL_AI_EFF_CLAMP_MIN) / span, 0.0, 1.0)
+        var t: float = clampf((eff - MedicalPhaseBatchResolve.MEDICAL_AI_EFF_CLAMP_MIN) / span, 0.0, 1.0)
         w *= lerpf(
-            MedicalPhaseController.MEDICAL_AI_PRESSURE_LOW_SKILL_MULT,
-            MedicalPhaseController.MEDICAL_AI_PRESSURE_HIGH_SKILL_MULT,
+            MedicalPhaseBatchResolve.MEDICAL_AI_PRESSURE_LOW_SKILL_MULT,
+            MedicalPhaseBatchResolve.MEDICAL_AI_PRESSURE_HIGH_SKILL_MULT,
             t
         )
     # Pending retry: only one who can help; strongly prefer retrying the failed part.
@@ -919,17 +919,17 @@ static func _get_medical_weight(a: Dictionary, combatant_id: int, manager: Node)
         and pending.get("part", "") == a.get("target_part", "")
     ):
         if not tgt.is_empty() and CombatantEntityAccess.is_in_immediate_peril(manager, tgt):
-            w *= MedicalPhaseController.MEDICAL_AI_WEIGHT_PENDING_RETRY_PERIL
+            w *= MedicalPhaseBatchResolve.MEDICAL_AI_WEIGHT_PENDING_RETRY_PERIL
         else:
-            w *= MedicalPhaseController.MEDICAL_AI_WEIGHT_PENDING_RETRY
+            w *= MedicalPhaseBatchResolve.MEDICAL_AI_WEIGHT_PENDING_RETRY
     var failed_raw: Variant = tgt.get("failed_medical_parts", null) if not tgt.is_empty() else null
     if failed_raw is Array and part in (failed_raw as Array) and CombatConstants.is_wind_up_medical_move(mid):
-        w *= MedicalPhaseController.MEDICAL_AI_WEIGHT_FAILED_PART_RETRY
+        w *= MedicalPhaseBatchResolve.MEDICAL_AI_WEIGHT_FAILED_PART_RETRY
     if not tgt.is_empty() and not CombatantEntityAccess.is_in_immediate_peril(manager, tgt):
         if mid == CombatConstants.MOVE_ID_STABILIZE_WOUND:
-            w *= MedicalPhaseController.MEDICAL_AI_WEIGHT_STABILIZE_OUT_OF_PERIL
+            w *= MedicalPhaseBatchResolve.MEDICAL_AI_WEIGHT_STABILIZE_OUT_OF_PERIL
         elif mid == CombatConstants.MOVE_ID_BANDAGE_SELF or mid == CombatConstants.MOVE_ID_PACK_WOUND:
-            w *= MedicalPhaseController.MEDICAL_AI_WEIGHT_DRESSING_OUT_OF_PERIL
+            w *= MedicalPhaseBatchResolve.MEDICAL_AI_WEIGHT_DRESSING_OUT_OF_PERIL
     if (
         not tgt.is_empty()
         and not part.is_empty()
@@ -937,9 +937,9 @@ static func _get_medical_weight(a: Dictionary, combatant_id: int, manager: Node)
         and CombatantEntityAccess.entity_is_tourniquet_indicated_for_part(manager, tgt, part)
     ):
         if mid == CombatConstants.MOVE_ID_APPLY_TOURNIQUET:
-            w *= MedicalPhaseController.MEDICAL_AI_WEIGHT_TOURNIQUET_INDICATED
+            w *= MedicalPhaseBatchResolve.MEDICAL_AI_WEIGHT_TOURNIQUET_INDICATED
         elif CombatConstants.is_dressing_medical_move(mid):
-            w *= MedicalPhaseController.MEDICAL_AI_WEIGHT_BANDAGE_BEFORE_HEMOSTASIS
+            w *= MedicalPhaseBatchResolve.MEDICAL_AI_WEIGHT_BANDAGE_BEFORE_HEMOSTASIS
     if not tgt.is_empty() and not part.is_empty():
         var bleed_r: float = CombatantEntityAccess.entity_bleeding_rate_for_part(manager, tgt, part)
         var active_bleed: bool = bleed_r > BleedingConstants.BLEEDING_RATE_EPSILON
@@ -948,15 +948,15 @@ static func _get_medical_weight(a: Dictionary, combatant_id: int, manager: Node)
             mid == CombatConstants.MOVE_ID_APPLY_DIRECT_PRESSURE
             and CombatMedicalCoordination.can_stack_assist_pressure(manager, combatant_id, tgt_id, part)
         ):
-            w *= MedicalPhaseController.MEDICAL_AI_WEIGHT_TREATMENT_ASSIST_PRESSURE
+            w *= MedicalPhaseBatchResolve.MEDICAL_AI_WEIGHT_TREATMENT_ASSIST_PRESSURE
         elif held and mid == CombatConstants.MOVE_ID_APPLY_DIRECT_PRESSURE:
-            return MedicalPhaseController.MEDICAL_AI_WEIGHT_COORDINATION_BLOCKED
+            return MedicalPhaseBatchResolve.MEDICAL_AI_WEIGHT_COORDINATION_BLOCKED
         if active_bleed and not held:
             if mid == CombatConstants.MOVE_ID_APPLY_DIRECT_PRESSURE:
-                w *= MedicalPhaseController.MEDICAL_AI_WEIGHT_PRESSURE_ACTIVE_BLEED
+                w *= MedicalPhaseBatchResolve.MEDICAL_AI_WEIGHT_PRESSURE_ACTIVE_BLEED
             elif CombatConstants.is_dressing_medical_move(mid):
                 if not MedicalPhaseController.dressings_allowed_for_part(manager, tgt, part):
                     return 0.001
                 if mid == CombatConstants.MOVE_ID_PACK_WOUND:
-                    w *= MedicalPhaseController.MEDICAL_AI_WEIGHT_PACK_BEFORE_PRESSURE
+                    w *= MedicalPhaseBatchResolve.MEDICAL_AI_WEIGHT_PACK_BEFORE_PRESSURE
     return maxf(w, 0.001)

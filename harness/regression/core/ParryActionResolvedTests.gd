@@ -1,5 +1,7 @@
 class_name ParryActionResolvedTests
 extends CombatRegressionHarnessCore
+
+
 ## **`AttackResultApplier`**: first **`action_resolved`** on **`parry_partial`** is defender, attacker, payload with
 ## **`parry_clash_context`** (nested **`_execute_attack`** may append further rows).
 static func _run_action_resolved_parry_partial_payload_includes_clash_context(failures: PackedStringArray) -> void:
@@ -265,18 +267,18 @@ static func _run_parry_partial_bind_riposte_flags_when_aligned(failures: PackedS
                 _fail(
                     failures,
                     (
-                        "parry_partial_bind %s: parry_was_bind want true got %s (keys=%s atk_angle=%.1f align_approx=%."
-                        + (
-                            "3f control=%f)"
-                            % [
-                                label,
-                                str(p.get("parry_was_bind", false)),
-                                dbg_keys,
-                                dbg_atk_angle,
-                                dbg_align,
-                                parry_control
-                            ]
+                        (
+                            "parry_partial_bind %s: parry_was_bind want true got %s "
+                            + "(keys=%s atk_angle=%.1f align_approx=%.3f control=%f)"
                         )
+                        % [
+                            label,
+                            str(p.get("parry_was_bind", false)),
+                            dbg_keys,
+                            dbg_atk_angle,
+                            dbg_align,
+                            parry_control
+                        ]
                     )
                 )
             if int(p.get("parry_against_id", -99)) != e_id:

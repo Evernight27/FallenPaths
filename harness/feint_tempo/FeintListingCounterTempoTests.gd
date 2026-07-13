@@ -771,15 +771,13 @@ static func _run_feint_move_listing_recovering_footwork_and_spacing_stack_orthog
         return
     enemy["recovery_cause"] = "attack_hit"
     CombatantEntityAccess.nested_dictionary_for_mutation(enemy, "distance_to")[p_id] = CombatConstants.DISTANCE_MID
-    var target_hit_mid: float = (
-        FeintTempoWindupListingTests
-        . _feint_listing_target_readiness_and_footwork_mult(enemy, p_id, "oberhau_feint")
+    var target_hit_mid: float = FeintTempoWindupListingTests._feint_listing_target_readiness_and_footwork_mult(
+        enemy, p_id, "oberhau_feint"
     )
     enemy["recovery_cause"] = "attack_miss"
     CombatantEntityAccess.nested_dictionary_for_mutation(enemy, "distance_to")[p_id] = CombatConstants.DISTANCE_LONG
-    var target_miss_long: float = (
-        FeintTempoWindupListingTests
-        . _feint_listing_target_readiness_and_footwork_mult(enemy, p_id, "oberhau_feint")
+    var target_miss_long: float = FeintTempoWindupListingTests._feint_listing_target_readiness_and_footwork_mult(
+        enemy, p_id, "oberhau_feint"
     )
     var got_ratio: float = (w_feint_miss_long / w_plain_miss_long) / (w_feint_hit_mid / w_plain_hit_mid)
     var want_ratio: float = target_miss_long / target_hit_mid

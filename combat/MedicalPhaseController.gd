@@ -1,5 +1,10 @@
 class_name MedicalPhaseController
 extends RefCounted
+
+const Footwork := preload("res://combat/CombatFootwork.gd")
+const FlurryBind := preload("res://combat/CombatFlurryBind.gd")
+const AIPicker := preload("res://combat/CombatAIActionPicker.gd")
+
 const _WINNER_TRIAGE_BUSY_STATES: Array[String] = [
     CombatConstants.STATE_WIND_UP,
     CombatConstants.STATE_MEDICAL_WIND_UP,
@@ -17,8 +22,6 @@ const _WINNER_TRIAGE_BUSY_STATES: Array[String] = [
 ## ->''--''''A!''--'''s''?" LIVE_PATHS **`#wf-tier-44-pa`** (clear). Does **not** change **`weapon_form`** / home guard.
 ## Manager must have: combatants (Array), medical_phase (bool), medical_phase_winner (String), get_health_entity(node)
 ## -> Node (or use CombatantEntityAccess).
-
-static var _company_state: Variant = null
 
 
 ## True once player-side victory: no new combat resolutions (medical triage only).
@@ -70,7 +73,7 @@ static func should_block_scheduled_event(manager: Node, ev: Dictionary) -> bool:
     if manager == null or not manager.medical_phase:
         return false
     var ev_type: String = ev.get("type", "")
-    if ev_type not in POST_VICTORY_BLOCKED_EVENT_TYPES:
+    if ev_type not in MedicalPhaseBatchResolve.POST_VICTORY_BLOCKED_EVENT_TYPES:
         return false
     var cid: int = int(ev.get("combatant_id", -1))
     if is_losing_side_id(manager, cid):
@@ -127,13 +130,13 @@ static func halt_losing_side_combat(manager: Node) -> void:
         if st == CombatConstants.STATE_WIND_UP:
             MedicalPhaseBatchResolve._get_counter_tempo().abort_attacker_wind_up(manager, cid)
             CombatEventScheduler.cancel_pending_recovery_end(manager, cid)
-            _Footwork.return_to_waiting(c)
+            Footwork.return_to_waiting(c)
             c.gauge = 0.0
             continue
         var pa: Dictionary = CombatantEntityAccess.nested_dictionary_read(c, "pending_attack")
         if not pa.is_empty():
             MedicalPhaseBatchResolve._get_wind_up_starter().clear_incoming_attack_telegraph_from_pa(manager, pa)
-            _Footwork.clear_on_exchange_end(c)
+            Footwork.clear_on_exchange_end(c)
             c.pending_attack = {}
         if (
             st
@@ -144,7 +147,7 @@ static func halt_losing_side_combat(manager: Node) -> void:
                 CombatConstants.STATE_MEDICAL_WIND_UP,
             ]
         ):
-            _Footwork.return_to_waiting(c)
+            Footwork.return_to_waiting(c)
             c.gauge = 0.0
         c["pending_medical"] = {}
         c.erase("formation_move_partner_id")
@@ -154,11 +157,11 @@ static func halt_losing_side_combat(manager: Node) -> void:
         c.erase("parry_bonus_until")
         MedicalPhaseBatchResolve._get_counter_tempo().clear_window(c)
         MedicalPhaseBatchResolve._get_counter_tempo().clear_riposte_chain(c)
-        _FlurryBind.clear(c)
+        FlurryBind.clear(c)
         if c.get("combat_absent", false) or CombatantEntityAccess.state_str(c) == CombatConstants.STATE_FLED:
             c["combat_absent"] = true
             c.state = CombatConstants.STATE_FLED
-            _Footwork.reconcile_idle_offset(c)
+            Footwork.reconcile_idle_offset(c)
     for c in manager.combatants:
         if not CombatantEntityAccess.is_on_side(c, winner):
             continue
@@ -258,7 +261,7 @@ static func is_in_medical_danger(manager: Node, c: Dictionary) -> bool:
     if entity == null:
         return false
     var bv: float = CombatantEntityAccess.get_blood_volume_from_node(entity)
-    if bv <= MEDICAL_DANGER_BLOOD_THRESHOLD:
+    if bv <= MedicalPhaseBatchResolve.MEDICAL_DANGER_BLOOD_THRESHOLD:
         return true
     var rate: float = CombatantEntityAccess.get_total_bleeding_rate_from_node(entity)
     if rate <= 0.0:
@@ -275,7 +278,7 @@ static func is_in_medical_danger(manager: Node, c: Dictionary) -> bool:
     var time_to_death: float = BleedingConstants.seconds_to_exsanguination_at_death_threshold(
         rate, bv, death_thresh, 1.0
     )
-    return time_to_death <= MEDICAL_DANGER_SECONDS
+    return time_to_death <= MedicalPhaseBatchResolve.MEDICAL_DANGER_SECONDS
 
 
 ## Stricter than is_in_medical_danger: about to bleed out; must self-treat first.
@@ -287,7 +290,7 @@ static func is_in_immediate_peril(manager: Node, c: Dictionary) -> bool:
     if entity == null:
         return false
     var bv: float = CombatantEntityAccess.get_blood_volume_from_node(entity)
-    if bv <= IMMEDIATE_PERIL_BLOOD_THRESHOLD:
+    if bv <= MedicalPhaseBatchResolve.IMMEDIATE_PERIL_BLOOD_THRESHOLD:
         return true
     var rate: float = CombatantEntityAccess.get_total_bleeding_rate_from_node(entity)
     if rate <= 0.0:
@@ -296,7 +299,7 @@ static func is_in_immediate_peril(manager: Node, c: Dictionary) -> bool:
     var time_to_death: float = BleedingConstants.seconds_to_exsanguination_at_death_threshold(
         rate, bv, death_thresh_im, 1.0
     )
-    return time_to_death <= IMMEDIATE_PERIL_SECONDS
+    return time_to_death <= MedicalPhaseBatchResolve.IMMEDIATE_PERIL_SECONDS
 
 
 ## True when entity has permanently left immediate peril (permanent bleeding rate low enough to recover).
@@ -320,7 +323,7 @@ static func has_left_immediate_peril_permanently(manager: Node, c: Dictionary) -
     )
     if time_to_death >= INF:
         return true
-    return time_to_death > IMMEDIATE_PERIL_SECONDS * 2.0
+    return time_to_death > MedicalPhaseBatchResolve.IMMEDIATE_PERIL_SECONDS * 2.0
 
 
 ## True while **`instant_complete_on_early_exit`** simulates elapsed triage time (player side uses AI picks).
@@ -330,8 +333,8 @@ static func has_left_immediate_peril_permanently(manager: Node, c: Dictionary) -
 static func medical_fast_forward_active(manager: Node) -> bool:
     return (
         manager != null
-        and manager.has_meta(MANAGER_META_MEDICAL_FAST_FORWARD)
-        and bool(manager.get_meta(MANAGER_META_MEDICAL_FAST_FORWARD))
+        and manager.has_meta(MedicalPhaseBatchResolve.MANAGER_META_MEDICAL_FAST_FORWARD)
+        and bool(manager.get_meta(MedicalPhaseBatchResolve.MANAGER_META_MEDICAL_FAST_FORWARD))
     )
 
 
@@ -343,7 +346,7 @@ static func resolve_player_medical_turn_during_fast_forward(manager: Node, comba
     if manager == null or combatant_id < 0:
         return
     var actions: Array = manager.get_available_actions(combatant_id)
-    _AIPicker.resolve_picked_turn_or_skip(manager, combatant_id, actions, "player")
+    AIPicker.resolve_picked_turn_or_skip(manager, combatant_id, actions, "player")
 
 
 ## Campaign contract only: finish in-progress wind-ups + best-effort dress without tick-replay.
@@ -373,7 +376,7 @@ static func instant_complete_on_early_exit(manager: Node, max_sim_seconds: float
 static func fast_forward_prepare(manager: Node, max_sim_seconds: float) -> Dictionary:
     if manager == null or not manager.medical_phase or can_end_medical_phase(manager):
         return {}
-    manager.set_meta(MANAGER_META_MEDICAL_FAST_FORWARD, true)
+    manager.set_meta(MedicalPhaseBatchResolve.MANAGER_META_MEDICAL_FAST_FORWARD, true)
     return {
         "sim_seconds": 0.0,
         "stagnant_steps": 0,
@@ -400,7 +403,7 @@ static func fast_forward_advance_chunk(
         iters_run += 1
         var total_iterations: int = sim_state.get("total_iterations", 0) + 1
         sim_state["total_iterations"] = total_iterations
-        if total_iterations > INSTANT_FAST_FORWARD_MAX_ITERATIONS:
+        if total_iterations > MedicalPhaseBatchResolve.INSTANT_FAST_FORWARD_MAX_ITERATIONS:
             return {
                 "continue_loop": false,
                 "break_reason": "iteration_cap",
@@ -448,7 +451,7 @@ static func fast_forward_advance_time_slice(
             }
         var total_iterations: int = sim_state.get("total_iterations", 0) + 1
         sim_state["total_iterations"] = total_iterations
-        if total_iterations > INSTANT_FAST_FORWARD_MAX_ITERATIONS:
+        if total_iterations > MedicalPhaseBatchResolve.INSTANT_FAST_FORWARD_MAX_ITERATIONS:
             return {
                 "continue_loop": false,
                 "break_reason": "iteration_cap",
@@ -493,7 +496,9 @@ static func get_medical_urgency(manager: Node, c: Dictionary) -> float:
         CombatantEntityAccess.get_total_bleeding_rate_from_node(entity)
     )
     var raw: float = maxf(comps.x, comps.y)
-    raw *= randf_range(MEDICAL_URGENCY_RANDOM_MIN, MEDICAL_URGENCY_RANDOM_MAX)
+    raw *= randf_range(
+        MedicalPhaseBatchResolve.MEDICAL_URGENCY_RANDOM_MIN, MedicalPhaseBatchResolve.MEDICAL_URGENCY_RANDOM_MAX
+    )
     return clampf(raw, 0.0, 1.0)
 
 
