@@ -7,7 +7,9 @@ insert_final_newline = true
 trim_trailing_whitespace = true
 
 [*.gd]
-indent_style = tab
+# Match .gdformatrc / CI (gdtoolkit use_spaces: 4). Tabs + spaces in one file
+# make Godot fail to load scripts ("Used tab character for indentation...").
+indent_style = space
 indent_size = 4
 max_line_length = 120
 trim_trailing_whitespace = true
