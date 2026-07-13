@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Playtest dispatcher (no Phase 0). Prefer this over the thin run_playtest_*.sh wrappers.
+# Playtest dispatcher (no Phase 0).
 #
 #   ./scripts/run_playtest.sh status|merge|revalidate|recover|after-append|full|exp0|rebuild [args]
 #

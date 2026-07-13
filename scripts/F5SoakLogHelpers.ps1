@@ -537,7 +537,7 @@ function Show-F5HumanCoverageHints {
 
 function Show-F5PlaytestWorkflowHints {
 	param([string]$Root, [string]$ValPath)
-	Write-Host "Next: .\scripts\run_playtest_merge_gaps.ps1 -DryRun"
+	Write-Host "Next: .\scripts\run_playtest.ps1 merge -DryRun"
 }
 
 function Get-F5HumanPasteAppendLabels {

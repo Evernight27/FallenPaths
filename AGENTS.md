@@ -15,10 +15,10 @@ Flat folders by name prefix. Production: `combat/`. Regression/soak: `harness/` 
 | `combat/` | Tactical combat (production) |
 | `harness/` | Regression, D001, F5 validators, calibration |
 | `core/` | Entity sim |
-| `world/` | Campaign |
+| `world/` | Campaign (+ `PartyManager.gd`) |
 | `ui/` | Battle + company UI |
 | `weapon/`, `armor/`, `species/` | Data |
-| Root | `main.gd`, `main.tscn`, `character.gd`, `PartyManager.gd` |
+| Root | `main.gd`, `main.tscn`, `character.gd` |
 | `scripts/` | Phase 0 / audits · [`agent_prompts/`](scripts/agent_prompts/README.md) |
 | `docs/` | Planning |
 
@@ -44,14 +44,4 @@ Streams + gates: [`agent_prompts/README.md`](scripts/agent_prompts/README.md).
 | Conflate WF / `guard_line` / doctrine / PA | [`LIVE_PATHS#wf-footing-guards-stances`](docs/LIVE_PATHS.md#wf-footing-guards-stances) |
 | New `FEATURE_*` without ask | [§9c](docs/SHIP_PLAN.md#combat-expand-registry) |
 
-Full: [`AGENTS_API#anti-patterns`](docs/AGENTS_API.md#anti-patterns) · flags: [`PLANNING#harness-and-flags`](docs/PLANNING.md#harness-and-flags)
-
-## Ownership
-
-| Stream | Paths |
-|--------|-------|
-| **Campaign** | `world/*`, `main.gd`, party/settlement/HUD UI, `CompanyState.gd` |
-| **Combat** | `combat/*`, `harness/*`, battle UI formatters |
-| **Shared** | `CampaignEncounterBridge.gd`, `CombatFlow.gd` (one agent) |
-
-Full table: [`PLANNING#file-ownership`](docs/PLANNING.md#file-ownership).
+Full: [`AGENTS_API#anti-patterns`](docs/AGENTS_API.md#anti-patterns) · ownership: [`PLANNING#file-ownership`](docs/PLANNING.md#file-ownership) · flags: [`PLANNING#harness-and-flags`](docs/PLANNING.md#harness-and-flags).
