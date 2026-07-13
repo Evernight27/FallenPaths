@@ -5,6 +5,6 @@ extends RefCounted
 
 
 static func get_value(d: Dictionary, file_index: int, default_value: Variant = null) -> Variant:
-	if d.has(file_index):
-		return d[file_index]
-	return d.get(str(file_index), default_value)
+    if d.has(file_index):
+        return d[file_index]
+    return d.get(str(file_index), default_value)

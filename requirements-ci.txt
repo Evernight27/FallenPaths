@@ -1,0 +1,2 @@
+# Pins for CI lint jobs (shellcheck is apt; this is Python-only).
+gdtoolkit==4.5.0

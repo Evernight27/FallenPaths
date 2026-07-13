@@ -3,9 +3,8 @@ extends RefCounted
 
 ## Canonical dictionary string keys used across armor, combat, entity state, and persistence.
 ## Eliminates bare-string dict key typos that silently return `.get()` defaults.
-## Read order: combatant -> entity state -> armor layer -> attack data -> action/choice -> formation/event -> persistence.
-
-const _Bp := preload("res://core/BodyPartConstants.gd")
+## Read order: combatant -> entity state -> armor layer -> attack data -> action/choice -> formation/event ->
+## persistence.
 
 # --- Combatant dict keys (combatant records on CombatManager) ---
 const COMBATANT_NODE: String = "node"
@@ -315,7 +314,7 @@ const TELEMETRY_MODE_CODE: String = "mode_code"
 const TELEMETRY_DATA: String = "telemetry"
 
 # --- Weapon template data keys (def.get() in Weapon.from_dict) ---
-const WEAPON_PARSpeed_FACTOR: String = "parry_speed_factor"
+const WEAPON_PARRY_SPEED_FACTOR: String = "parry_speed_factor"
 const WEAPON_THRUST_HEAD_WIDTH: String = "thrust_head_width"
 const WEAPON_HEAD_DIAMETER: String = "head_diameter"
 const WEAPON_EDGE_WIDTH: String = "edge_width"
@@ -533,7 +532,7 @@ const WORLD_META_RNG: String = "rng"
 const WORLD_META_ENEMY_SCENE: String = "enemy_scene"
 
 # --- Part weight resolver keys (AttackPathResolver) ---
-const PART_WEIGHTS_CHEST: String = _Bp.PART_CHEST
+const PART_WEIGHTS_CHEST: String = BodyPartConstants.PART_CHEST
 
 # --- Blunt penetration options keys ---
 const BLUNT_OPT_PEN_SHARP_MM: String = "pen_sharp_mm"

@@ -29,6 +29,9 @@ docs/__pycache__/
 .medical_phase_harness_out.txt
 .f5_camp_smokes_batch.txt
 
+# CI / local lint venv
+.ci-venv/
+
 # Phase 0 / harness scratch (transient temp files)
 scripts/.tmp_*
 .tmp_*

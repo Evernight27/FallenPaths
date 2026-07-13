@@ -1,17 +1,12 @@
 #!/usr/bin/env bash
-# Phase 0 gate (default) or partial harness when FP_HARNESS_MODE is set (regression|d001|sanity|calibration|medical).
-# Optional: --validate-f5
+# Phase 0 gate (default) or partial harness: FP_HARNESS_MODE / first arg = regression|d001|sanity|calibration|medical.
+# Optional: --validate-f5 · Env: FP_SKIP_DOC_LINKS=1 (CI when doc-links job already ran).
 set -euo pipefail
+# shellcheck source=_lib.sh
+source "$(cd "$(dirname "$0")" && pwd)/_lib.sh"
+ROOT="$(fp_root)"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-# shellcheck source=_godot.sh
-source "$SCRIPT_DIR/_godot.sh"
-# shellcheck source=f5_soak_log_helpers.sh
-source "$SCRIPT_DIR/f5_soak_log_helpers.sh"
-ROOT="$(fp_project_root)"
-GODOT_BIN="$(fp_godot_bin)" || {
-	echo "run_all_combat_checks.sh: set GODOT to your Godot 4 binary" >&2
-	exit 127
-}
+GODOT_BIN="$(fp_godot_bin)" || fp_die "set GODOT to your Godot 4 binary" 127
 
 VALIDATE_F5=0
 ARGS=()
@@ -21,214 +16,137 @@ for arg in "$@"; do
 		*) ARGS+=("$arg") ;;
 	esac
 done
-
 MODE="${FP_HARNESS_MODE:-all}"
-if [[ ${#ARGS[@]} -gt 0 ]]; then
-	MODE="${ARGS[0]}"
-fi
+[[ ${#ARGS[@]} -gt 0 ]] && MODE="${ARGS[0]}"
 
-if [[ "$MODE" != "all" ]]; then
-	case "$MODE" in
-		regression|d001|sanity|calibration|medical) ;;
-		*)
-			echo "run_all_combat_checks.sh: unknown mode '$MODE' (regression|d001|sanity|calibration|medical|all)" >&2
-			exit 2
-			;;
+run_partial() {
+	local mode="$1" log_name=".harness_out.txt" ok="FP_HARNESS_OK: CombatRegressionHarness" log backed=0
+	case "$mode" in
+		regression) ;;
+		d001) log_name=".d001_soak_out.txt"; ok="FP_HARNESS_OK: CombatD001SoakRunner" ;;
+		sanity) log_name=".d001_soak_sanity_out.txt"; ok="FP_HARNESS_OK: CombatD001SoakSanity" ;;
+		calibration) log_name=".calibration_audit.txt"; ok="FP_HARNESS_OK: CombatCalibrationAudit" ;;
+		medical) log_name=".medical_phase_harness_out.txt"; ok="FP_HARNESS_OK: MedicalPhaseHarness" ;;
+		*) fp_die "unknown mode '$mode'" 2 ;;
 	esac
-	LOG_NAME=".harness_out.txt"
-	OK_GREP="FP_HARNESS_OK: CombatRegressionHarness"
-	case "$MODE" in
-		d001) LOG_NAME=".d001_soak_out.txt"; OK_GREP="FP_HARNESS_OK: CombatD001SoakRunner" ;;
-		sanity) LOG_NAME=".d001_soak_sanity_out.txt"; OK_GREP="FP_HARNESS_OK: CombatD001SoakSanity" ;;
-		calibration) LOG_NAME=".calibration_audit.txt"; OK_GREP="FP_HARNESS_OK: CombatCalibrationAudit" ;;
-		medical) LOG_NAME=".medical_phase_harness_out.txt"; OK_GREP="FP_HARNESS_OK: MedicalPhaseHarness" ;;
-	esac
-	export FP_HARNESS_MODE="$MODE"
-	LOG="$ROOT/$LOG_NAME"
-	echo "=== FP_HARNESS_MODE=$MODE ==="
+	export FP_HARNESS_MODE="$mode"
+	log="$ROOT/$log_name"
+	echo "=== FP_HARNESS_MODE=$mode ==="
 	fp_godot_import_warmup "$ROOT" || true
-	F5_BACKED_UP=0
-	if [[ "$MODE" == "d001" ]]; then
-		f5_backup_human_paste "$ROOT" && F5_BACKED_UP=1 || true
-	fi
+	[[ "$mode" == "d001" ]] && { f5_backup_human_paste "$ROOT" && backed=1 || true; }
 	set +e
-	"$GODOT_BIN" --headless --path "$ROOT" -s res://scripts/run_all_combat_checks.gd 2>&1 | tee "$LOG"
-	EXIT_CODE=${PIPESTATUS[0]}
+	"$GODOT_BIN" --headless --path "$ROOT" -s res://scripts/run_all_combat_checks.gd 2>&1 | tee "$log"
+	local code=${PIPESTATUS[0]}
 	set -e
 	unset FP_HARNESS_MODE
-	if [[ "$F5_BACKED_UP" -eq 1 ]]; then
-		f5_restore_human_paste "$ROOT" || true
-	fi
-	if grep -q "$OK_GREP" "$LOG" 2>/dev/null; then
-		exit 0
-	fi
-	exit "$EXIT_CODE"
-fi
+	[[ "$backed" -eq 1 ]] && f5_restore_human_paste "$ROOT" || true
+	grep -q "$ok" "$log" 2>/dev/null && exit 0
+	exit "$code"
+}
+
+[[ "$MODE" != "all" ]] && run_partial "$MODE"
 
 unset FP_HARNESS_MODE 2>/dev/null || true
-SUMMARY_PATH="$ROOT/.phase0_combat_checks.txt"
-SUMMARY_TMP="$SUMMARY_PATH.tmp"
+SUMMARY="$ROOT/.phase0_combat_checks.txt"
+SUMMARY_TMP="$SUMMARY.tmp"
 : >"$SUMMARY_TMP"
-phase0_commit() {
-	mv -f "$SUMMARY_TMP" "$SUMMARY_PATH"
-}
-D001_REPORT="$ROOT/.d001_soak_out.txt"
+commit() { mv -f "$SUMMARY_TMP" "$SUMMARY"; }
+append_ok_line() { local f="$1" tag="$2"; [[ -f "$f" ]] || return; local l; l="$(grep -m1 '^ok=' "$f" || true)"; [[ -n "$l" ]] && echo "$tag: $l" >>"$SUMMARY_TMP"; }
 
-echo "=== Doc link check ==="
-if [[ -f "$ROOT/scripts/check_doc_links.sh" ]]; then
-	bash "$ROOT/scripts/check_doc_links.sh" || exit $?
-elif command -v pwsh >/dev/null 2>&1; then
-	pwsh -NoProfile -File "$ROOT/scripts/check_doc_links.ps1" || exit $?
+if [[ "${FP_SKIP_DOC_LINKS:-0}" == "1" ]]; then
+	echo "=== Doc link check (skipped; FP_SKIP_DOC_LINKS=1) ==="
 else
-	echo "DOC_LINKS: skip (no check_doc_links.sh / pwsh)"
+	echo "=== Doc link check ==="
+	bash "$SCRIPT_DIR/check_doc_links.sh" || exit $?
 fi
 echo ""
-
 echo "=== Godot import warmup ==="
 fp_godot_import_warmup "$ROOT" || true
 echo ""
 
-echo "=== CompanyStateChecks (Camp-1 + XCamp-3.x) ==="
+echo "=== CompanyStateChecks ==="
 set +e
-COMPANY_OUT="$(bash "$ROOT/scripts/run_company_state_checks.sh" 2>&1)"
+COMPANY_OUT="$(bash "$SCRIPT_DIR/run_company_state_checks.sh" 2>&1)"
 COMPANY_EXIT=$?
 set -e
 echo "$COMPANY_OUT"
 COMPANY_OK="$(echo "$COMPANY_OUT" | grep "FP_HARNESS_OK: CompanyStateChecks" | tail -1 || true)"
-if [[ $COMPANY_EXIT -ne 0 ]] || [[ -z "$COMPANY_OK" ]]; then
-	echo "COMPANY_STATE: FAIL exit=$COMPANY_EXIT" >>"$SUMMARY_TMP"
-	echo "PHASE0: FAIL (company state checks)" >>"$SUMMARY_TMP"
-	phase0_commit
-	echo ""
-	echo "=== PHASE0 FAIL (CompanyStateChecks) ==="
-	exit 1
+if [[ $COMPANY_EXIT -ne 0 || -z "$COMPANY_OK" ]]; then
+	{ echo "COMPANY_STATE: FAIL exit=$COMPANY_EXIT"; echo "PHASE0: FAIL (company state checks)"; } >>"$SUMMARY_TMP"
+	commit
+	fp_die "=== PHASE0 FAIL (CompanyStateChecks) ==="
 fi
 echo "COMPANY_STATE: PASS" >>"$SUMMARY_TMP"
-if [[ -n "$COMPANY_OK" ]]; then
-	echo "$COMPANY_OK" >>"$SUMMARY_TMP"
-fi
+echo "$COMPANY_OK" >>"$SUMMARY_TMP"
 echo ""
 
-echo "=== AllCombatChecks (regression + D-001 + calibration) ==="
-F5_BACKED_UP=0
-f5_backup_human_paste "$ROOT" && F5_BACKED_UP=1 || true
+echo "=== AllCombatChecks ==="
+BACKED=0
+f5_backup_human_paste "$ROOT" && BACKED=1 || true
 set +e
 OUT="$("$GODOT_BIN" --headless --path "$ROOT" -s res://scripts/run_all_combat_checks.gd 2>&1)"
 EXIT_CODE=$?
 set -e
-if [[ "$F5_BACKED_UP" -eq 1 ]]; then
-	f5_restore_human_paste "$ROOT" || true
-fi
+[[ "$BACKED" -eq 1 ]] && f5_restore_human_paste "$ROOT" || true
 echo "$OUT"
 echo "$OUT" | grep -E '^FP_HARNESS_(OK|SUMMARY|FAIL):' >>"$SUMMARY_TMP" || true
-if [[ $EXIT_CODE -ne 0 ]]; then
-	echo "EXIT=$EXIT_CODE" >>"$SUMMARY_TMP"
+[[ $EXIT_CODE -ne 0 ]] && echo "EXIT=$EXIT_CODE" >>"$SUMMARY_TMP"
+
+D001="$ROOT/.d001_soak_out.txt"
+SIGNOFF="$ROOT/.d001_headless_signoff.txt"
+CAL="$ROOT/.calibration_audit.txt"
+append_ok_line "$D001" D001_REPORT
+append_ok_line "$SIGNOFF" HEADLESS_SIGNOFF
+append_ok_line "$CAL" CALIBRATION_AUDIT
+if [[ -f "$CAL" ]]; then
+	line="$(grep -m1 '^production_headless_gate=' "$CAL" || true)"
+	[[ -n "$line" ]] && echo "RESEARCH: $line" >>"$SUMMARY_TMP"
+	line="$(grep -m1 '^research_verdict_summary ' "$CAL" || true)"
+	[[ -n "$line" ]] && echo "RESEARCH: $line" >>"$SUMMARY_TMP"
+	line="$(grep -m1 '^research_harness_gate_count=' "$CAL" || true)"
+	[[ -n "$line" ]] && echo "RESEARCH: $line" >>"$SUMMARY_TMP"
 fi
-if [[ -f "$D001_REPORT" ]]; then
-	OK_LINE="$(grep -m1 '^ok=' "$D001_REPORT" || true)"
-	if [[ -n "$OK_LINE" ]]; then
-		echo "D001_REPORT: $OK_LINE" >>"$SUMMARY_TMP"
-	fi
-fi
-SIGNOFF_PATH="$ROOT/.d001_headless_signoff.txt"
-if [[ -f "$SIGNOFF_PATH" ]]; then
-	SIGN_LINE="$(grep -m1 '^ok=' "$SIGNOFF_PATH" || true)"
-	if [[ -n "$SIGN_LINE" ]]; then
-		echo "HEADLESS_SIGNOFF: $SIGN_LINE" >>"$SUMMARY_TMP"
-	fi
-fi
-CAL_PATH="$ROOT/.calibration_audit.txt"
-if [[ -f "$CAL_PATH" ]]; then
-	CAL_LINE="$(grep -m1 '^ok=' "$CAL_PATH" || true)"
-	if [[ -n "$CAL_LINE" ]]; then
-		echo "CALIBRATION_AUDIT: $CAL_LINE" >>"$SUMMARY_TMP"
-	fi
-	GATE_LINE="$(grep -m1 '^production_headless_gate=' "$CAL_PATH" || true)"
-	if [[ -n "$GATE_LINE" ]]; then
-		echo "RESEARCH: $GATE_LINE" >>"$SUMMARY_TMP"
-	fi
-	SUMMARY_LINE="$(grep -m1 '^research_verdict_summary ' "$CAL_PATH" || true)"
-	if [[ -n "$SUMMARY_LINE" ]]; then
-		echo "RESEARCH: $SUMMARY_LINE" >>"$SUMMARY_TMP"
-	fi
-	GATE_COUNT="$(grep -m1 '^research_harness_gate_count=' "$CAL_PATH" || true)"
-	if [[ -n "$GATE_COUNT" ]]; then
-		echo "RESEARCH: $GATE_COUNT" >>"$SUMMARY_TMP"
-	fi
-fi
-ARTIFACT_FAIL=0
+
+artifact_ok() { [[ -f "$1" ]] && grep -q '^ok=true' "$1"; }
+FAIL=0
 if ! echo "$OUT" | grep -q "FP_HARNESS_OK: AllCombatChecks"; then
-	if [[ -f "$D001_REPORT" ]] && grep -q "^ok=true" "$D001_REPORT" \
-		&& [[ -f "$SIGNOFF_PATH" ]] && grep -q "^ok=true" "$SIGNOFF_PATH" \
-		&& [[ -f "$CAL_PATH" ]] && grep -q "^ok=true" "$CAL_PATH"; then
-		echo "FP_HARNESS_NOTE: AllCombatChecks ok via artifacts (stdout tag missing)" >>"$SUMMARY_TMP"
+	if artifact_ok "$D001" && artifact_ok "$SIGNOFF" && artifact_ok "$CAL"; then
+		echo "FP_HARNESS_NOTE: AllCombatChecks ok via artifacts" >>"$SUMMARY_TMP"
 	else
 		echo "PHASE0: FAIL missing FP_HARNESS_OK: AllCombatChecks" >>"$SUMMARY_TMP"
-		ARTIFACT_FAIL=1
+		FAIL=1
 	fi
 fi
-if [[ $EXIT_CODE -ne 0 ]] && [[ $ARTIFACT_FAIL -eq 0 ]]; then
-	echo "FP_HARNESS_NOTE: Godot exit=$EXIT_CODE ignored (artifact checks passed)" >>"$SUMMARY_TMP"
+[[ $EXIT_CODE -ne 0 && $FAIL -eq 0 ]] && echo "FP_HARNESS_NOTE: Godot exit=$EXIT_CODE ignored (artifacts ok)" >>"$SUMMARY_TMP"
+artifact_ok "$D001" || { echo "PHASE0: FAIL D001_REPORT not ok=true" >>"$SUMMARY_TMP"; FAIL=1; }
+artifact_ok "$SIGNOFF" || { echo "PHASE0: FAIL HEADLESS_SIGNOFF not ok=true" >>"$SUMMARY_TMP"; FAIL=1; }
+artifact_ok "$CAL" || { echo "PHASE0: FAIL CALIBRATION_AUDIT not ok=true" >>"$SUMMARY_TMP"; FAIL=1; }
+if [[ $FAIL -ne 0 ]]; then
+	echo "ran_at=$(date '+%Y-%m-%d %H:%M:%S')" >>"$SUMMARY_TMP"
+	commit
+	fp_die "=== PHASE0 FAIL (artifact check) ==="
 fi
-if [[ ! -f "$D001_REPORT" ]] || ! grep -q "^ok=true" "$D001_REPORT"; then
-	echo "PHASE0: FAIL D001_REPORT not ok=true" >>"$SUMMARY_TMP"
-	ARTIFACT_FAIL=1
-fi
-if [[ ! -f "$SIGNOFF_PATH" ]] || ! grep -q "^ok=true" "$SIGNOFF_PATH"; then
-	echo "PHASE0: FAIL HEADLESS_SIGNOFF not ok=true" >>"$SUMMARY_TMP"
-	ARTIFACT_FAIL=1
-fi
-if [[ ! -f "$CAL_PATH" ]] || ! grep -q "^ok=true" "$CAL_PATH"; then
-	echo "PHASE0: FAIL CALIBRATION_AUDIT not ok=true" >>"$SUMMARY_TMP"
-	ARTIFACT_FAIL=1
-fi
-if [[ $ARTIFACT_FAIL -ne 0 ]]; then
-	echo "ran_at=$(date '+%Y-%m-%d %H:%M:%s')" >>"$SUMMARY_TMP"
-	phase0_commit
-	echo ""
-	echo "=== PHASE0 FAIL (artifact check) ==="
-	exit 1
-fi
-{
-	echo "PHASE0: PASS"
-} >>"$SUMMARY_TMP"
-echo ""
-echo "=== PHASE0 PASS ==="
-echo ""
-echo "=== Campaign ship audit tail (Camp-3.4 / Camp-5 headless) ==="
+echo "PHASE0: PASS" >>"$SUMMARY_TMP"
+echo ""; echo "=== PHASE0 PASS ==="; echo ""
+
+echo "=== Campaign ship audit tail ==="
 set +e
-bash "$ROOT/scripts/run_campaign_ship_audit.sh" --tail-only
+bash "$SCRIPT_DIR/run_campaign_ship_audit.sh" --tail-only
 CAMPAIGN_EXIT=$?
 set -e
-AUDIT_PATH="$ROOT/.campaign_ship_audit.txt"
-if [[ -f "$AUDIT_PATH" ]]; then
-	while IFS= read -r line; do
-		case "$line" in
-			Q_TRACK:*|II7_MEDICAL:*|II_ENVELOP:*|II_ENVELOP_MOPUP:*|CAMPAIGN_SHIP_AUDIT:*)
-				echo "$line" >>"$SUMMARY_TMP"
-				;;
-		esac
-	done <"$AUDIT_PATH"
+AUDIT="$ROOT/.campaign_ship_audit.txt"
+if [[ -f "$AUDIT" ]]; then
+	grep -E '^(Q_TRACK|II7_MEDICAL|II_ENVELOP|II_ENVELOP_MOPUP|CAMPAIGN_SHIP_AUDIT):' "$AUDIT" >>"$SUMMARY_TMP" || true
 fi
 if [[ $CAMPAIGN_EXIT -ne 0 ]]; then
-	echo "ran_at=$(date '+%Y-%m-%d %H:%M:%s')" >>"$SUMMARY_TMP"
-	phase0_commit
-	echo ""
-	echo "=== PHASE0 FAIL (Camp-3.4 campaign ship audit) ==="
+	echo "ran_at=$(date '+%Y-%m-%d %H:%M:%S')" >>"$SUMMARY_TMP"
+	commit
 	exit "$CAMPAIGN_EXIT"
 fi
-echo "ran_at=$(date '+%Y-%m-%d %H:%M:%s')" >>"$SUMMARY_TMP"
-phase0_commit
-echo "Summary: $SUMMARY_PATH"
+echo "ran_at=$(date '+%Y-%m-%d %H:%M:%S')" >>"$SUMMARY_TMP"
+commit
+echo "Summary: $SUMMARY"
 f5_show_status_hint "$ROOT" || true
-BAK="$(f5_soak_backup_path "$ROOT")"
-F5_LOG="$(f5_soak_log_path "$ROOT")"
-if [[ -f "$BAK" && -f "$F5_LOG" ]] && [[ "$(f5_human_signoff_status "$F5_LOG")" != "READY" ]]; then
-	echo "F5 human paste backup: .f5_soak_in.f5_backup.txt (restore: ./scripts/restore_f5_soak_log.sh)"
-fi
-echo "F5 Camp status (on demand): ./scripts/run_camp_f5_closeout.sh (--human-signoff after new F5 append)"
-echo "Artifact summary: ./scripts/print_phase0_status.sh"
-if [[ $VALIDATE_F5 -eq 1 ]]; then
-	bash "$ROOT/scripts/validate_f5_soak_log.sh" || exit $?
-fi
+echo "F5: ./scripts/run_camp_f5_closeout.sh | status: ./scripts/print_phase0_status.sh"
+[[ $VALIDATE_F5 -eq 1 ]] && bash "$SCRIPT_DIR/validate_f5_soak_log.sh"
 exit 0

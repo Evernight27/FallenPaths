@@ -1,108 +1,67 @@
 #!/usr/bin/env bash
 # F5 feel checklist (no Godot). Usage: ./scripts/run_q_feel.sh Camp|Q1|Q2
 set -euo pipefail
+# shellcheck source=_lib.sh
+source "$(cd "$(dirname "$0")" && pwd)/_lib.sh"
+ROOT="$(fp_root)"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-# shellcheck source=f5_soak_log_helpers.sh
-source "$SCRIPT_DIR/f5_soak_log_helpers.sh"
 TRACK="${1:-}"
 
 case "$TRACK" in
 	Camp)
-		LOG="$ROOT/.f5_soak_in.txt"
+		LOG="$(f5_soak_log_path "$ROOT")"
 		VAL="$ROOT/.f5_soak_validation.txt"
+		[[ -f "$LOG" ]] && { bash "$SCRIPT_DIR/validate_f5_soak_log.sh" --quiet "$LOG" || true; }
+		bash "$SCRIPT_DIR/print_phase0_status.sh"
+		cat <<'EOF'
+
+=== Track Camp (SHIP_PLAN §8) ===
+1. main.tscn: dev_soak_encounter EMPTY
+2. F5 → note HUD gold / med / roster
+3. Tutorial win → settlement Continue (settlement_continue)
+4. Party field pressure then bandage
+5. Camp rest or End day (wages)
+6. Paid contract → renown pay scale
+7. Lose paid → company_run_end contract_failed; tutorial soft → tutorial_failed
+8. Wage warn / desertion at day end
+9. Party triage lines
+10. WF-M3: turn_ready_gauge Step → Grd/Atk → Form
+11. Paste Output → .f5_soak_in.txt (append_f5_soak_log.sh)
+
+EOF
 		if [[ -f "$LOG" ]]; then
-			bash "$ROOT/scripts/validate_f5_soak_log.sh" --quiet "$LOG" || true
-			if ! f5_wait_validation_report "$VAL"; then
-				echo "WARN: F5 validation report incomplete - re-run ./scripts/validate_f5_soak_log.sh"
-			fi
-		fi
-		bash "$ROOT/scripts/print_phase0_status.sh"
-		echo ""
-		echo "=== Track Camp: EA campaign F5 (SHIP_PLAN section 8) ==="
-		echo ""
-		echo "Prereq: headless GREEN above (or run ./scripts/run_all_combat_checks.sh)"
-		echo ""
-		echo "1. main.tscn Inspector: dev_soak_encounter EMPTY (campaign mode, no cyan soak tile)"
-		echo "2. F5 -> note HUD gold / med / tools / roster"
-		echo "3. Green tutorial tile -> win -> settlement -> Continue (grep settlement_continue in Output)"
-		echo "4. Untreated bleed: tutorial blocks move until first win; Party field pressure (free) then bandage (-1 med)"
-		echo "5. Camp rest (Party, all dressed): -1 med, 600s x3 heal, +1 day + wages; or End day on tile 0,0 (wages only)"
-		echo "6. Hybrid day: 5 overworld steps also tick wages if you skipped camp rest"
-		echo "7. Second paid contract -> renown scales pay"
-	echo "8. Lose PAID contract -> run-end + reload (grep company_run_end reason=contract_failed reload=true)"
-	echo "   Lose tutorial -> soft resume (grep company_run_end reason=tutorial_failed reload=false) + marker respawn"
-		echo "9. Low gold -> wage warn, low mood -> desertion risk at day end"
-		echo "10. Party menu -> triage lines match last fight"
-		echo "11. Medical-phase fight -> Stack medical / self_medical on gauge (optional feel)"
-		echo "12. WF-M3 footing: during sword fights grep turn_ready_gauge - Step -> Grd/Atk -> Form; diagram guard before form (docs/LIVE_PATHS.md#wf-m3-f5-playtest)"
-		echo "13. Optional III-4: dev_soak_encounter=ii_envelop -> validate_f5_soak_log.ps1"
-	echo "14. Paste F5 Output -> .f5_soak_in.txt (or ./scripts/append_f5_soak_log.sh) - re-run this script to scan markers"
-		echo ""
-		LOG="$ROOT/.f5_soak_in.txt"
-		if [[ -f "$LOG" ]]; then
-			echo "=== .f5_soak_in.txt (Camp section 8 markers) ==="
-			scan_marker() {
-				local label="$1" pat="$2"
-				if grep -qF "$pat" "$LOG"; then
-					echo "  [OK] $label"
-					grep -m1 -F "$pat" "$LOG" | sed 's/^/        /'
-				else
-					echo "  [--] $label (not in log yet)"
-				fi
-			}
-			scan_marker "settlement_continue (step 3)" "settlement_continue"
-			scan_marker "field_care hint (step 4)" "field_care:"
-			scan_marker "field_care bandage (step 4 action)" "field_care bandage"
-			scan_marker "company_day_advanced (step 5-6)" "company_day_advanced"
-			scan_marker "paid loss reload (step 8)" "company_run_end reason=contract_failed"
-			scan_marker "tutorial soft resume (step 8)" "company_run_end reason=tutorial_failed"
-			scan_marker "wage warn (step 9)" "company_wages: gold="
-			scan_marker "desertion (step 9)" "desertion summary="
-			scan_marker "party triage open (step 10)" "party_triage_open"
-			scan_marker "turn_ready_gauge (WF-M3 step 12)" "turn_ready_gauge"
-			scan_marker "form suffix on gauge (WF-M3)" "Form "
-			scan_marker "form_switch AI auto-switch (optional WF-M3)" "form_switch id="
-			camp_ok=0
-			for pat in settlement_continue "contract_victory pay=" company_day_advanced; do
-				grep -qF "$pat" "$LOG" && camp_ok=$((camp_ok + 1)) || true
+			echo "=== .f5_soak_in.txt markers ==="
+			for row in \
+				"settlement_continue|settlement_continue" \
+				"field_care|field_care:" \
+				"company_day|company_day_advanced" \
+				"paid loss|company_run_end reason=contract_failed" \
+				"tutorial soft|company_run_end reason=tutorial_failed" \
+				"wages|company_wages: gold=" \
+				"desertion|desertion summary=" \
+				"triage|party_triage_open" \
+				"gauge|turn_ready_gauge"
+			do
+				label="${row%%|*}"; pat="${row#*|}"
+				if grep -qF "$pat" "$LOG"; then echo "  [OK] $label"
+				else echo "  [--] $label"; fi
 			done
-			echo ""
-			echo "Camp core markers: $camp_ok / 3 (settlement + day advance for Camp §8 F5)"
-			if grep -q "turn_ready_gauge" "$LOG"; then
-				echo ""
-				echo "=== turn_ready_gauge samples (WF-M3 - check Step -> Grd/Atk -> Form) ==="
-				grep -m3 "turn_ready_gauge" "$LOG" | sed 's/^/  /'
-			fi
-			if [[ -x "$ROOT/scripts/validate_f5_soak_log.sh" ]]; then
-				echo ""
-				echo "=== WF-M3 / Camp F5 validator ==="
-				bash "$ROOT/scripts/validate_f5_soak_log.sh" "$LOG" 2>&1 | tail -n 25
-				REPORT="$ROOT/.f5_soak_validation.txt"
-				if [[ -f "$REPORT" ]]; then
-					grep -E '^\[wf_m3_|^\[camp_|^ok=|^profiles=' "$REPORT" || true
-				fi
-			fi
-			echo ""
+			[[ -f "$VAL" ]] && grep -E '^\[wf_m3_|^\[camp_|^ok=' "$VAL" || true
 		else
-			echo "[.f5_soak_in.txt] missing - paste F5 Output after playtest to auto-scan markers"
-			echo ""
+			echo "[.f5_soak_in.txt] missing — paste after playtest"
 		fi
-		echo "Sign-off: tick Camp-3.4 human + Camp-5 in docs/SHIP_PLAN.md (WF-M3 step 12 + sign-off line in LIVE_PATHS#wf-m3-f5-playtest)"
-		echo "Docs: docs/SHIP_PLAN.md#camp-playtest-acceptance"
 		;;
 	Q1)
-		echo "=== Track Q1: research_feel duel ==="
+		echo "=== Q1 research_feel ==="
 		echo "Headless: ./scripts/run_q_audit.ps1 -Track Q1"
-		echo "F5: dev_soak_encounter=ii2b, dev_research_feel=ON — see docs/LIVE_PATHS.md#track-q1--research-feel-duel"
+		echo "F5: dev_soak_encounter=ii2b, dev_research_feel=ON"
 		;;
 	Q2)
-		echo "=== Track Q2: ii2b bind / riposte / flurry feel ==="
+		echo "=== Q2 bind / riposte ==="
 		echo "Headless: ./scripts/run_q_audit.ps1 -Track Q2"
-		echo "F5: dev_soak_encounter=ii2b — grep parry_partial, parry_stats, hit_resolve reason="
+		echo "F5: dev_soak_encounter=ii2b — grep parry_partial / hit_resolve"
 		;;
 	*)
-		echo "Usage: ./scripts/run_q_feel.sh Camp|Q1|Q2"
-		exit 1
+		fp_die "Usage: $0 Camp|Q1|Q2" 1
 		;;
 esac
