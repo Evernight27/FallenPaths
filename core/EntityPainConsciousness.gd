@@ -356,7 +356,7 @@ static func try_enter_concussion_from_head_bone_damage(entity: Node, bone_damage
 	# Already concussed — extend duration proportionally.
 	var current_until: float = 0.0
 	if entity.has_method("get"):
-		current_until = float(entity.get("_concussion_until_time"))
+		current_until = float(entity.get_meta("_concussion_until_time", 0.0))
 	var _now: float = 0.0
 	if is_instance_valid(entity) and entity.is_inside_tree():
 		_now = entity.get_tree().get_physics_process_delta_time()
@@ -365,7 +365,7 @@ static func try_enter_concussion_from_head_bone_damage(entity: Node, bone_damage
 	if current_until > current_time and bone_damage_ratio <= CONCUSSION_BONE_THRESHOLD_MAX * 0.5:
 		# Mild re-impact during existing concussion — small extension.
 		var ext: float = lerp(CONCUSSION_DURATION_MIN_S, CONCUSSION_DURATION_MIN_S * 2.0, bone_damage_ratio / CONCUSSION_BONE_THRESHOLD_MAX)
-		entity._concussion_until_time = current_time + ext
+		entity.set_meta("_concussion_until_time", current_time + ext)
 		return
 	# Calculate concussion severity and duration.
 	var severity: float = (bone_damage_ratio - CONCUSSION_BONE_THRESHOLD_MIN) / (CONCUSSION_BONE_THRESHOLD_MAX - CONCUSSION_BONE_THRESHOLD_MIN)
@@ -375,7 +375,7 @@ static func try_enter_concussion_from_head_bone_damage(entity: Node, bone_damage
 	var weighted_severity: float = severity * (1.0 - CONCUSSION_DAMAGE_RATIO_FACTOR) + entity_damage_ratio * CONCUSSION_DAMAGE_RATIO_FACTOR
 	# Duration scales with severity.
 	var duration_s: float = lerp(CONCUSSION_DURATION_MIN_S, CONCUSSION_DURATION_MAX_S, weighted_severity)
-	entity._concussion_until_time = current_time + duration_s
+	entity.set_meta("_concussion_until_time", current_time + duration_s)
 
 
 static func is_concussed(entity: Node) -> bool:
@@ -384,7 +384,7 @@ static func is_concussed(entity: Node) -> bool:
 	var curr: float = _get_current_simulation_time(entity)
 	var until: float = 0.0
 	if entity.has_method("get"):
-		until = float(entity.get("_concussion_until_time"))
+		until = float(entity.get_meta("_concussion_until_time", 0.0))
 	return until > curr
 
 

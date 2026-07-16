@@ -55,7 +55,7 @@ static func get_passive_parry_readiness(c: Dictionary) -> float:
     var overcommit_mult: Variant = c.get(DataKeys.PA_OVERCOMMIT_PARRY_MULT, null)
     if overcommit_mult != null and float(overcommit_mult) < 1.0:
         base *= float(overcommit_mult)
-    return base * CombatConstants.armor_burden_passive_readiness_mult(c)
+    return base * CombatConstants.PASSIVE_PARRY_READINESS_BASELINE_MULT * CombatConstants.armor_burden_passive_readiness_mult(c)
 
 
 ## True if combatant is still in "off balance" window (after miss or parry deflect).

@@ -11,14 +11,39 @@ const _Bleeding := preload("res://core/BleedingConstants.gd")
 const _WeaponDamageHelper := preload("res://resources/weapons/WeaponDamageHelper.gd")
 
 const _SWING_MOVE_IDS: Array[String] = [
-    "oberhau",
+    "bind_press",
     "diagonal_chop",
-    "slash",
-    "side_strike",
+    "dagger_pommel",
+    "direct_blow",
+    "false_cut",
+    "feint_overhead_mace",
+    "grab_strike",
+    "horizontal_chop",
+    "krumphau",
+    "low_chop",
+    "low_strike",
+    "oberhau",
+    "oberhau_feint",
     "overhead_chop",
+    "overhead_feint",
     "overhead_strike",
+    "parry_chop",
+    "parry_cut",
+    "parry_strike",
+    "pommel_strike",
     "pole_swing",
     "poll_strike",
+    "quick_slash",
+    "scheitelhau",
+    "schielhau",
+    "side_strike",
+    "slash",
+    "spear_slash",
+    "thrusting_blow",
+    "unterhau",
+    "upcut_mace",
+    "zornhau",
+    "zwerchau",
 ]
 
 static var _bbcode_strip_re: RegEx
@@ -460,7 +485,8 @@ static func format_cycle_hema_summary(
         var deflect_n: int = int(outcome_counts.get("parry_deflect", 0))
         var bind_n: int = int(outcome_counts.get("parry_bind", 0))
         var partial_n: int = int(outcome_counts.get("parry_partial", 0))
-        var parry_n: int = deflect_n + bind_n + partial_n
+        # parry_bind is a subset of parry_deflect/parry_partial — do NOT double-count in totals.
+        var total_parry_count: int = deflect_n + partial_n
         (
             lines
             . push_back(
@@ -468,23 +494,23 @@ static func format_cycle_hema_summary(
                     "  rates: hit=%.1f%% parry=%.1f%% dodge=%.1f%% miss=%.1f%%"
                     % [
                         float(hit_n) / float(total_exchanges) * 100.0,
-                        float(parry_n) / float(total_exchanges) * 100.0,
+                        float(total_parry_count) / float(total_exchanges) * 100.0,
                         float(outcome_counts.get("dodge", 0)) / float(total_exchanges) * 100.0,
                         float(outcome_counts.get("miss", 0)) / float(total_exchanges) * 100.0,
                     ]
                 )
             )
         )
-        if parry_n > 0:
+        if total_parry_count > 0:
             (
                 lines
                 . push_back(
                     (
                         "  parry_rates: deflect=%.1f%% bind=%.1f%% partial=%.1f%%"
                         % [
-                            float(deflect_n) / float(parry_n) * 100.0,
-                            float(bind_n) / float(parry_n) * 100.0,
-                            float(partial_n) / float(parry_n) * 100.0,
+                            float(deflect_n) / float(total_parry_count) * 100.0,
+                            float(bind_n) / float(total_parry_count) * 100.0,
+                            float(partial_n) / float(total_parry_count) * 100.0,
                         ]
                     )
                 )

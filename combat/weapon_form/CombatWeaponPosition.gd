@@ -31,7 +31,7 @@ static func is_weapon_near_body(combatant: Dictionary) -> bool:
         var cause: String = CombatConstants.normalize_recovery_cause(combatant.get(DataKeys.ATTACK_RECOVERY_CAUSE, ""))
         if cause == "attack_deflect":
             return true
-        var last_move: String = str(combatant.get(DataKeys.PA_LAST_MOVE_ID, "")).strip_edges()
+        var last_move: String = str(combatant.get(DataKeys.PA_LAST_MOVE_ID, combatant.get(DataKeys.ATTACK_LAST_MOVE_ID, ""))).strip_edges()
         if last_move.is_empty():
             return true
         return false

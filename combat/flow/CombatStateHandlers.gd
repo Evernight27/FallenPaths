@@ -127,7 +127,7 @@ static func complete_recovery(manager: Node, c: Dictionary) -> void:
     c.gauge = 0.0
     c.state_timer = 0.0
     c.state_duration = 0.0
-    var move_id: String = c.get(DataKeys.PA_LAST_MOVE_ID, "")
+    var move_id: String = c.get(DataKeys.PA_LAST_MOVE_ID, c.get(DataKeys.ATTACK_LAST_MOVE_ID, ""))
     if move_id.is_empty():
         move_id = str(
             CombatantEntityAccess.nested_dictionary_read(c, "pending_attack").get(

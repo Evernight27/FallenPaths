@@ -125,7 +125,7 @@ static func _hit_tuning_extras(
     var extras: Dictionary = {
         "intensity": intensity,
         "recovery_s": recovery_duration,
-        "move_id": atk.get(DataKeys.PA_LAST_MOVE_ID, "") if not atk.is_empty() else "",
+        "move_id": atk.get(DataKeys.PA_LAST_MOVE_ID, atk.get(DataKeys.ATTACK_LAST_MOVE_ID, "")) if not atk.is_empty() else "",
         "attack_line": atk.get(DataKeys.ATTACK_EFFECTIVE_ATTACK_LINE, "") if not atk.is_empty() else "",
     }
     extras.merge(ft_extras)
@@ -154,7 +154,7 @@ static func _enrich_payload_for_tuning(
             payload["gauge_def_pre"] = float(pa.get(DataKeys.RESOLVE_GAUGE_DEF_PRE, -1.0))
     if not atk.is_empty():
         if str(payload.get(DataKeys.ACTION_MOVE_ID, "")).is_empty():
-            payload[DataKeys.RESULT_MOVE_ID] = str(atk.get(DataKeys.PA_LAST_MOVE_ID, ""))
+            payload[DataKeys.RESULT_MOVE_ID] = str(atk.get(DataKeys.PA_LAST_MOVE_ID, atk.get(DataKeys.ATTACK_LAST_MOVE_ID, "")))
         payload["atk_guard"] = str(atk.get(DataKeys.ATTACK_GUARD_LINE, ""))
         payload["atk_form"] = str(atk.get(DataKeys.PA_WEAPON_FORM, atk.get(DataKeys.COMBATANT_FORM_STR, "")))
         if CombatantEntityAccess.has_weapon(atk):
@@ -261,6 +261,7 @@ static func apply_result(manager: Node, attacker_id: int, result: Dictionary) ->
                 manager.emit_signal("action_resolved", attacker_id, target_id, empty_result)
                 var pa_skip: Dictionary = _pending_attack_read(atk)
                 atk[DataKeys.ATTACK_LAST_MOVE_ID] = pa_skip.get(CombatConstants.PA_KEY_ATTACK_TYPE, "")
+                atk[DataKeys.PA_LAST_MOVE_ID] = atk[DataKeys.ATTACK_LAST_MOVE_ID]
                 atk[DataKeys.ATTACK_EFFECTIVE_ATTACK_LINE] = pa_skip.get(CombatConstants.PA_KEY_EFFECTIVE_ATTACK_LINE, "")
                 atk[DataKeys.ATTACK_RECOVERY_CAUSE] = "skip"
                 _consume_stamina(manager, atk, _stamina_attack_cost_for_attacker(manager, atk, target_id))
@@ -317,6 +318,7 @@ static func apply_result(manager: Node, attacker_id: int, result: Dictionary) ->
         if not atk.is_empty():
             var pa_miss: Dictionary = _pending_attack_read(atk)
             atk[DataKeys.ATTACK_LAST_MOVE_ID] = pa_miss.get(CombatConstants.PA_KEY_ATTACK_TYPE, "")
+            atk[DataKeys.PA_LAST_MOVE_ID] = atk[DataKeys.ATTACK_LAST_MOVE_ID]
             atk[DataKeys.ATTACK_EFFECTIVE_ATTACK_LINE] = pa_miss.get(CombatConstants.PA_KEY_EFFECTIVE_ATTACK_LINE, "")
             atk[DataKeys.ATTACK_RECOVERY_CAUSE] = "attack_miss"
             _consume_stamina(manager, atk, _stamina_attack_cost_for_attacker(manager, atk, target_id))
@@ -348,6 +350,7 @@ static func apply_result(manager: Node, attacker_id: int, result: Dictionary) ->
         if not atk.is_empty():
             var pa_dodge_atk: Dictionary = _pending_attack_read(atk)
             atk[DataKeys.ATTACK_LAST_MOVE_ID] = pa_dodge_atk.get(CombatConstants.PA_KEY_ATTACK_TYPE, "")
+            atk[DataKeys.PA_LAST_MOVE_ID] = atk[DataKeys.ATTACK_LAST_MOVE_ID]
             atk[DataKeys.ATTACK_EFFECTIVE_ATTACK_LINE] = pa_dodge_atk.get(CombatConstants.PA_KEY_EFFECTIVE_ATTACK_LINE, "")
             atk[DataKeys.ATTACK_RECOVERY_CAUSE] = "attack_miss"
             _consume_stamina(manager, atk, _stamina_attack_cost_for_attacker(manager, atk, target_id))
@@ -389,6 +392,7 @@ static func apply_result(manager: Node, attacker_id: int, result: Dictionary) ->
                 pa_deflect.get(CombatConstants.PA_KEY_INTENSITY, CombatConstants.PA_DEFAULT_INTENSITY)
             )
             atk[DataKeys.ATTACK_LAST_MOVE_ID] = pa_deflect.get(CombatConstants.PA_KEY_ATTACK_TYPE, "")
+            atk[DataKeys.PA_LAST_MOVE_ID] = atk[DataKeys.ATTACK_LAST_MOVE_ID]
             atk[DataKeys.ATTACK_EFFECTIVE_ATTACK_LINE] = pa_deflect.get(CombatConstants.PA_KEY_EFFECTIVE_ATTACK_LINE, "")
             # HEMA: store defender's guard and parry_clash_context for bind vs deflect.
             if not tgt.is_empty():
@@ -410,7 +414,7 @@ static func apply_result(manager: Node, attacker_id: int, result: Dictionary) ->
             _consume_stamina(manager, tgt, _stamina_parry_cost_for_defender(atk, incoming_parry_intensity))
             # Weapon position: defender's blade met attacker's; blade ends in attack line.
             # Use effective_attack_line for diagonal moves (actual contact line).
-            var move_id: String = atk.get(DataKeys.PA_LAST_MOVE_ID, "") if not atk.is_empty() else ""
+            var move_id: String = atk.get(DataKeys.PA_LAST_MOVE_ID, atk.get(DataKeys.ATTACK_LAST_MOVE_ID, "")) if not atk.is_empty() else ""
             var eff_line: String = atk.get(DataKeys.ATTACK_EFFECTIVE_ATTACK_LINE, "") if not atk.is_empty() else ""
             GuardLineUpdater.set_guard_from_move(tgt, move_id, eff_line)
             tgt[DataKeys.PA_PARRY_BONUS_UNTIL] = CombatTiming.now_seconds() + CombatConstants.PARRY_BONUS_AFTER_DEFLECT_S
