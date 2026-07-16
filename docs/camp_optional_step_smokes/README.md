@@ -2,19 +2,17 @@
 
 Per-step **`FP_WORLD` / `FP_COMBAT`** chunks for **`CombatF5SoakLogValidator`** optional `[camp_*]` tracks. Not one real F5 session — use to re-check needles after validator or log-shape changes.
 
-Or bundle all optional tracks: **`docs/f5_soak_log.camp_full.example.txt`**. Step 8–9 append only: **`docs/f5_soak_log.camp_step9_optional.example.txt`** + `preflight_f5_followup.ps1 -Step9Only` + `append_f5_soak_log.ps1 -Label camp5_step9`.
+Or bundle all optional tracks: **`docs/f5_soak_log.camp_full.example.txt`**. Step 8–9 append only: **`docs/f5_soak_log.camp_step9_optional.example.txt`** + `./tools/ci/run_playtest.sh preflight step9.log --step9-only` + `./tools/ci/run_playtest.sh append step9.log --label camp5_step9`.
 
 Batch headless regression (all per-step smokes):
 
-```powershell
-.\scripts\validate_camp_optional_smokes.ps1
-```
-
 ```bash
-./scripts/validate_camp_optional_smokes.sh
+./tools/ci/run_playtest.sh exp0
 ```
 
-Validator normalizes Windows CRLF (`CombatF5SoakLogValidator._decode_f5_log_text`) — refresh backup after merge: `Copy-Item .f5_soak_in.txt .f5_soak_in.f5_backup.txt`.
+(Windows: `.\tools\ci\run_playtest.ps1 exp0`. Standalone: `validate_camp_optional_smokes.sh` / `.ps1`.)
+
+Validator normalizes Windows CRLF (`CombatF5SoakLogValidator._decode_f5_log_text`) — refresh backup after merge: `cp .f5_soak_in.txt .f5_soak_in.f5_backup.txt`.
 
 | File | Validator track |
 |------|-----------------|
@@ -27,4 +25,4 @@ Validator normalizes Windows CRLF (`CombatF5SoakLogValidator._decode_f5_log_text
 | `step10_party_triage.txt` | `camp_party_triage` |
 | `medical_exit.txt` | `camp_medical_exit` |
 
-Human minimum paste: repo-root **`followup.log`** (gitignored) → `.f5_soak_in.txt` · `run_camp_f5_closeout.ps1 -HumanSignOff`.
+Human minimum paste: repo-root **`followup.log`** (gitignored) → `.f5_soak_in.txt` · `./tools/ci/run_playtest.sh closeout --human-signoff`.

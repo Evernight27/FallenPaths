@@ -1,8 +1,8 @@
 class_name AttentionFootworkFocusLineFootworkPickerTests
 extends CombatRegressionHarnessCore
-const FormationRout := preload("res://combat/CombatFormationRout.gd")
-const Exhaustion := preload("res://combat/CombatExhaustion.gd")
-const WeaponForm := preload("res://combat/CombatWeaponForm.gd")
+const FormationRout := preload("res://combat/formation/CombatFormationRout.gd")
+const Exhaustion := preload("res://combat/flow/CombatExhaustion.gd")
+const WeaponForm := preload("res://combat/weapon_form/CombatWeaponForm.gd")
 
 ## Tier 4.2 - 4.4 attention / mental stack / footwork / battle UI hint tests (compile split).
 ## Footing harness: **`_run_footwork_*`** (Tier 4.4 PA) . **`_run_focus_line_*`** / **`_run_guard_*`** (L3 guard) .

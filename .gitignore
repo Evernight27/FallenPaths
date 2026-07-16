@@ -15,8 +15,8 @@ __pycache__/
 docs/__pycache__/
 *.py[cod]
 
-# Local harness / playtest artifacts (repo root only; see scripts/README.md)
-# Artifact patterns match scripts/README.md inventory
+# Local harness / playtest artifacts (repo root only; see tools/ci/README.md)
+# Artifact patterns match tools/ci/README.md inventory
 # Phase 0 gate outputs
 .harness_*.txt
 .phase0_*
@@ -33,7 +33,7 @@ docs/__pycache__/
 .ci-venv/
 
 # Phase 0 / harness scratch (transient temp files)
-scripts/.tmp_*
+tools/ci/.tmp_*
 .tmp_*
 phase0_raw_output*.txt
 phase0_baseline.txt
@@ -71,8 +71,8 @@ tmp_*
 # opencode AI tool config
 .opencode/
 
-# Godot 4 resource UID files (auto-generated; rebuildable)
-*.uid
+# Godot 4 resource UID files — track when generated (editor / headless import).
+# Keep ignored only for locally-broken orphan UIDs if needed; prefer committing.
 
 # Stale orphaned .import files (cleanup; regenerated on editor open)
 *.import-*

@@ -10,4 +10,4 @@ excluded_directories:
   - .git
   - .godot
   - .ci-venv
-  - combat_tuning
+  - tools/combat_tuning

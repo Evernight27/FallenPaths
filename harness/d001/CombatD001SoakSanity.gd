@@ -4,6 +4,8 @@ extends RefCounted
 ## Called from **`CombatD001SoakRunner._evaluate`**, **`run_all_combat_checks.gd`** (`FP_HARNESS_MODE=sanity` .
 ## `d001_presets`).
 
+const BattleScene := preload("res://ui/battle/BattleScene.gd")
+
 const II6_PROBE_CUT: float = 22.0
 const II6_PROBE_BLUNT: float = 22.0
 const II6_PROBE_BV_PCT: float = 58.0

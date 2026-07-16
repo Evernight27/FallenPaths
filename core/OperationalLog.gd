@@ -39,7 +39,7 @@ static func is_play_session_active() -> bool:
     return _play_session_active
 
 
-## Editor F5 (`main.tscn`)  -  excludes headless D-001 capture sessions (`headless://...`).
+## Editor F5 (`scenes/campaign/main.tscn`)  -  excludes headless D-001 capture sessions (`headless://...`).
 static func play_session_is_editor_f5() -> bool:
     return _play_session_active and not _play_session_scene.begins_with("headless://")
 
@@ -131,7 +131,7 @@ static func play_world(message: String) -> void:
         CombatF5SoakTrace.ingest_world_trace_line(body)
 
 
-## Call from `main.gd` when running under the editor (F5). Enables turn-pick flow logs; all lines go to Output for
+## Call from `scenes/campaign/main.gd` when running under the editor (F5). Enables turn-pick flow logs; all lines go to Output for
 ## copy-paste.
 static func begin_play_session(
     main_scene: String = CombatConstants.PATH_MAIN_SCENE,
@@ -517,7 +517,7 @@ static func write_f5_soak_capture(combat_lines: PackedStringArray) -> void:
     out.append(
         (
             (
-                "%s: headless d001 capture (auto from CombatD001SoakRunner  -  validate with scripts/validate_f5_soak_l"
+                "%s: headless d001 capture (auto from CombatD001SoakRunner  -  validate with tools/ci/validate_f5_soak_l"
                 + "og.ps1)"
             )
             % TAG_SESSION_BEGIN

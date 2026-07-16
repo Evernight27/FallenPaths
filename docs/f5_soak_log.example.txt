@@ -1,4 +1,4 @@
-# Minimal F5 paste sample for scripts/validate_f5_soak_log.ps1 smoke (not a real fight log).
+# Minimal F5 paste sample for ./tools/ci/run_playtest.sh validate smoke (not a real fight log).
 FP_COMBAT: soak_fight_enter tile=red 7v7
 FP_COMBAT: encounter_context kind=tutorial map_bleed_mult=0.25 title=Training Drills
 FP_COMBAT: hit_resolve Leader->Goblin chest outcome=glancing phys=1.240 dmg_int=1 reason=glancing — tissue 1.24 below 0.31 threshold (not counted as HP loss)
@@ -21,8 +21,8 @@ FP_COMBAT: parry_stats deflect=2 bind=1 partial=4 riposte=0 counter_tempo=1 flur
 FP_COMBAT: hit_outcome_stats hit=3 glancing=2 negligible=5 deflected=1 other=0 resolve=11 avoided_miss=2 avoided_dodge=1
 # When turn_ready>=12 and no hits: hit_coverage_hint hit_resolve=0 turn_ready=N strike_avoided=M
 FP_COMBAT: soak_fight_end winner=player medical_phase=true turn_ready=4 tooltip_ok=1 tooltip_counter=1 diagram_banner=2 hit_resolve=11
-FP_COMBAT: soak_validate_hint copy Output to .f5_soak_in.txt then run scripts/validate_f5_soak_log.ps1
-# Optional (main.tscn dev_research_feel=true, or COMBAT_DEV_VERBOSE in CombatConstants.gd):
+FP_COMBAT: soak_validate_hint copy Output to .f5_soak_in.txt then run ./tools/ci/run_playtest.sh validate
+# Optional (scenes/campaign/main.tscn dev_research_feel=true, or COMBAT_DEV_VERBOSE in CombatConstants.gd):
 FP_COMBAT: research_feel part=right_arm sub=forearm cut=7.9 blunt=0.0 bone=0.0 pen_mm=0.50 ke_frac=1.00
 FP_COMBAT: research_feel part=chest sub=thoracic cut=4.2 blunt=0.0 bone=0.0 pen_mm=1.60 ke_frac=0.81
 FP_COMBAT: research_validate_hint 2 research_feel lines — compare to docs/LIVE_PATHS.md#f5-optional-crosswalk-feel-vs-headless

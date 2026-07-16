@@ -6,7 +6,7 @@ extends CombatRegressionHarnessCore
 
 ## Tier 5.1 (optional long-tail): **`strike_physics_ctx`** depth-polearm open-lane stab raises **`strike_ke_j`**.
 ## Cut **`attack_type`** / **`over_shoulder`** lane do not.
-const HumanSpecies := preload("res://species/human.tres")
+const HumanSpecies := preload("res://resources/species/human.tres")
 
 
 static func _run_kinematic_delivery_depth_polearm_thrust_ctx_scales_strike_ke(failures: PackedStringArray) -> void:

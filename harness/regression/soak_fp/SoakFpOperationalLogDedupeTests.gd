@@ -316,9 +316,9 @@ static func _run_editor_f5_skips_verbose_phase_end(failures: PackedStringArray) 
     F5SoakTrace.prepare_fight_end_log()
     OperationalLog.set_capture_enabled(true)
     OperationalLog.clear_capture()
-    OperationalLog.begin_play_session(CombatConstantsMisc.PATH_MAIN_SCENE, "", false, true)
+    OperationalLog.begin_play_session("res://scenes/campaign/main.tscn", "", false, true)
     if not OperationalLog.play_session_is_editor_f5():
-        _fail(failures, "editor_f5_detect: main.tscn session should be editor F5")
+        _fail(failures, "editor_f5_detect: scenes/campaign/main.tscn session should be editor F5")
     # Mirror CombatManager.finish_battle gate (editor F5 uses soak_fight_end, not phase_end).
     if not OperationalLog.play_session_is_editor_f5():
         CombatDebug.combat_session(phase_stub)
@@ -462,7 +462,7 @@ static func _run_windup_pending_attack_pair_geometry(failures: PackedStringArray
     if pa0.is_empty():
         _fail(failures, "windup_geom: empty pending_attack (rank0)")
     else:
-        if not pa0.has("effective_pair_file_spacing_equivalent") or not pa0.has(DataKeys.PA_EFFECTIVE_PAIR_EFF_DIST):
+        if not pa0.has("effective_pair_file_spacing_equivalent") or not pa0.has("effective_pair_eff_dist"):
             _fail(failures, "windup_geom: rank0 missing spacing keys")
         var p0: Dictionary = mgr.combatants[0]
         var e0: Dictionary = mgr.combatants[1]
@@ -521,7 +521,7 @@ static func _run_windup_pending_attack_pair_geometry(failures: PackedStringArray
         )
         if pa1.is_empty():
             _fail(failures, "windup_geom: empty pending_attack (depth)")
-        elif not pa1.has("effective_pair_file_spacing_equivalent") or not pa1.has(DataKeys.PA_EFFECTIVE_PAIR_EFF_DIST):
+        elif not pa1.has("effective_pair_file_spacing_equivalent") or not pa1.has("effective_pair_eff_dist"):
             _fail(failures, "windup_geom: depth missing spacing keys")
         elif not bool(pa1.get("depth_polearm_attack", false)):
             _fail(failures, "windup_geom: depth spear should set depth_polearm_attack")

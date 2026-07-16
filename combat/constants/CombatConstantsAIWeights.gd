@@ -1,7 +1,7 @@
 class_name CombatConstantsAIWeights
 extends RefCounted
 
-const FeatureFlags := preload("res://combat/CombatConstantsFeatureFlags.gd")
+const FeatureFlags := preload("res://combat/constants/CombatConstantsFeatureFlags.gd")
 
 const AI_ATTEMPT_CLOSE_BIND_CLOSE_MULT := 1.28  # Mapped wing out of reach — close bind beats wait/shuffle
 

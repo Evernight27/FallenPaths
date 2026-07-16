@@ -1,7 +1,7 @@
 class_name CombatFlow
 extends RefCounted
 
-## Handles combat initiation and battle-end cleanup. Used by main.gd.
+## Handles combat initiation and battle-end cleanup. Used by scenes/campaign/main.gd.
 ## Optional world meta **`CombatConstants.WORLD_META_COMBAT_ENCOUNTER`** (`"combat_encounter"`): copied into
 ## **`BattleScene.start`** |' **`CombatManager.encounter`** before **`start()`** (doctrine, depth polearm AI mults,
 ## posture, morale, ...  -  see **`CombatManager`** default_enc in **`CombatManager.gd`**).
@@ -46,13 +46,13 @@ static func start_combat(world: Node2D, enemies: Array):
     _get_company_state().set_overworld_hud_visible(world, false)
     CampaignEncounterBridge.clear_battle_kill_log(world)
 
-    var battle_script = load(ResourcePaths.BATTLE_SCENE)
-    if battle_script == null:
-        OperationalLog.warn("CombatFlow.start_combat: BattleScene script missing")
+    var battle_packed: PackedScene = ResourcePaths.get_battle_scene()
+    if battle_packed == null:
+        OperationalLog.warn("CombatFlow.start_combat: BattleScene packed scene missing")
         _restore_overworld_after_aborted_combat(world, player_node)
         return
     var current = world.get_tree().get_current_scene()
-    var battle = battle_script.new()
+    var battle: Node = battle_packed.instantiate()
     battle.parent_scene = current
     world.get_tree().root.add_child(battle)
     world.set_meta("_combat_enemies", enemies)

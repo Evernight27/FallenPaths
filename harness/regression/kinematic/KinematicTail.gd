@@ -6,7 +6,7 @@ extends RefCounted
 
 const HARNESS_META_EXPOSE_DAMAGE_KINEMATICS := "_harness_expose_damage_kinematics"
 ## Tier 5.1 core kinematic rows (bodies live on **`CombatRegressionHarness`** to avoid parse cycles).
-const HumanSpecies := preload("res://species/human.tres")
+const HumanSpecies := preload("res://resources/species/human.tres")
 
 
 static func run_core(failures: PackedStringArray) -> void:

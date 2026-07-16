@@ -23,7 +23,7 @@
     "gdscript": {
       "command": [
         "node",
-        ".opencode/scripts/godot-lsp-bridge.js",
+        ".opencode/tools/ci/godot-lsp-bridge.js",
         "--godot",
         ".godot/Godot_v4.7-stable_win64.exe",
         "--project",

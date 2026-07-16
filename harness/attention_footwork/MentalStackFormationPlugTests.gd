@@ -1,10 +1,6 @@
 class_name AttentionFootworkMentalStackFormationPlugTests
 extends CombatRegressionHarnessCore
-const FormationRout := preload("res://combat/CombatFormationRout.gd")
-const MentalStackDecider := preload("res://combat/MentalStackDecider.gd")
-const CombatConstantsMentalStack := preload("res://combat/CombatConstantsMentalStack.gd")
-const YomiConstants := preload("res://combat/yomi/YomiConstants.gd")
-const CombatWeaponFormConst := preload("res://combat/CombatWeaponForm.gd")
+const FormationRout := preload("res://combat/formation/CombatFormationRout.gd")
 
 ## Tier 4.2 - 4.4 attention / mental stack / footwork / battle UI hint tests (compile split).
 ## Footing harness: **`_run_footwork_*`** (Tier 4.4 PA) . **`_run_focus_line_*`** / **`_run_guard_*`** (L3 guard) .

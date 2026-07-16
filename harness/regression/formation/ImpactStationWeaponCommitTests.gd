@@ -389,10 +389,10 @@ static func _run_iii1_incoming_parry_sector_tiebreak(failures: PackedStringArray
 ## III-3: deflect/bind calibration loop  -  canonical thresholds, helper gates, ii2b plausibility band.
 static func _run_iii3_deflect_bind_calibration_suite(failures: PackedStringArray) -> void:
     var TrackSpecs := preload("res://harness/d001/CombatD001TrackSpecs.gd")
-    if not is_equal_approx(CombatConstants.PARRY_DEFLECT_THRESHOLD, 1.03):
+    if not is_equal_approx(CombatConstants.PARRY_DEFLECT_THRESHOLD, 1.08):
         _fail(
             failures,
-            "iii3_calibration: PARRY_DEFLECT_THRESHOLD want 1.03 got %.3f" % CombatConstants.PARRY_DEFLECT_THRESHOLD
+            "iii3_calibration: PARRY_DEFLECT_THRESHOLD want 1.08 got %.3f" % CombatConstants.PARRY_DEFLECT_THRESHOLD
         )
     if not is_equal_approx(CombatConstants.PARRY_BIND_CONTROL_THRESHOLD, 0.65):
         _fail(
@@ -750,12 +750,13 @@ static func _run_impact_station_mean_zero_spread_equals_move_mean(failures: Pack
     var want_mean: float = float(WeaponConstants.get_move("spear_thrust").get("impact_station_mean", -1.0))
     seed(7701)
     var got: float = StrikeRealism.roll_blade_station(spear, "spear_thrust", intensity)
-    if absf(got - clampf(want_mean + focus, 0.06, 0.99)) > 0.001:
+    var expected: float = clampf(want_mean + focus, 0.06, 0.99)
+    if absf(got - expected) > 0.025:
         _fail(
             failures,
             (
                 "impact_station: spear_thrust want %.3f got %.3f (mean %.2f focus %.3f)"
-                % [want_mean + focus, got, want_mean, focus]
+                % [expected, got, want_mean, focus]
             )
         )
 

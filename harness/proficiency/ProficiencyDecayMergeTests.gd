@@ -32,7 +32,7 @@ static func _run_parry_deflect_awards_end_gains(failures: PackedStringArray) -> 
     var result: Dictionary = AttackResolver.resolve_attack(data.get("mgr"), data.get("p_id"))
 
     if result.get("action", "") == "parry_deflect":
-        var bonus_end: float = float(enemy_ent._proficiency_bonus.get("endurance", 0) or 0)
+        var bonus_end: float = float(enemy_ent._proficiency_bonus.get("endurance", 0))
         if bonus_end < 0.1:
             CombatRegressionHarness._fail(
                 failures, "parry_end_gains: defender END gain too low on parry_deflect (got %.2f)" % bonus_end
@@ -55,7 +55,7 @@ static func _run_parry_partial_no_defender_gain(failures: PackedStringArray) -> 
         return
 
     var enemy_ent: Node = data.get("enemy_ent")
-    var initial_end: float = float(enemy_ent._proficiency_bonus.get("endurance", 0) or 0)
+    var initial_end: float = float(enemy_ent._proficiency_bonus.get("endurance", 0))
 
     # Set up attack on player that will be partially parried.
     var atk: Dictionary = CombatantEntityAccess.manager_get_combatant(data.get("mgr"), data.get("p_id"))
@@ -74,7 +74,7 @@ static func _run_parry_partial_no_defender_gain(failures: PackedStringArray) -> 
 
     var action: String = result.get("action", "")
     if not action.is_empty():
-        var final_end: float = float(enemy_ent._proficiency_bonus.get("endurance", 0) or 0)
+        var final_end: float = float(enemy_ent._proficiency_bonus.get("endurance", 0))
         if action == "parry_partial" and final_end > initial_end + 0.001:
             CombatRegressionHarness._fail(
                 failures,
@@ -171,14 +171,14 @@ static func _run_decay_applies_on_defeat(failures: PackedStringArray) -> void:
 
     # Simulate defeat scenario: decay should still apply.
     EntityProficiency.apply_decay(ent, 0)  # 3 inactive days (day 0 - (-3) = 3).
-    var defeated_decay: float = float(ent._proficiency_bonus.get("strength", 15) or 15)
+    var defeated_decay: float = float(ent._proficiency_bonus.get("strength", 15))
 
     # Compare with victory scenario (same decay expected).
     var ent2: CoreEntity = CombatRegressionHarness._new_entity("SWORD")
     ent2._proficiency_bonus["strength"] = 15.0
     ent2.last_fought_day = -3
     EntityProficiency.apply_decay(ent2, 0)
-    var victory_decay: float = float(ent2._proficiency_bonus.get("strength", 15) or 15)
+    var victory_decay: float = float(ent2._proficiency_bonus.get("strength", 15))
 
     if absf(defeated_decay - victory_decay) > 0.001:
         CombatRegressionHarness._fail(
@@ -461,7 +461,7 @@ static func _run_decay_skips_never_fought_entities(failures: PackedStringArray) 
 
 ## Outnumbered dodge bonus uses proper slot-group alive count.
 static func _run_outnumbered_dodge_bonus_with_slot_group_check(failures: PackedStringArray) -> void:
-    var CombatantEntityAccess := preload("res://combat/CombatantEntityAccess.gd")
+    var CombatantEntityAccess := preload("res://combat/access/CombatantEntityAccess.gd")
 
     # Build a minimal mock manager with get_combatants().
     var mock_mgr = Node.new()
@@ -473,7 +473,7 @@ static func _run_outnumbered_dodge_bonus_with_slot_group_check(failures: PackedS
     combatants.append(defender)
 
     # Only one alive in group |' production function returns false (no get_combatants method).
-    var AttackResultApplierScript = preload("res://combat/AttackResultApplier.gd")
+    var AttackResultApplierScript = preload("res://combat/strike/AttackResultApplier.gd")
     var is_outnumbered: bool = AttackResultApplierScript._is_defender_outnumbered(mock_mgr, defender)
     if is_outnumbered:
         CombatRegressionHarness._fail(

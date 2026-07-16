@@ -629,3 +629,5 @@ static func formation_cell_tooltip_lines(
     if not cmd.is_empty():
         lines.append("%s  -  %s" % [display_name, cmd])
     return lines
+
+

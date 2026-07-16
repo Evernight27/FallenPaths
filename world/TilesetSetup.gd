@@ -1,7 +1,7 @@
 class_name TilesetSetup
 extends RefCounted
 
-## Tile texture generation and tileset creation. Used by main.gd.
+## Tile texture generation and tileset creation. Used by scenes/campaign/main.gd.
 
 const TEXTURE_PATH := ResourcePaths.TILE_TEXTURE
 

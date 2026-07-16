@@ -43,7 +43,7 @@ static var _f5_soak_trace_cache: Variant = null
 
 static func _get_f5_soak_trace() -> Variant:
     if _f5_soak_trace_cache == null:
-        _f5_soak_trace_cache = load("res://combat/CombatF5SoakTrace.gd")
+        _f5_soak_trace_cache = load("res://combat/soak/CombatF5SoakTrace.gd")
     return _f5_soak_trace_cache
 
 
@@ -229,7 +229,7 @@ static func _general_soak_guide_lines() -> PackedStringArray:
                 + "soak_validate_hint | FP_ERROR | SCRIPT_ERROR"
             ),
             (
-                "II-0 general  -  walk any encounter tile (2- - 7v7 on grid) or set main.tscn "
+                "II-0 general  -  walk any encounter tile (2- - 7v7 on grid) or set scenes/campaign/main.tscn "
                 + "dev_soak_encounter=ii2b|ii4d|ii3|ii5|ii6|ii8|ii_envelop"
             ),
             (
@@ -329,7 +329,7 @@ static func _preset_soak_guide_lines(preset_id: String, marker_tile: Variant) ->
                     + "s deflect= q2_validate_hint at fight end"
                 )
             )
-            lines_ii2b.append("Q2 headless: .\\scripts\\run_q_audit.ps1 -Track Q2 after run_all_combat_checks")
+            lines_ii2b.append("Q2 headless: .\\tools\\ci\\run_q_audit.ps1 -Track Q2 after run_all_combat_checks")
             return lines_ii2b
         PRESET_II4D_EXHAUSTION:
             return PackedStringArray(
@@ -360,7 +360,7 @@ static func _preset_soak_guide_lines(preset_id: String, marker_tile: Variant) ->
                     "grep: cowering_fall_back listed | cowering_fall_back executed | ui_hint No arms",
                     "play: on your turn pick fall_back when listed (not flee-only path)",
                     (
-                        "Q3 headless: .\\scripts\\run_q_audit.ps1 -Track Track  -  [ii5] cowering_* PASS in "
+                        "Q3 headless: .\\tools\\ci\\run_q_audit.ps1 -Track Track  -  [ii5] cowering_* PASS in "
                         + ".d001_soak_out.txt"
                     ),
                     "Q3 F5 only: confirm fall_back pick UX on world grid (grep q3_validate_hint at fight end)",

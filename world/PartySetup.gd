@@ -1,7 +1,7 @@
 class_name PartySetup
 extends RefCounted
 
-## Sets up party manager, party menu, and Party button. Used by main.gd.
+## Sets up party manager, party menu, and Party button. Used by scenes/campaign/main.gd.
 ## world: the main scene (Node2D) - Character plus Character/Companion ... up to party size under
 ## `CombatConstants.FORMATION_UNIT_COUNT_HARD_CAP`.
 ## Also sets default party_formation for combat (FF4 formation UI). Optional encounter dict: set world meta

@@ -4,7 +4,7 @@ extends CombatRegressionHarnessCore
 ## Footing: strike delivery / energy  -  may pass **`guard_line`** into path context; not L2 form or Tier 4.4 PA owner.
 ## LIVE_PATHS **`#wf-layer-labels`**.
 
-const HumanSpecies := preload("res://species/human.tres")
+const HumanSpecies := preload("res://resources/species/human.tres")
 
 
 static func _kin_fixture_vo(cfx: Dictionary, default_vo: float) -> float:

@@ -3,29 +3,29 @@ extends RefCounted
 
 ## Static method forwards for CombatConstants (consts live on CombatConstants.gd).
 
-const AfterblowConstants := preload("res://combat/CombatAfterblowConstants.gd")
-const TimingConstants := preload("res://combat/CombatConstantsTiming.gd")
-const Stamina := preload("res://combat/CombatConstantsStamina.gd")
-const AttackPath := preload("res://combat/CombatConstantsAttackPath.gd")
-const State := preload("res://combat/CombatConstantsState.gd")
-const DictKeys := preload("res://combat/CombatConstantsDictKeys.gd")
-const Damage := preload("res://combat/CombatConstantsDamage.gd")
-const GuardZone := preload("res://combat/CombatConstantsGuardZone.gd")
-const Distance := preload("res://combat/CombatConstantsDistance.gd")
-const EventQueue := preload("res://combat/CombatConstantsEventQueue.gd")
-const Debug := preload("res://combat/CombatConstantsDebug.gd")
-const ParryChoice := preload("res://combat/CombatConstantsParryChoice.gd")
-const FeatureFlags := preload("res://combat/CombatConstantsFeatureFlags.gd")
-const RecoveryCause := preload("res://combat/CombatConstantsRecoveryCause.gd")
-const MentalStack := preload("res://combat/CombatConstantsMentalStack.gd")
-const _CounterTempo := preload("res://combat/CombatConstantsCounterTempo.gd")
-const Parry := preload("res://combat/CombatConstantsParry.gd")
-const Footwork := preload("res://combat/CombatConstantsFootwork.gd")
-const FormationMove := preload("res://combat/CombatConstantsFormationMove.gd")
-const CloseSlots := preload("res://combat/CombatConstantsCloseSlots.gd")
-const Encounter := preload("res://combat/CombatConstantsEncounter.gd")
-const Misc := preload("res://combat/CombatConstantsMisc.gd")
-const Stance := preload("res://combat/CombatConstantsStance.gd")
+const AfterblowConstants := preload("res://combat/constants/CombatAfterblowConstants.gd")
+const TimingConstants := preload("res://combat/constants/CombatConstantsTiming.gd")
+const Stamina := preload("res://combat/constants/CombatConstantsStamina.gd")
+const AttackPath := preload("res://combat/constants/CombatConstantsAttackPath.gd")
+const State := preload("res://combat/constants/CombatConstantsState.gd")
+const DictKeys := preload("res://combat/constants/CombatConstantsDictKeys.gd")
+const Damage := preload("res://combat/constants/CombatConstantsDamage.gd")
+const GuardZone := preload("res://combat/constants/CombatConstantsGuardZone.gd")
+const Distance := preload("res://combat/constants/CombatConstantsDistance.gd")
+const EventQueue := preload("res://combat/constants/CombatConstantsEventQueue.gd")
+const Debug := preload("res://combat/constants/CombatConstantsDebug.gd")
+const ParryChoice := preload("res://combat/constants/CombatConstantsParryChoice.gd")
+const FeatureFlags := preload("res://combat/constants/CombatConstantsFeatureFlags.gd")
+const RecoveryCause := preload("res://combat/constants/CombatConstantsRecoveryCause.gd")
+const MentalStack := preload("res://combat/constants/CombatConstantsMentalStack.gd")
+const CounterTempo := preload("res://combat/constants/CombatConstantsCounterTempo.gd")
+const Parry := preload("res://combat/constants/CombatConstantsParry.gd")
+const Footwork := preload("res://combat/constants/CombatConstantsFootwork.gd")
+const FormationMove := preload("res://combat/constants/CombatConstantsFormationMove.gd")
+const CloseSlots := preload("res://combat/constants/CombatConstantsCloseSlots.gd")
+const Encounter := preload("res://combat/constants/CombatConstantsEncounter.gd")
+const Misc := preload("res://combat/constants/CombatConstantsMisc.gd")
+const Stance := preload("res://combat/constants/CombatConstantsStance.gd")
 const MedicalTargets := preload("res://combat/constants/CombatConstantsMedicalTargets.gd")
 const MuscleFatigue := preload("res://combat/constants/CombatConstantsMuscleFatigue.gd")
 const Moves := preload("res://combat/constants/CombatConstantsMoves.gd")
@@ -158,7 +158,7 @@ static func position_angle_offset_deg_for_attack_line(line: String) -> float:
 
 
 static func _get_entity_access() -> GDScript:
-	return load("res://combat/CombatantEntityAccess.gd") as GDScript
+    return load("res://combat/access/CombatantEntityAccess.gd") as GDScript
 
 
 static func parry_full_stop_reached(c_d: float, parry_p_a: float, is_block_parry: bool) -> bool:

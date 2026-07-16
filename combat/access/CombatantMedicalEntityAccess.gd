@@ -308,26 +308,29 @@ static func has_left_immediate_peril_permanently(manager: Node, c: Dictionary) -
 ## True when formation **retreat** (disengage swap, drag/fall_back pair, solo fall_back) is justified by injury or peril
 ## -  not fatigue-only composite fitness.
 static func get_medical_windup_speed_modifier(manager: Node, performer: Dictionary, target: Dictionary) -> float:
-	var perf_entity: Node = get_entity_from_manager(manager, performer)
-	# Base wind-up uses species INT only; proficiency is layered in get_effective_medical_windup_speed_modifier.
-	var med_eff: float = 1.0
-	if perf_entity != null and "intelligence" in perf_entity:
-		med_eff = clampf(
-			float(perf_entity.intelligence) / 100.0,
-			CombatConstantsTuning.STAT_EFFECT_MULT_MIN,
-			CombatConstantsTuning.STAT_EFFECT_MULT_MAX
-		)
-	else:
-		med_eff = get_medical_effectiveness_from_node(perf_entity)
-	med_eff = maxf(0.5, med_eff)
-	if id_int(performer) == id_int(target):
-		var perf: float = get_performance_modifier(performer)
-		return maxf(CombatConstantsParry.PERF_MOD_MIN, perf) * med_eff
-	var patient_perf: float = get_performance_modifier(target)
-	var thrash: float = (
-		clampf(1.0 - patient_perf, 0.0, 1.0) * CombatConstantsMoves.MEDICAL_ALLY_TASK_PATIENT_THRASH_MAX_PENALTY
-	)
-	return med_eff * (1.0 - thrash)
+    ## Base INT only (no proficiency). Proficiency-aware callers use get_effective_medical_windup_speed_modifier.
+    var perf_entity: Node = get_entity_from_manager(manager, performer)
+    # Base wind-up uses species INT only; proficiency is layered in get_effective_medical_windup_speed_modifier.
+    var med_eff: float = 1.0
+    if perf_entity != null and "intelligence" in perf_entity:
+        med_eff = clampf(
+            float(perf_entity.intelligence) / 100.0,
+            CombatConstantsTuning.STAT_EFFECT_MULT_MIN,
+            CombatConstantsTuning.STAT_EFFECT_MULT_MAX
+        )
+    else:
+        med_eff = get_medical_effectiveness_from_node(perf_entity)
+    med_eff = maxf(0.5, med_eff)
+    if perf_entity != null and perf_entity.has_method("_get_campaign_supply_factor"):
+        med_eff *= clampf(float(perf_entity._get_campaign_supply_factor()), 0.25, 1.5)
+    if id_int(performer) == id_int(target):
+        var perf: float = get_performance_modifier(performer)
+        return maxf(CombatConstantsParry.PERF_MOD_MIN, perf) * med_eff
+    var patient_perf: float = get_performance_modifier(target)
+    var thrash: float = (
+        clampf(1.0 - patient_perf, 0.0, 1.0) * CombatConstantsMoves.MEDICAL_ALLY_TASK_PATIENT_THRASH_MAX_PENALTY
+    )
+    return med_eff * (1.0 - thrash)
 
 
 ## Effective medical wind-up speed: reads INT from combatant stats dict (includes proficiency bonuses via
@@ -344,9 +347,9 @@ static func get_effective_medical_windup_speed_modifier(
 	var perf_node = node_variant(performer)
 	var eff_int: float = 100.0
 	if perf_node != null and "_proficiency_bonus" in perf_node:
-		eff_int = float(perf_node.intelligence or 0) + float(perf_node._proficiency_bonus.get(DataKeys.ENTITY_INTELLIGENCE, 0) or 0)
+		eff_int = float(perf_node.intelligence) + float(perf_node._proficiency_bonus.get("intelligence", 0))
 	else:
-		eff_int = float(performer.get(DataKeys.ENTITY_INTELLIGENCE, CombatConstantsMisc.DEFAULT_STAT_VALUE))
+		eff_int = float(performer.get("intelligence", CombatConstantsMisc.DEFAULT_STAT_VALUE))
 	var med_eff: float = clampf(
 		eff_int / 100.0, CombatConstantsTuning.STAT_EFFECT_MULT_MIN, CombatConstantsTuning.STAT_EFFECT_MULT_MAX
 	)

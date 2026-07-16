@@ -1,5 +1,8 @@
 class_name CoreEntity
 extends Node2D
+## Entity sim facade: holds tissue / wound / gear state; logic lives in Entity* modules
+## (Wounds, Medical, Healing, Damage, Equipment, PainConsciousness, Proficiency, StatsUtil).
+## Combat reads via CombatantEntityAccess / health entity — see docs/ARCHITECTURE.md.
 ## Stats boosted by training drill (merged into proficiency bonus after each contract). Per-stat.
 """Medical effectiveness from intelligence (100 INT = 1.0; 50 = 0.75, 150 = 1.25). Used for bandage, direct pressure."""
 """Max blood volume scaling from END (100 |' 1.0x; 150 |' 1.25x). Applied in BloodVolumeMl.init_entity_pool."""
@@ -40,13 +43,13 @@ var agility: int = 100
 var intelligence: int = 100
 var endurance: int = 100
 var perception: int = 100
-# Attacking arm: which hand is dominant and offhand effectiveness (0.6—1.0).
+# Attacking arm: which hand is dominant and offhand effectiveness (0.6--"1.0).
 var dominant_hand: String = BodyPartConstants.PART_RIGHT_ARM
 var offhand_functionality: float = 0.8
 # One armor piece per body part (e.g. chest -> Cuirass with plate + gambeson layers).
 var armor_slots: Dictionary = {}  # body_part (String) -> ArmorPiece
 # Optional equipped weapon (Weapon instance from template). Null = unarmed.
-var weapon: Variant = null
+var weapon = null
 
 # Wound tracking and bleeding (injury-based). Body parts: head, chest, right_arm, left_arm, right_leg, left_leg.
 # wounds[part] = Array of injury dicts. Each wound has individual healing: created_at_game_time,
@@ -59,11 +62,11 @@ var tissue_layer_state: Dictionary = {}
 ## M6: internal tissue J (authoritative when `FEATURE_TISSUE_ENERGY_POOL`); display pools derived.
 var tissue_energy_capacity_j: Dictionary = {}
 var tissue_energy_remaining_j: Dictionary = {}
-var blood_volume: float = 100.0  # 0—100; death below BleedingConstants.BLOOD_LOSS_DEATH_THRESHOLD
+var blood_volume: float = 100.0  # 0--"100; death below BleedingConstants.BLOOD_LOSS_DEATH_THRESHOLD
 ## S6 literal pool when `FEATURE_LITERAL_BLOOD_ML` (-1 = percent-only mode).
 var blood_volume_ml: float = -1.0
 var blood_volume_ml_max: float = -1.0
-# Tourniquet: limb parts only. part -> { "applied_at": float, "effectiveness": float }. Effectiveness 0—1 scales
+# Tourniquet: limb parts only. part -> { "applied_at": float, "effectiveness": float }. Effectiveness 0--"1 scales
 # bleeding reduction.
 var tourniquet_applied: Dictionary = {}  # part (String) -> Dictionary
 ## Tracks failed tourniquet attempts per part for escalating retry chance. part -> int (failure count).
@@ -92,7 +95,7 @@ var direct_pressure_held_by: Node = null
 # Optional second ally pressing the same part during stabilizing treatment wind-up (helper holds, medic treats).
 var direct_pressure_assist_held_by: Node = null
 var campaign_afflictions: Array[Dictionary] = []
-## Phase 2: persisted per-limb muscle fatigue pools (synced from combatant dict after fights).
+## Campaign → combat muscle fatigue carry-over (part -> 0..1). Synced from combatant dict after fights.
 var muscle_fatigue: Dictionary = {}
 var consciousness: float = 100.0  # true consciousness (incapacitation when < 10)
 var effective_consciousness: float = 100.0  # for combat (after pain shock)
@@ -116,8 +119,6 @@ var _weapon_proficiency: Dictionary = {}
 var _form_proficiency: Dictionary = {}
 var _game_time_seconds: float = 0.0
 var _pain_shock_until_time: float = -1.0  # Time.get_ticks_msec()/1000.0 when shock ends; -1 = not in shock
-# Concussion timestamp (Issue 1): simulation time until which entity is concussed; 0 = not concussed
-var _concussion_until_time: float = 0.0
 # Total damage of last hit (for pain-shock duration scaling); set on weapon hit, consumed when shock is entered
 var _last_hit_impact: float = 0.0
 var _ambient_pain_shock_accum: float = 0.0  # Combat tick accumulator for sustained-pain shock rolls
@@ -196,7 +197,7 @@ func _notify_died() -> void:
     if _death_notified:
         return
     _death_notified = true
-    died.emit()
+    emit_signal("died")
 
 
 ## Called by EntityPainConsciousness when consciousness drops below incapacitation threshold.
@@ -337,7 +338,7 @@ func _is_blood_critical() -> bool:
     return blood_volume <= _get_blood_loss_critical_threshold()
 
 
-# --- Pain and consciousness (Combat Extended—style) ---
+# --- Pain and consciousness (Combat Extended--"style) ---
 # Per-wound healing progress 0..1 (exponential: after healing_duration seconds ~95% healed). Backwards compat: missing
 # fields => progress 0.
 func _get_wound_healing_progress(injury: Dictionary) -> float:
@@ -403,10 +404,6 @@ func is_incapacitated() -> bool:
     if is_unconscious():
         return true
     return is_cowering()
-
-
-func is_concussed() -> bool:
-    return EntityPainConsciousness.is_concussed(self)
 
 
 func _get_effective_consciousness() -> float:
@@ -529,7 +526,7 @@ func _get_bandage_application_time_seconds_for_part(part: String) -> float:
 func _get_medical_effectiveness() -> float:
     var effective_int: float = float(intelligence)
     if CompanyState.read_stub_proficiency_enabled() and "_proficiency_bonus" in self:
-        effective_int += float(_proficiency_bonus.get("intelligence", 0) or 0)
+        effective_int += float(_proficiency_bonus.get("intelligence", 0))
     var base: float = clampf(effective_int / 100.0, 0.5, 1.5)
     return base * clampf(_campaign_supply_factor, 0.25, 1.5)
 
@@ -545,21 +542,21 @@ func _get_campaign_supply_factor() -> float:
 func _get_endurance_blood_volume_mult() -> float:
     var effective_end: float = float(endurance)
     if CompanyState.read_stub_proficiency_enabled() and "_proficiency_bonus" in self:
-        effective_end += float(_proficiency_bonus.get("endurance", 0) or 0)
+        effective_end += float(_proficiency_bonus.get("endurance", 0))
     return 1.0 + (effective_end - 100) / 400.0
 
 
 func _get_endurance_healing_speed_mult() -> float:
     var effective_end: float = float(endurance)
     if CompanyState.read_stub_proficiency_enabled() and "_proficiency_bonus" in self:
-        effective_end += float(_proficiency_bonus.get("endurance", 0) or 0)
+        effective_end += float(_proficiency_bonus.get("endurance", 0))
     return 1.0 - clampf((effective_end - 100) / 500.0, 0.0, 0.25)
 
 
 func _get_intelligence_contract_bonus_mult() -> float:
     var effective_int: float = float(intelligence)
     if CompanyState.read_stub_proficiency_enabled() and "_proficiency_bonus" in self:
-        effective_int += float(_proficiency_bonus.get("intelligence", 0) or 0)
+        effective_int += float(_proficiency_bonus.get("intelligence", 0))
     return 1.0 + clampf((effective_int - 100) / 500.0, 0.0, 0.15)
 
 
@@ -768,21 +765,32 @@ func _apply_species():
     effective_consciousness = 100.0
     _consciousness_dirty = false
     _pain_shock_until_time = -1.0
-    _concussion_until_time = 0.0
     _last_hit_impact = 0.0
     _ambient_pain_shock_accum = 0.0
-    if species != null and species.name != "":
-        self.name = species.name
     if species != null:
-        _seed_body_parts_from_species(species)
+        for p in _get_body_part_list():
+            var m = species.get_body_part_max(p) if species.has_method("get_body_part_max") else 10
+            var b = species.get_bone_max(p) if species.has_method("get_bone_max") else maxi(1, m / 2)
+            body_max[p] = m
+            body_cutting[p] = _round_tissue(float(m))
+            body_blunt[p] = _round_tissue(float(m))
+            bone_max[p] = b
+            bone_health[p] = _round_tissue(float(b))
         strength = species.strength
         agility = species.agility
         intelligence = species.intelligence
         endurance = species.endurance
         perception = species.perception
+    if species != null and typeof(species.name) == TYPE_STRING and species.name != "":
+        self.name = species.name
     else:
         # Fallback when no species: use generic values consistent with aggressive realism scale
-        _seed_body_parts_generic()
+        for p in _get_body_part_list():
+            body_max[p] = CombatDesignAnchors.REFERENCE_HUMAN_ARM_TISSUE_DISPLAY
+            body_cutting[p] = _round_tissue(12.0)
+            body_blunt[p] = _round_tissue(12.0)
+            bone_max[p] = 8
+            bone_health[p] = _round_tissue(8.0)
         strength = 100
         agility = 100
         intelligence = 100
@@ -819,8 +827,6 @@ func _seed_body_parts_generic() -> void:
         bone_health[p] = _round_tissue(8.0)
 
 
-
-
-
-
-
+## Camp rest: clear muscle fatigue so it doesn't persist across campaigns.
+func restore_muscle_fatigue_at_camp() -> void:
+    muscle_fatigue.clear()

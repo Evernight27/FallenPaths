@@ -5,8 +5,8 @@ extends RefCounted
 ## Narrative: docs/LIVE_PATHS.md#bleeding-physics . docs/LIVE_PATHS.md#research-audit
 ## Headless: `[research_benchmarks]` . harness `_run_research_*`
 
-const HumanSpecies := preload("res://species/human.tres")
-const GoblinSpecies := preload("res://species/goblin.tres")
+const HumanSpecies := preload("res://resources/species/human.tres")
+const GoblinSpecies := preload("res://resources/species/goblin.tres")
 
 ## ATLS 10th ed. hemorrhage; field untreated major bleed (CoTCCC order-of-minutes, wide variance).
 const LITERATURE_TTD_UNTREATED_S_MIN: float = 30.0

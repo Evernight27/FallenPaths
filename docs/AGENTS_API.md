@@ -1,6 +1,6 @@
 # Agent API reference (on-demand)
 
-**Not always-on.** Open when adding cross-cutting APIs or tracing a concern. Entry: [`../AGENTS.md`](../AGENTS.md) · prompts: [`../scripts/agent_prompts/README.md`](../scripts/agent_prompts/README.md).
+**Not always-on.** Open when adding cross-cutting APIs or tracing a concern. Entry: [`../AGENTS.md`](../AGENTS.md) · prompts: [`../tools/ci/agent_prompts/README.md`](../tools/ci/agent_prompts/README.md).
 
 **Budget:** ≤1 doc section + ≤3 owning `.gd` files before first edit. Do **not** preload the module lookup table below.
 
@@ -64,11 +64,13 @@ Use these names in new code — avoid duplicating membership tests, manager priv
 | Composure-based quality | `CombatTiming.gd` quality scaling: `1.5 - 0.5 × (gauge_pre / 100)` on wind-up duration · `DefenseChoiceResolver` parry_p_a scaling `0.6 + 0.4 × (gauge_pre / 100)` |
 | Parry lockout | `CombatConstantsParry.OFF_BALANCE_DURATION_S` (0.4s) — set on parry_deflect in `AttackResultApplier`, gated in `DefenseChoiceResolver` |
 | Under attack check | `CombatantEntityAccess.is_combatant_threatened(manager, id)` — scans WIND_UP combatants for pending_attack targeting this id |
-| Two-handed weapon | `weapon/Weapon.gd` `is_two_handed` flag · `WeaponConstants.weapon_is_two_handed(weapon)` helper |
+| Two-handed weapon | `resources/weapons/Weapon.gd` `is_two_handed` flag · `WeaponConstants.weapon_is_two_handed(weapon)` helper |
 | Breath / stamina | Keys `"breath"` + `"stamina"` · `stamina_factor()` (canonical) · `breath_factor()` alias · `CombatExhaustion.effective_breath_refill_rate` |
 | Wait (no gauge reset) | `CombatResolveAction.gd` — wait resolves directly (not via `skip_turn`), no gauge change, schedules action_ready at 0.1s |
 
-Implementation hubs: `combat/CombatantEntityAccess.gd` · `combat/CombatConstants.gd` · `combat/MedicalPhaseController.gd` · `world/CampaignEncounterBridge.gd`
+Implementation hubs: `combat/access/CombatantEntityAccess.gd` · `combat/access/CombatantRegister.gd` · `combat/access/CombatantView.gd` · `combat/CombatConstants.gd` · `combat/medical/MedicalPhaseController.gd` · `world/CampaignEncounterBridge.gd`
+
+Combatant dict fields: `combat/access/CombatantFieldRegistry.gd` · packages: [`../combat/README.md`](../combat/README.md) · layout: [`ARCHITECTURE`](ARCHITECTURE.md) · bridge: [`BRIDGE_CONTRACT`](BRIDGE_CONTRACT.md)
 
 <a id="module-lookup"></a>
 
@@ -79,24 +81,24 @@ Use when tracing a cross-cutting concern. Open **only** the owning file(s) for y
 | Order | File | Owns |
 |------:|------|------|
 | 1 | `combat/CombatConstants.gd` | states · timing · medical `MOVE_ID_*` · formation/focus moves · flags · skip/close |
-| 2 | `combat/CombatantEntityAccess.gd` | dict · lookup · health · **identity** · wounds · weapon · side/alive · vitals · manager hooks; **`form_str`** (L2 id, not PA/guard) — [`#wf-assign-form-contract`](LIVE_PATHS.md#wf-assign-form-contract) |
-| 3 | `combat/MedicalPhaseController.gd` | gates · side · purge · halt · peril/danger · `can_end` · urgency · ally menu |
-| 4 | `combat/CombatMedicalCoordination.gd` | `medical_action_allowed` first; retry; overlap; listing filters |
+| 2 | `combat/access/CombatantEntityAccess.gd` | dict · lookup · health · **identity** · wounds · weapon · side/alive · vitals · manager hooks; **`form_str`** (L2 id, not PA/guard) — [`#wf-assign-form-contract`](LIVE_PATHS.md#wf-assign-form-contract) |
+| 3 | `combat/medical/MedicalPhaseController.gd` | gates · side · purge · halt · peril/danger · `can_end` · urgency · ally menu |
+| 4 | `combat/medical/CombatMedicalCoordination.gd` | `medical_action_allowed` first; retry; overlap; listing filters |
 | 5 | `world/CampaignEncounterBridge.gd` | Tiles, campaign health, party roster, encounter meta |
-| 6 | `combat/CombatResolveAction.gd` | Player/AI resolve dispatch |
+| 6 | `combat/flow/CombatResolveAction.gd` | Player/AI resolve dispatch |
 | 7 | `combat/CombatDebug.gd` | All `[Combat*]` log tiers |
 | 8 | `combat/CombatManager.gd` | Orchestration only · signals, turn loop, `_get_by_id` hook; **`seed_combatant_form`** on register — [`#spawn--reset-path-wf-1a`](LIVE_PATHS.md#spawn--reset-path-wf-1a) |
-| 9 | `combat/AvailableActionsBuilder.gd` | Turn menu orchestration · listing modules |
-| 10 | `combat/ZoneOfControl.gd` | Geometry packs · ZoC recompute · listing/targeting helpers |
-| 11 | `combat/MentalStackDecider.gd` · `combat/CombatAIActionPicker.gd` | Turn pick pipeline |
-| 11b | `combat/CombatWeaponForm.gd` *(WF **shipped** — maintain)* | Form defs, weights, yomi, counter, auto-switch — [`LIVE_PATHS#wf-implementation-status`](LIVE_PATHS.md#wf-implementation-status) |
-| 12 | `combat/DefenseChoiceResolver.gd` · `combat/DefenseResolutionHandler.gd` | Strike-time parry/dodge |
-| 12a | `combat/AttackResolver.gd` · `combat/AttackResultApplier.gd` · `combat/CombatStateHandlers.gd` | Strike path PA + L3 guard — [`#wf-tier-44-pa`](LIVE_PATHS.md#wf-tier-44-pa) |
-| 12b | `combat/CombatFootwork.gd` | PA owner — [`#wf-tier-44-pa`](LIVE_PATHS.md#wf-tier-44-pa) |
-| 12c | `combat/GuardLineUpdater.gd` | Outcome **`guard_line`** drift — [`#wf-guard-writers`](LIVE_PATHS.md#wf-guard-writers) |
-| 12d | `combat/CombatGuardLines.gd` | D-006 **`normalize_line`** + octant PA — [`#wf-form-guard-pa-matrix`](LIVE_PATHS.md#wf-form-guard-pa-matrix) |
-| 12e | `combat/CombatUiHints.gd` · `ui/BattleUIUpdater.gd` · `ui/FormationDiagramBuilder.gd` · `ui/TurnReadyHandler.gd` · `combat/CombatF5SoakTrace.gd` | UI suffixes + F5 gauge — [`#battle-ui`](LIVE_PATHS.md#battle-ui) |
-| 13 | `combat/AttackWindUpStarter.gd` · `combat/AttackResolver.gd` | Wind-up stamp · strike resolve |
+| 9 | `combat/ai/AvailableActionsBuilder.gd` | Turn menu orchestration · listing modules |
+| 10 | `combat/formation/ZoneOfControl.gd` | Geometry packs · ZoC recompute · listing/targeting helpers |
+| 11 | `combat/ai/MentalStackDecider.gd` · `combat/ai/CombatAIActionPicker.gd` | Turn pick pipeline |
+| 11b | `combat/weapon_form/CombatWeaponForm.gd` *(WF **shipped** — maintain)* | Form defs, weights, yomi, counter, auto-switch — [`LIVE_PATHS#wf-implementation-status`](LIVE_PATHS.md#wf-implementation-status) |
+| 12 | `combat/strike/DefenseChoiceResolver.gd` · `combat/strike/DefenseResolutionHandler.gd` | Strike-time parry/dodge |
+| 12a | `combat/strike/AttackResolver.gd` · `combat/strike/AttackResultApplier.gd` · `combat/flow/CombatStateHandlers.gd` | Strike path PA + L3 guard — [`#wf-tier-44-pa`](LIVE_PATHS.md#wf-tier-44-pa) |
+| 12b | `combat/weapon_form/CombatFootwork.gd` | PA owner — [`#wf-tier-44-pa`](LIVE_PATHS.md#wf-tier-44-pa) |
+| 12c | `combat/weapon_form/GuardLineUpdater.gd` | Outcome **`guard_line`** drift — [`#wf-guard-writers`](LIVE_PATHS.md#wf-guard-writers) |
+| 12d | `combat/weapon_form/CombatGuardLines.gd` | D-006 **`normalize_line`** + octant PA — [`#wf-form-guard-pa-matrix`](LIVE_PATHS.md#wf-form-guard-pa-matrix) |
+| 12e | `combat/CombatUiHints.gd` · `ui/battle/BattleUIUpdater.gd` · `ui/battle/FormationDiagramBuilder.gd` · `ui/battle/TurnReadyHandler.gd` · `combat/soak/CombatF5SoakTrace.gd` | UI suffixes + F5 gauge — [`#battle-ui`](LIVE_PATHS.md#battle-ui) |
+| 13 | `combat/strike/AttackWindUpStarter.gd` · `combat/strike/AttackResolver.gd` | Wind-up stamp · strike resolve |
 
 **Cognition pipeline (shipped):** `AvailableActionsBuilder.build` → `MentalStackDecider.try_pick` → `CombatAIActionPicker.pick_weighted` → `CombatResolveAction.resolve` → defense via `DefenseChoiceResolver`.
 

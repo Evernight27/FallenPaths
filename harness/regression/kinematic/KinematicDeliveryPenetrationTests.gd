@@ -903,10 +903,10 @@ static func _run_kinematic_delivery_guard_wobble_readiness_shifts_guard_angle(fa
     seed(_HARNESS_RESTORE_GLOBAL_SEED)
 
 
-## Tier 5.1: canonical weapon/move rows for integration loops (matches velocity / KE bracket coverage).
+## Tier 5.1: canonical resources/weapons/move rows for integration loops (matches velocity / KE bracket coverage).
 
 
-## Tier 5.1: canonical weapon/move rows for integration loops (matches velocity / KE bracket coverage).
+## Tier 5.1: canonical resources/weapons/move rows for integration loops (matches velocity / KE bracket coverage).
 static func _kin_fixtures_cut_swing() -> Array:
     return [
         {"wid": "SWORD", "move": "oberhau", "tag": "sw"},

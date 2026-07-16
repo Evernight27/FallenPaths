@@ -1,0 +1,28 @@
+[gd_resource type="Resource" load_steps=2 format=2]
+[ext_resource path="res://resources/species/SpeciesResource.gd" type="Script" id=1]
+
+[resource]
+script = ExtResource( 1 )
+name = "Human"
+# Mass proportions: segment-mass (de Leva/Plagenhoef) — chest largest, then legs, head/arms equal.
+head = 10
+chest = 30
+right_arm = 12
+left_arm = 12
+left_leg = 16
+right_leg = 16
+head_bone = 8
+chest_bone = 22
+right_arm_bone = 8
+left_arm_bone = 8
+left_leg_bone = 12
+right_leg_bone = 12
+strength = 100
+agility = 100
+intelligence = 100
+endurance = 100
+perception = 100
+pain_reference_scale = -1
+reference_body_mass_kg = 75.0
+feature_derived_limb_capacity = true
+description = "Versatile and adaptable. Balanced proportions: chest and legs absorb the most punishment. pain_reference_scale -1: auto ~3.0 (sum 96). reference_body_mass_kg must match CombatDesignAnchors.REFERENCE_ADULT_MASS_KG (75). feature_derived_limb_capacity: limbs from KE×mass profile capped at hand exports (S5 pilot)."

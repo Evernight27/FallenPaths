@@ -437,7 +437,7 @@ static func _run_stamina_effective_refill_slows_with_exhaustion(failures: Packed
 
 ## Formation pressure: defensive threshold uses burst ratio vs effective max (not absolute / STAMINA_MAX).
 static func _run_opponent_pressure_defensive_uses_burst_ratio(failures: PackedStringArray) -> void:
-    var ZOC := preload("res://combat/ZoneOfControl.gd")
+    var ZOC := preload("res://combat/formation/ZoneOfControl.gd")
     var mgr: Node = MgrScript.new()
     mgr.register(_new_entity("SWORD"), "player")
     mgr.register(_new_entity("SWORD"), "enemy")

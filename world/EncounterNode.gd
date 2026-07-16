@@ -84,7 +84,7 @@ func is_tutorial_encounter() -> bool:
 
 
 ## Spawns enemy units for combat. Call when player enters combat. Returns array of enemy nodes.
-## parent: world node to add enemies to. rng: for species/equipment randomization.
+## parent: world node to add enemies to. rng: for resources/species/equipment randomization.
 func spawn_enemies(parent: Node, rng: RandomNumberGenerator) -> Array:
     var scene = enemy_scene
     if scene == null:

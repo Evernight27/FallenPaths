@@ -9,7 +9,7 @@ extends RefCounted
 const DESIGN_KE_ARM_J := 100.0
 const DESIGN_KE_LEG_J := 200.0
 
-## Adult reference mass (kg)  -  matches `species/human.tres` `reference_body_mass_kg`.
+## Adult reference mass (kg)  -  matches `resources/species/human.tres` `reference_body_mass_kg`.
 const REFERENCE_ADULT_MASS_KG := 75.0
 
 ## Whole-blood volume scaling (StatPearls / transfusion texts).
