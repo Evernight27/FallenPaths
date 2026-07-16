@@ -749,21 +749,21 @@ static func _duel_counter_form_vs_inferred(weapon: Variant, inferred_opp: String
 
 
 static func _try_assign_auto_switch(
-	manager: Node, c: Dictionary, next_form: String, reason: String, clk: float
+    manager: Node, c: Dictionary, next_form: String, reason: String, clk: float
 ) -> bool:
-	var next: String = next_form.strip_edges()
-	if next.is_empty() or next == CombatantEntityAccess.form_str(c):
-		return false
-	var weapon = CombatantEntityAccess.get_weapon(c)
-	if not form_allowed_for_weapon(next, weapon):
-		return false
-	assign_form(manager, c, next, reason)
-	_stamp_form_switch_cooldown(c, clk)
-	if reason == "counter_read":
-		c[CombatConstantsEncounter.COMBATANT_KEY_COUNTER_READ_COMMITTED_UNTIL] = (
-			clk + float(CombatConstantsEncounter.COUNTER_READ_COMMITMENT_DURATION_TICKS)
-		)
-	return true
+    var next: String = next_form.strip_edges()
+    if next.is_empty() or next == CombatantEntityAccess.form_str(c):
+        return false
+    var weapon = CombatantEntityAccess.get_weapon(c)
+    if not form_allowed_for_weapon(next, weapon):
+        return false
+    assign_form(manager, c, next, reason)
+    _stamp_form_switch_cooldown(c, clk)
+    if reason == "counter_read":
+        c[CombatConstantsEncounter.COMBATANT_KEY_COUNTER_READ_COMMITTED_UNTIL] = (
+            clk + float(CombatConstantsEncounter.COUNTER_READ_COMMITMENT_DURATION_TICKS)
+        )
+    return true
 
 
 ## WF-3 auto-switch hook â€”" calls **`assign_form`** only; does **not** stamp/clear PA. Caller:
@@ -817,56 +817,56 @@ static func evaluate_automatic_form(manager: Node, c: Dictionary) -> bool:
 
 ## Phase 2: counter-read commitment — true while the attacker's auto-switch stamp has not expired.
 static func is_counter_read_committed(atk: Dictionary, clock: float) -> bool:
-	var until: float = float(atk.get(CombatConstantsEncounter.COMBATANT_KEY_COUNTER_READ_COMMITTED_UNTIL, -1.0))
-	return until > clock
+    var until: float = float(atk.get(CombatConstantsEncounter.COMBATANT_KEY_COUNTER_READ_COMMITTED_UNTIL, -1.0))
+    return until > clock
 
 
 ## Phase 2: count wrong readings in recent counter-read history.
 static func count_recent_wrong_readings(atk: Dictionary) -> int:
-	var history: Variant = atk.get(CombatConstantsEncounter.COMBATANT_KEY_COUNTER_READ_HISTORY, null)
-	if history is not Array:
-		return 0
-	var wrong: int = 0
-	for entry in (history as Array):
-		if entry is Dictionary and not entry.get("success", true):
-			wrong += 1
-	return wrong
+    var history: Variant = atk.get(CombatConstantsEncounter.COMBATANT_KEY_COUNTER_READ_HISTORY, null)
+    if history is not Array:
+        return 0
+    var wrong: int = 0
+    for entry in (history as Array):
+        if entry is Dictionary and not entry.get("success", true):
+            wrong += 1
+    return wrong
 
 
 ## Phase 2: record the outcome of a counter-read. Appends to history and clears commitment on success.
 static func record_counter_read_outcome(atk: Dictionary, target_id: int, success: bool, inferred_form: String) -> void:
-	var history: Array = atk.get(CombatConstantsEncounter.COMBATANT_KEY_COUNTER_READ_HISTORY, []) as Array
-	history.append({
-		"target_id": target_id,
-		"success": success,
-		"inferred_form": inferred_form,
-	})
-	if history.size() > CombatConstantsEncounter.COUNTER_READ_HISTORY_MAX_ENTRIES:
-		history = history.slice(history.size() - CombatConstantsEncounter.COUNTER_READ_HISTORY_MAX_ENTRIES)
-	atk[CombatConstantsEncounter.COMBATANT_KEY_COUNTER_READ_HISTORY] = history
-	if success:
-		atk.erase(CombatConstantsEncounter.COMBATANT_KEY_COUNTER_READ_COMMITTED_UNTIL)
+    var history: Array = atk.get(CombatConstantsEncounter.COMBATANT_KEY_COUNTER_READ_HISTORY, []) as Array
+    history.append({
+        "target_id": target_id,
+        "success": success,
+        "inferred_form": inferred_form,
+    })
+    if history.size() > CombatConstantsEncounter.COUNTER_READ_HISTORY_MAX_ENTRIES:
+        history = history.slice(history.size() - CombatConstantsEncounter.COUNTER_READ_HISTORY_MAX_ENTRIES)
+    atk[CombatConstantsEncounter.COMBATANT_KEY_COUNTER_READ_HISTORY] = history
+    if success:
+        atk.erase(CombatConstantsEncounter.COMBATANT_KEY_COUNTER_READ_COMMITTED_UNTIL)
 
 
 ## WF-2b: form-inference confidence (0..1) based on observed attack count toward observer from target.
 static func get_form_inference_confidence(observer: Dictionary, target_id: int) -> float:
-	var entry: Dictionary = CombatAttention._yomi_entry(observer, target_id)
-	var counts: Dictionary = entry.get(DataKeys.ATTENTION_LINE_COUNTS, {}) as Dictionary
-	var total: int = 0
-	for line in counts:
-		total += int(counts[line])
-	return clampf(float(total) / 10.0, 0.0, 1.0)
+    var entry: Dictionary = CombatAttention._yomi_entry(observer, target_id)
+    var counts: Dictionary = entry.get(DataKeys.ATTENTION_LINE_COUNTS, {}) as Dictionary
+    var total: int = 0
+    for line in counts:
+        total += int(counts[line])
+    return clampf(float(total) / 10.0, 0.0, 1.0)
 
 
 ## Phase 2: true when inferred form for opponent is stale (recent line counts all zero).
 static func _is_form_stale_for_opponent(manager: Node, c: Dictionary, opponent_id: int) -> bool:
-	var entry: Dictionary = CombatAttention._yomi_entry(c, opponent_id)
-	if entry.is_empty():
-		return false
-	var recent: Dictionary = entry.get(DataKeys.ATTENTION_RECENT_LINE_COUNTS, {}) as Dictionary
-	if recent.is_empty():
-		return false
-	for line in recent:
-		if int(recent[line]) > 0:
-			return false
-	return true
+    var entry: Dictionary = CombatAttention._yomi_entry(c, opponent_id)
+    if entry.is_empty():
+        return false
+    var recent: Dictionary = entry.get(DataKeys.ATTENTION_RECENT_LINE_COUNTS, {}) as Dictionary
+    if recent.is_empty():
+        return false
+    for line in recent:
+        if int(recent[line]) > 0:
+            return false
+    return true
