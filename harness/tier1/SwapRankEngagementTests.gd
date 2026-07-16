@@ -907,7 +907,7 @@ static func _run_fall_back_solo_demotes_when_rear_slot_empty(failures: PackedStr
     mgr.combat_clock = 1.0
     var rank0_id: int = CombatantEntityAccess.id_int(rank0)
     rank0["state"] = CombatConstants.STATE_FALLING_BACK
-    rank0["state_timer"] = float(rank0.get("state_duration", CombatConstants.BASE_FALL_BACK_S))
+    rank0["state_timer"] = float(rank0.get(DataKeys.PA_STATE_DURATION, CombatConstants.BASE_FALL_BACK_S))
     CombatFormationFlow.handle_fall_back_solo_resolve(mgr, {"combatant_id": rank0_id, "resolve_at": 0.0, "data": {}})
     var after: Dictionary = CombatantEntityAccess.manager_get_combatant(mgr, rank0_id)
     var rank_after: int = CombatantEntityAccess.rank_int(after)

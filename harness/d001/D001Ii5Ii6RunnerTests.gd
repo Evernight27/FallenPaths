@@ -45,7 +45,7 @@ static func _probe_ii_sparse_post_flee_engagement_debug(preset_id: String) -> vo
             CombatConstants.set_headless_harness_quiet(was_quiet)
             return
         FormationSlots.remove_combatant_from_slots(slots, CombatantEntityAccess.id_int(fled))
-        fled["combat_absent"] = true
+        fled[DataKeys.COMBATANT_COMBAT_ABSENT] = true
         fled["state"] = CombatConstants.STATE_FLED
     mgr.recompute_zoc_and_distance()
     var survivor: Dictionary = D001RunnerHelpers._player_at_rank_file(mgr, 0, 4)
@@ -119,7 +119,7 @@ static func _probe_7v7_sparse_formation_hold_hint() -> void:
             CombatConstants.set_headless_harness_quiet(was_quiet)
             return
         FormationSlots.remove_combatant_from_slots(slots, CombatantEntityAccess.id_int(fled))
-        fled["combat_absent"] = true
+        fled[DataKeys.COMBATANT_COMBAT_ABSENT] = true
         fled["state"] = CombatConstants.STATE_FLED
     mgr.recompute_zoc_and_distance()
     var survivor: Dictionary = D001RunnerHelpers._player_at_rank_file(mgr, 0, 4)
@@ -216,7 +216,7 @@ static func _probe_ii_sparse_close_band_rotate_suppress(preset_id: String) -> vo
             CombatConstants.set_headless_harness_quiet(was_quiet)
             return
         FormationSlots.remove_combatant_from_slots(slots, CombatantEntityAccess.id_int(fled))
-        fled["combat_absent"] = true
+        fled[DataKeys.COMBATANT_COMBAT_ABSENT] = true
         fled.state = CombatConstants.STATE_FLED
     mgr.recompute_zoc_and_distance()
     var survivor: Dictionary = D001RunnerHelpers._player_at_rank_file(mgr, 0, 4)

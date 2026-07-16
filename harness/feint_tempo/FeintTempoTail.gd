@@ -106,3 +106,11 @@ static func run_after_attention(failures: PackedStringArray) -> void:
     FeintTempoRecoveryIii8Tests._run_feint_move_listing_defender_low_stamina_scales_read_m_vs_full_stamina(failures)
     FeintTempoRecoveryIii8Tests._run_feint_move_listing_defender_and_attacker_stamina_multiply_orthogonally(failures)
     FeintTempoRecoveryIii8Tests._run_feint_telegraph_scrubbed_on_combat_manager_restart(failures)
+    # A2 Meisterhäue: move family mapping, counter-intent scaling, readthrough mod.
+    MeisterhauCounterIntentTests.run_meisterhau_family_mapping(failures)
+    MeisterhauCounterIntentTests.run_meisterhau_scale_factor_is_sub_one(failures)
+    MeisterhauCounterIntentTests.run_meisterhau_counter_mult_no_crash_with_inferred_form(failures)
+    MeisterhauCounterIntentTests.run_oberhau_vs_meisterhau_family_distinction(failures)
+    MeisterhauCounterIntentTests.run_meisterhau_move_definitions_exist(failures)
+    MeisterhauCounterIntentTests.run_meisterhau_readthrough_in_neutral_mod(failures)
+    MeisterhauCounterIntentTests.run_meisterhau_readthrough_wall_has_bonus(failures)

@@ -8,7 +8,7 @@ extends RefCounted
 static func _file_spacing_for_pair(manager: Node, a: Dictionary, b: Dictionary) -> float:
     if manager != null:
         var band: String = CombatantEntityAccess.distance_to_opponent_band(a, CombatantEntityAccess.id_int(b))
-        # CLOSE band = successful bind for this pair --" grid file gap no longer limits weapon reach.
+        # CLOSE band = successful bind for this pair — grid file gap no longer limits weapon reach.
         if band == CombatConstants.DISTANCE_CLOSE:
             return 0.0
     var df: float = absf(float(CombatantEntityAccess.file_int(a) - CombatantEntityAccess.file_int(b)))
@@ -62,9 +62,9 @@ static func effective_pair_geometry(
     var df: float = _file_spacing_for_pair(manager, a, b)
     if fa.is_empty() or fb.is_empty():
         var eff_empty: float = df * CombatConstants.SPACING_NORMAL * CombatConstants.REACH_SAFETY_FACTOR
-        return {"eff_dist": eff_empty, "file_spacing_equiv": df}
-    var sa: float = CombatConstants.get_spacing_from_density(fa.get("density", "normal"))
-    var sb: float = CombatConstants.get_spacing_from_density(fb.get("density", "normal"))
+        return {"eff_dist": eff_empty, DataKeys.PAIR_FILE_SPACING_EQUIV: df}
+    var sa: float = CombatConstants.get_spacing_from_density(fa.get(DataKeys.FORMATION_DENSITY, "normal"))
+    var sb: float = CombatConstants.get_spacing_from_density(fb.get(DataKeys.FORMATION_DENSITY, "normal"))
     var half_width: float = (sa + sb) * 0.5
     var base: float = df * half_width * CombatConstants.REACH_SAFETY_FACTOR
     var loa: float = CombatantEntityAccess.lane_offset_float(a)
@@ -84,8 +84,8 @@ static func effective_pair_geometry(
     return {
         "eff_dist": eff_dist,
         "effective_pair_eff_dist": eff_dist,
-        "file_spacing_equiv": file_spacing,
-        "effective_pair_file_spacing_equivalent": file_spacing,
+        DataKeys.PAIR_FILE_SPACING_EQUIV: file_spacing,
+        DataKeys.EFFECTIVE_PAIR_FILE_SPACING_EQUIV: file_spacing,
     }
 
 
@@ -94,10 +94,10 @@ static func cached_eff_dist(pair_geometry_cache: Variant) -> float:
     if pair_geometry_cache == null or not (pair_geometry_cache is Dictionary):
         return -1.0
     var g: Dictionary = pair_geometry_cache as Dictionary
-    if g.has("effective_pair_eff_dist"):
-        return g.get("effective_pair_eff_dist", -1.0)
+    if g.has(DataKeys.PA_EFFECTIVE_PAIR_EFF_DIST):
+        return g.get(DataKeys.PA_EFFECTIVE_PAIR_EFF_DIST, -1.0)
     if g.has("eff_dist"):
-        return g.get("eff_dist", -1.0)
+        return g.get(DataKeys.PA_EFFECTIVE_PAIR_EFF_DIST, -1.0)
     return -1.0
 
 
@@ -108,9 +108,7 @@ static func melee_reach_covers_eff_dist(melee_range: float, eff_dist: float) -> 
 static func effective_pair_file_spacing_equivalent(
     manager: Node, a: Dictionary, b: Dictionary, formation_a_cache: Variant = null, formation_b_cache: Variant = null
 ) -> float:
-    return float(
-        effective_pair_geometry(manager, a, b, formation_a_cache, formation_b_cache).get("file_spacing_equiv", 0.0)
-    )
+    return effective_pair_geometry(manager, a, b, formation_a_cache, formation_b_cache).get(DataKeys.PAIR_FILE_SPACING_EQUIV, 0.0)
 
 
 static func effective_pair_eff_dist(

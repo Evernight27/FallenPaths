@@ -881,7 +881,7 @@ static func _append_parry_formula_section(lines: PackedStringArray, failures: Pa
     else:
         lines.append(
             (
-                "formula_note=marginal_stop can still bind when alignment high (%.2f>=%.2f); brawl partials use lea"
-                + "k path" % [ctrl_m, BIND_THRESHOLD]
+                "formula_note=marginal_stop can still bind when alignment high (%.2f>=%.2f); brawl partials use leak path"
+                % [ctrl_m, BIND_THRESHOLD]
             )
         )

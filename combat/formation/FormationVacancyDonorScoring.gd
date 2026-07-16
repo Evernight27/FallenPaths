@@ -59,13 +59,13 @@ static func _vacancy_lateral_undo_blocked_persistent(
         return false
     if CombatantEntityAccess.rank_int(ally, -9) != fill_rank:
         return false
-    if not ally.has("formation_vacancy_lateral_reverse_lock_until"):
+    if not ally.has(DataKeys.FM_VACANCY_LATERAL_REVERSE_LOCK_UNTIL):
         return false
-    var until: float = ally.get("formation_vacancy_lateral_reverse_lock_until", -1.0)
+    var until: float = ally.get(DataKeys.FM_VACANCY_LATERAL_REVERSE_LOCK_UNTIL, -1.0)
     if CombatantEntityAccess.combat_clock_float(manager) >= until:
         return false
-    var last_from: int = int(ally.get("formation_vacancy_lateral_last_from_file", -999))
-    var last_to: int = int(ally.get("formation_vacancy_lateral_last_to_file", -999))
+    var last_from: int = int(ally.get(DataKeys.FM_VACANCY_LATERAL_LAST_FROM_FILE, -999))
+    var last_to: int = int(ally.get(DataKeys.FM_VACANCY_LATERAL_LAST_TO_FILE, -999))
     if last_from == -999 or last_to == -999:
         return false
     return hole_file == last_from and donor_file == last_to
@@ -79,7 +79,7 @@ static func _vacancy_lateral_record_edge(manager: Node, ally_id: int, src_f: int
 static func _repack_lane_offset_after_rank_file_change(c: Dictionary) -> void:
     if c.is_empty():
         return
-    c["lane_offset"] = CombatConstants.LANE_OFFSET_DEFAULT
+    c[DataKeys.BIND_LANE_OFFSET] = CombatConstants.LANE_OFFSET_DEFAULT
 
 
 ## Busy combatants must not be picked as vacancy donors (would fight slot state during swaps / wind-up).

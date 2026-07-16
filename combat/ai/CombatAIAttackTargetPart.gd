@@ -15,7 +15,7 @@ extends RefCounted
 ## (**`ACTION_KEY_COUNTER_TEMPO`**) ->'' -  **`CounterTempo.counter_tempo_listing_weight_mult`**
 ## (**`AI_COUNTER_TEMPO_*`**). **`is_feint`** moves get **`CombatConstants.AI_IS_FEINT_MOVE_LISTING_WEIGHT_MULT`** ->''
 ## -  defender-readiness lerp (**`PassiveParryContext.get_passive_parry_readiness`** ->'' -
-## **`CombatConstants.passive_parry_readiness_incoming_contact_mult`** for this move'"--"''s **`contact_type`** ->'' -
+## **`CombatConstants.passive_parry_readiness_incoming_contact_mult`** for this move'"—''s **`contact_type`** ->'' -
 ## **`CombatConstants.defender_passive_readiness_stamina_mult_from_ratio`** on the defender ->'' -
 ## **`CombatConstants.ai_feint_listing_defender_readiness_spacing_mult`** from defender **`distance_to[attacker]`** '""
 ## same curve as **`DefenseChoiceResolver`** reported readiness, not attacker stamina) ->'' -  attacker
@@ -32,12 +32,12 @@ extends RefCounted
 
 
 static func _add_attack_target_part(choice: Dictionary, manager: Node, attacker_id: int) -> void:
-    if CombatConstants.is_medical_move(choice.get("move_id", "")):
+    if CombatConstants.is_medical_move(choice.get(DataKeys.ACTION_MOVE_ID, "")):
         return
-    if choice.get("move_id", "") == CombatConstants.MOVE_ID_ATTEMPT_CLOSE:
+    if choice.get(DataKeys.ACTION_MOVE_ID, "") == CombatConstants.MOVE_ID_ATTEMPT_CLOSE:
         return  # Close attempt targets a combatant, not a body part
     if (
-        choice.get("move_id", "")
+        choice.get(DataKeys.ACTION_MOVE_ID, "")
         in [
             CombatConstants.MOVE_ID_SWAP_RANK,
             CombatConstants.MOVE_ID_DRAG_BACK,
@@ -46,11 +46,11 @@ static func _add_attack_target_part(choice: Dictionary, manager: Node, attacker_
         ]
     ):
         return
-    if choice.get("move_id", "") == CombatConstants.MOVE_ID_WAIT:
+    if choice.get(DataKeys.ACTION_MOVE_ID, "") == CombatConstants.MOVE_ID_WAIT:
         return
-    if choice.get("move_id", "") == CombatConstants.MOVE_ID_FLEE:
+    if choice.get(DataKeys.ACTION_MOVE_ID, "") == CombatConstants.MOVE_ID_FLEE:
         return
-    var tgt_id: int = choice.get("target_id", -1)
+    var tgt_id: int = choice.get(DataKeys.ACTION_TARGET_ID, -1)
     var tgt: Dictionary = CombatantEntityAccess.manager_get_combatant(manager, tgt_id)
     if tgt.is_empty():
         return
@@ -60,15 +60,15 @@ static func _add_attack_target_part(choice: Dictionary, manager: Node, attacker_
     var atk_pick: Dictionary = CombatantEntityAccess.manager_get_combatant(manager, attacker_id)
     if not atk_pick.is_empty():
         targetable = CombatDepthPolearm.depth_polearm_targetable_parts_filter(manager, atk_pick, targetable)
-    var move_id_pick: String = choice.get("move_id", "")
+    var move_id_pick: String = choice.get(DataKeys.ACTION_MOVE_ID, "")
     var depth_allows_low: bool = (
         CombatDepthPolearm.depth_polearm_lane_allows_low_targets(manager, atk_pick) if not atk_pick.is_empty() else true
     )
     if targetable.is_empty():
         return
     var move_def: Dictionary = WeaponConstants.get_move(move_id_pick)
-    var atk_line: String = move_def.get("attack_line", "high")
-    var guard_line: String = tgt.get("guard_line", CombatConstants.GUARD_DEFAULT)
+    var atk_line: String = move_def.get(DataKeys.PA_ATTACK_LINE, "high")
+    var guard_line: String = tgt.get(DataKeys.ATTACK_GUARD_LINE, CombatConstants.GUARD_DEFAULT)
     var atk_angle_list: float = CombatConstants.line_to_angle(atk_line)
     if atk_pick != null and not atk_pick.is_empty():
         atk_angle_list = CombatFootwork.attack_angle_deg_for_listing_preview(
@@ -84,7 +84,7 @@ static func _add_attack_target_part(choice: Dictionary, manager: Node, attacker_
         "guard_angle_deg": guard_angle_list,
     }
     var alignment: float = CombatConstants.get_line_alignment_with_deflect(atk_line, tgt, align_ctx)
-    choice["target_part"] = AttackPathResolver.pick_ai_target_part(
+    choice[DataKeys.ATTACK_TARGET_PART] = AttackPathResolver.pick_ai_target_part(
         atk_line,
         guard_line,
         targetable,
@@ -97,11 +97,11 @@ static func _add_attack_target_part(choice: Dictionary, manager: Node, attacker_
         move_id_pick,
         depth_allows_low
     )
-    if choice.get("target_part", "").is_empty():
+    if choice.get(DataKeys.ACTION_TARGET_PART, "").is_empty():
         return
     if move_def.get(CombatConstants.MOVE_DEF_KEY_IS_FEINT, false):
         var feint_part: String = AttackPathResolver.pick_feint_part_for_attack(
-            choice["target_part"], targetable, tgt, attacker_id
+            choice[DataKeys.ATTACK_TARGET_PART], targetable, tgt, attacker_id
         )
         if not feint_part.is_empty():
-            choice["feint_part"] = feint_part
+            choice[DataKeys.ATTACK_FEINT_PART] = feint_part

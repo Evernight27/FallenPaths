@@ -92,7 +92,7 @@ static func process_incapacitation(manager: Node, c: Dictionary) -> bool:
     ):
         CombatFootwork.return_to_waiting(c)
         c.gauge = 0.0
-        c["guard"] = CombatConstants.GUARD_AFTER_ATTACK
+        c[DataKeys.COMBATANT_GUARD] = CombatConstants.GUARD_AFTER_ATTACK
         var who_name: String = CombatantEntityAccess.get_display_name(c)
         CombatDebug.combat_session("%s no longer cowering (arm functionality returned)." % who_name)
         CombatEventScheduler.schedule_action_ready_for_combatant(manager, c, 0.05)
@@ -111,7 +111,7 @@ static func process_incapacitation(manager: Node, c: Dictionary) -> bool:
 ## **`COMBATANT_KEY_INCOMING_ATTACK_TELEGRAPH_PART`** (Tier 4.2) like **`complete_recovery`**.
 static func enter_short_recovery(c: Dictionary, manager: Node = null) -> void:
     CombatFootwork.clear_on_exchange_end(c)
-    c["guard"] = CombatConstants.GUARD_AFTER_ATTACK
+    c[DataKeys.COMBATANT_GUARD] = CombatConstants.GUARD_AFTER_ATTACK
     c.state = CombatConstants.STATE_RECOVERING
     c.state_timer = 0.0
     c.state_duration = 0.8
@@ -127,7 +127,7 @@ static func complete_recovery(manager: Node, c: Dictionary) -> void:
     c.gauge = 0.0
     c.state_timer = 0.0
     c.state_duration = 0.0
-    var move_id: String = c.get("last_move_id", "")
+    var move_id: String = c.get(DataKeys.PA_LAST_MOVE_ID, "")
     if move_id.is_empty():
         move_id = str(
             CombatantEntityAccess.nested_dictionary_read(c, "pending_attack").get(
@@ -135,13 +135,14 @@ static func complete_recovery(manager: Node, c: Dictionary) -> void:
             )
         )
     var eff_line: String = c.get(CombatConstants.PA_KEY_EFFECTIVE_ATTACK_LINE, "")
-    var cause: String = CombatConstants.normalize_recovery_cause(str(c.get("recovery_cause", "")))
+    var cause: String = CombatConstants.normalize_recovery_cause(str(c.get(DataKeys.ATTACK_RECOVERY_CAUSE, "")))
     if cause == "attack_deflect":
-        var def_guard: String = c.get("defender_guard_line_at_parry", "")
+        var def_guard: String = c.get(DataKeys.PA_DEFENDER_GUARD_LINE_AT_PARRY, "")
         var clash_ctx: Dictionary = CombatantEntityAccess.nested_dictionary_read(c, "parry_clash_context")
         GuardLineUpdater.set_guard_deflected(c, move_id, eff_line, def_guard, clash_ctx)
-        c.erase("defender_guard_line_at_parry")
-        c.erase("parry_clash_context")
+        c.erase(DataKeys.PA_DEFENDER_GUARD_LINE_AT_PARRY)
+        c.erase(DataKeys.PA_DEFENDER_FORM_AT_PARRY)
+        c.erase(DataKeys.PA_PARRY_CLASH_CONTEXT)
     else:
         GuardLineUpdater.set_guard_from_move(c, move_id, eff_line)
     var pa_before: Dictionary = CombatantEntityAccess.nested_dictionary_read(c, "pending_attack")
@@ -156,36 +157,36 @@ static func complete_recovery(manager: Node, c: Dictionary) -> void:
             CombatDebug.combat_session("%s is cowering (no functional arms)" % who_name)
     else:
         CombatFootwork.return_to_waiting(c)
-        c["guard"] = CombatConstants.GUARD_AFTER_ATTACK
+        c[DataKeys.COMBATANT_GUARD] = CombatConstants.GUARD_AFTER_ATTACK
 
 
 ## Cancels medical wind-up if target died. Returns true if cancelled (caller should continue to next combatant).
 static func process_medical_wind_up_cancel(manager: Node, c: Dictionary) -> bool:
     if CombatantEntityAccess.state_str(c) != CombatConstants.STATE_MEDICAL_WIND_UP:
         return false
-    var pm_raw_check: Variant = c.get("pending_medical", null)
+    var pm_raw_check: Variant = c.get(DataKeys.PA_PENDING_MEDICAL, null)
     if pm_raw_check is not Dictionary:
-        c["pending_medical"] = {}
+        c[DataKeys.PA_PENDING_MEDICAL] = {}
         CombatFootwork.return_to_waiting(c)
         c.state_timer = 0.0
         c.state_duration = 0.0
-        c["guard"] = CombatConstants.GUARD_AFTER_ATTACK
+        c[DataKeys.COMBATANT_GUARD] = CombatConstants.GUARD_AFTER_ATTACK
         CombatEventScheduler.schedule_action_ready_for_combatant(manager, c, 0.05)
         return true
     var pm_check: Dictionary = pm_raw_check
-    var tgt_cid_check: int = pm_check.get("target_combatant_id", CombatantEntityAccess.id_int(c))
+    var tgt_cid_check: int = pm_check.get(DataKeys.MEDICAL_TARGET_COMBATANT_ID, CombatantEntityAccess.id_int(c))
     if tgt_cid_check == CombatantEntityAccess.id_int(c):
         return false
     var tgt_check: Dictionary = CombatantEntityAccess.manager_get_combatant(manager, tgt_cid_check)
     if not tgt_check.is_empty() and CombatantEntityAccess.is_alive_in_combat(tgt_check):
         return false
     if not tgt_check.is_empty():
-        tgt_check.receiving_medical_count = max(0, tgt_check.get("receiving_medical_count", 0) - 1)
-    c.pending_medical = {}
+        tgt_check.receiving_medical_count = max(0, tgt_check.get(DataKeys.PA_RECEIVING_MEDICAL_COUNT, 0) - 1)
+    c[DataKeys.PA_PENDING_MEDICAL] = {}
     CombatFootwork.return_to_waiting(c)
     c.state_timer = 0.0
     c.state_duration = 0.0
-    c["guard"] = CombatConstants.GUARD_AFTER_ATTACK
+    c[DataKeys.COMBATANT_GUARD] = CombatConstants.GUARD_AFTER_ATTACK
     var who_name: String = CombatantEntityAccess.get_display_name(c)
     CombatDebug.medical_session("Medical cancelled: %s (target died during wind-up)" % who_name)
     CombatEventScheduler.schedule_action_ready_for_combatant(manager, c, 0.05)
@@ -199,17 +200,17 @@ static func abort_medical_wind_up(manager: Node, performer_id: int) -> void:
         return
     if CombatantEntityAccess.state_str(c) != CombatConstants.STATE_MEDICAL_WIND_UP:
         return
-    var pm: Dictionary = c.get("pending_medical", {}) as Dictionary
-    var tgt_cid: int = pm.get("target_combatant_id", performer_id)
+    var pm: Dictionary = c.get(DataKeys.PA_PENDING_MEDICAL, {}) as Dictionary
+    var tgt_cid: int = pm.get(DataKeys.MEDICAL_TARGET_COMBATANT_ID, performer_id)
     if tgt_cid != performer_id:
         var tgt: Dictionary = CombatantEntityAccess.manager_get_combatant(manager, tgt_cid)
         if not tgt.is_empty():
-            tgt.receiving_medical_count = max(0, tgt.get("receiving_medical_count", 0) - 1)
-    c["pending_medical"] = {}
+            tgt.receiving_medical_count = max(0, tgt.get(DataKeys.PA_RECEIVING_MEDICAL_COUNT, 0) - 1)
+    c[DataKeys.PA_PENDING_MEDICAL] = {}
     CombatFootwork.return_to_waiting(c)
     c.state_timer = 0.0
     c.state_duration = 0.0
-    c["guard"] = CombatConstants.GUARD_AFTER_ATTACK
+    c[DataKeys.COMBATANT_GUARD] = CombatConstants.GUARD_AFTER_ATTACK
     var who: String = CombatantEntityAccess.get_display_name(c)
     CombatDebug.medical_session("Medical wind-up interrupted: %s (took damage during treatment)" % who)
     CombatEventScheduler.schedule_action_ready_for_combatant(manager, c, 0.05)
@@ -218,16 +219,16 @@ static func abort_medical_wind_up(manager: Node, performer_id: int) -> void:
 static func process_receiving_medical(manager: Node, c: Dictionary, delta: float) -> void:
     CombatFootwork.reconcile_idle_offset(c)
     c.gauge = 100.0  # Keep readied; can hold/switch direct pressure on other wounds
-    var cooldown: float = maxf(0.0, c.get("receiving_care_action_cooldown", 0.0) - delta)
-    c.receiving_care_action_cooldown = cooldown
+    var cooldown: float = maxf(0.0, c.get(DataKeys.PA_RECEIVING_CARE_COOLDOWN, 0.0) - delta)
+    c[DataKeys.PA_RECEIVING_CARE_COOLDOWN] = cooldown
     if CombatantEntityAccess.is_player_side(c):
-        var pending: bool = c.get("receiving_care_turn_pending", false)
+        var pending: bool = c.get(DataKeys.PA_RECEIVING_CARE_TURN_PENDING, false)
         if cooldown <= 0.0 and not pending:
             var recv_actions: Array = manager.get_available_actions(CombatantEntityAccess.id_int(c))
             if not recv_actions.is_empty():
                 manager.notify_turn_ready(CombatantEntityAccess.id_int(c))
                 c.receiving_care_turn_pending = true
-                c.receiving_care_action_cooldown = CombatConstants.RECOVERY_AFTER_MEDICAL_S
+                c[DataKeys.PA_RECEIVING_CARE_COOLDOWN] = CombatConstants.RECOVERY_AFTER_MEDICAL_S
     else:
         if (
             MedicalPhaseController.combat_resolution_blocked(manager)
@@ -242,22 +243,23 @@ static func process_receiving_medical(manager: Node, c: Dictionary, delta: float
                 CombatDebug.flow_log(
                     (
                         "receiving_care enemy id=%d actions=[%s] => pick %s"
-                        % [cid_recv, CombatDebug.format_actions_compact(actions), choice.get("move_id", "")]
+                        % [cid_recv, CombatDebug.format_actions_compact(actions), choice.get(DataKeys.ACTION_MOVE_ID, "")]
                     ),
                     "receiving_care_enemy:%d" % cid_recv
                 )
+
                 CombatAIActionPicker.resolve_choice(manager, cid_recv, choice, true)
-                c.receiving_care_action_cooldown = CombatConstants.RECOVERY_AFTER_MEDICAL_S
+                c[DataKeys.PA_RECEIVING_CARE_COOLDOWN] = CombatConstants.RECOVERY_AFTER_MEDICAL_S
 
 
 static func process_waiting(_manager: Node, c: Dictionary, delta: float) -> void:
     # Option A: Event-driven. No gauge fill or turn_ready  -  events handle readiness. Only guard + stamina.
     var g: float = PassiveParryContext.guard_readiness_float(c)
-    c["guard"] = minf(1.0, g + CombatConstants.GUARD_RISE_RATE * delta)
+    c[DataKeys.COMBATANT_GUARD] = minf(1.0, g + CombatConstants.GUARD_RISE_RATE * delta)
     CombatExhaustion.process_waiting_recovery(c, delta)
     var s: float = CombatantEntityAccess.stamina_float(c)
     var cap: float = CombatExhaustion.effective_stamina_max(c)
-    c["stamina"] = minf(cap, s + CombatExhaustion.effective_stamina_refill_rate(c) * delta)
+    c[DataKeys.COMBATANT_STAMINA] = minf(cap, s + CombatExhaustion.effective_stamina_refill_rate(c) * delta)
     CounterTempo.process_waiting(_manager, c)
     CombatFlurryBind.process_waiting(_manager, c)
     CombatFootwork.reconcile_idle_offset(c)
@@ -281,9 +283,9 @@ static func process_medical_wind_up(manager: Node, c: Dictionary, delta: float) 
         abort_medical_wind_up(manager, CombatantEntityAccess.id_int(c))
         return
     if c.state_timer >= c.state_duration:
-        var pm_raw: Variant = c.get("pending_medical", null)
+        var pm_raw: Variant = c.get(DataKeys.PA_PENDING_MEDICAL, null)
         var pm: Dictionary = pm_raw as Dictionary if pm_raw is Dictionary else {}
-        c["pending_medical"] = {}
+        c[DataKeys.PA_PENDING_MEDICAL] = {}
         MedicalWindUpHandler.complete(manager, c, pm)
 
 
@@ -300,7 +302,7 @@ static func process_recovering(manager: Node, c: Dictionary, delta: float) -> vo
 ## these states).
 static func process_formation_move_timer(c: Dictionary, delta: float) -> void:
     CombatFootwork.reconcile_idle_offset(c)
-    c.state_timer = minf(c.state_timer + delta, c.get("state_duration", 1.0))
+    c.state_timer = minf(c.state_timer + delta, c.get(DataKeys.PA_STATE_DURATION, 1.0))
 
 
 ## Cowering idle: limb fatigue decay + composure fill while cowering.
@@ -308,3 +310,7 @@ static func process_cowering_idle(_manager: Node, c: Dictionary, delta: float) -
     _get_muscle_fatigue().process_waiting_recovery(c, delta)
     var g: float = CombatantEntityAccess.gauge_float(c)
     c.gauge = minf(100.0, g + 0.5 * delta)
+
+
+
+

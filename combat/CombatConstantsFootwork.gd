@@ -69,7 +69,7 @@ static func passive_parry_readiness_incoming_contact_mult(contact_type: String) 
 static func defender_distance_band_to_attacker_id(defender: Dictionary, attacker_id: int) -> String:
     if attacker_id < 0:
         return "mid"
-    var d: Variant = defender.get("distance_to", {})
+    var d: Variant = defender.get(DataKeys.COMBATANT_DISTANCE_TO, {})
     if typeof(d) != TYPE_DICTIONARY:
         return "mid"
     var s: String = str(d.get(attacker_id, "mid"))

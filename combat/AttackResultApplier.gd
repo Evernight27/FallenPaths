@@ -18,7 +18,7 @@ extends RefCounted
 ## sub-threshold control sets **`parry_was_bind`** false; misaligned partial **`erase`**s those keys (clears stale bind
 ## state).
 ## Manager must have: emit_signal, _get_by_id, _check_for_winner, _end_combat_phase, _execute_attack.
-## **`hit`**: clears **`parry_clash_context`** / **`defender_guard_line_at_parry`** on the attacker (stale partial-parry
+## **`hit`**: clears **`parry_clash_context`** / **`defender_guard_line_at_parry`** / **`defender_form_at_parry`** on the attacker (stale partial-parry
 ## calibration after follow-through); clears Tier **4.2** feint listing parry-deflect memory for **`target_id`**.
 
 
@@ -35,28 +35,28 @@ static func _log_fp_parry_outcome(
         return
     var atk_n: String = CombatantEntityAccess.get_display_name(atk, atk_id)
     var tgt_n: String = CombatantEntityAccess.get_display_name(tgt, tgt_id)
-    var ctrl: float = clash.get("parry_control", 0.0)
+    var ctrl: float = clash.get(DataKeys.RESULT_PARRY_CONTROL, 0.0)
     var reason: String = CombatLogFormatter.damage_resolve_note({"outcome": outcome})
     var interpose_suffix: String = ""
-    var interpose_boost: float = clash.get("arm_interpose_boost", 0.0)
+    var interpose_boost: float = clash.get(DataKeys.RESULT_ARM_INTERPOSE_BOOST, 0.0)
     if interpose_boost > 0.0:
         interpose_suffix = (
             " arm_interpose_arm=%s arm_interpose_boost=%.3f"
             % [
-                clash.get("arm_interpose_arm", ""),
+                clash.get(DataKeys.RESULT_ARM_INTERPOSE_ARM, ""),
                 interpose_boost,
             ]
         )
     if outcome == "parry_deflect":
-        var tag: String = "parry_bind" if tgt.get("parry_was_bind", false) else "parry_deflect"
+        var tag: String = "parry_bind" if tgt.get(DataKeys.PA_PARRY_WAS_BIND, false) else "parry_deflect"
         CombatDebug.combat_session(
             "%s %s vs %s ctrl=%.3f reason=%s%s" % [tag, tgt_n, atk_n, ctrl, reason, interpose_suffix]
         )
     elif outcome == "parry_partial":
         var rem: float = 0.0
-        if clash.has("remaining_ratio"):
-            rem = float(clash["remaining_ratio"])
-        var bind: bool = tgt.get("parry_was_bind", false)
+        if clash.has(DataKeys.RESULT_REMAINING_RATIO):
+            rem = float(clash[DataKeys.RESULT_REMAINING_RATIO])
+        var bind: bool = tgt.get(DataKeys.PA_PARRY_WAS_BIND, false)
         var tag: String = "parry_bind" if bind else "parry_partial"
         CombatDebug.combat_session(
             (
@@ -70,7 +70,7 @@ static func _consume_stamina(manager: Node, c: Dictionary, amount: float) -> voi
     if c == null:
         return
     var s: float = CombatantEntityAccess.stamina_float(c)
-    c["stamina"] = maxf(0.0, s - amount)
+    c[DataKeys.COMBATANT_STAMINA] = maxf(0.0, s - amount)
     CombatExhaustion.apply_exertion_from_stamina_spend(manager, c, amount)
 
 
@@ -79,7 +79,7 @@ static func _stamina_parry_cost_for_defender(atk: Dictionary, incoming_intensity
     if i < 0.0:
         i = 0.5
         if not atk.is_empty():
-            i = _pending_attack_read(atk).get("intensity", 0.5)
+            i = _pending_attack_read(atk).get(DataKeys.ATTACK_INTENSITY, 0.5)
     return CombatConstants.stamina_parry_cost_from_intensity(i)
 
 
@@ -87,7 +87,7 @@ static func _stamina_attack_cost_for_attacker(manager: Node, atk: Dictionary, ta
     if atk.is_empty():
         return CombatConstants.stamina_attack_cost_from_intensity(1.0)
     var cost: float = CombatConstants.stamina_attack_cost_from_intensity(
-        _pending_attack_read(atk).get("intensity", 1.0)
+        _pending_attack_read(atk).get(DataKeys.ATTACK_INTENSITY, 1.0)
     )
     if manager != null and target_id >= 0:
         var clk: float = CombatantEntityAccess.combat_clock_float(manager)
@@ -100,17 +100,17 @@ static func _pending_attack_read(atk: Dictionary) -> Dictionary:
 
 
 static func _tuning_follow_through_extras(atk: Dictionary) -> Dictionary:
-    if atk.is_empty() or not atk.has("tuning_ft_parent_strike"):
+    if atk.is_empty() or not atk.has(DataKeys.PA_TUNING_FT_PARENT_STRIKE):
         return {}
     return {
-        "parent_exchange_index": int(atk["tuning_ft_parent_strike"]),
+        "parent_exchange_index": int(atk[DataKeys.PA_TUNING_FT_PARENT_STRIKE]),
         "note": "follow_through_from_parry",
     }
 
 
 static func _clear_tuning_follow_through_marker(atk: Dictionary) -> void:
     if not atk.is_empty():
-        atk.erase("tuning_ft_parent_strike")
+        atk.erase(DataKeys.PA_TUNING_FT_PARENT_STRIKE)
 
 
 static func _tuning_parry_parent_strike_index(manager: Node) -> int:
@@ -125,8 +125,8 @@ static func _hit_tuning_extras(
     var extras: Dictionary = {
         "intensity": intensity,
         "recovery_s": recovery_duration,
-        "move_id": atk.get("last_move_id", "") if not atk.is_empty() else "",
-        "attack_line": atk.get("effective_attack_line", "") if not atk.is_empty() else "",
+        "move_id": atk.get(DataKeys.PA_LAST_MOVE_ID, "") if not atk.is_empty() else "",
+        "attack_line": atk.get(DataKeys.ATTACK_EFFECTIVE_ATTACK_LINE, "") if not atk.is_empty() else "",
     }
     extras.merge(ft_extras)
     return extras
@@ -143,47 +143,47 @@ static func _enrich_payload_for_tuning(
     if not _tuning_context_enabled(manager):
         return
     if not pa.is_empty():
-        payload["move_id"] = str(pa.get(CombatConstants.PA_KEY_ATTACK_TYPE, ""))
-        payload["intensity"] = float(pa.get("intensity", 0.0))
-        payload["power"] = float(pa.get("power", 0.0))
-        payload["follow_through"] = float(pa.get("follow_through", 0.0))
-        payload["wind_up_s"] = float(pa.get("wind_up_duration", 0.0))
-        payload["attack_line"] = str(pa.get(CombatConstants.PA_KEY_EFFECTIVE_ATTACK_LINE, ""))
-        if pa.has("gauge_atk_pre"):
-            payload["gauge_atk_pre"] = float(pa["gauge_atk_pre"])
-            payload["gauge_def_pre"] = float(pa.get("gauge_def_pre", -1.0))
+        payload[DataKeys.RESULT_MOVE_ID] = str(pa.get(CombatConstants.PA_KEY_ATTACK_TYPE, ""))
+        payload[DataKeys.ATTACK_INTENSITY] = float(pa.get(DataKeys.ATTACK_INTENSITY, 0.0))
+        payload[DataKeys.RESULT_POWER] = float(pa.get(DataKeys.ATTACK_POWER, 0.0))
+        payload[DataKeys.RESULT_FOLLOW_THROUGH] = float(pa.get(DataKeys.ATTACK_FOLLOW_THROUGH, 0.0))
+        payload["wind_up_s"] = float(pa.get(DataKeys.PA_WIND_UP_DURATION, 0.0))
+        payload[DataKeys.RESULT_ATTACK_LINE] = str(pa.get(CombatConstants.PA_KEY_EFFECTIVE_ATTACK_LINE, ""))
+        if pa.has(DataKeys.PA_GAUGE_ATK_PRE):
+            payload[DataKeys.PA_GAUGE_ATK_PRE] = float(pa[DataKeys.PA_GAUGE_ATK_PRE])
+            payload["gauge_def_pre"] = float(pa.get(DataKeys.RESOLVE_GAUGE_DEF_PRE, -1.0))
     if not atk.is_empty():
-        if str(payload.get("move_id", "")).is_empty():
-            payload["move_id"] = str(atk.get("last_move_id", ""))
-        payload["atk_guard"] = str(atk.get("guard_line", ""))
-        payload["atk_form"] = str(atk.get("weapon_form", atk.get("_form_str", "")))
+        if str(payload.get(DataKeys.ACTION_MOVE_ID, "")).is_empty():
+            payload[DataKeys.RESULT_MOVE_ID] = str(atk.get(DataKeys.PA_LAST_MOVE_ID, ""))
+        payload["atk_guard"] = str(atk.get(DataKeys.ATTACK_GUARD_LINE, ""))
+        payload["atk_form"] = str(atk.get(DataKeys.PA_WEAPON_FORM, atk.get(DataKeys.COMBATANT_FORM_STR, "")))
         if CombatantEntityAccess.has_weapon(atk):
             var w = CombatantEntityAccess.get_weapon(atk)
             if w is Dictionary:
-                payload["weapon_id"] = str((w as Dictionary).get("id", ""))
+                payload[DataKeys.RESULT_WEAPON_ID] = str((w as Dictionary).get("id", ""))
             elif w != null and w.get("id") != null:
-                payload["weapon_id"] = str(w.id)
+                payload[DataKeys.RESULT_WEAPON_ID] = str(w.id)
     if not tgt.is_empty():
-        payload["def_guard"] = str(tgt.get("guard_line", ""))
+        payload["def_guard"] = str(tgt.get(DataKeys.ATTACK_GUARD_LINE, ""))
     for k in extras:
         payload[k] = extras[k]
-    if str(payload.get("kinematic_delivery", "")).is_empty() and not pa.is_empty():
-        var arch: Variant = pa.get("archetype", null)
+    if str(payload.get(DataKeys.WD_KINEMATIC_DELIVERY, "")).is_empty() and not pa.is_empty():
+        var arch: Variant = pa.get(DataKeys.WD_ARCHETYPE, null)
         if arch is Dictionary:
-            var arch_delivery: String = str((arch as Dictionary).get("kinematic_delivery", ""))
+            var arch_delivery: String = str((arch as Dictionary).get(DataKeys.WD_KINEMATIC_DELIVERY, ""))
             if not arch_delivery.is_empty():
-                payload["kinematic_delivery"] = arch_delivery
-    var outcome: String = str(payload.get("outcome", ""))
+                payload[DataKeys.RESULT_KINEMATIC_DELIVERY] = arch_delivery
+    var outcome: String = str(payload.get(DataKeys.RESULT_OUTCOME, ""))
     if outcome in ["parry_deflect", "parry_partial"]:
-        var clash: Variant = payload.get("parry_clash_context", null)
+        var clash: Variant = payload.get(DataKeys.PA_PARRY_CLASH_CONTEXT, null)
         if clash is Dictionary:
-            payload["parry_bind"] = bool(tgt.get("parry_was_bind", false)) if not tgt.is_empty() else false
-            payload["parry_control"] = float((clash as Dictionary).get(CombatConstants.CLASH_KEY_PARRY_CONTROL, 0.0))
-            if (clash as Dictionary).has("remaining_ratio"):
-                payload["follow_through_rem"] = float((clash as Dictionary)["remaining_ratio"])
-            var delivery: String = str((clash as Dictionary).get("kinematic_delivery", ""))
+            payload["parry_bind"] = bool(tgt.get(DataKeys.PA_PARRY_WAS_BIND, false)) if not tgt.is_empty() else false
+            payload[DataKeys.RESULT_PARRY_CONTROL] = float((clash as Dictionary).get(CombatConstants.CLASH_KEY_PARRY_CONTROL, 0.0))
+            if (clash as Dictionary).has(DataKeys.RESULT_REMAINING_RATIO):
+                payload["follow_through_rem"] = float((clash as Dictionary)[DataKeys.RESULT_REMAINING_RATIO])
+            var delivery: String = str((clash as Dictionary).get(DataKeys.WD_KINEMATIC_DELIVERY, ""))
             if not delivery.is_empty():
-                payload["kinematic_delivery"] = delivery
+                payload[DataKeys.RESULT_KINEMATIC_DELIVERY] = delivery
 
 
 static func _clear_attacker_pending_attack(atk: Dictionary, manager: Node) -> void:
@@ -235,8 +235,8 @@ static func _defender_set_idle_after_parry(tgt: Dictionary) -> void:
 
 
 static func apply_result(manager: Node, attacker_id: int, result: Dictionary) -> void:
-    var action: String = result.get("action", "skip")
-    var target_id: int = result.get("target_id", -1)
+    var action: String = result.get(DataKeys.RESULT_ACTION, "skip")
+    var target_id: int = result.get(DataKeys.ACTION_TARGET_ID, -1)
     var atk: Dictionary = CombatantEntityAccess.manager_get_combatant(manager, attacker_id)
     if MedicalPhaseController.combat_resolution_blocked(manager):
         return
@@ -256,17 +256,17 @@ static func apply_result(manager: Node, attacker_id: int, result: Dictionary) ->
 
     if action == "skip":
         if not atk.is_empty():
-            if result.get("recovery_duration", 0.0) > 0.0:
-                empty_result["outcome"] = "skip"
+            if result.get(DataKeys.ATTACK_RECOVERY_DURATION, 0.0) > 0.0:
+                empty_result[DataKeys.RESULT_OUTCOME] = "skip"
                 manager.emit_signal("action_resolved", attacker_id, target_id, empty_result)
                 var pa_skip: Dictionary = _pending_attack_read(atk)
-                atk["last_move_id"] = pa_skip.get(CombatConstants.PA_KEY_ATTACK_TYPE, "")
-                atk["effective_attack_line"] = pa_skip.get(CombatConstants.PA_KEY_EFFECTIVE_ATTACK_LINE, "")
-                atk["recovery_cause"] = "skip"
+                atk[DataKeys.ATTACK_LAST_MOVE_ID] = pa_skip.get(CombatConstants.PA_KEY_ATTACK_TYPE, "")
+                atk[DataKeys.ATTACK_EFFECTIVE_ATTACK_LINE] = pa_skip.get(CombatConstants.PA_KEY_EFFECTIVE_ATTACK_LINE, "")
+                atk[DataKeys.ATTACK_RECOVERY_CAUSE] = "skip"
                 _consume_stamina(manager, atk, _stamina_attack_cost_for_attacker(manager, atk, target_id))
                 atk.state = CombatConstants.STATE_RECOVERING
                 atk.state_timer = 0.0
-                atk.state_duration = result.recovery_duration
+                atk.state_duration = result.get(DataKeys.ATTACK_RECOVERY_DURATION, 0.5)
                 _clear_attacker_pending_attack(atk, manager)
                 _react_attacking_arm_loss_after_wound(manager, atk)
             else:
@@ -289,8 +289,8 @@ static func apply_result(manager: Node, attacker_id: int, result: Dictionary) ->
             atk.gauge = 0.0
             atk.state_timer = 0.0
             atk.state_duration = 0.0
-        empty_result["outcome"] = "defeated"
-        empty_result["died"] = true
+        empty_result[DataKeys.RESULT_OUTCOME] = "defeated"
+        empty_result[DataKeys.RESULT_DIED] = true
         _abort_incoming_wind_up_if_target_died(manager, target_id)
         manager.emit_signal("action_resolved", attacker_id, target_id, empty_result)
         var winner: String = manager._check_for_winner()
@@ -298,59 +298,62 @@ static func apply_result(manager: Node, attacker_id: int, result: Dictionary) ->
             manager._end_combat_phase(winner, tgt_scene)
         return
     if action == "miss":
-        empty_result["outcome"] = "miss"
+        empty_result[DataKeys.RESULT_OUTCOME] = "miss"
         _log_outcome("miss", attacker_id, target_id)
         var pa_miss_log: Dictionary = _pending_attack_read(atk) if not atk.is_empty() else {}
         if not tgt.is_empty() and not pa_miss_log.is_empty():
             _record_resolved_exchange_yomi(tgt, attacker_id, pa_miss_log, true)
-        var miss_part: String = pa_miss_log.get("target_part", "")
+            _evaluate_counter_read_outcome(manager, attacker_id, target_id, CombatantEntityAccess.form_str(tgt))
+        var miss_part: String = pa_miss_log.get(DataKeys.ACTION_TARGET_PART, "")
         if not miss_part.is_empty():
-            empty_result["part"] = miss_part
+            empty_result[DataKeys.RESULT_PART] = miss_part
         CombatF5SoakTrace.note_strike_avoided(attacker_id, target_id, atk, tgt, "miss", miss_part)
         _enrich_payload_for_tuning(
-            manager, empty_result, atk, tgt, pa_miss_log, {"recovery_s": float(result.get("recovery_duration", 0.0))}
+            manager, empty_result, atk, tgt, pa_miss_log, {"recovery_s": float(result.get(DataKeys.ATTACK_RECOVERY_DURATION, 0.0))}
         )
         manager.emit_signal("action_resolved", attacker_id, target_id, empty_result)
         # XCamp-4: proficiency gains on miss (wind-up completion).
         notify_proficiency_gains_from_resolve(manager, attacker_id, target_id, "miss", empty_result)
         if not atk.is_empty():
             var pa_miss: Dictionary = _pending_attack_read(atk)
-            atk["last_move_id"] = pa_miss.get(CombatConstants.PA_KEY_ATTACK_TYPE, "")
-            atk["effective_attack_line"] = pa_miss.get(CombatConstants.PA_KEY_EFFECTIVE_ATTACK_LINE, "")
-            atk["recovery_cause"] = "attack_miss"
+            atk[DataKeys.ATTACK_LAST_MOVE_ID] = pa_miss.get(CombatConstants.PA_KEY_ATTACK_TYPE, "")
+            atk[DataKeys.ATTACK_EFFECTIVE_ATTACK_LINE] = pa_miss.get(CombatConstants.PA_KEY_EFFECTIVE_ATTACK_LINE, "")
+            atk[DataKeys.ATTACK_RECOVERY_CAUSE] = "attack_miss"
             _consume_stamina(manager, atk, _stamina_attack_cost_for_attacker(manager, atk, target_id))
             atk.state = CombatConstants.STATE_RECOVERING
             atk.state_timer = 0.0
-            atk.state_duration = result.recovery_duration
-            atk["off_balance_until"] = CombatTiming.now_seconds() + CombatConstants.OFF_BALANCE_DURATION_S
+            atk.state_duration = result.get(DataKeys.ATTACK_RECOVERY_DURATION, 0.5)
+            atk[DataKeys.PA_OFF_BALANCE_UNTIL] = CombatTiming.now_seconds() + CombatConstants.OFF_BALANCE_DURATION_S
             _clear_attacker_pending_attack(atk, manager)
         _clear_defender_footwork(tgt)
         return
     if action == "dodge":
-        empty_result["outcome"] = "dodge"
+        empty_result[DataKeys.RESULT_OUTCOME] = "dodge"
         _log_outcome("dodge", attacker_id, target_id)
         var pa_dodge_log: Dictionary = _pending_attack_read(atk) if not atk.is_empty() else {}
         if not tgt.is_empty() and not pa_dodge_log.is_empty():
             _record_resolved_exchange_yomi(tgt, attacker_id, pa_dodge_log, true)
-        var dodge_part: String = str(pa_dodge_log.get("partial_dodge_part", pa_dodge_log.get("target_part", "")))
+        var dodge_part: String = str(pa_dodge_log.get(DataKeys.ATTACK_PARTIAL_DODGE_PART, pa_dodge_log.get(DataKeys.ACTION_TARGET_PART, "")))
+        if not tgt.is_empty() and not pa_dodge_log.is_empty():
+            _evaluate_counter_read_outcome(manager, attacker_id, target_id, CombatantEntityAccess.form_str(tgt))
         if not dodge_part.is_empty():
-            empty_result["part"] = dodge_part
+            empty_result[DataKeys.RESULT_PART] = dodge_part
         CombatF5SoakTrace.note_strike_avoided(attacker_id, target_id, atk, tgt, "dodge", dodge_part)
         _enrich_payload_for_tuning(
-            manager, empty_result, atk, tgt, pa_dodge_log, {"recovery_s": float(result.get("recovery_duration", 0.0))}
+            manager, empty_result, atk, tgt, pa_dodge_log, {"recovery_s": float(result.get(DataKeys.ATTACK_RECOVERY_DURATION, 0.0))}
         )
         manager.emit_signal("action_resolved", attacker_id, target_id, empty_result)
         # XCamp-4: proficiency gains on dodge (AGI for defender, STR wind-up for attacker).
         notify_proficiency_gains_from_resolve(manager, attacker_id, target_id, "dodge", empty_result)
         if not atk.is_empty():
             var pa_dodge_atk: Dictionary = _pending_attack_read(atk)
-            atk["last_move_id"] = pa_dodge_atk.get(CombatConstants.PA_KEY_ATTACK_TYPE, "")
-            atk["effective_attack_line"] = pa_dodge_atk.get(CombatConstants.PA_KEY_EFFECTIVE_ATTACK_LINE, "")
-            atk["recovery_cause"] = "attack_miss"
+            atk[DataKeys.ATTACK_LAST_MOVE_ID] = pa_dodge_atk.get(CombatConstants.PA_KEY_ATTACK_TYPE, "")
+            atk[DataKeys.ATTACK_EFFECTIVE_ATTACK_LINE] = pa_dodge_atk.get(CombatConstants.PA_KEY_EFFECTIVE_ATTACK_LINE, "")
+            atk[DataKeys.ATTACK_RECOVERY_CAUSE] = "attack_miss"
             _consume_stamina(manager, atk, _stamina_attack_cost_for_attacker(manager, atk, target_id))
             atk.state = CombatConstants.STATE_RECOVERING
             atk.state_timer = 0.0
-            atk.state_duration = result.recovery_duration
+            atk.state_duration = result.get(DataKeys.ATTACK_RECOVERY_DURATION, 0.5)
         if not tgt.is_empty():
             # Defender moved to avoid; blade/body ends in dodge position (e.g. duck high attack -> low guard).
             # Use effective_attack_line for diagonal moves (actual trajectory).
@@ -358,10 +361,10 @@ static func apply_result(manager: Node, attacker_id: int, result: Dictionary) ->
             var move_id: String = pa.get(CombatConstants.PA_KEY_ATTACK_TYPE, "")
             var move_def: Dictionary = WeaponConstants.get_move(move_id) if not move_id.is_empty() else {}
             var atk_line: String = pa.get(
-                CombatConstants.PA_KEY_EFFECTIVE_ATTACK_LINE, move_def.get("attack_line", "high")
+                DataKeys.ATTACK_EFFECTIVE_ATTACK_LINE, move_def.get(DataKeys.PA_ATTACK_LINE, "high")
             )
             var dodge_guard: String = CombatConstants.DODGE_END_GUARD_FROM_ATTACK.get(
-                atk_line, tgt.get("guard_line", CombatConstants.GUARD_DEFAULT)
+                atk_line, tgt.get(DataKeys.ATTACK_GUARD_LINE, CombatConstants.GUARD_DEFAULT)
             )
             GuardLineUpdater.set_guard_from_line(tgt, dodge_guard)
             if CombatConstants.combat_debug_active():
@@ -385,57 +388,60 @@ static func apply_result(manager: Node, attacker_id: int, result: Dictionary) ->
             incoming_parry_intensity = float(
                 pa_deflect.get(CombatConstants.PA_KEY_INTENSITY, CombatConstants.PA_DEFAULT_INTENSITY)
             )
-            atk["last_move_id"] = pa_deflect.get(CombatConstants.PA_KEY_ATTACK_TYPE, "")
-            atk["effective_attack_line"] = pa_deflect.get(CombatConstants.PA_KEY_EFFECTIVE_ATTACK_LINE, "")
+            atk[DataKeys.ATTACK_LAST_MOVE_ID] = pa_deflect.get(CombatConstants.PA_KEY_ATTACK_TYPE, "")
+            atk[DataKeys.ATTACK_EFFECTIVE_ATTACK_LINE] = pa_deflect.get(CombatConstants.PA_KEY_EFFECTIVE_ATTACK_LINE, "")
             # HEMA: store defender's guard and parry_clash_context for bind vs deflect.
-            atk["defender_guard_line_at_parry"] = (
-                tgt.get("guard_line", CombatConstants.GUARD_DEFAULT) if not tgt.is_empty() else ""
-            )
-            var atk_clash_raw: Variant = result.get("parry_clash_context", null)
-            atk["parry_clash_context"] = atk_clash_raw if atk_clash_raw is Dictionary else {}
+            if not tgt.is_empty():
+                atk[DataKeys.PA_DEFENDER_GUARD_LINE_AT_PARRY] = tgt.get(DataKeys.ATTACK_GUARD_LINE, CombatConstants.GUARD_DEFAULT)
+                atk[DataKeys.PA_DEFENDER_FORM_AT_PARRY] = CombatantEntityAccess.form_str(tgt)
+            else:
+                atk[DataKeys.PA_DEFENDER_GUARD_LINE_AT_PARRY] = ""
+                atk[DataKeys.PA_DEFENDER_FORM_AT_PARRY] = ""
+            var atk_clash_raw: Variant = result.get(DataKeys.PA_PARRY_CLASH_CONTEXT, null)
+            atk[DataKeys.PA_PARRY_CLASH_CONTEXT] = atk_clash_raw if atk_clash_raw is Dictionary else {}
             _clear_attacker_pending_attack(atk, manager)
-            atk["recovery_cause"] = "attack_deflect"
+            atk[DataKeys.ATTACK_RECOVERY_CAUSE] = "attack_deflect"
             _consume_stamina(manager, atk, _stamina_attack_cost_for_attacker(manager, atk, target_id))
             atk.state = CombatConstants.STATE_RECOVERING
             atk.state_timer = 0.0
-            atk.state_duration = result.recovery_duration
-            atk["off_balance_until"] = CombatTiming.now_seconds() + CombatConstants.OFF_BALANCE_DURATION_S
+            atk.state_duration = result.get(DataKeys.ATTACK_RECOVERY_DURATION, 0.5)
+            atk[DataKeys.PA_OFF_BALANCE_UNTIL] = CombatTiming.now_seconds() + CombatConstants.OFF_BALANCE_DURATION_S
         if not tgt.is_empty():
             _consume_stamina(manager, tgt, _stamina_parry_cost_for_defender(atk, incoming_parry_intensity))
             # Weapon position: defender's blade met attacker's; blade ends in attack line.
             # Use effective_attack_line for diagonal moves (actual contact line).
-            var move_id: String = atk.get("last_move_id", "") if not atk.is_empty() else ""
-            var eff_line: String = atk.get("effective_attack_line", "") if not atk.is_empty() else ""
+            var move_id: String = atk.get(DataKeys.PA_LAST_MOVE_ID, "") if not atk.is_empty() else ""
+            var eff_line: String = atk.get(DataKeys.ATTACK_EFFECTIVE_ATTACK_LINE, "") if not atk.is_empty() else ""
             GuardLineUpdater.set_guard_from_move(tgt, move_id, eff_line)
-            tgt["parry_bonus_until"] = CombatTiming.now_seconds() + CombatConstants.PARRY_BONUS_AFTER_DEFLECT_S
+            tgt[DataKeys.PA_PARRY_BONUS_UNTIL] = CombatTiming.now_seconds() + CombatConstants.PARRY_BONUS_AFTER_DEFLECT_S
             if not CombatMobilityRetreat.cannot_commit_melee(tgt):
                 CounterTempo.grant_riposte_chain(manager, tgt, attacker_id)
-                var clash_raw: Variant = result.get("parry_clash_context", null)
+                var clash_raw: Variant = result.get(DataKeys.PA_PARRY_CLASH_CONTEXT, null)
                 var clash: Dictionary = clash_raw if clash_raw is Dictionary else {}
-                var arch_id: String = clash.get("archetype_id", "")
+                var arch_id: String = clash.get(DataKeys.PA_ARCHETYPE_ID, "")
                 var can_bind: bool = arch_id.is_empty() or arch_id not in CombatConstants.ARCHETYPES_NEVER_BIND
-                tgt["parry_was_bind"] = (
+                tgt[DataKeys.PA_PARRY_WAS_BIND] = (
                     can_bind
                     and CombatConstants.parry_bind_control_reached(
                         float(clash.get(CombatConstants.CLASH_KEY_PARRY_CONTROL, CombatConstants.DEFAULT_PARRY_CONTROL))
                     )
                 )
-                tgt["parry_against_id"] = attacker_id
-                if tgt.get("parry_was_bind", false):
+                tgt[DataKeys.PA_PARRY_AGAINST_ID] = attacker_id
+                if tgt.get(DataKeys.PA_PARRY_WAS_BIND, false):
                     CombatConstants.apply_parry_bind_riposte_gauge_bonus(tgt)
                     CombatFlurryBind.open_pair_after_bind(manager, target_id, attacker_id)
             else:
-                tgt.erase("parry_was_bind")
-                tgt.erase("parry_against_id")
+                tgt.erase(DataKeys.PA_PARRY_WAS_BIND)
+                tgt.erase(DataKeys.PA_PARRY_AGAINST_ID)
                 CounterTempo.clear_riposte_chain(tgt)
             _defender_set_idle_after_parry(tgt)
-        empty_result["outcome"] = "parry_deflect"
-        var clash_emit: Variant = result.get("parry_clash_context", null)
+        empty_result[DataKeys.RESULT_OUTCOME] = "parry_deflect"
+        var clash_emit: Variant = result.get(DataKeys.PA_PARRY_CLASH_CONTEXT, null)
         if clash_emit is Dictionary:
-            empty_result["parry_clash_context"] = clash_emit
+            empty_result[DataKeys.PA_PARRY_CLASH_CONTEXT] = clash_emit
         _log_outcome("parry_deflect", attacker_id, target_id)
         var clash_log: Dictionary = (
-            result.get("parry_clash_context", {}) if result.get("parry_clash_context") is Dictionary else {}
+            result.get(DataKeys.PA_PARRY_CLASH_CONTEXT, {}) if result.get(DataKeys.PA_PARRY_CLASH_CONTEXT) is Dictionary else {}
         )
         _log_fp_parry_outcome(atk, tgt, attacker_id, target_id, "parry_deflect", clash_log)
         # XCamp-4: proficiency gains on parry_deflect (partial STR for both).
@@ -444,6 +450,12 @@ static func apply_result(manager: Node, attacker_id: int, result: Dictionary) ->
             CombatAIActionPicker.record_opp_parry_deflect_for_feint_listing(manager, atk, target_id)
         if not tgt.is_empty():
             CombatAttention.record_parry_deflect_on_attacker_memory(tgt, attacker_id)
+            _evaluate_counter_read_outcome(manager, attacker_id, target_id, atk.get(DataKeys.PA_DEFENDER_FORM_AT_PARRY, ""))
+            ## Phase 2: apply overcommit penalty — reduce parry readiness when wrong counter-read was just confirmed.
+            if CombatWeaponForm.is_counter_read_committed(atk, manager.combat_clock):
+                var recent_wrong: int = CombatWeaponForm.count_recent_wrong_readings(atk)
+                if recent_wrong > 0:
+                    atk[DataKeys.PA_OVERCOMMIT_PARRY_MULT] = CombatConstantsEncounter.OVERCOMMIT_PARRY_DEFLECT_PENALTY
         _enrich_payload_for_tuning(manager, empty_result, atk, tgt, pa_deflect)
         manager.emit_signal("action_resolved", target_id, attacker_id, empty_result)
         return
@@ -453,12 +465,12 @@ static func apply_result(manager: Node, attacker_id: int, result: Dictionary) ->
         if not atk.is_empty():
             var pa_partial_int: Dictionary = _pending_attack_read(atk)
             pa_partial_emit = pa_partial_int
-            incoming_partial_intensity = pa_partial_int.get("intensity", 0.5)
-            var partial_clash_raw: Variant = result.get("parry_clash_context", null)
-            atk["parry_clash_context"] = partial_clash_raw if partial_clash_raw is Dictionary else {}
-            atk["defender_guard_line_at_parry"] = (
-                tgt.get("guard_line", CombatConstants.GUARD_DEFAULT) if not tgt.is_empty() else ""
-            )
+            incoming_partial_intensity = pa_partial_int.get(DataKeys.ATTACK_INTENSITY, 0.5)
+            var partial_clash_raw: Variant = result.get(DataKeys.PA_PARRY_CLASH_CONTEXT, null)
+            atk[DataKeys.PA_PARRY_CLASH_CONTEXT] = partial_clash_raw if partial_clash_raw is Dictionary else {}
+            if not tgt.is_empty():
+                atk[DataKeys.PA_DEFENDER_GUARD_LINE_AT_PARRY] = tgt.get(DataKeys.ATTACK_GUARD_LINE, CombatConstants.GUARD_DEFAULT)
+                atk[DataKeys.PA_DEFENDER_FORM_AT_PARRY] = CombatantEntityAccess.form_str(tgt)
         if not tgt.is_empty():
             _consume_stamina(manager, tgt, _stamina_parry_cost_for_defender(atk, incoming_partial_intensity))
             var pa_partial: Dictionary = _pending_attack_read(atk) if not atk.is_empty() else {}
@@ -467,23 +479,23 @@ static func apply_result(manager: Node, attacker_id: int, result: Dictionary) ->
             var move_id: String = pa_partial.get(CombatConstants.PA_KEY_ATTACK_TYPE, "")
             var move_def: Dictionary = WeaponConstants.get_move(move_id)
             var atk_line: String = pa_partial.get(
-                CombatConstants.PA_KEY_EFFECTIVE_ATTACK_LINE, move_def.get("attack_line", "high")
+                DataKeys.ATTACK_EFFECTIVE_ATTACK_LINE, move_def.get(DataKeys.PA_ATTACK_LINE, "high")
             )
             var align_ctx: Dictionary = {}
-            if pa_partial.get("attack_angle_deg", -999.0) >= 0.0:
+            if pa_partial.get(DataKeys.ATTACK_ATTACK_ANGLE_DEG, -999.0) >= 0.0:
                 var read: float = PassiveParryContext.get_passive_parry_readiness(tgt)
                 var def_w = CombatantEntityAccess.get_weapon(tgt)
                 var wob: Dictionary = CombatantEntityAccess.parry_wobble_context(def_w, read)
                 align_ctx = {
-                    "attack_angle_deg": pa_partial["attack_angle_deg"],
+                    DataKeys.ATTACK_ANGLE_DEG: pa_partial[DataKeys.ATTACK_ANGLE_DEG],
                     "guard_angle_deg": CombatFootwork.guard_angle_deg(tgt, wob),
                 }
             var align: float = CombatConstants.get_line_alignment_with_deflect(atk_line, tgt, align_ctx)
             if align >= CombatConstants.PARRY_PARTIAL_GUARD_ALIGNMENT_THRESHOLD:
                 GuardLineUpdater.set_guard_from_move(tgt, move_id, atk_line)
-                var pcl_bind: Variant = result.get("parry_clash_context", null)
+                var pcl_bind: Variant = result.get(DataKeys.PA_PARRY_CLASH_CONTEXT, null)
                 var clash_bind: Dictionary = pcl_bind if pcl_bind is Dictionary else {}
-                var arch_bind: String = clash_bind.get("archetype_id", "")
+                var arch_bind: String = clash_bind.get(DataKeys.PA_ARCHETYPE_ID, "")
                 var can_bind_partial: bool = (
                     arch_bind.is_empty() or arch_bind not in CombatConstants.ARCHETYPES_NEVER_BIND
                 )
@@ -497,37 +509,44 @@ static func apply_result(manager: Node, attacker_id: int, result: Dictionary) ->
                         )
                     )
                 )
-                tgt["parry_was_bind"] = is_bind
+                tgt[DataKeys.PA_PARRY_WAS_BIND] = is_bind
                 if is_bind:
-                    tgt["parry_against_id"] = attacker_id
-                    tgt["parry_bonus_until"] = (
+                    tgt[DataKeys.PA_PARRY_AGAINST_ID] = attacker_id
+                    tgt[DataKeys.PA_PARRY_BONUS_UNTIL] = (
                         CombatTiming.now_seconds() + CombatConstants.PARRY_BONUS_AFTER_DEFLECT_S
                     )
                     CombatFlurryBind.open_pair_after_bind(manager, target_id, attacker_id)
                 else:
-                    tgt.erase("parry_against_id")
-                    tgt.erase("parry_bonus_until")
+                    tgt.erase(DataKeys.PA_PARRY_AGAINST_ID)
+                    tgt.erase(DataKeys.PA_PARRY_BONUS_UNTIL)
             else:
-                tgt.erase("parry_was_bind")
-                tgt.erase("parry_against_id")
-                tgt.erase("parry_bonus_until")
+                tgt.erase(DataKeys.PA_PARRY_WAS_BIND)
+                tgt.erase(DataKeys.PA_PARRY_AGAINST_ID)
+                tgt.erase(DataKeys.PA_PARRY_BONUS_UNTIL)
             _defender_set_idle_after_parry(tgt)
-        var partial_emit: Dictionary = {"outcome": "parry_partial", "dmg": 0, "died": false}
-        var pcl_emit: Variant = result.get("parry_clash_context", null)
+        var partial_emit: Dictionary = {DataKeys.RESULT_OUTCOME: "parry_partial", DataKeys.RESULT_DMG: 0, DataKeys.RESULT_DIED: false}
+        var pcl_emit: Variant = result.get(DataKeys.PA_PARRY_CLASH_CONTEXT, null)
         if pcl_emit is Dictionary:
-            partial_emit["parry_clash_context"] = pcl_emit
+            partial_emit[DataKeys.PA_PARRY_CLASH_CONTEXT] = pcl_emit
         _log_outcome("parry_partial", attacker_id, target_id)
         var clash_partial: Dictionary = pcl_emit if pcl_emit is Dictionary else {}
         _log_fp_parry_outcome(atk, tgt, attacker_id, target_id, "parry_partial", clash_partial)
         # XCamp-4: proficiency gains on parry_partial (small STR for attacker).
         notify_proficiency_gains_from_resolve(manager, attacker_id, target_id, "parry_partial", partial_emit)
+        var remaining_ratio: float = pa_partial_emit.get(DataKeys.ATTACK_PARRY_REMAINING_RATIO, 1.0)
+        if not atk.is_empty():
+            _evaluate_counter_read_outcome(manager, attacker_id, target_id, atk.get(DataKeys.PA_DEFENDER_FORM_AT_PARRY, ""))
+        ## Phase 3: parry — defender's guard held, reset their breaks; attacker gets break on follow-through.
+        if not atk.is_empty() and remaining_ratio <= 0.1:
+            MentalStackDecider._reset_guard_breaks(atk)
+        if remaining_ratio > 0.1 and not tgt.is_empty():
+            MentalStackDecider._record_guard_break(tgt)
         _enrich_payload_for_tuning(manager, partial_emit, atk, tgt, pa_partial_emit)
         if _tuning_context_enabled(manager) and not atk.is_empty():
             var parent_idx: int = _tuning_parry_parent_strike_index(manager)
             if parent_idx > 0:
-                atk["tuning_ft_parent_strike"] = parent_idx
+                atk[DataKeys.PA_TUNING_FT_PARENT_STRIKE] = parent_idx
         manager.emit_signal("action_resolved", target_id, attacker_id, partial_emit)
-        var remaining_ratio: float = pa_partial_emit.get("parry_remaining_ratio", 1.0)
         # Follow-through gate: skip strike execution when parry absorbed >=90% of energy (remaining <= 0.1). Tuning fix
         # T3.2.
         if remaining_ratio > 0.1:
@@ -536,19 +555,23 @@ static func apply_result(manager: Node, attacker_id: int, result: Dictionary) ->
     if action == "hit":
         CombatFlurryBind.clear_pair(manager, attacker_id, target_id)
         var ft_extras: Dictionary = _tuning_follow_through_extras(atk)
+        # Evaluate counter-read outcome before clearing stale fields.
+        if not atk.is_empty():
+            _evaluate_counter_read_outcome(manager, attacker_id, target_id, atk.get(DataKeys.PA_DEFENDER_FORM_AT_PARRY, ""))
         # Follow-through after **`parry_partial`**: strip calibration carry so **`attack_hit`** recovery does not see
         # stale clash dict.
         if not atk.is_empty():
-            atk.erase("parry_clash_context")
-            atk.erase("defender_guard_line_at_parry")
+            atk.erase(DataKeys.PA_PARRY_CLASH_CONTEXT)
+            atk.erase(DataKeys.PA_DEFENDER_GUARD_LINE_AT_PARRY)
+            atk.erase(DataKeys.PA_DEFENDER_FORM_AT_PARRY)
             CombatAIActionPicker.clear_feint_listing_opp_parry_deflect_for_target(atk, target_id)
         if not tgt.is_empty():
             CombatAttention.clear_yomi_for_attacker(tgt, attacker_id)
         if not tgt.is_empty() and CombatantEntityAccess.state_str(tgt) == CombatConstants.STATE_MEDICAL_WIND_UP:
             CombatStateHandlers.abort_medical_wind_up(manager, target_id)
-        var rd_raw: Variant = result.get("result_dict", null)
+        var rd_raw: Variant = result.get(DataKeys.RESULT_RESULT_DICT, null)
         var result_dict: Dictionary = rd_raw if rd_raw is Dictionary else {}
-        var intensity: float = result.get("intensity", 0.5)
+        var intensity: float = result.get(DataKeys.ATTACK_INTENSITY, 0.5)
         var winner: String = ""
         if result_dict.get(CombatConstants.RESULT_KEY_DIED, false):
             _abort_incoming_wind_up_if_target_died(manager, target_id)
@@ -559,7 +582,7 @@ static func apply_result(manager: Node, attacker_id: int, result: Dictionary) ->
                 atk,
                 tgt,
                 {},
-                _hit_tuning_extras(atk, intensity, float(result.get("recovery_duration", 0.0)), ft_extras)
+                _hit_tuning_extras(atk, intensity, float(result.get(DataKeys.ATTACK_RECOVERY_DURATION, 0.0)), ft_extras)
             )
             _clear_tuning_follow_through_marker(atk)
             manager.emit_signal("action_resolved", attacker_id, target_id, result_dict)
@@ -571,11 +594,11 @@ static func apply_result(manager: Node, attacker_id: int, result: Dictionary) ->
             # Attacker still needs recovery (killing blow); otherwise they stay in WIND_UP and never get another turn.
             if atk != null and CombatantEntityAccess.alive_bool(atk):
                 _consume_stamina(manager, atk, _stamina_attack_cost_for_attacker(manager, atk, target_id))
-                atk["effective_attack_line"] = atk.get("effective_attack_line", "")
-                atk["recovery_cause"] = "attack_hit"
+                atk[DataKeys.ATTACK_EFFECTIVE_ATTACK_LINE] = atk.get(DataKeys.ATTACK_EFFECTIVE_ATTACK_LINE, "")
+                atk[DataKeys.ATTACK_RECOVERY_CAUSE] = "attack_hit"
                 atk.state = CombatConstants.STATE_RECOVERING
                 atk.state_timer = 0.0
-                atk.state_duration = result.get("recovery_duration", 0.5)
+                atk.state_duration = result.get(DataKeys.ATTACK_RECOVERY_DURATION, 0.5)
                 _set_post_strike_stamp(manager, atk, attacker_id, target_id)
             return
         winner = manager._check_for_winner()
@@ -598,7 +621,7 @@ static func apply_result(manager: Node, attacker_id: int, result: Dictionary) ->
                 atk,
                 tgt,
                 {},
-                _hit_tuning_extras(atk, intensity, float(result.get("recovery_duration", 0.0)), ft_extras)
+                _hit_tuning_extras(atk, intensity, float(result.get(DataKeys.ATTACK_RECOVERY_DURATION, 0.0)), ft_extras)
             )
             _clear_tuning_follow_through_marker(atk)
             manager.emit_signal("action_resolved", attacker_id, target_id, result_dict)
@@ -607,11 +630,11 @@ static func apply_result(manager: Node, attacker_id: int, result: Dictionary) ->
             # Attacker still needs recovery; otherwise they stay in WIND_UP
             if atk != null and CombatantEntityAccess.alive_bool(atk):
                 _consume_stamina(manager, atk, _stamina_attack_cost_for_attacker(manager, atk, target_id))
-                atk["effective_attack_line"] = atk.get("effective_attack_line", "")
-                atk["recovery_cause"] = "attack_hit"
+                atk[DataKeys.ATTACK_EFFECTIVE_ATTACK_LINE] = atk.get(DataKeys.ATTACK_EFFECTIVE_ATTACK_LINE, "")
+                atk[DataKeys.ATTACK_RECOVERY_CAUSE] = "attack_hit"
                 atk.state = CombatConstants.STATE_RECOVERING
                 atk.state_timer = 0.0
-                atk.state_duration = result.get("recovery_duration", 0.5)
+                atk.state_duration = result.get(DataKeys.ATTACK_RECOVERY_DURATION, 0.5)
                 _set_post_strike_stamp(manager, atk, attacker_id, target_id)
             manager._end_combat_phase(winner, tgt_scene)
             return
@@ -626,7 +649,7 @@ static func apply_result(manager: Node, attacker_id: int, result: Dictionary) ->
             atk,
             tgt,
             {},
-            _hit_tuning_extras(atk, intensity, float(result.get("recovery_duration", 0.0)), ft_extras)
+            _hit_tuning_extras(atk, intensity, float(result.get(DataKeys.ATTACK_RECOVERY_DURATION, 0.0)), ft_extras)
         )
         _clear_tuning_follow_through_marker(atk)
         manager.emit_signal("action_resolved", attacker_id, target_id, result_dict)
@@ -634,16 +657,21 @@ static func apply_result(manager: Node, attacker_id: int, result: Dictionary) ->
         notify_proficiency_gains_from_resolve(manager, attacker_id, target_id, "hit", result_dict)
         if atk != null and CombatantEntityAccess.alive_bool(atk):
             _consume_stamina(manager, atk, _stamina_attack_cost_for_attacker(manager, atk, target_id))
-            atk["effective_attack_line"] = atk.get("effective_attack_line", "")  # Set in AttackResolver before clear
-            atk["recovery_cause"] = "attack_hit"
+            atk[DataKeys.ATTACK_EFFECTIVE_ATTACK_LINE] = atk.get(DataKeys.ATTACK_EFFECTIVE_ATTACK_LINE, "")  # Set in AttackResolver before clear
+            atk[DataKeys.ATTACK_RECOVERY_CAUSE] = "attack_hit"
             atk.state = CombatConstants.STATE_RECOVERING
             atk.state_timer = 0.0
-            atk.state_duration = result.recovery_duration
+            atk.state_duration = result.get(DataKeys.ATTACK_RECOVERY_DURATION, 0.5)
             _set_post_strike_stamp(manager, atk, attacker_id, target_id)
         if tgt != null and CombatantEntityAccess.alive_bool(tgt):
             # Defender was hit; stagger/dropped guard - blade ends low. Sync guard_zone.
             GuardLineUpdater.set_guard_from_line(tgt, "low")
             CombatantEntityAccess.manager_apply_formation_hit_reaction_if_needed(manager, target_id, intensity)
+        ## Phase 3: track guard break on hit (defense fully failed).
+        if not atk.is_empty():
+            MentalStackDecider._reset_guard_breaks(atk)
+        if not tgt.is_empty():
+            MentalStackDecider._record_guard_break(tgt)
         _react_attacking_arm_loss_after_wound(manager, atk)
         _react_attacking_arm_loss_after_wound(manager, tgt)
         _clear_defender_footwork(tgt)
@@ -731,7 +759,7 @@ static func notify_proficiency_gains_from_resolve(
         "hit":
             # Attacker hit - STR gain scaled by damage dealt.
             if attacker_entity != null and "_proficiency_bonus" in attacker_entity:
-                var dmg: float = result_dict.get("dmg", 0)
+                var dmg: float = result_dict.get(DataKeys.RESULT_DMG, 0)
                 var str_gain := (
                     EntityProficiency.GAIN_MELEE_HIT_BASE
                     + minf(
@@ -742,7 +770,7 @@ static func notify_proficiency_gains_from_resolve(
                 EntityProficiency.award_stat_gain(attacker_entity, "strength", str_gain, weapon_id, form_str)
 
                 # Severe wound bonus (severity from result_dict).
-                var wound_severity: String = result_dict.get("wound_severity", "")
+                var wound_severity: String = result_dict.get(DataKeys.RESULT_WOUND_SEVERITY, "")
                 if not wound_severity.is_empty():
                     var sev_mult: float = EntityProficiency.get_severity_mult(wound_severity)
                     EntityProficiency.award_stat_gain(
@@ -753,12 +781,12 @@ static func notify_proficiency_gains_from_resolve(
                         form_str
                     )
 
-                var move_id_hit: String = str(result_dict.get("move_id", result_dict.get("attack_type", "")))
+                var move_id_hit: String = str(result_dict.get(DataKeys.ACTION_MOVE_ID, result_dict.get(DataKeys.ATTACK_ATTACK_TYPE, "")))
                 var move_def_hit: Dictionary = (
                     WeaponConstants.get_move(move_id_hit) if not move_id_hit.is_empty() else {}
                 )
-                var hit_part: String = str(result_dict.get("part", ""))
-                var intended_part: String = str(result_dict.get("target_part", result_dict.get("aim_part", "")))
+                var hit_part: String = str(result_dict.get(DataKeys.RESULT_PART, ""))
+                var intended_part: String = str(result_dict.get(DataKeys.ACTION_TARGET_PART, result_dict.get(DataKeys.AIM_PART_OVERRIDE, "")))
                 var focus_part: String = ""
                 if not tgt.is_empty():
                     focus_part = CombatAttention.get_focus_part(tgt)
@@ -768,7 +796,7 @@ static func notify_proficiency_gains_from_resolve(
 
             # Defender END gain for absorbing damage.
             if target_entity != null and "_proficiency_bonus" in target_entity:
-                var dmg_taken: float = result_dict.get("dmg", 0)
+                var dmg_taken: float = result_dict.get(DataKeys.RESULT_DMG, 0)
                 var end_gain := (
                     EntityProficiency.GAIN_DAMAGE_ABSORBED_BASE
                     + minf(
@@ -821,9 +849,35 @@ static func notify_proficiency_gains_from_resolve(
             pass
 
 
+## Phase 2: evaluate whether a counter-read switch was correct by comparing the defender's actual form at action start against their inferred form.
+static func _evaluate_counter_read_outcome(
+    manager: Node, attacker_id: int, target_id: int, defender_form_at_parry: String
+) -> void:
+    if manager == null or attacker_id < 0 or target_id < 0:
+        return
+    var atk: Dictionary = CombatantEntityAccess.manager_get_combatant(manager, attacker_id)
+    if atk.is_empty():
+        return
+    ## Check if the attacker had a counter-read commitment stamp — this means they auto-switched based on inference.
+    if not CombatWeaponForm.is_counter_read_committed(atk, manager.combat_clock):
+        return
+    ## The defender's actual form at action start was captured and stored on the attacker.
+    ## If the attacker switched to a counter-form expecting that form but got something else, record wrong.
+    var inferred_key: String = CombatConstants.COMBATANT_KEY_INFERRED_OPP_FORM_BY_ID
+    var cache_raw: Variant = atk.get(inferred_key, null)
+    if cache_raw is not Dictionary:
+        return
+    var cached_val: Variant = (cache_raw as Dictionary).get(str(target_id), "")
+    if cached_val is String and not str(cached_val).is_empty():
+        var inferred_form: String = str(cached_val).strip_edges()
+        var success: bool = defender_form_at_parry.strip_edges() == inferred_form
+        CombatWeaponForm.record_counter_read_outcome(atk, target_id, success, inferred_form)
+        CombatAttention.record_deception_outcome(atk, target_id, success)
+
+
 ## Checks if the defender combatant is the last alive in their slot group (outnumbered).
 static func _is_defender_outnumbered(manager: Node, defender: Dictionary) -> bool:
-    var slot_key: String = defender.get("slot_key", "")
+    var slot_key: String = defender.get(DataKeys.COMBATANT_SLOT_KEY, "")
     if slot_key.is_empty():
         return false
     var slot_group: String = slot_key.get_slice("_", 0) if "_" in slot_key else ""
@@ -838,10 +892,13 @@ static func _is_defender_outnumbered(manager: Node, defender: Dictionary) -> boo
             continue
         if not CombatantEntityAccess.side_str(c) == defender_side:
             continue
-        var c_slot: String = c.get("slot_key", "").get_slice("_", 1)
+        var c_slot: String = c.get(DataKeys.COMBATANT_SLOT_KEY, "").get_slice("_", 1)
         if c_slot != slot_group:
             continue
         if not CombatantEntityAccess.alive_bool(c):
             continue
         count_alive_in_group += 1
     return count_alive_in_group <= 1
+
+
+

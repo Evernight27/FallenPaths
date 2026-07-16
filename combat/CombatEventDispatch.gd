@@ -15,15 +15,15 @@ static func process_event_queue(manager: Node) -> void:
             manager.event_queue.pop_front()
             continue
         var head: Dictionary = head_raw
-        if head.get("resolve_at", 0.0) > CombatantEntityAccess.combat_clock_float(manager):
+        if head.get(DataKeys.EVENT_RESOLVE_AT, 0.0) > CombatantEntityAccess.combat_clock_float(manager):
             break
         var ev: Dictionary = manager.event_queue.pop_front() as Dictionary
         handle_event(manager, ev)
 
 
 static func handle_event(manager: Node, ev: Dictionary) -> void:
-    var ev_type: String = ev.get("type", "")
-    var cid: int = ev.get("combatant_id", -1)
+    var ev_type: String = ev.get(DataKeys.EVENT_TYPE, "")
+    var cid: int = ev.get(DataKeys.EVENT_COMBATANT_ID, -1)
     var c: Dictionary = CombatantEntityAccess.manager_get_combatant(manager, cid)
     if (
         ev_type != CombatConstants.EVENT_SWAP_RANK_RESOLVE
@@ -54,6 +54,8 @@ static func handle_event(manager: Node, ev: Dictionary) -> void:
             manager._handle_rotate_file_resolve(ev)
         CombatConstants.EVENT_PLUG_FORWARD_RESOLVE:
             manager._handle_plug_forward_resolve(ev)
+        CombatConstants.EVENT_FORM_SWITCH_COMPLETE:
+            CombatFormSwitch.handle_complete_event(manager, c)
         _:
             CombatDebug.flow_log_event("unknown event type %s" % ev_type, "event_dispatch_unknown")
 
@@ -91,7 +93,7 @@ static func handle_action_ready(manager: Node, c: Dictionary) -> void:
             )
         return
     c.gauge = 100.0
-    c.erase("action_cooldown_until")
+    c.erase(DataKeys.ACTION_COOLDOWN_UNTIL)
     c.erase(CombatConstants.COMBATANT_KEY_LAST_FORM_SWITCH_REASON)
     if CombatantEntityAccess.is_player_side(c):
         if MedicalPhaseController.medical_fast_forward_active(manager):

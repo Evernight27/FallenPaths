@@ -361,11 +361,11 @@ static func _run_iv11_register_party_leader_stamp_suite(failures: PackedStringAr
     mgr.register(leader_ent, "player")
     mgr.register(member_ent, "player")
     mgr.register(enemy_ent, "enemy")
-    if not bool(mgr.combatants[0].get("is_party_leader", false)):
+    if not bool(mgr.combatants[0].get(DataKeys.COMBATANT_IS_PARTY_LEADER, false)):
         _fail(failures, "iv11_stamp: player leader node want is_party_leader true")
-    if bool(mgr.combatants[1].get("is_party_leader", false)):
+    if bool(mgr.combatants[1].get(DataKeys.COMBATANT_IS_PARTY_LEADER, false)):
         _fail(failures, "iv11_stamp: player member want is_party_leader false")
-    if bool(mgr.combatants[2].get("is_party_leader", false)):
+    if bool(mgr.combatants[2].get(DataKeys.COMBATANT_IS_PARTY_LEADER, false)):
         _fail(failures, "iv11_stamp: enemy side must not stamp is_party_leader")
     _free_manager(mgr)
 
@@ -414,9 +414,9 @@ static func _run_iv11_campaign_bridge_party_leader_stamp_suite(failures: PackedS
     var mgr: Node = MgrScript.new()
     var leader_id: int = mgr.register(leader_ent, "player")
     var member_id: int = mgr.register(member_ent, "player")
-    if not bool(mgr.combatants[leader_id].get("is_party_leader", false)):
+    if not bool(mgr.combatants[leader_id].get(DataKeys.COMBATANT_IS_PARTY_LEADER, false)):
         _fail(failures, "iv11_bridge: register leader want is_party_leader true")
-    if bool(mgr.combatants[member_id].get("is_party_leader", false)):
+    if bool(mgr.combatants[member_id].get(DataKeys.COMBATANT_IS_PARTY_LEADER, false)):
         _fail(failures, "iv11_bridge: register member want is_party_leader false")
     _free_manager(mgr)
     world.free()
@@ -450,8 +450,8 @@ static func _run_iv11_party_leader_diagram_callout_suite(failures: PackedStringA
             leader = c
         else:
             member = c
-    leader["is_party_leader"] = true
-    member["is_party_leader"] = false
+    leader[DataKeys.COMBATANT_IS_PARTY_LEADER] = true
+    member[DataKeys.COMBATANT_IS_PARTY_LEADER] = false
     if UiHints.party_leader_diagram_suffix(leader) != " [Ldr]":
         _fail(
             failures, "iv11_diagram: leader suffix want ' [Ldr]' got '%s'" % UiHints.party_leader_diagram_suffix(leader)
@@ -510,8 +510,8 @@ static func _run_iv11_leader_order_hold_lane_suite(failures: PackedStringArray) 
         CombatConstants.set_feature_leader_formation_command_load(saved)
         _free_manager(mgr)
         return
-    leader["is_party_leader"] = true
-    companion["is_party_leader"] = false
+    leader[DataKeys.COMBATANT_IS_PARTY_LEADER] = true
+    companion[DataKeys.COMBATANT_IS_PARTY_LEADER] = false
     leader["state"] = CombatConstants.STATE_WAITING
     leader["gauge"] = 100.0
     mgr.set_formation_doctrine("player", CombatConstants.DOCTRINE_DEFAULT)
@@ -595,8 +595,8 @@ static func _run_iv11_leader_order_probing_suite(failures: PackedStringArray) ->
         CombatConstants.set_feature_leader_formation_command_load(saved)
         _free_manager(mgr)
         return
-    leader["is_party_leader"] = true
-    companion["is_party_leader"] = false
+    leader[DataKeys.COMBATANT_IS_PARTY_LEADER] = true
+    companion[DataKeys.COMBATANT_IS_PARTY_LEADER] = false
     leader["state"] = CombatConstants.STATE_WAITING
     mgr.set_formation_doctrine("player", CombatConstants.DOCTRINE_DEFAULT)
     var leader_id: int = EntityAccess.id_int(leader)
@@ -682,8 +682,8 @@ static func _run_iv11_leader_order_pinch_center_suite(failures: PackedStringArra
         CombatConstants.set_feature_leader_formation_command_load(saved)
         _free_manager(mgr)
         return
-    leader["is_party_leader"] = true
-    companion["is_party_leader"] = false
+    leader[DataKeys.COMBATANT_IS_PARTY_LEADER] = true
+    companion[DataKeys.COMBATANT_IS_PARTY_LEADER] = false
     leader["state"] = CombatConstants.STATE_WAITING
     mgr.set_formation_doctrine("player", CombatConstants.DOCTRINE_DEFAULT)
     var leader_id: int = EntityAccess.id_int(leader)
@@ -770,7 +770,7 @@ static func _run_iv11_enemy_commander_order_suite(failures: PackedStringArray) -
         if not EntityAccess.is_living_on_side(c, "enemy"):
             continue
         c["gauge"] = 100.0
-        if c.get("is_enemy_leader", false) == true and commander.is_empty():
+        if c.get(DataKeys.COMBATANT_IS_ENEMY_LEADER, false) == true and commander.is_empty():
             commander = c
         elif grunt.is_empty():
             grunt = c
@@ -836,7 +836,7 @@ static func _run_iv11_enemy_commander_doctrine_cycle_suite(failures: PackedStrin
     for c in mgr.combatants:
         if not EntityAccess.is_living_on_side(c, "enemy"):
             continue
-        if c.get("is_enemy_leader", false) == true and EntityAccess.rank_int(c) == 0:
+        if c.get(DataKeys.COMBATANT_IS_ENEMY_LEADER, false) == true and EntityAccess.rank_int(c) == 0:
             commander = c
             break
     if commander.is_empty():

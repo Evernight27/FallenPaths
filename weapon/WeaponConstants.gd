@@ -47,7 +47,7 @@ const DAMAGE_KE_MAX: float = 80.0
 const PENETRATION_KE_CAP_MM_RHA: float = 15.0
 
 # --- Physics-based contact area ---
-# Sharp: smaller contact (point) penetrates better than wide (cut). Factor = (BASELINE / contact_width_cm)^????.
+# Sharp: smaller contact (point) penetrates better than wide (cut). Factor = (BASELINE / contact_width_cm)^CONTACT_AREA_EXPONENT.
 const CONTACT_AREA_EXPONENT: float = 0.5
 const MIN_CONTACT_WIDTH_CM: float = 0.2
 # Contact area in damage: smaller contact -> more local damage. Cap factor so stab doesn't overscale.
@@ -55,7 +55,7 @@ const CONTACT_DAMAGE_EXPONENT: float = 0.3
 const CONTACT_DAMAGE_FACTOR_MAX: float = 2.0
 # Blunt: transmission-only (no rigid check). Older blunt rigid-penetration constants were removed in favor of this
 # model.
-# Floor so tiny contacts don't produce absurd momentum/area; 1 cm???? min keeps normal blade areas unchanged.
+# Floor so tiny contacts don't produce absurd momentum/area; 1 cm min keeps normal blade areas unchanged.
 const MIN_BLUNT_AREA_M2: float = 1e-4
 # For CUT moves, blunt stream uses at least this contact (cm) so the "slap" doesn't get blade pressure.
 const BLUNT_CUT_MIN_CONTACT_CM: float = 5.0
@@ -142,7 +142,7 @@ static func weapon_is_two_handed(weapon: Variant) -> bool:
 
 
 # --- Option C: Kinetic energy (J) drives both damage and penetration ---
-# Williams (Knight & Blast Furnace): 1mm=55J, 1.5mm=110J, 2mm=175J ?????? E ?????? t^1.67. Nonlinear: pen =
+# Williams (Knight & Blast Furnace): 1mm=55J, 1.5mm=110J, 2mm=175J -- E ~ t^1.67. Nonlinear: pen =
 # (KE/J_BASE)^PEN_EXPONENT.
 
 
@@ -239,7 +239,7 @@ static func get_blunt_coupling_reference_cm() -> float:
     return max_hd if max_hd > 0.0 else 6.0
 
 
-## Weapon template id (`SWORD`, `AXE`, �) from equipped weapon node/dict.
+## Weapon template id (`SWORD`, `AXE`, ï¿½) from equipped weapon node/dict.
 static func weapon_type_id(weapon: Variant) -> String:
     return WeaponTemplateDefinitions._weapon_template_id(weapon)
 
@@ -275,10 +275,10 @@ static func default_form_for_weapon(weapon: Variant) -> String:
     return str(def.get("default_form", "balanced")).strip_edges().to_lower()
 
 
-## Expand WF: allowed form ids for weapon template; empty ?????? no clamp.
+## Expand WF: allowed form ids for weapon template; empty -> no clamp.
 
 
-## Expand WF: allowed form ids for weapon template; empty ?????? no clamp.
+## Expand WF: allowed form ids for weapon template; empty -> no clamp.
 static func allowed_forms_for_weapon(weapon: Variant) -> Array:
     var wt: String = WeaponTemplateDefinitions._weapon_template_id(weapon)
     if wt.is_empty():
@@ -290,3 +290,7 @@ static func allowed_forms_for_weapon(weapon: Variant) -> Array:
     if raw is Array:
         return raw
     return ["balanced"]
+
+
+
+

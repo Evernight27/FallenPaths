@@ -16,7 +16,9 @@ const HUMAN_SPECIES := "res://species/human.tres"
 const GOBLIN_SPECIES := "res://species/goblin.tres"
 
 # Scenes
+const BATTLE_SCENE_TSCN := "res://ui/BattleScene.tscn"
 const ENEMY_SCENE := "res://enemy/Enemy.tscn"
+const TUNING_SCENE := "res://combat_tuning/combat_tuning.tscn"
 
 # Assets
 const TILE_TEXTURE := "res://tile_texture.png"

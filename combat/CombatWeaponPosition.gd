@@ -19,21 +19,23 @@ static func is_weapon_near_body(combatant: Dictionary) -> bool:
         var pa: Dictionary = CombatantEntityAccess.nested_dictionary_read(combatant, "pending_attack")
         if pa.is_empty():
             return true
-        var wind_up: float = pa.get("wind_up_duration", combatant.get("state_duration", 0.5))
+        var wind_up: float = pa.get(DataKeys.PA_WIND_UP_DURATION, combatant.get(DataKeys.PA_STATE_DURATION, 0.5))
         if wind_up <= 0.001:
             return true
-        var timer: float = combatant.get("state_timer", 0.0)
+        var timer: float = combatant.get(DataKeys.PA_STATE_TIMER, 0.0)
         var commit_frac: float = _commit_fraction_for_weapon_extension(pa)
         if timer >= wind_up * commit_frac:
             return false
         return true
     if st == CombatConstants.STATE_RECOVERING:
-        var cause: String = CombatConstants.normalize_recovery_cause(combatant.get("recovery_cause", ""))
+        var cause: String = CombatConstants.normalize_recovery_cause(combatant.get(DataKeys.ATTACK_RECOVERY_CAUSE, ""))
         if cause == "attack_deflect":
             return true
-        var last_move: String = str(combatant.get("last_move_id", "")).strip_edges()
+        var last_move: String = str(combatant.get(DataKeys.PA_LAST_MOVE_ID, "")).strip_edges()
         if last_move.is_empty():
             return true
+        return false
+    if st == CombatConstants.STATE_FORM_SWITCH:
         return false
     return true
 
@@ -41,11 +43,11 @@ static func is_weapon_near_body(combatant: Dictionary) -> bool:
 static func commit_fraction_from_move_def(move_def: Dictionary) -> float:
     if move_def.is_empty():
         return CombatConstants.WEAPON_EXTENDED_COMMIT_FRACTION
-    var from_move: float = move_def.get("weapon_extension_commit_fraction", -1.0)
+    var from_move: float = move_def.get(DataKeys.PA_WEAPON_EXTENSION_COMMIT, -1.0)
     if from_move >= 0.0:
         return clampf(from_move, 0.0, 1.0)
-    var contact_type: String = move_def.get("contact_type", "").strip_edges()
-    var arch_id: String = move_def.get("archetype_id", "").strip_edges()
+    var contact_type: String = move_def.get(DataKeys.WEAPON_CONTACT_TYPE, "").strip_edges()
+    var arch_id: String = move_def.get(DataKeys.PA_ARCHETYPE_ID, "").strip_edges()
     if contact_type == WeaponConstants.ATTACK_TYPE_STAB:
         return CombatConstants.WEAPON_COMMIT_FRACTION_STAB
     if contact_type == WeaponConstants.ATTACK_TYPE_BLUNT:
@@ -60,15 +62,13 @@ static func commit_fraction_from_move_def(move_def: Dictionary) -> float:
 
 
 static func _commit_fraction_for_weapon_extension(pa: Dictionary) -> float:
-    if pa.has("weapon_extension_commit_fraction"):
-        return clampf(float(pa["weapon_extension_commit_fraction"]), 0.0, 1.0)
     var mid: String = pa.get(CombatConstants.PA_KEY_ATTACK_TYPE, "").strip_edges()
     if not mid.is_empty():
         return commit_fraction_from_move_def(WeaponConstants.get_move(mid))
     return CombatConstants.WEAPON_EXTENDED_COMMIT_FRACTION
 
 
-## Live strike delivery: extension commit for KE/cut (pending_attack stamp or move def).
+## Deprecated — use `_commit_fraction_for_weapon_extension` directly. Kept for external callers.
 static func delivery_commit_fraction_from_pa(pa: Dictionary) -> float:
     return _commit_fraction_for_weapon_extension(pa)
 

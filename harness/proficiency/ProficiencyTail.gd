@@ -1,7 +1,7 @@
 class_name CombatRegressionHarnessProficiencyTail
 extends RefCounted
 ## XCamp-4: use-based stat proficiency system tests.
-## All tests are gated by CompanyState.read_stub_proficiency_enabled() --" stub is false by default.
+## All tests are gated by CompanyState.read_stub_proficiency_enabled() — stub is false by default.
 
 
 ## Run all proficiency harness tests.

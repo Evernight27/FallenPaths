@@ -158,8 +158,8 @@ static func _try_merge_wound_into_channel(
             if injury_type not in [BleedingConstants.INJURY_TYPE_CUT, BleedingConstants.INJURY_TYPE_CRUSH]:
                 continue
         injury["damage"] = injury.get("damage", 0.0) + damage
-        if _severity_rank(severity) > _severity_rank(str(injury.get("severity", BleedingConstants.SEVERITY_MODERATE))):
-            injury["severity"] = severity
+        if _severity_rank(severity) > _severity_rank(str(injury.get(DataKeys.INJURY_SEVERITY, BleedingConstants.SEVERITY_MODERATE))):
+            injury[DataKeys.INJURY_SEVERITY] = severity
         if is_arterial:
             injury["is_arterial"] = true
         if base_rate > 0.0:
@@ -377,7 +377,7 @@ static func get_part_intervention_threat(entity: Node, part: String) -> float:
             bonus += 2.25
         if injury.get("is_stump", false):
             bonus += 4.5
-        var sev: String = str(injury.get("severity", BleedingConstants.SEVERITY_MODERATE))
+        var sev: String = str(injury.get(DataKeys.INJURY_SEVERITY, BleedingConstants.SEVERITY_MODERATE))
         if sev == BleedingConstants.SEVERITY_CRITICAL:
             bonus += 1.6
         elif sev == BleedingConstants.SEVERITY_SEVERE:
@@ -483,7 +483,7 @@ static func process_bleeding(entity: Node, delta: float) -> void:
                 if injury.get("is_arterial", false):
                     clotting *= BleedingConstants.ARTERIAL_CLOTTING_MULTIPLIER
             else:
-                var sev: String = injury.get("severity", BleedingConstants.SEVERITY_MODERATE)
+                var sev: String = injury.get(DataKeys.INJURY_SEVERITY, BleedingConstants.SEVERITY_MODERATE)
                 clotting = BleedingConstants.get_clotting_rate(sev) * BleedingConstants.get_clotting_multiplier(sev)
                 if injury.get("is_arterial", false):
                     clotting *= BleedingConstants.ARTERIAL_CLOTTING_MULTIPLIER
@@ -538,7 +538,7 @@ static func process_bleeding(entity: Node, delta: float) -> void:
 
 
 # --- Process blood loss (drain from bleeding rate; death at threshold) ---
-## Entity must have: blood_volume, _update_consciousness (optional), emit_signal("died"),
+## Entity must have: blood_volume, _update_consciousness (optional), died signal,
 ## _get_blood_loss_death_threshold (optional).
 static func process_blood_loss(entity: Node, delta: float) -> void:
     if entity != null and entity.has_method("is_dead") and entity.is_dead():
@@ -581,4 +581,5 @@ static func emit_death_once(entity: Node) -> void:
         return
     entity.set_meta("_fp_death_notified", true)
     if entity.has_signal("died"):
-        entity.emit_signal("died")
+        entity.died.emit()
+

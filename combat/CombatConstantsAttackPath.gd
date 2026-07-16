@@ -19,7 +19,7 @@ const LINE_ADJACENTS: Dictionary = {
 const DODGE_END_GUARD_FROM_ATTACK: Dictionary = {"high": "low", "low": "high", "left": "right", "right": "left"}
 const GUARD_DEFAULT := "high"
 
-# Option 6: Path + Guard Intercept --" blade path per attack_line; guard determines intercept point.
+# Option 6: Path + Guard Intercept — blade path per attack_line; guard determines intercept point.
 # Path order = blade travel; early parts = first contact when guard puts limbs in the way.
 # High alignment (same line) = early intercept (arms/limbs); low alignment = blade gets through (center mass).
 const ATTACK_PATH_HIGH: Array = ["left_arm", "right_arm", "head", "chest", "left_leg", "right_leg"]  # descending
@@ -255,17 +255,17 @@ static func get_arc_angle_at_progress(arc_start_deg: float, arc_end_deg: float, 
 
 
 static func arc_end_deg_for_contact_geometry(pa: Dictionary) -> float:
-    var end: float = pa.get("arc_end_deg", -999.0)
+    var end: float = pa.get(DataKeys.PA_ARC_END_DEG, -999.0)
     if end >= -900.0:
         return end
-    end = pa.get("arc_intended_deg", -999.0)
+    end = pa.get(DataKeys.PA_ARC_INTENDED_DEG, -999.0)
     if end >= -900.0:
         return end
     return -999.0
 
 
 static func get_attack_angle_at_progress(pa: Dictionary, progress: float) -> float:
-    var start: float = pa.get("arc_start_deg", 0.0)
+    var start: float = pa.get(DataKeys.ATTACK_ARC_START_DEG, 0.0)
     var end: float = arc_end_deg_for_contact_geometry(pa)
     if end < -900.0:
         end = line_to_angle("high")
@@ -371,19 +371,19 @@ static func get_attack_angle_deg(
     attack_line: String, add_variance: bool = true, move_def: Dictionary = {}, variance_context: Dictionary = {}
 ) -> float:
     var base := line_to_angle(attack_line)
-    var offset_range: float = move_def.get("angle_offset_deg", 0)
+    var offset_range: float = move_def.get(DataKeys.MOVE_DEF_ANGLE_OFFSET_DEG, 0)
     if offset_range > 0:
         base += randf_range(-offset_range, offset_range)
     if add_variance:
-        var variance: float = float(move_def.get("angle_variance_deg", ANGLE_VARIANCE_DEG))
+        var variance: float = float(move_def.get(DataKeys.MOVE_DEF_ANGLE_VARIANCE_DEG, ANGLE_VARIANCE_DEG))
         var mult: float = 1.0
-        var stamina_ratio: float = variance_context.get("stamina_ratio", 1.0)
+        var stamina_ratio: float = variance_context.get(DataKeys.VAR_CTX_STAMINA_RATIO, 1.0)
         if stamina_ratio < 1.0:
             var sf: float = CombatConstantsStamina.stamina_factor(stamina_ratio)
             mult = 1.0 + (ANGLE_VARIANCE_STAMINA_AT_ZERO_MULT - 1.0) * (1.0 - sf)
-        if variance_context.get("off_balance", false):
+        if variance_context.get(DataKeys.VAR_CTX_OFF_BALANCE, false):
             mult *= ANGLE_VARIANCE_OFF_BALANCE_MULT
-        var mass_kg: float = float(variance_context.get("weapon_mass_kg", ANGLE_VARIANCE_MASS_REFERENCE_KG))
+        var mass_kg: float = float(variance_context.get(DataKeys.VAR_CTX_WEAPON_MASS_KG, ANGLE_VARIANCE_MASS_REFERENCE_KG))
         if mass_kg > 0 and ANGLE_VARIANCE_MASS_REFERENCE_KG > 0:
             var mass_mult: float = 1.0 + (mass_kg - ANGLE_VARIANCE_MASS_REFERENCE_KG) * ANGLE_VARIANCE_MASS_SCALE
             mult *= maxf(0.7, mass_mult)
@@ -393,20 +393,20 @@ static func get_attack_angle_deg(
 
 
 static func get_guard_angle_deg(combatant: Dictionary, wobble_context: Dictionary = {}) -> float:
-    var line: String = combatant.get("guard_line", GUARD_DEFAULT)
-    var blend: float = combatant.get("guard_deflect_blend", 0.0)
+    var line: String = combatant.get(DataKeys.ATTACK_GUARD_LINE, GUARD_DEFAULT)
+    var blend: float = combatant.get(DataKeys.PA_GUARD_DEFLECT_BLEND, 0.0)
     var base_angle: float
     if blend <= 0.0:
         base_angle = line_to_angle(line)
     else:
-        var from_line: String = combatant.get("guard_deflect_from_line", line)
+        var from_line: String = combatant.get(DataKeys.PA_GUARD_DEFLECT_FROM_LINE, line)
         var from_a: float = line_to_angle(from_line)
         var to_a: float = line_to_angle(line)
         base_angle = lerpf(from_a, to_a, blend)
-    var readiness: float = wobble_context.get("parry_readiness", 1.0)
+    var readiness: float = wobble_context.get(DataKeys.WOBBLE_CONTEXT_PARRY_READINESS, 1.0)
     if readiness < 1.0 and GUARD_WOBBLE_MAX_DEG > 0:
         var wobble: float = GUARD_WOBBLE_MAX_DEG * (1.0 - readiness * GUARD_WOBBLE_READINESS_SCALE)
-        var mass_kg: float = float(wobble_context.get("defender_mass_kg", GUARD_WOBBLE_MASS_REFERENCE_KG))
+        var mass_kg: float = float(wobble_context.get(DataKeys.WOBBLE_CONTEXT_DEFENDER_MASS_KG, GUARD_WOBBLE_MASS_REFERENCE_KG))
         if mass_kg > 0 and GUARD_WOBBLE_MASS_REFERENCE_KG > 0:
             var mass_mult: float = 1.0 + (mass_kg - GUARD_WOBBLE_MASS_REFERENCE_KG) * GUARD_WOBBLE_MASS_SCALE
             wobble *= maxf(0.7, mass_mult)
@@ -439,18 +439,20 @@ static func get_deflected_line_from_angles(
 static func get_line_alignment_with_deflect(
     attack_line: String, combatant: Dictionary, alignment_context: Dictionary = {}, wobble_context: Dictionary = {}
 ) -> float:
-    var atk_a: Variant = alignment_context.get("attack_angle_deg", null)
-    var guard_a: Variant = alignment_context.get("guard_angle_deg", null)
+    var atk_a: Variant = alignment_context.get(DataKeys.ALIGNMENT_ATTACK_ANGLE_DEG, null)
+    var guard_a: Variant = alignment_context.get(DataKeys.ALIGNMENT_GUARD_ANGLE_DEG, null)
     if atk_a is float and guard_a is float:
         return maxf(PARRY_ALIGNMENT_FLOOR, get_alignment_from_angles(float(atk_a), float(guard_a)))
     guard_a = get_guard_angle_deg(combatant, wobble_context)
     if atk_a is float:
         return maxf(PARRY_ALIGNMENT_FLOOR, get_alignment_from_angles(float(atk_a), float(guard_a)))
-    var guard_line: String = combatant.get("guard_line", GUARD_DEFAULT)
-    var blend: float = combatant.get("guard_deflect_blend", 0.0)
+    var guard_line: String = combatant.get(DataKeys.ATTACK_GUARD_LINE, GUARD_DEFAULT)
+    var blend: float = combatant.get(DataKeys.PA_GUARD_DEFLECT_BLEND, 0.0)
     if blend <= 0.0:
         return get_line_alignment(attack_line, guard_line)
-    var from_line: String = combatant.get("guard_deflect_from_line", GUARD_DEFAULT)
+    var from_line: String = combatant.get(DataKeys.PA_GUARD_DEFLECT_FROM_LINE, GUARD_DEFAULT)
     var align_from: float = get_line_alignment(attack_line, from_line)
     var align_to: float = get_line_alignment(attack_line, guard_line)
     return lerpf(align_from, align_to, blend)
+
+const HIT_SUB_REGION_SEED_MULTIPLIER: int = 31

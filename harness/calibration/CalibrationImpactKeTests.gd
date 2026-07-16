@@ -151,8 +151,8 @@ static func _append_impact_ke_section(lines: PackedStringArray, failures: Packed
     var commit_ke_ratio: float = ke_commit / ke_hi if ke_hi > 0.01 else 0.0
     lines.append(
         (
-            "delivery_commit_formula=effective_intensity=intensity*commit_frac (floor %.2f); KE from v(eff_i); blun"
-            + "t slip uses full intensity" % [WeaponDamageHelper.DELIVERY_INTENSITY_FLOOR]
+            "delivery_commit_formula=effective_intensity=intensity*commit_frac (floor %.2f); KE from v(eff_i); blunt slip uses full intensity"
+            % [WeaponDamageHelper.DELIVERY_INTENSITY_FLOOR]
         )
     )
     lines.append(

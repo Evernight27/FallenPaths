@@ -125,5 +125,6 @@ static func _read_from_node(node: Node) -> Dictionary:
         if raw_pref != null:
             stance_pref = str(raw_pref).strip_edges()
     stats["stance_preference"] = stance_pref
-    stats["is_party_leader"] = node != null and node.get("is_party_leader") == true
+    stats["is_party_leader"] = node != null and node.get(DataKeys.COMBATANT_IS_PARTY_LEADER) == true
     return stats
+

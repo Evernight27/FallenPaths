@@ -2,7 +2,7 @@ class_name BattleUIUpdater
 extends RefCounted
 
 ## Updates a single combatant's UI row: gauge, state label, blood, consciousness, body bars.
-## Gauge suffix order (footing): pick . attention . Step (PA) . flurry . exhaustion . Grd/Atk . Form --"
+## Gauge suffix order (footing): pick . attention . Step (PA) . flurry . exhaustion . Grd/Atk . Form —
 ## `_compose_waiting_gauge_label`. LIVE_PATHS **`#battle-ui`** . **`#wf-tier-44-pa`** (Step) .
 ## **`#wf-soak-audit-status`** (ii5c open for **` . Form`**).
 ## ctrl = id_to_controls[id], c = combatant dict from manager.get_combatants().
@@ -68,11 +68,11 @@ static func gauge_label_text_for_combatant(c: Dictionary, manager: Node = null) 
     # Partial snapshot rows omit `alive`; treat missing as living (matches `_sync_gauge_label` tooltips).
     if not CombatantEntityAccess.alive_bool(c, true):
         return "Defeated"
-    if c.get("combat_absent", false) or CombatantEntityAccess.state_str(c) == CombatConstants.STATE_FLED:
+    if c.get(DataKeys.COMBATANT_COMBAT_ABSENT, false) or CombatantEntityAccess.state_str(c) == CombatConstants.STATE_FLED:
         return "Fled"
     var state: String = CombatantEntityAccess.state_str(c, "waiting")
-    var state_timer: float = c.get("state_timer", 0.0)
-    var state_duration: float = c.get("state_duration", 0.0)
+    var state_timer: float = c.get(DataKeys.PA_STATE_TIMER, 0.0)
+    var state_duration: float = c.get(DataKeys.PA_STATE_DURATION, 0.0)
     var remain: float = maxf(0.0, state_duration - state_timer)
     match state:
         "wind_up":
@@ -99,7 +99,7 @@ static func gauge_label_text_for_combatant(c: Dictionary, manager: Node = null) 
             return _compose_waiting_gauge_label(c, "Receiving care", manager)
     var tempo_hint: String = CombatUiHints.counter_tempo_hint_key(c, manager)
     var counter_primary: String = CombatUiHints.counter_tempo_gauge_label(tempo_hint)
-    var status_override: String = c.get("status_override", "").strip_edges()
+    var status_override: String = c.get(DataKeys.SNAPSHOT_STATUS_OVERRIDE, "").strip_edges()
     if status_override.is_empty() and manager != null:
         status_override = CombatCombatantsSnapshot.live_status_override_text(manager, c)
     if not counter_primary.is_empty():
@@ -107,8 +107,8 @@ static func gauge_label_text_for_combatant(c: Dictionary, manager: Node = null) 
     if not status_override.is_empty():
         return _compose_waiting_gauge_label(c, status_override, manager)
     var primary: String = _waiting_stamina_primary_label(c)
-    if CombatConstants.COMBAT_DEBUG and c.get("guard_angle_deg", null) is float:
-        primary += " %.0ff''deg" % float(c.get("guard_angle_deg"))
+    if CombatConstants.COMBAT_DEBUG and c.get(DataKeys.SNAPSHOT_GUARD_ANGLE_DEG, null) is float:
+        primary += " %.0ff''deg" % float(c.get(DataKeys.SNAPSHOT_GUARD_ANGLE_DEG))
     return _compose_waiting_gauge_label(c, primary, manager)
 
 

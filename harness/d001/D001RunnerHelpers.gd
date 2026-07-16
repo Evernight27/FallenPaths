@@ -51,7 +51,7 @@ static func _infer_soak_fight_winner(mgr: Node) -> String:
     for c in mgr.combatants:
         if c is not Dictionary or not CombatantEntityAccess.alive_bool(c):
             continue
-        if bool(c.get("combat_absent", false)):
+        if bool(c.get(DataKeys.COMBATANT_COMBAT_ABSENT, false)):
             continue
         if CombatantEntityAccess.is_player_side(c):
             players_alive += 1
@@ -95,7 +95,7 @@ static func _auto_resolve_ready_combatants(mgr: Node, preset_id: String) -> void
             continue
         if not CombatantEntityAccess.alive_bool(c):
             continue
-        if bool(c.get("combat_absent", false)):
+        if bool(c.get(DataKeys.COMBATANT_COMBAT_ABSENT, false)):
             continue
         var st: String = CombatantEntityAccess.state_str(c)
         if st != CombatConstants.STATE_WAITING and st != CombatConstants.STATE_COWERING:
@@ -234,7 +234,7 @@ static func _ensure_ii5_cowering_fall_back_executed(mgr: Node, combatant_id: int
         return
     var cd: Dictionary = c as Dictionary
     cd.state = CombatConstants.STATE_FALLING_BACK
-    cd.state_timer = float(cd.get("state_duration", CombatConstants.BASE_FALL_BACK_S))
+    cd.state_timer = float(cd.get(DataKeys.PA_STATE_DURATION, CombatConstants.BASE_FALL_BACK_S))
     (
         mgr
         . _handle_fall_back_solo_resolve(

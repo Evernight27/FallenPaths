@@ -34,7 +34,7 @@ static func start_combat(world: Node2D, enemies: Array):
         var roster: PackedStringArray = PackedStringArray()
         for p in players:
             if p is Node:
-                var role: String = "leader" if p.get("is_party_leader") == true else "member"
+                var role: String = "leader" if p.get(DataKeys.COMBATANT_IS_PARTY_LEADER) == true else "member"
                 roster.append("%s(%s)" % [str(p.name), role])
         OperationalLog.play_combat("party_entering_combat count=%d [%s]" % [players.size(), ", ".join(roster)])
     for p in players:
@@ -91,7 +91,7 @@ static func handle_battle_ended(world: Node2D, winner: String, defeated: Node):
         CombatDebug.combat_session("handle_battle_ended winner=%s defeated=%s" % [winner, def_name])
     await world.get_tree().process_frame
     var player = world.get_node_or_null("Character")
-    var player_lost := winner != "player"
+    var player_lost := winner != CombatConstantsMisc.SIDE_PLAYER
     if not OperationalLog.is_play_session_active():
         var outcome: String = "defeat" if player_lost else "victory"
         CombatDebug.combat_session("handle_battle_ended player_lost=%s => %s" % [player_lost, outcome])
@@ -213,3 +213,4 @@ static func _find_party_button(world: Node2D) -> Control:
         if "name" in child and child.name == "PartyButton":
             return child
     return null
+

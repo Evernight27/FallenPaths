@@ -22,7 +22,7 @@ static func now_seconds() -> float:
 
 
 static func intensity_from_stats(c: Dictionary) -> float:
-    var str_val: float = float(CombatantEntityAccess.stats_dict(c).get("strength", CombatConstants.DEFAULT_STAT_VALUE))
+    var str_val: float = float(CombatantEntityAccess.stats_dict(c).get(DataKeys.ENTITY_STRENGTH, CombatConstants.DEFAULT_STAT_VALUE))
     var base: float = (
         0.2 + CombatConstants.INTENSITY_STRENGTH_SCALE * (str_val / CombatConstants.INTENSITY_STRENGTH_NORM)
     )
@@ -35,7 +35,7 @@ static func wind_up_duration(intensity: float, windup_multiplier: float = 1.0) -
     return (CombatConstants.WIND_UP_BASE_S + CombatConstants.WIND_UP_SCALE_S * intensity) * maxf(0.5, windup_multiplier)
 
 
-## Guard-line transition multiplier for wind-up (clamped --" see **`GUARD_TRANSITION_MULT_MAX`**).
+## Guard-line transition multiplier for wind-up (clamped — see **`GUARD_TRANSITION_MULT_MAX`**).
 static func guard_transition_mult(align: float) -> float:
     var a: float = clampf(align, 0.0, 1.0)
     var raw: float = 1.0 + (1.0 - a) * CombatConstants.GUARD_TRANSITION_COST_SCALE

@@ -135,12 +135,12 @@ static func depth_polearm_lane_allows_low_targets(
     var disc: String = CombatFormationEngagement.effective_line_discipline(manager, fd)
     if disc == CombatConstants.LINE_DISCIPLINE_STRICT:
         return false
-    var dens: String = str(fd.get("density", "normal")) if not fd.is_empty() else "normal"
+    var dens: String = str(fd.get(DataKeys.FORMATION_DENSITY, "normal")) if not fd.is_empty() else "normal"
     if dens == "loose":
         return true
     if disc == CombatConstants.LINE_DISCIPLINE_LOOSE:
         return true
-    var posture: String = str(fd.get("engagement_posture", "")).strip_edges().to_lower()
+    var posture: String = str(fd.get(DataKeys.FORMATION_ENGAGEMENT_POSTURE, "")).strip_edges().to_lower()
     if posture == CombatConstants.ENGAGEMENT_POSTURE_OPEN or posture == CombatConstants.ENGAGEMENT_POSTURE_DUEL:
         return true
     return false
@@ -150,7 +150,7 @@ static func depth_polearm_lane_allows_low_targets(
 static func stamp_depth_flags_on_pa(manager: Node, atk: Dictionary, pa: Dictionary) -> void:
     pa[DataKeys.PA_DEPTH_POLEARM_ATTACK] = false
     pa[DataKeys.PA_DEPTH_POLEARM_ALLOWS_LOW] = true
-    pa["depth_polearm_lane_type"] = ""
+    pa[DataKeys.PA_DEPTH_POLEARM_LANE_TYPE] = ""
     if manager == null or atk.is_empty() or CombatantEntityAccess.rank_int(atk) <= 0:
         return
     var ctx_stamp: Dictionary = ZoneOfControl.zone_geometry_line_context(manager, atk)
@@ -160,10 +160,10 @@ static func stamp_depth_flags_on_pa(manager: Node, atk: Dictionary, pa: Dictiona
     pa[DataKeys.PA_DEPTH_POLEARM_ATTACK] = true
     var fd_stamp: Dictionary = ZoneOfControl.zone_geometry_formation_from_pack(ctx_stamp)
     if not fd_stamp.is_empty():
-        pa["zone_geometry_atk_density"] = str(fd_stamp.get("density", "normal"))
+        pa[DataKeys.PA_ZONE_GEOMETRY_ATK_DENSITY] = str(fd_stamp.get(DataKeys.FORMATION_DENSITY, "normal"))
     var allow_low: bool = depth_polearm_lane_allows_low_targets(manager, atk, fid_stamp, fd_stamp, true)
     pa[DataKeys.PA_DEPTH_POLEARM_ALLOWS_LOW] = allow_low
-    pa["depth_polearm_lane_type"] = (
+    pa[DataKeys.PA_DEPTH_POLEARM_LANE_TYPE] = (
         CombatConstants.DEPTH_POLEARM_LANE_TYPE_OPEN
         if allow_low
         else CombatConstants.DEPTH_POLEARM_LANE_TYPE_OVER_SHOULDER

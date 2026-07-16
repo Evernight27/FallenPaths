@@ -4,7 +4,7 @@ extends RefCounted
 ## HEMA Method C: eight diagonal guard/attack lines (45f''deg sectors).
 ## Cardinals remain valid; **`normalize_line`** maps four-line guard ids into eight-line octants.
 ## Footing: UI via **`display_short_for_line`**; octant PA step table via **`position_angle_offset_deg_for_line`** when
-## eight-guard flag on --" LIVE_PATHS **`#wf-form-guard-pa-matrix`** . hub **`#wf-tier-44-pa`**.
+## eight-guard flag on — LIVE_PATHS **`#wf-form-guard-pa-matrix`** . hub **`#wf-tier-44-pa`**.
 
 const LINE_HIGH := "high"
 const LINE_HIGH_RIGHT := "high_right"
@@ -78,7 +78,7 @@ const LINE_TO_DEFAULT_PART: Dictionary = {
     LINE_HIGH_LEFT: "head",
 }
 
-## Tier 4.4 PA step offsets (f''deg) per octant --" cardinals match **`CombatConstants`** 4-key table.
+## Tier 4.4 PA step offsets (f''deg) per octant — cardinals match **`CombatConstants`** 4-key table.
 ## WF-T1 (2026-06-07): diagonals bias toward dominant adjacent cardinal (Camp-5 soak; was 50/50 blend):
 ## high_right 57% right . low_right 55% right . low_left 65% left . high_left 65% left.
 const POSITION_ANGLE_OFFSET_DEG_BY_LINE: Dictionary = {
@@ -92,7 +92,7 @@ const POSITION_ANGLE_OFFSET_DEG_BY_LINE: Dictionary = {
     LINE_HIGH_LEFT: 9.0,
 }
 
-## Compact UI labels (gauge / formation diagram) --" distinct octants at a glance.
+## Compact UI labels (gauge / formation diagram) — distinct octants at a glance.
 const LINE_DISPLAY_SHORT: Dictionary = {
     LINE_HIGH: "Hi",
     LINE_HIGH_RIGHT: "HiR",
@@ -169,7 +169,7 @@ static func default_part_for_line(line: String) -> String:
     return str(LINE_TO_DEFAULT_PART.get(normalize_line(line), "head"))
 
 
-## IV-4: passive **`guard_zone`** / feint read --" flank diagonals cover same limb band as
+## IV-4: passive **`guard_zone`** / feint read — flank diagonals cover same limb band as
 ## **`guard_cardinal_for_attack_path`** paths.
 static func guard_zone_part_for_line(line: String) -> String:
     var norm: String = normalize_line(line)

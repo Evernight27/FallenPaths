@@ -2,15 +2,15 @@ class_name DefenseResolutionHandler
 extends RefCounted
 
 ## Resolves defense outcomes: partial parry follow-through (twist dodge), full/partial dodge, parry deflect/partial.
-## Footing (strike geometry): reads **`CombatFootwork.guard_angle_deg`** + attacker offset on contact --" not form home
+## Footing (strike geometry): reads **`CombatFootwork.guard_angle_deg`** + attacker offset on contact — not form home
 ## guard. LIVE_PATHS **`#wf-tier-44-pa`** (geometry) . **`#wf-guard-writers`**.
 ## **Read order:** parry deflect/partial branches --'' ' dodge branches --'' ' follow-through re-entry hooks.
 ## **`parry_deflect`** full-stop and **`parry_partial`** follow-through both attach a **`parry_clash_context`** dict on
 ## the returned result (partial adds **`remaining_ratio`** / **`geometric_leak`**; Tier **3.0** KE on partial uses
-## reduced **`pa["velocity_m_s"]`**).
+## reduced **`pa[DataKeys.PA_VELOCITY_M_S]`**).
 ## Returns a result dict to return from resolve_attack, or null to fall through to hit.
 
-## Debug logging --" delegates to `CombatDebug.log` which gates on `combat_debug_active`.
+## Debug logging — delegates to `CombatDebug.log` which gates on `combat_debug_active`.
 
 
 ## Resolves defense. Returns dict with action, target_id, recovery_duration (if applicable); or null to fall through to
@@ -112,7 +112,7 @@ static func resolve(
 
 
 static func _arm_interpose_clash_extra(dc: Dictionary) -> Dictionary:
-    var boost: float = dc.get("arm_interpose_boost", 0.0)
+    var boost: float = dc.get(DataKeys.RESULT_ARM_INTERPOSE_BOOST, 0.0)
     if boost <= 0.0:
         return {}
     return {
@@ -147,8 +147,10 @@ static func _resolve_partial_parry_follow_through(
         time_factor = 0.35
     var leg: float = CombatantEntityAccess.get_leg_functionality(tgt)
     var perf: float = CombatantEntityAccess.get_performance_modifier(tgt)
-    var agi: float = float(CombatantEntityAccess.stats_dict(tgt).get("agility", CombatConstants.DEFAULT_STAT_VALUE))
-    var perc: float = float(CombatantEntityAccess.stats_dict(tgt).get("perception", CombatConstants.DEFAULT_STAT_VALUE))
+    var tgt_stats := CombatantEntityAccess.stats_dict(tgt)
+    var atk_stats := CombatantEntityAccess.stats_dict(atk)
+    var agi: float = float(tgt_stats.get(DataKeys.ENTITY_AGILITY, CombatConstants.DEFAULT_STAT_VALUE))
+    var perc: float = float(tgt_stats.get(DataKeys.ENTITY_PERCEPTION, CombatConstants.DEFAULT_STAT_VALUE))
     var mobility_factor: float = leg * perf * CombatConstants.stats_factor_agi_perc(agi, perc)
     var twist_capacity: float = time_factor * mobility_factor * twist_readiness
     var follow_eff: float = CombatConstants.PARRY_FOLLOW_THROUGH_DODGE_EFFICIENCY
@@ -159,7 +161,7 @@ static func _resolve_partial_parry_follow_through(
     elif twist_ct == WeaponConstants.ATTACK_TYPE_CUT:
         attack_type_mod = 1.0 + CombatConstants.PARRY_FOLLOW_THROUGH_CUT_BONUS
     var twist_partial_min: float = CombatConstants.PARRY_FOLLOW_THROUGH_PARTIAL_MIN
-    var parry_ratio: float = pa.get("parry_remaining_ratio", 1.0)
+    var parry_ratio: float = pa.get(DataKeys.ATTACK_PARRY_REMAINING_RATIO, 1.0)
     var parry_quality_scale: float = 1.0 - 0.3 * parry_ratio
     parry_quality_scale = clampf(parry_quality_scale, 0.7, 1.0)
     var dodge_chance_follow: float = CombatantEntityAccess.get_dodge_chance(tgt)
@@ -179,7 +181,7 @@ static func _resolve_partial_parry_follow_through(
                 "dodge",
                 recovery_mult,
                 perf_mod,
-                CombatantEntityAccess.stats_dict(atk).get("agility", CombatConstants.DEFAULT_STAT_VALUE)
+                atk_stats.get(DataKeys.ENTITY_AGILITY, CombatConstants.DEFAULT_STAT_VALUE)
             )
             return {"action": "dodge", "target_id": target_id, "recovery_duration": rec_dur}
         if dodge_roll_follow < effective_follow_dodge:
@@ -191,11 +193,11 @@ static func _resolve_partial_parry_follow_through(
             )
             var twist_remaining_ratio: float = lerpf(twist_partial_min, 1.0, clampf(t_twist, 0.0, 1.0))
             var combined_ratio: float = parry_ratio * twist_remaining_ratio
-            pa["parry_remaining_ratio"] = combined_ratio
+            pa[DataKeys.ATTACK_PARRY_REMAINING_RATIO] = combined_ratio
             var v_current: float = pa.get("velocity_m_s", velocity_override)
             if v_current >= 0.0:
                 var glancing_factor: float = CombatConstants.glancing_factor(twist_remaining_ratio, 0.5)
-                pa["velocity_m_s"] = v_current * glancing_factor
+                pa[DataKeys.PA_VELOCITY_M_S] = v_current * glancing_factor
             CombatDebug.log("twist_partial %s->%s combined=%.2f" % [atk_name, tgt_name, combined_ratio])
         else:
             CombatDebug.log("twist_none %s->%s resolving" % [atk_name, tgt_name])
@@ -219,6 +221,7 @@ static func _resolve_dodge(
     target_id: int,
     tgt_name: String
 ) -> Variant:
+    var atk_stats := CombatantEntityAccess.stats_dict(atk)
     var dodge_target_part: String = (
         dodge_eval_part if not dodge_eval_part.is_empty() else BodyPartConstants.get_weighted_random_part(targetable)
     )
@@ -233,7 +236,7 @@ static func _resolve_dodge(
                 "dodge",
                 recovery_mult,
                 perf_mod,
-                CombatantEntityAccess.stats_dict(atk).get("agility", CombatConstants.DEFAULT_STAT_VALUE)
+                atk_stats.get(DataKeys.ENTITY_AGILITY, CombatConstants.DEFAULT_STAT_VALUE)
             )
             return {"action": "dodge", "target_id": target_id, "recovery_duration": rec_dur}
         if dodge_roll < effective_dodge_chance:
@@ -244,20 +247,20 @@ static func _resolve_dodge(
                 else 1.0
             )
             var dodge_remaining_ratio: float = lerpf(CombatConstants.DODGE_PARTIAL_RATIO_MIN, 1.0, clampf(t, 0.0, 1.0))
-            pa["parry_remaining_ratio"] = dodge_remaining_ratio
+            pa[DataKeys.ATTACK_PARRY_REMAINING_RATIO] = dodge_remaining_ratio
             var atk_weapon = CombatantEntityAccess.get_weapon(atk)
             if atk_weapon != null:
                 var attack_instance = AttackInstance.new(attack_type, intensity)
                 attack_instance.archetype = archetype
                 var v_intent: float = WeaponDamageHelper.get_effective_velocity_m_s(atk_weapon, attack_instance)
                 v_intent *= StrikeRealismProfile.velocity_intent_mult_from_pa(
-                    pa, atk_weapon, attack_type, float(pa.get("intensity", intensity)), archetype
+                    pa, atk_weapon, attack_type, float(pa.get(DataKeys.ATTACK_INTENSITY, intensity)), archetype
                 )
                 var glancing_factor: float = CombatConstants.glancing_factor(dodge_remaining_ratio, 0.5)
-                pa["velocity_m_s"] = v_intent * glancing_factor
+                pa[DataKeys.PA_VELOCITY_M_S] = v_intent * glancing_factor
             else:
-                pa["velocity_m_s"] = -1.0
-            pa["partial_dodge_part"] = dodge_target_part
+                pa[DataKeys.PA_VELOCITY_M_S] = -1.0
+            pa[DataKeys.PA_PARTIAL_DODGE_PART] = dodge_target_part
             CombatDebug.log(
                 "dodge_partial %s part=%s ratio=%.2f" % [tgt_name, dodge_target_part, dodge_remaining_ratio]
             )
@@ -291,21 +294,23 @@ static func _resolve_parry(
     dc: Dictionary = {}
 ) -> Variant:
     var interpose_extra: Dictionary = _arm_interpose_clash_extra(dc)
-    pa["passive_parry_attempted"] = true
-    pa["parry_twist_time_to_react"] = parry_time_to_react
-    pa["parry_twist_readiness"] = parry_readiness
+    var tgt_stats := CombatantEntityAccess.stats_dict(tgt)
+    var atk_stats := CombatantEntityAccess.stats_dict(atk)
+    pa[DataKeys.PA_PASSIVE_PARRY_ATTEMPTED] = true
+    pa[DataKeys.PA_PARRY_TWIST_TIME_TO_REACT] = parry_time_to_react
+    pa[DataKeys.PA_PARRY_TWIST_READINESS] = parry_readiness
     var move_def: Dictionary = WeaponConstants.get_move(attack_type)
-    var attack_line: String = pa.get("effective_attack_line", move_def.get("attack_line", "high"))
-    var guard_line: String = tgt.get("guard_line", CombatConstants.GUARD_DEFAULT)
+    var attack_line: String = pa.get(DataKeys.ATTACK_EFFECTIVE_ATTACK_LINE, move_def.get(DataKeys.PA_ATTACK_LINE, "high"))
+    var guard_line: String = tgt.get(DataKeys.ATTACK_GUARD_LINE, CombatConstants.GUARD_DEFAULT)
     # Arc tracking: use blade position at parry contact for alignment (where blades meet).
     var parry_progress: float = 1.0
     if not late_parry:
         var eff_wind: float = (
-            pa.get("wind_up_duration", 0.5) * (1.0 - CombatConstants.commitment_fraction_for_pending_attack(pa))
+            pa.get(DataKeys.PA_WIND_UP_DURATION, 0.5) * (1.0 - CombatConstants.commitment_fraction_for_pending_attack(pa))
         )
         parry_progress = 1.0 - clampf(parry_time_to_react / maxf(0.001, eff_wind), 0.0, 1.0)
     var align_ctx: Dictionary = {}
-    var arc_start: float = pa.get("arc_start_deg", 0.0)
+    var arc_start: float = pa.get(DataKeys.ATTACK_ARC_START_DEG, 0.0)
     var arc_end: float = CombatConstants.arc_end_deg_for_contact_geometry(pa)
     if arc_end >= -900.0:
         var attack_angle_at_contact: float = CombatConstants.get_arc_angle_at_progress(
@@ -321,7 +326,7 @@ static func _resolve_parry(
     var c_d_final: float = parry_c_d
     if CombatConstants.PARRY_TECHNIQUE_VARIANCE > 0.0:
         var agi_var: float = float(
-            CombatantEntityAccess.stats_dict(tgt).get("agility", CombatConstants.DEFAULT_STAT_VALUE)
+            tgt_stats.get(DataKeys.ENTITY_AGILITY, CombatConstants.DEFAULT_STAT_VALUE)
         )
         var variance_scale: float = clampf(
             1.0 - 0.5 * (agi_var - 100.0) / 100.0,
@@ -334,14 +339,14 @@ static func _resolve_parry(
         c_d_final *= randf_range(1.0 - variance_eff, 1.0 + variance_eff)
     var effective_alignment: float = alignment
     if not interpose_extra.is_empty():
-        effective_alignment = minf(1.0, alignment + interpose_extra.get("arm_interpose_boost", 0.0))
+        effective_alignment = minf(1.0, alignment + interpose_extra.get(DataKeys.RESULT_ARM_INTERPOSE_BOOST, 0.0))
     var interpose_note: String = ""
     if not interpose_extra.is_empty():
         interpose_note = (
             " interpose_arm=%s boost=%.3f"
             % [
                 interpose_extra.get(CombatConstants.CLASH_KEY_ARM_INTERPOSE, ""),
-                interpose_extra.get("arm_interpose_boost", 0.0)
+                interpose_extra.get(DataKeys.RESULT_ARM_INTERPOSE_BOOST, 0.0)
             ]
         )
     var pcfg: Dictionary = PassiveParryContext.get_parry_config()
@@ -356,11 +361,11 @@ static func _resolve_parry(
     if CombatConstants.COMBAT_DEBUG_CALIBRATION:
         var geom_scale: float = clampf(1.0 / maxf(0.2, alignment), 1.0, 2.5)
         var angle_suffix: String = ""
-        if pa.get("attack_angle_deg", -999.0) >= 0.0:
+        if pa.get(DataKeys.ATTACK_ATTACK_ANGLE_DEG, -999.0) >= 0.0:
             var wobble_cal: Dictionary = CombatantEntityAccess.parry_wobble_context_for_combatant(tgt, parry_readiness)
             angle_suffix = (
                 " atk_deg=%.0f guard_deg=%.0f"
-                % [pa["attack_angle_deg"], CombatFootwork.guard_angle_deg(tgt, wobble_cal)]
+                % [pa[DataKeys.ATTACK_ANGLE_DEG], CombatFootwork.guard_angle_deg(tgt, wobble_cal)]
             )
         CombatDebug.calibration_log(
             (
@@ -387,9 +392,9 @@ static func _resolve_parry(
             "full_stop",
             recovery_mult,
             atk_perf,
-            CombatantEntityAccess.stats_dict(atk).get("agility", CombatConstants.DEFAULT_STAT_VALUE)
+            atk_stats.get(DataKeys.ENTITY_AGILITY, CombatConstants.DEFAULT_STAT_VALUE)
         )
-        var eff_atk_line: String = pa.get("effective_attack_line", attack_line)
+        var eff_atk_line: String = pa.get(DataKeys.ATTACK_EFFECTIVE_ATTACK_LINE, attack_line)
         var atk_weapon_ctx = CombatantEntityAccess.get_weapon(atk)
         var atk_angle_at_contact: float = _parry_attack_angle_deg(atk, arc_start, arc_end, parry_progress, eff_atk_line)
         var wobble_ctx: Dictionary = CombatantEntityAccess.parry_wobble_context_for_combatant(tgt, parry_readiness)
@@ -466,9 +471,9 @@ static func _resolve_parry(
             "full_stop",
             recovery_mult,
             atk_perf_edge,
-            CombatantEntityAccess.stats_dict(atk).get("agility", CombatConstants.DEFAULT_STAT_VALUE)
+            atk_stats.get(DataKeys.ENTITY_AGILITY, CombatConstants.DEFAULT_STAT_VALUE)
         )
-        var eff_atk_line_edge: String = pa.get("effective_attack_line", attack_line)
+        var eff_atk_line_edge: String = pa.get(DataKeys.ATTACK_EFFECTIVE_ATTACK_LINE, attack_line)
         var atk_weapon_edge = CombatantEntityAccess.get_weapon(atk)
         var atk_angle_edge: float = _parry_attack_angle_deg(atk, arc_start, arc_end, parry_progress, eff_atk_line_edge)
         var wobble_edge: Dictionary = CombatantEntityAccess.parry_wobble_context_for_combatant(tgt, parry_readiness)
@@ -519,9 +524,9 @@ static func _resolve_parry(
             "parry_clash_context": parry_clash_edge
         }
     var attacker_weapon = CombatantEntityAccess.get_weapon(atk)
-    var agi_d: float = float(CombatantEntityAccess.stats_dict(tgt).get("agility", CombatConstants.DEFAULT_STAT_VALUE))
+    var agi_d: float = float(tgt_stats.get(DataKeys.ENTITY_AGILITY, CombatConstants.DEFAULT_STAT_VALUE))
     var perc_d: float = float(
-        CombatantEntityAccess.stats_dict(tgt).get("perception", CombatConstants.DEFAULT_STAT_VALUE)
+        tgt_stats.get(DataKeys.ENTITY_PERCEPTION, CombatConstants.DEFAULT_STAT_VALUE)
     )
     var redirect_mult: float = CombatConstants.compute_parry_redirect_mult(
         pcfg, agi_d, perc_d, WeaponConstants.contact_type_for_move_id(attack_type), is_block_parry, m_a_parry, m_d_parry
@@ -568,7 +573,7 @@ static func _resolve_parry(
     var v_intent: float = WeaponDamageHelper.get_effective_velocity_m_s(attacker_weapon, attack_instance)
     if attacker_weapon != null:
         v_intent *= StrikeRealismProfile.velocity_intent_mult_from_pa(
-            pa, attacker_weapon, attack_type, float(pa.get("intensity", intensity)), archetype
+            pa, attacker_weapon, attack_type, float(pa.get(DataKeys.ATTACK_INTENSITY, intensity)), archetype
         )
     var v_min_eff: float = (
         v_intent
@@ -578,8 +583,8 @@ static func _resolve_parry(
             clampf(remaining_ratio, 0.0, 1.0)
         )
     )
-    pa["velocity_m_s"] = maxf(v_reduced, v_min_eff)
-    pa["parry_remaining_ratio"] = remaining_ratio
+    pa[DataKeys.PA_VELOCITY_M_S] = maxf(v_reduced, v_min_eff)
+    pa[DataKeys.ATTACK_PARRY_REMAINING_RATIO] = remaining_ratio
     CombatDebug.log(
         (
             "parry_partial %s vs %s final_ratio=%.2f (align=%.2f align_eff=%.2f pre_leak=%.2f + leak=%.2f)%s"
@@ -595,7 +600,7 @@ static func _resolve_parry(
             ]
         )
     )
-    var eff_atk_line_p: String = pa.get("effective_attack_line", attack_line)
+    var eff_atk_line_p: String = pa.get(DataKeys.ATTACK_EFFECTIVE_ATTACK_LINE, attack_line)
     var atk_angle_partial: float = _parry_attack_angle_deg(atk, arc_start, arc_end, parry_progress, eff_atk_line_p)
     var wobble_p: Dictionary = CombatantEntityAccess.parry_wobble_context_for_combatant(tgt, parry_readiness)
     var strike_v_partial: float = pa.get("velocity_m_s", 0.0)
@@ -666,7 +671,7 @@ static func _strike_kinematics_for_parry_clash(
         if strike_v < -900.0:
             strike_v = WeaponDamageHelper.get_effective_velocity_m_s(atk_weapon, attack_instance)
             strike_v *= StrikeRealismProfile.velocity_intent_mult_from_pa(
-                pa, atk_weapon, attack_type, float(pa.get("intensity", intensity)), archetype
+                pa, atk_weapon, attack_type, float(pa.get(DataKeys.ATTACK_INTENSITY, intensity)), archetype
             )
         attack_instance.velocity_m_s = strike_v
         strike_ke = WeaponDamageHelper.compute_kinetic_energy_j(atk_weapon, attack_instance)
@@ -706,7 +711,7 @@ static func _build_parry_clash_context(
         c_d_final, parry_p_a, alignment, parry_readiness, parry_off_balance, late_parry, contact_ct
     )
     var ctx: Dictionary = {
-        "archetype_id": kinematics.get("archetype_id", ""),
+        "archetype_id": kinematics.get(DataKeys.PA_ARCHETYPE_ID, ""),
         "parry_control": parry_control,
         "parry_p_a": parry_p_a,
         "parry_c_d": parry_c_d,
@@ -715,7 +720,7 @@ static func _build_parry_clash_context(
         "m_d_parry": m_d_parry,
         "m_a_velocity": m_a_velocity,
         "margin_ratio": margin_ratio,
-        ## IV-5: raw (pre-interpose) alignment --" parry_control and harness validation use this same value;
+        ## IV-5: raw (pre-interpose) alignment — parry_control and harness validation use this same value;
         ## interpose boost is captured separately in arm_interpose_boost / arm_interpose_arm fields.
         "alignment": alignment,
         "defender_guard_line": guard_line,
@@ -730,7 +735,7 @@ static func _build_parry_clash_context(
         "effective_attack_line": eff_atk_line,
         "severity": CombatConstants.parry_deflect_severity_from_margin_ratio(margin_ratio),
         "attack_angle_deg": attack_angle_deg,
-        "kinematic_delivery": kinematics.get("kinematic_delivery", ""),
+        "kinematic_delivery": kinematics.get(DataKeys.WD_KINEMATIC_DELIVERY, ""),
         "strike_velocity_m_s": kinematics.get("strike_velocity_m_s", -1.0),
         "strike_kinetic_energy_j": kinematics.get("strike_kinetic_energy_j", 0.0),
         "strike_measure_ratio": strike_measure_ratio,

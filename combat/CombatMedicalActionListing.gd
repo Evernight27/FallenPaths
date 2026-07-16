@@ -83,7 +83,7 @@ static func append_medical_phase_winner_actions(
                         {
                             "target_id": tgt_id,
                             "move_id": act.get("move_id", ""),
-                            "target_part": act.get("target_part", ""),
+                            "target_part": act.get(DataKeys.ACTION_TARGET_PART, ""),
                         }
                     )
                 )
@@ -108,7 +108,7 @@ static func append_mid_fight_ally_medical_actions(
     var perf_fid: String = CombatantEntityAccess.formation_id_str(c)
     if not perf_fid.is_empty():
         var formation: Dictionary = FormationSlots.formation_record_for_manager(manager, perf_fid)
-        if formation.get("engagement_posture", "") != CombatConstants.ENGAGEMENT_POSTURE_LINE:
+        if formation.get(DataKeys.FORMATION_ENGAGEMENT_POSTURE, "") != CombatConstants.ENGAGEMENT_POSTURE_LINE:
             return
         if CombatDepthPolearm.same_file_living_rank0_ally(manager, c, perf_fid).is_empty():
             return
@@ -142,7 +142,7 @@ static func append_mid_fight_ally_medical_actions(
                         {
                             "target_id": tgt_id,
                             "move_id": act.get("move_id", ""),
-                            "target_part": act.get("target_part", ""),
+                            "target_part": act.get(DataKeys.ACTION_TARGET_PART, ""),
                         }
                     )
                 )

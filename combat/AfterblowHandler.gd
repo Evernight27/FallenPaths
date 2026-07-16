@@ -54,11 +54,11 @@ static func try_afterblow(
         return false
     if CombatantEntityAccess.state_str(tgt) != CombatConstants.STATE_WIND_UP:
         return false
-    var hit_part: String = result_dict.get("part", "")
-    var outcome: String = result_dict.get("outcome", "hit")
-    var final_cut: float = result_dict.get("final_cut", 0.0)
-    var final_blunt: float = result_dict.get("final_blunt", 0.0)
-    var final_bone: float = result_dict.get("final_bone", 0.0)
+    var hit_part: String = result_dict.get(DataKeys.RESULT_PART, "")
+    var outcome: String = result_dict.get(DataKeys.RESULT_OUTCOME, "hit")
+    var final_cut: float = result_dict.get(DataKeys.RESULT_FINAL_CUT, 0.0)
+    var final_blunt: float = result_dict.get(DataKeys.RESULT_FINAL_BLUNT, 0.0)
+    var final_bone: float = result_dict.get(DataKeys.RESULT_FINAL_BONE, 0.0)
     var total_dmg: float = final_cut + final_blunt + final_bone
 
     # Immediate disqualifiers
@@ -130,16 +130,16 @@ static func _cancel_pending(manager: Node, tgt: Dictionary) -> void:
 static func _execute_afterblow(manager: Node, tgt: Dictionary, hindrance: float) -> bool:
     var pa: Dictionary = CombatantEntityAccess.nested_dictionary_for_mutation(tgt, "pending_attack")
     var damage_mult: float = 1.0 - hindrance
-    pa["afterblow_damage_mult"] = maxf(0.2, damage_mult)
+    pa[DataKeys.PA_AFTERBLOW_DAMAGE_MULT] = maxf(0.2, damage_mult)
     # Headless regression only: `CombatRegressionHarness` sets **`_harness_record_afterblow_damage_mult`** on the
     # manager.
     if manager != null and manager.has_meta("_harness_record_afterblow_damage_mult"):
-        manager.set_meta("_harness_last_afterblow_damage_mult", float(pa["afterblow_damage_mult"]))
+        manager.set_meta("_harness_last_afterblow_damage_mult", float(pa[DataKeys.PA_AFTERBLOW_DAMAGE_MULT]))
     var tgt_id: int = CombatantEntityAccess.id_int(tgt)
     if CombatDebug.flow_verbose_enabled():
         var tgt_name: String = CombatantEntityAccess.get_display_name(tgt, tgt_id)
         CombatDebug.flow_log(
-            "afterblow %s completes hindrance=%.2f dmg_mult=%.2f" % [tgt_name, hindrance, pa["afterblow_damage_mult"]]
+            "afterblow %s completes hindrance=%.2f dmg_mult=%.2f" % [tgt_name, hindrance, pa[DataKeys.PA_AFTERBLOW_DAMAGE_MULT]]
         )
     manager._execute_attack(tgt_id)
     return true

@@ -246,7 +246,7 @@ static func _run_feint_windup_duration_mult_extends_state_duration_vs_oberhau(fa
     eo["guard_zone"] = "chest"
     seed(CombatRegressionHarness._FEINT_WINDUP_HARNESS_SEED)
     AttackWindUpStarter.start(mgr_o, po_id, eo_id, "oberhau", {"target_part": "chest"})
-    var d_o: float = float(po.get("state_duration", 0.0))
+    var d_o: float = float(po.get(DataKeys.PA_STATE_DURATION, 0.0))
     var mgr_f: Node = CombatRegressionHarness._harness_start_1v1()
     var pf: Dictionary = mgr_f.combatants[0]
     var ef: Dictionary = mgr_f.combatants[1]
@@ -255,7 +255,7 @@ static func _run_feint_windup_duration_mult_extends_state_duration_vs_oberhau(fa
     ef["guard_zone"] = "chest"
     seed(CombatRegressionHarness._FEINT_WINDUP_HARNESS_SEED)
     AttackWindUpStarter.start(mgr_f, pf_id, ef_id, "oberhau_feint", {"target_part": "chest", "feint_part": "head"})
-    var d_f: float = float(pf.get("state_duration", 0.0))
+    var d_f: float = float(pf.get(DataKeys.PA_STATE_DURATION, 0.0))
     var pa_f: Dictionary = CombatantEntityAccess.nested_dictionary_read(pf, "pending_attack")
     if not pa_f.has("feint_windup_duration_mult"):
         CombatRegressionHarness._fail(
@@ -332,7 +332,7 @@ static func _run_feint_windup_duration_mult_extends_state_duration_vs_thrust(fai
     et["guard_zone"] = "chest"
     seed(CombatRegressionHarness._FEINT_WINDUP_HARNESS_SEED)
     AttackWindUpStarter.start(mgr_t, pt_id, et_id, "thrust", {"target_part": "chest"})
-    var d_t: float = float(pt.get("state_duration", 0.0))
+    var d_t: float = float(pt.get(DataKeys.PA_STATE_DURATION, 0.0))
     var mgr_tf: Node = CombatRegressionHarness._harness_start_1v1()
     var ptf: Dictionary = mgr_tf.combatants[0]
     var etf: Dictionary = mgr_tf.combatants[1]
@@ -341,7 +341,7 @@ static func _run_feint_windup_duration_mult_extends_state_duration_vs_thrust(fai
     etf["guard_zone"] = "chest"
     seed(CombatRegressionHarness._FEINT_WINDUP_HARNESS_SEED)
     AttackWindUpStarter.start(mgr_tf, ptf_id, etf_id, "thrust_feint", {"target_part": "chest", "feint_part": "head"})
-    var d_tf: float = float(ptf.get("state_duration", 0.0))
+    var d_tf: float = float(ptf.get(DataKeys.PA_STATE_DURATION, 0.0))
     var pa_tf: Dictionary = CombatantEntityAccess.nested_dictionary_read(ptf, "pending_attack")
     if not pa_tf.has("feint_windup_duration_mult"):
         CombatRegressionHarness._fail(
@@ -416,7 +416,7 @@ static func _run_feint_windup_target_only_sets_defender_guard_zone_to_target(fai
             failures,
             "feint_windup_target_only: pending target_part want left_leg got %s" % str(pa.get("target_part", ""))
         )
-    if pa.has("feint_part") and str(pa.get("feint_part", "")) != "":
+    if pa.has(DataKeys.ACTION_FEINT_PART) and str(pa.get("feint_part", "")) != "":
         CombatRegressionHarness._fail(
             failures,
             "feint_windup_target_only: should not stamp non-empty feint_part got %s" % str(pa.get("feint_part", ""))
@@ -467,7 +467,7 @@ static func _run_feint_windup_target_only_sets_defender_guard_zone_to_target_thr
             failures,
             "feint_windup_target_only_thrust: pending target_part want left_leg got %s" % str(pa.get("target_part", ""))
         )
-    if pa.has("feint_part") and str(pa.get("feint_part", "")) != "":
+    if pa.has(DataKeys.ACTION_FEINT_PART) and str(pa.get("feint_part", "")) != "":
         CombatRegressionHarness._fail(
             failures,
             (

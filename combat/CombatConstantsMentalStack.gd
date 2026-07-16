@@ -8,6 +8,10 @@ const COMBATANT_KEY_YOMI_BY_ATTACKER := "yomi_by_attacker"
 const COMBATANT_KEY_WEAPON_FORM := "weapon_form"
 const COMBATANT_KEY_FORM_SWITCH_COOLDOWN_UNTIL := "form_switch_cooldown_until"
 const COMBATANT_KEY_LAST_FORM_SWITCH_REASON := "last_form_switch_reason"
+const COMBATANT_KEY_FORM_SWITCH_OLD_FORM := "form_switch_old_form"
+const COMBATANT_KEY_FORM_SWITCH_OLD_GUARD := "form_switch_old_guard"
+const COMBATANT_KEY_FORM_SWITCH_TARGET_FORM := "form_switch_target_form"
+const COMBATANT_KEY_FORM_SWITCH_TARGET_GUARD := "form_switch_target_guard"
 const COMBATANT_KEY_INFERRED_OPP_FORM_BY_ID := "inferred_opp_form_by_id"
 const COMBATANT_KEY_ATTENTION_UI_HINT := "attention_ui_hint"
 const COMBATANT_KEY_MENTAL_STACK_LAYER := "mental_stack_layer"
@@ -46,3 +50,36 @@ const YOMI_FOCUS_DRIFT_SHORT_ENGAGEMENT_TICK_THRESHOLD := 8
 const YOMI_FOCUS_DRIFT_SHORT_ENGAGEMENT_LINE_COUNT := 1
 const YOMI_FOCUS_DRIFT_INTENSITY := 0.78
 const MEDICAL_AI_WEIGHT_ESCALATION_BONUS := 1.5
+
+## YOMI AGGREGATION — decay, power-law, attention budget.
+
+const YOMI_DECAY_FACTOR_PER_TICK: float = 0.92
+const YOMI_POWER_LAW_ALPHA: float = 0.7
+const YOMI_NON_ENGAGED_WEIGHT: float = 0.25
+const YOMI_ATTENTION_BUDGET_MAX: int = 3
+const YOMI_ATTENTION_PRIORITY_DEGRADE_MULT: float = 0.5
+
+## COMBATANT DICT KEYS — form inference history, tier tracking.
+
+const COMBATANT_KEY_FORM_INFERENCE_HISTORY := "form_inference_history"
+const COMBATANT_KEY_TIER_STATE := "_tier_state"
+const COMBATANT_KEY_GUARD_BREAK_COUNT := "guard_break_count"
+const MENTAL_STACK_TIER_COMMITMENT_TICKS: int = 3
+const MENTAL_STACK_LOST_COHESION_ROUT_THRESHOLD: int = 3
+
+## Tier state sub-keys.
+
+const _TIER_ACTIVE := "active_tier"
+const _TIER_ENTERED_AT := "entered_at"
+const _TIER_CONSECUTIVE_FAILURES := "consecutive_failures"
+
+## Phase 3: minimum consecutive failures at higher tiers before L2 counter-tempo is allowed.
+const MENTAL_STACK_L1_TO_L2_FAILURE_THRESHOLD: int = 2
+
+## Phase 5: Minimum margin ratio for form staleness detection (recent vs historical divergence).
+const WF_FORM_STALENESS_MARGIN_RATIO_THRESHOLD: float = 0.25
+
+## Phase 5: Deception state machine combatant dict key.
+
+const COMBATANT_KEY_DECEPTION_STATE := "_deception_state"
+

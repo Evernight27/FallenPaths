@@ -214,3 +214,25 @@ static func get_pain_shock_duration_seconds(pain_value: float, triggering_hit_da
         )
     )
     return base_duration * impact_mult
+
+
+# --- Arm degradation penalties (Issue 3: flat hit-chance reduction per damage ratio) ---
+# Key = sub-region; value = flat penalty applied to arm-hit chance at 100% damage ratio.
+const ARM_HIT_CHANCE_PENALTIES: Dictionary = {
+    "hand": 0.5,       # hand destroyed => -50% hit chance on that arm
+    "forearm": 0.25,   # forearm severely damaged => -25%
+    "upper_arm": 0.10, # upper arm damaged => -10%
+}
+
+# Scaling: penalty = key_penalty * damage_ratio (linear interpolation from 0 at ratio=0).
+static func get_arm_hit_chance_penalty(entity: Node, arm_part: String) -> float:
+    if not entity.has_method("body_max") or not entity.has_method("body_cutting"):
+        return 0.0
+    var max_val: float = entity.body_max.get(arm_part, 1.0)
+    if max_val <= 0.0:
+        return 0.0
+    var remaining: float = maxf(0.0, max_val - entity.body_cutting.get(arm_part, 0.0))
+    var damage_ratio: float = clampf(1.0 - (remaining / max_val), 0.0, 1.0)
+    var base_penalty: float = ARM_HIT_CHANCE_PENALTIES.get(arm_part, 0.0)
+    return base_penalty * damage_ratio
+

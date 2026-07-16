@@ -380,10 +380,10 @@ static func _run_medical_phase_end_combat_idempotent(failures: PackedStringArray
 static func _run_medical_phase_winner_fled_suspends_bleed_tick(failures: PackedStringArray) -> void:
     var mgr: Node = CombatRegressionHarness._harness_start_1v1()
     var c: Dictionary = mgr.combatants[0]
-    c["combat_absent"] = true
+    c[DataKeys.COMBATANT_COMBAT_ABSENT] = true
     c.state = CombatConstants.STATE_FLED
     mgr._end_combat_phase("player", null)
-    if bool(c.get("combat_absent", false)):
+    if bool(c.get(DataKeys.COMBATANT_COMBAT_ABSENT, false)):
         CombatRegressionHarness._fail(failures, "med_phase_fled: winner combat_absent should clear for medical listing")
     if not bool(c.get(CombatConstants.COMBATANT_KEY_SUSPEND_BLEED_TICK, false)):
         CombatRegressionHarness._fail(failures, "med_phase_fled: winner should suspend bleed ticks after fleeing")
@@ -418,7 +418,7 @@ static func _run_medical_phase_fled_winner_bleed_suspended_on_tick(failures: Pac
     node._set_combat_blood_loss_mult(1.0)
     node._set_combat_blood_recovery_per_s(0.0)
     var bv_before: float = float(node.blood_volume)
-    c["combat_absent"] = true
+    c[DataKeys.COMBATANT_COMBAT_ABSENT] = true
     c.state = CombatConstants.STATE_FLED
     mgr._end_combat_phase("player", null)
     CombatProcessTick.tick(mgr, 2.0)
@@ -484,7 +484,7 @@ static func _run_medical_phase_non_fled_winner_bleed_continues_on_tick(failures:
 static func _run_medical_phase_stop_clears_suspend_bleed_tick(failures: PackedStringArray) -> void:
     var mgr: Node = CombatRegressionHarness._harness_start_1v1()
     var c: Dictionary = mgr.combatants[0]
-    c["combat_absent"] = true
+    c[DataKeys.COMBATANT_COMBAT_ABSENT] = true
     c.state = CombatConstants.STATE_FLED
     mgr._end_combat_phase("player", null)
     if not bool(c.get(CombatConstants.COMBATANT_KEY_SUSPEND_BLEED_TICK, false)):

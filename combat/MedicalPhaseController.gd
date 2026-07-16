@@ -72,16 +72,16 @@ static func is_losing_side_id(manager: Node, combatant_id: int) -> bool:
 static func should_block_scheduled_event(manager: Node, ev: Dictionary) -> bool:
     if manager == null or not manager.medical_phase:
         return false
-    var ev_type: String = ev.get("type", "")
+    var ev_type: String = ev.get(DataKeys.EVENT_TYPE, "")
     if ev_type not in MedicalPhaseBatchResolve.POST_VICTORY_BLOCKED_EVENT_TYPES:
         return false
-    var cid: int = int(ev.get("combatant_id", -1))
+    var cid: int = int(ev.get(DataKeys.EVENT_COMBATANT_ID, -1))
     if is_losing_side_id(manager, cid):
         return true
     if ev_type == CombatConstants.EVENT_SWAP_RANK_RESOLVE or ev_type == CombatConstants.EVENT_ROTATE_FILE_RESOLVE:
-        var dr: Variant = ev.get("data", null)
+        var dr: Variant = ev.get(DataKeys.EVENT_DATA, null)
         if dr is Dictionary:
-            var pid: int = int(dr.get("partner_id", -1))
+            var pid: int = int(dr.get(DataKeys.EVENT_PARTNER_ID, -1))
             if is_losing_side_id(manager, pid):
                 return true
     return false
@@ -149,17 +149,17 @@ static func halt_losing_side_combat(manager: Node) -> void:
         ):
             Footwork.return_to_waiting(c)
             c.gauge = 0.0
-        c["pending_medical"] = {}
-        c.erase("formation_move_partner_id")
+        c[DataKeys.PA_PENDING_MEDICAL] = {}
+        c.erase(DataKeys.FM_FORMATION_MOVE_PARTNER_ID)
         c.erase(CombatConstants.COMBATANT_KEY_INCOMING_ATTACK_TELEGRAPH_PART)
-        c.erase("parry_was_bind")
-        c.erase("parry_against_id")
-        c.erase("parry_bonus_until")
+        c.erase(DataKeys.PA_PARRY_WAS_BIND)
+        c.erase(DataKeys.PA_PARRY_AGAINST_ID)
+        c.erase(DataKeys.PA_PARRY_BONUS_UNTIL)
         MedicalPhaseBatchResolve._get_counter_tempo().clear_window(c)
         MedicalPhaseBatchResolve._get_counter_tempo().clear_riposte_chain(c)
         FlurryBind.clear(c)
-        if c.get("combat_absent", false) or CombatantEntityAccess.state_str(c) == CombatConstants.STATE_FLED:
-            c["combat_absent"] = true
+        if c.get(DataKeys.COMBATANT_COMBAT_ABSENT, false) or CombatantEntityAccess.state_str(c) == CombatConstants.STATE_FLED:
+            c[DataKeys.SNAPSHOT_COMBAT_ABSENT] = true
             c.state = CombatConstants.STATE_FLED
             Footwork.reconcile_idle_offset(c)
     for c in manager.combatants:
@@ -168,7 +168,7 @@ static func halt_losing_side_combat(manager: Node) -> void:
         MedicalPhaseBatchResolve._get_counter_tempo().clear_window(c)
         MedicalPhaseBatchResolve._get_counter_tempo().clear_riposte_chain(c)
         var had_fled: bool = (
-            c.get("combat_absent", false) or CombatantEntityAccess.state_str(c) == CombatConstants.STATE_FLED
+            c.get(DataKeys.COMBATANT_COMBAT_ABSENT, false) or CombatantEntityAccess.state_str(c) == CombatConstants.STATE_FLED
         )
         MedicalPhaseBatchResolve._reset_fled_and_combat_absent(c)
         # Fled winners: triage needs them on-field (`is_alive_in_combat`); suspend bleed ticks only
@@ -397,19 +397,19 @@ static func fast_forward_advance_chunk(
     while (
         manager.medical_phase
         and not can_end_medical_phase(manager)
-        and float(sim_state["sim_seconds"]) < sim_cap
+        and float(sim_state[DataKeys.SIM_STATE_SIM_SECONDS]) < sim_cap
         and iters_run < max_chunk_iters
     ):
         iters_run += 1
-        var total_iterations: int = sim_state.get("total_iterations", 0) + 1
-        sim_state["total_iterations"] = total_iterations
+        var total_iterations: int = sim_state.get(DataKeys.SIM_STATE_TOTAL_ITERATIONS, 0) + 1
+        sim_state[DataKeys.SIM_STATE_TOTAL_ITERATIONS] = total_iterations
         if total_iterations > MedicalPhaseBatchResolve.INSTANT_FAST_FORWARD_MAX_ITERATIONS:
             return {
                 "continue_loop": false,
                 "break_reason": "iteration_cap",
             }
         var step: Dictionary = MedicalPhaseFastForward._instant_complete_fast_forward_step(manager, sim_state)
-        if step.get("continue_loop", true) != true:
+        if step.get(DataKeys.MEDICAL_CONTINUE_LOOP, true) != true:
             return {
                 "continue_loop": false,
                 "break_reason": "stagnant",
@@ -419,7 +419,7 @@ static func fast_forward_advance_chunk(
             "continue_loop": false,
             "break_reason": "complete",
         }
-    if float(sim_state["sim_seconds"]) >= sim_cap:
+    if float(sim_state[DataKeys.SIM_STATE_SIM_SECONDS]) >= sim_cap:
         return {
             "continue_loop": false,
             "break_reason": "sim_cap",
@@ -443,21 +443,21 @@ static func fast_forward_advance_time_slice(
             "break_reason": "medical_phase_cleared",
         }
     var slice_start_usec: int = Time.get_ticks_usec()
-    while manager.medical_phase and not can_end_medical_phase(manager) and float(sim_state["sim_seconds"]) < sim_cap:
+    while manager.medical_phase and not can_end_medical_phase(manager) and float(sim_state[DataKeys.SIM_STATE_SIM_SECONDS]) < sim_cap:
         if Time.get_ticks_usec() - slice_start_usec >= budget_usec:
             return {
                 "continue_loop": true,
                 "break_reason": "",
             }
-        var total_iterations: int = sim_state.get("total_iterations", 0) + 1
-        sim_state["total_iterations"] = total_iterations
+        var total_iterations: int = sim_state.get(DataKeys.SIM_STATE_TOTAL_ITERATIONS, 0) + 1
+        sim_state[DataKeys.SIM_STATE_TOTAL_ITERATIONS] = total_iterations
         if total_iterations > MedicalPhaseBatchResolve.INSTANT_FAST_FORWARD_MAX_ITERATIONS:
             return {
                 "continue_loop": false,
                 "break_reason": "iteration_cap",
             }
         var step: Dictionary = MedicalPhaseFastForward._instant_complete_fast_forward_step(manager, sim_state)
-        if step.get("continue_loop", true) != true:
+        if step.get(DataKeys.MEDICAL_CONTINUE_LOOP, true) != true:
             return {
                 "continue_loop": false,
                 "break_reason": "stagnant",
@@ -467,7 +467,7 @@ static func fast_forward_advance_time_slice(
             "continue_loop": false,
             "break_reason": "complete",
         }
-    if float(sim_state["sim_seconds"]) >= sim_cap:
+    if float(sim_state[DataKeys.SIM_STATE_SIM_SECONDS]) >= sim_cap:
         return {
             "continue_loop": false,
             "break_reason": "sim_cap",

@@ -232,7 +232,7 @@ static func _run_medical_mobility_cowering_lists_fall_back_in_formation_mode(fai
         CombatRegressionHarness._fail(failures, "med_mobility_list: missing living player rank-0 file-0")
         return
     var policy: Dictionary = CombatEngagementMode.movement_policy(mgr)
-    if not bool(policy.get("allow_fall_back", false)):
+    if not bool(policy.get(DataKeys.MOVE_POLICY_ALLOW_FALL_BACK, false)):
         CombatRegressionHarness._fail(failures, "med_mobility_list: formation policy must allow fall_back")
     var ent: CoreEntity = CombatantEntityAccess.scene_node(front_c) as CoreEntity
     ent.blood_volume = CombatConstants.FORMATION_RETREAT_BLOOD_VOLUME_MAX - 5.0
@@ -285,7 +285,7 @@ static func _run_medical_mobility_cowering_lists_fall_back_in_formation_mode(fai
                         CombatantEntityAccess.gauge_float(c_b),
                         zf.is_empty(),
                         int(zf.get("ranks", 1)),
-                        bool(mp.get("allow_fall_back", false)),
+                        bool(mp.get(DataKeys.MOVE_POLICY_ALLOW_FALL_BACK, false)),
                         str(mp.get("mode", "")),
                     ]
                 )
@@ -315,7 +315,7 @@ static func _run_medical_mobility_cowering_resolve_solo_fall_back_without_moveme
     if not CombatFormationMoveListing.solo_fall_back_action_legal(mgr, c):
         CombatRegressionHarness._fail(failures, "med_resolve_fb: setup solo fall_back should be legal")
         return
-    if bool(CombatEngagementMode.movement_policy(mgr).get("allow_fall_back", false)):
+    if bool(CombatEngagementMode.movement_policy(mgr).get(DataKeys.MOVE_POLICY_ALLOW_FALL_BACK, false)):
         CombatRegressionHarness._fail(failures, "med_resolve_fb: want skirmish policy to block routine fall_back")
         return
     var cid: int = CombatantEntityAccess.id_int(c)

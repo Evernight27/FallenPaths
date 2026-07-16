@@ -13,11 +13,11 @@ static func formation_side_str(formation: Dictionary, default_side: String = "")
     return str(formation.get("side", default_side))
 
 
-## Ensures `formation["slots"]` exists and returns it  -  avoids mutating a fresh `{}` from `Dictionary.get(..., {})`.
+## Ensures `formation[DataKeys.FORMATION_SLOTS]` exists and returns it  -  avoids mutating a fresh `{}` from `Dictionary.get(..., {})`.
 static func formation_slots_dict(formation: Dictionary) -> Dictionary:
     if not formation.has("slots"):
-        formation["slots"] = {}
-    return formation["slots"] as Dictionary
+        formation[DataKeys.FORMATION_SLOTS] = {}
+    return formation[DataKeys.FORMATION_SLOTS] as Dictionary
 
 
 ## Read-only: nested dict on `manager.formations[fid]` (e.g. `slot_obstacles`, `zone_control`); does not create keys.
@@ -217,9 +217,9 @@ static func gap_column_files(formation: Dictionary) -> Array:
 
 static func refresh_gap_column_topology(formation: Dictionary) -> void:
     if not CombatConstants.is_feature_gap_column_topology_enabled():
-        formation.erase("gap_column_files")
+        formation.erase(DataKeys.FM_GAP_COLUMN_FILES)
         return
-    formation["gap_column_files"] = occupied_column_files(formation)
+    formation[DataKeys.FM_GAP_COLUMN_FILES] = occupied_column_files(formation)
 
 
 static func refresh_gap_column_topology_for_manager(manager: Node, fid: String) -> void:

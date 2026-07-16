@@ -3,7 +3,7 @@ extends RefCounted
 
 ## Post-victory settlement (Camp-1.5). Pay, wound summary, roster cleanup (Camp-1.8 K3).
 
-# Runtime preload â€” circular dependency (CompanyState preloads CombatFlow â†’ SettlementPanel).
+# Runtime preload Ã¢â‚¬â€ circular dependency (CompanyState preloads CombatFlow Ã¢â€ â€™ SettlementPanel).
 static var _company_state_cache: Variant = null
 
 
@@ -53,7 +53,7 @@ static func show_and_await(world: Node2D):
     scroll.add_child(vbox)
 
     var hdr := Label.new()
-    hdr.text = "Settlement" + " \u2014 " + title
+    hdr.text = "Settlement \u2014 %s" % title
     hdr.add_theme_font_size_override("font_size", 18)
     vbox.add_child(hdr)
 
@@ -120,7 +120,7 @@ static func show_and_await(world: Node2D):
 
     for aff_line in affliction_lines:
         var aff_lbl := Label.new()
-        aff_lbl.text = "Scarred \u2014 " + aff_line
+        aff_lbl.text = "Scarred \u2014 %s" % aff_line
         PartyRowFormatter.configure_wrapped_label(aff_lbl)
         aff_lbl.add_theme_color_override("font_color", Color(0.75, 0.65, 0.95))
         vbox.add_child(aff_lbl)
@@ -216,7 +216,7 @@ static func format_settlement_supplies_line(world: Node2D) -> String:
     var med_n: int = _get_company_state().get_medical_supplies(world)
     var med_suffix: String = _get_company_state().format_hud_triage_suffix(world)
     var line: String = (
-        "Supplies: %d med%s Â· %d tools Â· %d food"
+        "Supplies: %d med%s Ã‚Â· %d tools Ã‚Â· %d food"
         % [
             med_n,
             med_suffix,
@@ -225,7 +225,7 @@ static func format_settlement_supplies_line(world: Node2D) -> String:
         ]
     )
     if _get_company_state().should_show_next_provisions_hint(world):
-        line += " (rations short â€” mood -1 at next day end)"
+        line += " (rations short Ã¢â‚¬â€ mood -1 at next day end)"
     return line
 
 
@@ -235,7 +235,7 @@ static func format_settlement_continue_button_label() -> String:
     return "Continue"
 
 
-## F5 ÃƒÂ‚Ã‚Â§8 step 3: settlement Continue button world log (paid win path).
+## F5 ÃƒÆ’Ã‚â€šÃƒâ€šÃ‚Â§8 step 3: settlement Continue button world log (paid win path).
 static func format_settlement_continue_log(world: Node2D, contract: Dictionary, pay: int) -> String:
     var autosave_bit: String = ""
     if _get_company_state().persistence_uses_disk_autosave():
@@ -294,7 +294,7 @@ static func _append_member_vitals_labels(parent: VBoxContainer, m: Dictionary, w
     var untreated: Variant = m.get("untreated_parts", [])
     if untreated is PackedStringArray and (untreated as PackedStringArray).size() > 0:
         var wound_lbl := Label.new()
-        wound_lbl.text = "Needs dressing: " + MapFieldCare.format_part_list(untreated)
+        wound_lbl.text = "Needs dressing: %s" % MapFieldCare.format_part_list(untreated)
         PartyRowFormatter.configure_wrapped_label(wound_lbl)
         wound_lbl.add_theme_color_override("font_color", Color(0.95, 0.65, 0.4))
         parent.add_child(wound_lbl)
@@ -345,3 +345,4 @@ static func _disable_overworld_input(world: Node2D, enabled: bool) -> void:
     var pb: Control = CombatFlow._find_party_button(world)
     if pb != null:
         pb.visible = enabled
+

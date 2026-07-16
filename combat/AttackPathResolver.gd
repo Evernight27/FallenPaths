@@ -38,11 +38,11 @@ static func resolve_hit_part(
     var atk_line_path: String = attack_line
     var guard_line_path: String = guard_line
     if (
-        alignment_context.get("attack_angle_deg", null) is float
-        and alignment_context.get("guard_angle_deg", null) is float
+        alignment_context.get(DataKeys.ALIGNMENT_ATTACK_ANGLE_DEG, null) is float
+        and alignment_context.get(DataKeys.ALIGNMENT_GUARD_ANGLE_DEG, null) is float
     ):
-        atk_line_path = CombatConstants.angle_to_nearest_line(float(alignment_context["attack_angle_deg"]))
-        guard_line_path = CombatConstants.angle_to_nearest_line(float(alignment_context["guard_angle_deg"]))
+        atk_line_path = CombatConstants.angle_to_nearest_line(float(alignment_context[DataKeys.ALIGNMENT_ATTACK_ANGLE_DEG]))
+        guard_line_path = CombatConstants.angle_to_nearest_line(float(alignment_context[DataKeys.ALIGNMENT_GUARD_ANGLE_DEG]))
     var path: Array = CombatConstants.get_attack_path(atk_line_path, guard_line_path)
     if path.is_empty():
         return BodyPartConstants.get_weighted_random_part(targetable)
@@ -63,7 +63,7 @@ static func resolve_hit_part(
     var part_weights: Dictionary = {}
     for p in path_segment:
         part_weights[p] = 1.0
-    var recovery_cause: String = CombatConstants.normalize_recovery_cause(defender_ctx.get("recovery_cause", ""))
+    var recovery_cause: String = CombatConstants.normalize_recovery_cause(defender_ctx.get(DataKeys.ATTACK_RECOVERY_CAUSE, ""))
     var passive_parry: bool = defender_ctx.get(CombatConstants.PA_KEY_PASSIVE_PARRY_ATTEMPTED, false)
     if (
         recovery_cause == "attack_hit"
@@ -78,13 +78,13 @@ static func resolve_hit_part(
             if part_weights.has(limb):
                 part_weights[limb] = 1.4
     var interpose: Dictionary = CombatGuardLines.arm_interpose_eval(attack_line, guard_line, alignment, targetable)
-    if interpose.get("active", false):
-        var interpose_arm: String = interpose.get("arm", "")
+    if interpose.get(DataKeys.INTERPOSE_ACTIVE, false):
+        var interpose_arm: String = interpose.get(DataKeys.INTERPOSE_ARM, "")
         if path_segment.has(interpose_arm):
             part_weights[interpose_arm] = (
                 part_weights.get(interpose_arm, 1.0) * CombatConstants.ARM_INTERPOSE_HIT_WEIGHT_MULT
             )
-    var contact_type: String = str(move_def.get("contact_type", "")).to_lower()
+    var contact_type: String = str(move_def.get(DataKeys.WEAPON_CONTACT_TYPE, "")).to_lower()
     if not attacker.is_empty():
         var wid_resolve: String = _weapon_id_for_attacker(attacker)
         for p in path_segment:
@@ -102,9 +102,17 @@ static func resolve_hit_part(
                     ent, _weapon_id_for_attacker(attacker), CombatantEntityAccess.form_str(attacker)
                 )
         part_weights[intended_part] = part_weights.get(intended_part, 1.0) * intended_boost
+    var flat: bool = true
+    var first_w: float = -1.0
+    for w in part_weights.values():
+        if first_w < 0.0:
+            first_w = float(w)
+        elif absf(float(w) - first_w) > 0.001:
+            flat = false
+            break
     var part: String = (
         BodyPartConstants.get_weighted_random_part(path_segment)
-        if part_weights.values().min() == part_weights.values().max()
+        if flat
         else WeightedSample.pick_random(part_weights)
     )
     if part.is_empty():
@@ -112,12 +120,12 @@ static func resolve_hit_part(
     if CombatConstants.combat_debug_active():
         var angle_info: String = ""
         if (
-            alignment_context.get("attack_angle_deg", null) is float
-            and alignment_context.get("guard_angle_deg", null) is float
+            alignment_context.get(DataKeys.ALIGNMENT_ATTACK_ANGLE_DEG, null) is float
+            and alignment_context.get(DataKeys.ALIGNMENT_GUARD_ANGLE_DEG, null) is float
         ):
             angle_info = (
                 " (atk=%.0fdeg guard=%.0fdeg)"
-                % [float(alignment_context["attack_angle_deg"]), float(alignment_context["guard_angle_deg"])]
+                % [float(alignment_context[DataKeys.ALIGNMENT_ATTACK_ANGLE_DEG]), float(alignment_context[DataKeys.ALIGNMENT_GUARD_ANGLE_DEG])]
             )
         CombatDebug.log(
             (
@@ -144,11 +152,11 @@ static func path_intercept_max_index(
     var atk_line_path: String = attack_line
     var guard_line_path: String = guard_line
     if (
-        alignment_context.get("attack_angle_deg", null) is float
-        and alignment_context.get("guard_angle_deg", null) is float
+        alignment_context.get(DataKeys.ALIGNMENT_ATTACK_ANGLE_DEG, null) is float
+        and alignment_context.get(DataKeys.ALIGNMENT_GUARD_ANGLE_DEG, null) is float
     ):
-        atk_line_path = CombatConstants.angle_to_nearest_line(float(alignment_context["attack_angle_deg"]))
-        guard_line_path = CombatConstants.angle_to_nearest_line(float(alignment_context["guard_angle_deg"]))
+        atk_line_path = CombatConstants.angle_to_nearest_line(float(alignment_context[DataKeys.ALIGNMENT_ATTACK_ANGLE_DEG]))
+        guard_line_path = CombatConstants.angle_to_nearest_line(float(alignment_context[DataKeys.ALIGNMENT_GUARD_ANGLE_DEG]))
     var path: Array = CombatConstants.get_attack_path(atk_line_path, guard_line_path)
     return intercept_max_index_for_alignment(path, alignment)
 
@@ -162,11 +170,11 @@ static func path_segment_for_strike(
     var atk_line_path: String = attack_line
     var guard_line_path: String = guard_line
     if (
-        alignment_context.get("attack_angle_deg", null) is float
-        and alignment_context.get("guard_angle_deg", null) is float
+        alignment_context.get(DataKeys.ALIGNMENT_ATTACK_ANGLE_DEG, null) is float
+        and alignment_context.get(DataKeys.ALIGNMENT_GUARD_ANGLE_DEG, null) is float
     ):
-        atk_line_path = CombatConstants.angle_to_nearest_line(float(alignment_context["attack_angle_deg"]))
-        guard_line_path = CombatConstants.angle_to_nearest_line(float(alignment_context["guard_angle_deg"]))
+        atk_line_path = CombatConstants.angle_to_nearest_line(float(alignment_context[DataKeys.ALIGNMENT_ATTACK_ANGLE_DEG]))
+        guard_line_path = CombatConstants.angle_to_nearest_line(float(alignment_context[DataKeys.ALIGNMENT_GUARD_ANGLE_DEG]))
     var path: Array = CombatConstants.get_attack_path(atk_line_path, guard_line_path)
     if path.is_empty():
         return targetable.duplicate()
@@ -215,13 +223,13 @@ static func part_weights_for_ai_pick(
         return weights
     var wid_pick: String = _weapon_id_for_attacker(attacker)
     if move_id.is_empty():
-        move_id = str(move_def.get("id", ""))
+        move_id = str(move_def.get(DataKeys.MOVE_DEF_ID, ""))
     var preferred: Array = (
         WeaponConstants.preferred_parts_for_weapon_move(wid_pick, move_id)
         if not move_id.is_empty()
-        else move_def.get("preferred_parts", [])
+        else move_def.get(DataKeys.MOVE_DEF_PREFERRED_PARTS, [])
     )
-    var contact_type: String = str(move_def.get("contact_type", "")).to_lower()
+    var contact_type: String = str(move_def.get(DataKeys.WEAPON_CONTACT_TYPE, "")).to_lower()
     var focus_part: String = CombatAttention.get_focus_part(defender) if CombatAttention.enabled() else ""
     var focus_line: String = CombatConstants.PART_TO_LINE.get(focus_part, "")
     var dom_line: String = ""
@@ -237,8 +245,8 @@ static func part_weights_for_ai_pick(
     var weapon_prof_tier: float = EntityProficiency.weapon_proficiency_tier(ent, weapon_id) if ent != null else 0.0
     var prof_aim_mult: float = EntityProficiency.proficiency_aim_part_mult(ent, weapon_id, form) if ent != null else 1.0
     var stats: Dictionary = CombatantEntityAccess.stats_dict(attacker)
-    var perception: float = float(stats.get("perception", CombatConstants.DEFAULT_STAT_VALUE))
-    var intelligence: float = float(stats.get("intelligence", CombatConstants.DEFAULT_STAT_VALUE))
+    var perception: float = float(stats.get(DataKeys.ENTITY_PERCEPTION, CombatConstants.DEFAULT_STAT_VALUE))
+    var intelligence: float = float(stats.get(DataKeys.ENTITY_INTELLIGENCE, CombatConstants.DEFAULT_STAT_VALUE))
     var perc_tier: float = _stat_exploit_tier(perception)
     var intel_tier: float = _stat_exploit_tier(intelligence)
     var off_focus_mult: float = lerpf(
@@ -290,6 +298,8 @@ static func part_weights_for_ai_pick(
                 w *= CombatConstants.AI_FOCUS_LINE_FORM_PREFERRED_MULT
                 break
         weights[p] = maxf(w, 0.001)
+    # D3: Armor doctrine — boost gap targets when using half_sword/mordhau against armored opponent.
+    CombatArmorDoctrine.apply_armor_bias_to_weights(attacker, defender, weights, contact_type)
     # Diagonal variance: blend across resolved lines instead of using declared attack_line weights.
     weights = _apply_diagonal_variance_weights(
         weights,
@@ -424,7 +434,7 @@ static func _apply_diagonal_variance_weights(
     if move_id.is_empty():
         return weights
     if guard_line.is_empty():
-        guard_line = defender.get("guard_line", CombatConstants.GUARD_DEFAULT)
+        guard_line = defender.get(DataKeys.ATTACK_GUARD_LINE, CombatConstants.GUARD_DEFAULT)
     var diagonal_dist: Dictionary = _get_diagonal_resolve_distribution(move_id, guard_line)
     if diagonal_dist.is_empty():
         return weights
@@ -506,7 +516,7 @@ static func _compute_weights_for_segment(
         weapon_prof_tier = EntityProficiency.weapon_proficiency_tier(ent, wid_pick)
         prof_aim_mult = EntityProficiency.proficiency_aim_part_mult(ent, wid_pick, form)
     var stats: Dictionary = CombatantEntityAccess.stats_dict(attacker)
-    var perception: float = float(stats.get("perception", CombatConstants.DEFAULT_STAT_VALUE))
+    var perception: float = float(stats.get(DataKeys.ENTITY_PERCEPTION, CombatConstants.DEFAULT_STAT_VALUE))
     var perc_tier: float = _stat_exploit_tier(perception)
     on_focus_penalty = lerpf(
         CombatConstants.AI_PICK_NOVICE_ON_FOCUS_LINE_PENALTY_MULT,
@@ -522,7 +532,7 @@ static func _compute_weights_for_segment(
     yomi_counter_mult = lerpf(
         CombatConstants.AI_PICK_NOVICE_YOMI_COUNTER_MULT, CombatConstants.AI_PICK_YOMI_COUNTER_LINE_PART_MULT, perc_tier
     )
-    var contact_type: String = str(move_def.get("contact_type", "")).to_lower()
+    var contact_type: String = str(move_def.get(DataKeys.WEAPON_CONTACT_TYPE, "")).to_lower()
     for p in path_segment:
         var w: float = BodyPartConstants.BODY_PART_TARGET_WEIGHTS.get(p, 1.0)
         var wid_mult: float = BodyPartConstants.weapon_part_target_mult(wid_pick, p, contact_type)
@@ -558,4 +568,7 @@ static func _compute_weights_for_segment(
                 w *= CombatConstants.AI_FOCUS_LINE_FORM_PREFERRED_MULT
                 break
         weights[p] = maxf(w, 0.001)
+    # D3: Armor doctrine — boost gap targets when using half_sword/mordhau against armored opponent.
+    var contact_type2: String = str(move_def.get(DataKeys.WEAPON_CONTACT_TYPE, "")).to_lower()
+    CombatArmorDoctrine.apply_armor_bias_to_weights(attacker, defender, weights, contact_type2)
     return weights

@@ -148,9 +148,9 @@ static func medical_phase_context_tooltip_lines(manager: Node, world: Node = nul
 
 static func medical_wind_up_gauge_primary_label(c: Dictionary, remain: float) -> String:
     var pm: Dictionary = CombatantEntityAccess.nested_dictionary_read(c, "pending_medical")
-    var mid: String = pm.get("medical_id", "").strip_edges()
+    var mid: String = pm.get(DataKeys.MEDICAL_ID, "").strip_edges()
     var self_id: int = CombatantEntityAccess.id_int(c)
-    var tgt_cid: int = int(pm.get("target_combatant_id", self_id))
+    var tgt_cid: int = int(pm.get(DataKeys.MEDICAL_TARGET_COMBATANT_ID, self_id))
     var med_label: String = (
         BattleUIConstants.MEDICAL_ACTION_LABELS_ALLY.get(
             mid, BattleUIConstants.MEDICAL_ACTION_LABELS.get(mid, "Medical")
@@ -182,7 +182,7 @@ static func _first_exported_hint(c: Dictionary, keys: Array) -> String:
 ## (UI phase) '. **`#battle-ui`**.
 static func footwork_hint_text(c: Dictionary) -> String:
     if not CombatFootwork.enabled():
-        return c.get("position_angle_ui_hint", "").strip_edges()
+        return c.get(DataKeys.POSITION_ANGLE_UI_HINT, "").strip_edges()
     return CombatFootwork.get_ui_hint(c)
 
 
@@ -190,7 +190,7 @@ static func footwork_hint_text(c: Dictionary) -> String:
 static func footwork_diagram_suffix(c: Dictionary) -> String:
     if c == null:
         return ""
-    var exported: String = c.get("position_angle_ui_hint", "").strip_edges()
+    var exported: String = c.get(DataKeys.POSITION_ANGLE_UI_HINT, "").strip_edges()
     if not CombatFootwork.enabled():
         if exported.is_empty():
             return ""
@@ -245,6 +245,18 @@ static func cowering_mobility_tooltip_line(c: Dictionary) -> String:
     return ""
 
 
+## C3: Form-switch transition tooltip ' vulnerable during guard repositioning.
+static func form_switch_tooltip_line(c: Dictionary) -> String:
+    if CombatantEntityAccess.state_str(c) != CombatConstants.STATE_FORM_SWITCH:
+        return ""
+    var old_form: String = str(c.get(CombatConstants.COMBATANT_KEY_FORM_SWITCH_OLD_FORM, "")).strip_edges()
+    var target_form: String = str(c.get(CombatConstants.COMBATANT_KEY_FORM_SWITCH_TARGET_FORM, "")).strip_edges()
+    var remaining: float = maxf(0.0, c.get(DataKeys.PA_STATE_DURATION, 0.0) - c.get(DataKeys.PA_STATE_TIMER, 0.0))
+    if old_form.is_empty() or target_form.is_empty():
+        return "Repositioning blade (%.1fs)" % remaining
+    return "Repositioning %s → %s (%.1fs)" % [old_form, target_form, remaining]
+
+
 static func flurry_bind_gauge_label(c: Dictionary, manager: Node = null) -> String:
     if not CombatFlurryBind.enabled() or manager == null or c.is_empty():
         return ""
@@ -282,15 +294,15 @@ static func active_line_for_ui(c: Dictionary) -> String:
         return ""
     if st == CombatConstants.STATE_WIND_UP:
         var pa: Dictionary = CombatantEntityAccess.nested_dictionary_read(c, "pending_attack")
-        var attack_line: String = pa.get("attack_line", "").strip_edges()
+        var attack_line: String = pa.get(DataKeys.PA_ATTACK_LINE, "").strip_edges()
         if not attack_line.is_empty():
             return attack_line
-        var move_id: String = pa.get("attack_type", pa.get("move_id", "")).strip_edges()
+        var move_id: String = pa.get(DataKeys.ATTACK_ATTACK_TYPE, pa.get(DataKeys.ACTION_MOVE_ID, "")).strip_edges()
         if not move_id.is_empty():
             var move_def: Dictionary = WeaponConstants.get_move(move_id)
-            return move_def.get("attack_line", "").strip_edges()
+            return move_def.get(DataKeys.PA_ATTACK_LINE, "").strip_edges()
         return ""
-    return str(c.get("guard_line", CombatConstants.GUARD_DEFAULT)).strip_edges()
+    return str(c.get(DataKeys.ATTACK_GUARD_LINE, CombatConstants.GUARD_DEFAULT)).strip_edges()
 
 
 ## Gauge **` . Grd`** / **` . Atk`** suffix from **`active_line_for_ui`**. LIVE_PATHS **`#battle-ui`** · soak content
@@ -355,7 +367,7 @@ static func party_leader_diagram_suffix(c: Dictionary) -> String:
         return ""
     if CombatantEntityAccess.side_str(c) != "player":
         return ""
-    if c.get("is_party_leader", false) != true:
+    if c.get(DataKeys.COMBATANT_IS_PARTY_LEADER, false) != true:
         return ""
     return " [Ldr]"
 
@@ -366,7 +378,7 @@ static func enemy_leader_diagram_suffix(c: Dictionary) -> String:
         return ""
     if CombatantEntityAccess.side_str(c) != "enemy":
         return ""
-    if c.get("is_enemy_leader", false) != true:
+    if c.get(DataKeys.COMBATANT_IS_ENEMY_LEADER, false) != true:
         return ""
     return " [Cmd]"
 
@@ -419,9 +431,9 @@ static func controlling_defender_close_hint_line(manager: Node, c: Dictionary, a
         if raw is not Dictionary:
             continue
         var a: Dictionary = raw
-        if a.get("move_id", "") != CombatConstants.MOVE_ID_ATTEMPT_CLOSE:
+        if a.get(DataKeys.ACTION_MOVE_ID, "") != CombatConstants.MOVE_ID_ATTEMPT_CLOSE:
             continue
-        var tid: int = a.get("target_id", -1)
+        var tid: int = a.get(DataKeys.ACTION_TARGET_ID, -1)
         if tid < 0:
             continue
         var tgt: Dictionary = CombatantEntityAccess.manager_get_combatant(manager, tid)
@@ -460,10 +472,10 @@ static func stamp_snapshot_hint_fields(item: Dictionary, c: Dictionary, manager:
     if CombatFootwork.enabled() and CombatFootwork.offset_visible_for_ui_state(c):
         var off_deg: float = CombatFootwork.get_defender_offset_deg(c)
         if absf(off_deg) >= 0.01:
-            item["position_angle_offset_deg"] = off_deg
+            item[DataKeys.PA_POSITION_ANGLE_OFFSET_DEG] = off_deg
         var fw_hint: String = footwork_hint_text(c)
         if not fw_hint.is_empty():
-            item["position_angle_ui_hint"] = fw_hint
+            item[DataKeys.POSITION_ANGLE_UI_HINT] = fw_hint
     if CombatAttention.enabled():
         var attn_hint: String = _first_exported_hint(
             c, [CombatConstants.COMBATANT_KEY_ATTENTION_UI_HINT, "attention_ui_hint"]
@@ -471,11 +483,11 @@ static func stamp_snapshot_hint_fields(item: Dictionary, c: Dictionary, manager:
         if attn_hint.is_empty():
             attn_hint = attention_hint_text(c, manager)
         if not attn_hint.is_empty():
-            item["attention_ui_hint"] = attn_hint
+            item[DataKeys.ATTENTION_UI_HINT] = attn_hint
     if CounterTempo.enabled() and manager != null:
         var tempo_hint: String = counter_tempo_hint_key(c, manager)
         if not tempo_hint.is_empty():
-            item["counter_tempo_ui_hint"] = tempo_hint
+            item[DataKeys.COUNTER_TEMPO_UI_HINT] = tempo_hint
 
 
 ## Waiting tick: salience + yomi + attention UI stamp (see **`CombatAttention.refresh_for_waiting_tick`**).
@@ -517,11 +529,14 @@ static func gauge_tooltip_lines(c: Dictionary, manager: Node = null) -> PackedSt
         and manager != null
         and CombatFlurryBind.is_active(c, CombatantEntityAccess.combat_clock_float(manager))
     ):
-        var left: int = c.get("flurry_exchanges_left", 0)
+        var left: int = c.get(CombatFlurryBind.KEY_EXCHANGES, 0)
         tips.append("Bind exchange ' faster blows vs bound opponent (%d exchange(s) left)." % maxi(0, left))
     var cow: String = cowering_mobility_tooltip_line(c)
     if not cow.is_empty():
         tips.append(cow)
+    var fsw: String = form_switch_tooltip_line(c)
+    if not fsw.is_empty():
+        tips.append(fsw)
     if manager != null:
         var rout: String = CombatFormationRout.rout_pressure_tooltip_line(manager, c)
         if not rout.is_empty():
@@ -595,6 +610,9 @@ static func formation_cell_tooltip_lines(
     var cow: String = cowering_mobility_tooltip_line(c)
     if not cow.is_empty():
         lines.append("%s  -  %s" % [display_name, cow])
+    var fsw: String = form_switch_tooltip_line(c)
+    if not fsw.is_empty():
+        lines.append("%s  -  %s" % [display_name, fsw])
     var fm: String = CombatFormationMoveDuration.formation_preview_tooltip_line(manager, c)
     if not fm.is_empty():
         lines.append("%s  -  %s" % [display_name, fm])

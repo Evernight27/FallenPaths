@@ -171,7 +171,7 @@ static func _free_harness_core_entity(ent: Node) -> void:
 
 
 static func _instantiate_main_hire_world(in_tree: bool = false) -> Node2D:
-    var packed: PackedScene = load("res://main.tscn") as PackedScene
+    var packed: PackedScene = load(CombatConstantsMisc.PATH_MAIN_SCENE) as PackedScene
     var world: Node2D = packed.instantiate() as Node2D
     if in_tree:
         var root: Node = _harness_root()

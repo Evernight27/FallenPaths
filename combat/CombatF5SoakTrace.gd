@@ -310,17 +310,17 @@ static func note_hit_resolve(
         return
     if not OperationalLog.is_play_session_active():
         return
-    var outcome: String = str(result_dict.get("outcome", "hit")).strip_edges()
+    var outcome: String = str(result_dict.get(DataKeys.RESULT_OUTCOME, "hit")).strip_edges()
     if outcome.is_empty():
         outcome = "hit"
     var atk_n: String = CombatantEntityAccess.get_display_name(atk, attacker_id)
     var tgt_n: String = CombatantEntityAccess.get_display_name(tgt, target_id)
-    var part: String = str(result_dict.get("part", ""))
-    var phys: float = float(result_dict.get("total_physical", -1.0))
+    var part: String = str(result_dict.get(DataKeys.RESULT_PART, ""))
+    var phys: float = float(result_dict.get(DataKeys.RESULT_TOTAL_PHYSICAL, -1.0))
     if phys < 0.0:
-        phys = float(result_dict.get("dmg", 0))
-    var dmg_int: int = int(result_dict.get("dmg", int(roundf(phys))))
-    var reason: String = str(result_dict.get("damage_resolve_note", "")).strip_edges()
+        phys = float(result_dict.get(DataKeys.RESULT_DMG, 0))
+    var dmg_int: int = int(result_dict.get(DataKeys.RESULT_DMG, int(roundf(phys))))
+    var reason: String = str(result_dict.get(DataKeys.RESULT_DAMAGE_RESOLVE_NOTE, "")).strip_edges()
     if reason.is_empty():
         reason = CombatLogFormatter.damage_resolve_note(result_dict)
     if reason.is_empty():
@@ -350,17 +350,17 @@ static func note_research_damage_outcome(part: String, result: Dictionary, extra
         return
     if not OperationalLog.is_play_session_active():
         return
-    var sub: String = str(extras.get("hit_sub_region", ""))
-    var pen: float = float(result.get("penetration_to_tissue_mm", extras.get("penetration_to_tissue_mm", -1.0)))
-    var ke_frac: float = float(result.get("transmitted_ke_fraction", 1.0))
+    var sub: String = str(extras.get(DataKeys.RESULT_HIT_SUB_REGION, ""))
+    var pen: float = float(result.get(DataKeys.RESULT_PENETRATION_TO_TISSUE_MM, extras.get(DataKeys.RESULT_PENETRATION_TO_TISSUE_MM, -1.0)))
+    var ke_frac: float = float(result.get(DataKeys.RESULT_TRANSMITTED_KE_FRACTION, 1.0))
     var line: String = (
         "research_feel part=%s sub=%s cut=%.1f blunt=%.1f bone=%.1f pen_mm=%.1f ke_frac=%.2f"
         % [
             part,
             sub if not sub.is_empty() else "-",
-            float(result.get("final_cut", 0.0)),
-            float(result.get("final_blunt", 0.0)),
-            float(result.get("final_bone", 0.0)),
+            float(result.get(DataKeys.RESULT_FINAL_CUT, 0.0)),
+            float(result.get(DataKeys.RESULT_FINAL_BLUNT, 0.0)),
+            float(result.get(DataKeys.RESULT_FINAL_BONE, 0.0)),
             pen,
             ke_frac,
         ]

@@ -84,7 +84,7 @@ static func _run_muscle_fatigue_high_limb_lengthens_wind_up(failures: PackedStri
             var mgr_hi: Node = CombatRegressionHarness._harness_start_1v1()
             CombatMuscleFatigue.seed_combatant_if_enabled(mgr_hi.combatants[0])
             AttackWindUpStarter.start(mgr_hi, 0, 1, "slash")
-            var dur_hi: float = float(mgr_hi.combatants[0].get("state_duration", 0.0))
+            var dur_hi: float = float(mgr_hi.combatants[0].get(DataKeys.PA_STATE_DURATION, 0.0))
             CombatRegressionHarness._free_manager(mgr_hi)
             seed(88422)
             var mgr_lo: Node = CombatRegressionHarness._harness_start_1v1()
@@ -93,7 +93,7 @@ static func _run_muscle_fatigue_high_limb_lengthens_wind_up(failures: PackedStri
             var limb: String = CombatMuscleFatigue.dominant_strike_limb(c, mgr_lo)
             c[CombatMuscleFatigue.COMBATANT_KEY_MUSCLE_FATIGUE][limb] = 0.85
             AttackWindUpStarter.start(mgr_lo, 0, 1, "slash")
-            var dur_lo: float = float(c.get("state_duration", 0.0))
+            var dur_lo: float = float(c.get(DataKeys.PA_STATE_DURATION, 0.0))
             CombatRegressionHarness._free_manager(mgr_lo)
             if dur_lo <= dur_hi * 1.05:
                 CombatRegressionHarness._fail(
@@ -128,12 +128,12 @@ static func _run_muscle_fatigue_flag_off_wind_up_unchanged(failures: PackedStrin
             var c: Dictionary = mgr.combatants[0]
             c[CombatMuscleFatigue.COMBATANT_KEY_MUSCLE_FATIGUE] = {BodyPartConstants.PART_RIGHT_ARM: 0.9}
             AttackWindUpStarter.start(mgr, 0, 1, "slash")
-            var dur_tired: float = float(c.get("state_duration", 0.0))
+            var dur_tired: float = float(c.get(DataKeys.PA_STATE_DURATION, 0.0))
             CombatRegressionHarness._free_manager(mgr)
             seed(99102)
             var mgr2: Node = CombatRegressionHarness._harness_start_1v1()
             AttackWindUpStarter.start(mgr2, 0, 1, "slash")
-            var dur_fresh: float = float(mgr2.combatants[0].get("state_duration", 0.0))
+            var dur_fresh: float = float(mgr2.combatants[0].get(DataKeys.PA_STATE_DURATION, 0.0))
             CombatRegressionHarness._free_manager(mgr2)
             if absf(dur_tired - dur_fresh) > ASSERT_COMPUTED_TOLERANCE:
                 CombatRegressionHarness._fail(

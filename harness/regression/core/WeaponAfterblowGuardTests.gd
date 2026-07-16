@@ -426,12 +426,12 @@ static func _run_afterblow_mid_hindrance_rand_cancel(failures: PackedStringArray
                 % _AFTERBLOW_MID_HINDRANCE_RAND_CANCEL_SEED
             )
         )
-    if absf(float(atk.get("state_duration", 0.0)) - CombatConstants.AFTERBLOW_CANCELLED_RECOVERY_S) > 0.0001:
+    if absf(float(atk.get(DataKeys.PA_STATE_DURATION, 0.0)) - CombatConstants.AFTERBLOW_CANCELLED_RECOVERY_S) > 0.0001:
         _fail(
             failures,
             (
                 "afterblow_mid_rand_cancel: state_duration want AFTERBLOW_CANCELLED_RECOVERY_S got %s (seed=%d)"
-                % [str(atk.get("state_duration")), _AFTERBLOW_MID_HINDRANCE_RAND_CANCEL_SEED]
+                % [str(atk.get(DataKeys.PA_STATE_DURATION)), _AFTERBLOW_MID_HINDRANCE_RAND_CANCEL_SEED]
             )
         )
     _free_manager_restore_global_rng(mgr)
@@ -589,12 +589,12 @@ static func _run_afterblow_hindrance_block_cancels_pending(failures: PackedStrin
         _fail(failures, "afterblow_block: want recovering got %s" % str(tgt.get("state")))
     if not EntityAccess.nested_dictionary_read(tgt, "pending_attack").is_empty():
         _fail(failures, "afterblow_block: pending_attack should clear")
-    if absf(float(tgt.get("state_duration", 0.0)) - CombatConstants.AFTERBLOW_CANCELLED_RECOVERY_S) > 0.0001:
+    if absf(float(tgt.get(DataKeys.PA_STATE_DURATION, 0.0)) - CombatConstants.AFTERBLOW_CANCELLED_RECOVERY_S) > 0.0001:
         _fail(
             failures,
             (
                 "afterblow_block: state_duration want AFTERBLOW_CANCELLED_RECOVERY_S got %s"
-                % str(tgt.get("state_duration"))
+                % str(tgt.get(DataKeys.PA_STATE_DURATION))
             )
         )
     _free_manager(mgr)
@@ -647,7 +647,7 @@ static func _run_wind_up_duration_bounded_for_move(failures: PackedStringArray) 
     Footwork.apply_attack_step_on_windup(p, "high")
     seed(90212)
     WindUpStarter.start(mgr, p_id, e_id, "overhead_strike")
-    var dur: float = float(p.get("state_duration", 0.0))
+    var dur: float = float(p.get(DataKeys.PA_STATE_DURATION, 0.0))
     if dur > CombatConstants.WIND_UP_DURATION_MAX_S + 0.001:
         _fail(
             failures,

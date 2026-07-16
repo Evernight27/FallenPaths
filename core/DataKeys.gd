@@ -18,10 +18,65 @@ const COMBATANT_FILE: String = "file"
 const COMBATANT_GAUGE: String = "gauge"
 const COMBATANT_STAMINA: String = "stamina"
 const COMBATANT_BREATH: String = "breath"
+
+# --- Clash context keys (new additions) ---
+const CLASH_MARGIN_RATIO: String = "margin_ratio"
+
+# --- Parry choice outcome keys (new additions) ---
+const PA_PARRY_PRIORITY_A: String = "parry_p_a"
+const PA_PRIORITY_CD: String = "parry_c_d"
+const PA_VIABLE: String = "viable"
+
+# --- Medical sim state keys (new additions) ---
+const SIM_STATE_SIM_SECONDS: String = "sim_seconds"
+const SIM_STATE_STAGNANT_STEPS: String = "stagnant_steps"
+const SIM_STATE_TOTAL_ITERATIONS: String = "total_iterations"
+
+# --- Tactical combat telemetry keys (new additions) ---
+const TACTICAL_MODE_KEY: String = "mode"
+const TACTICAL_MODE_CODE_KEY: String = "mode_code"
+
+# --- Resolve output keys (new additions) ---
+const RESULT_TARGET_PART: String = "target_part"
+const AIM_PROT_TIER: String = "aim_prof_tier"
+const PROF_OCC_MULT: String = "occ_mult"
+
+# --- Formation move weight keys (new additions) ---
+const ENTRY_WEIGHT: String = "weight"
+
+# --- Parry preview result keys (new additions) ---
+const RESULT_PARRY_PREVIEW_ALIGNMENT: String = "parry_preview_alignment"
+
+# --- Zone of control keys (new additions) ---
+const ZONE_ID: String = "zone_id"
+const ZONE_OCCUPIED_ID: String = "occupied_zone_id"
+const FORMATION_ZONE_CONTROL: String = "zone_control"
+
+# --- Zone result keys (new additions) ---
+const ZONE_FRONT_COUNT: String = "front_count"
+const ZONE_RATIO_SUM: String = "ratio_sum"
+const ZONE_AGGRESSIVE: String = "aggressive"
+const ZONE_ALL_DEFENSIVE: String = "all_defensive"
+const ZONE_CONTROLLING_DISENGAGE_MULT: String = "controlling_disengage_mult"
 const COMBATANT_STANCE: String = "stance"
 const COMBATANT_FORMATION_ID: String = "formation_id"
 const COMBATANT_COMBAT_ABSENT: String = "combat_absent"
+const COMBATANT_YIELDED: String = "yielded"
 const COMBATANT_KEY_MUSCLE_FATIGUE: String = "muscle_fatigue"
+const COMBATANT_DISTANCE_TO: String = "distance_to"
+
+# --- Pair geometry dict keys (effective_pair_geometry, stamping) ---
+const PAIR_FILE_SPACING_EQUIV: String = "file_spacing_equiv"
+const EFFECTIVE_PAIR_FILE_SPACING_EQUIV: String = "effective_pair_file_spacing_equivalent"
+
+# --- Bind pressure / control system keys ---
+const BIND_PRESSURE_VALUE: String = "bind_pressure_value"
+const BIND_PRESSURE_UNTIL: String = "bind_pressure_until"
+const BIND_PARTNER_ID: String = "bind_partner_id"
+const BIND_CONTROL_SIDE: String = "bind_control_side"
+const BIND_SIDE_LEFT: String = "left"
+const BIND_SIDE_RIGHT: String = "right"
+const BIND_SIDE_CENTRE: String = "centre"
 
 # --- Entity state (body stats, wounds, blood) ---
 const BLOOD_VOLUME: String = "blood_volume"
@@ -54,6 +109,7 @@ const ATTACK_RECOVERY_DURATION: String = "recovery_duration"
 const ATTACK_WAS_DEFLECTED: String = "was_deflected"
 const ATTACK_PARTIAL_DODGE_PART: String = "partial_dodge_part"
 const ATTACK_TARGET_PART: String = "target_part"
+const ATTACK_FEINT_PART: String = "feint_part"
 const ATTACK_ATTACK_TYPE: String = "attack_type"
 const ATTACK_VELOCITY_M_S: String = "velocity_m_s"
 const ATTACK_POWER: String = "power"
@@ -72,6 +128,8 @@ const ACTION_MOVE_ID: String = "move_id"
 const ACTION_TARGET_ID: String = "target_id"
 const ACTION_TARGET_PART: String = "target_part"
 const ACTION_FEINT_PART: String = "feint_part"
+const ACTION_WEIGHT: String = "weight"
+const ARC_OCCUPANCY_WEIGHT_SUM: String = "weight_sum"
 
 # --- Attack path dict keys (pa set by AttackWindUpStarter, read by resolver/defense) ---
 const PA_ATTACK_LINE: String = "attack_line"
@@ -86,6 +144,7 @@ const PA_WIND_UP_DURATION: String = "wind_up_duration"
 const PA_ZONE_ENGAGEMENT_PARRY_MULT: String = "zone_engagement_parry_mult"
 const PA_TACTICAL_AMBUSH_MULT: String = "tactical_ambush_mult"
 const PA_LAST_MOVE_ID: String = "last_move_id"
+const ATTACK_LAST_MOVE_ID: String = "attack_last_move_id"
 const PA_PARRY_AGAINST_ID: String = "parry_against_id"
 const PA_PARRY_WAS_BIND: String = "parry_was_bind"
 const PA_OFF_BALANCE_UNTIL: String = "off_balance_until"
@@ -110,11 +169,16 @@ const PA_WEAPON_EXTENSION_COMMIT: String = "weapon_extension_commit_fraction"
 const STRIKE_CTX_ZONE_GEOMETRY_ATK_DENSITY: String = "zone_geometry_atk_density"
 const PA_PARRY_TWIST_TIME_TO_REACT: String = "parry_twist_time_to_react"
 const PA_PARRY_TWIST_READINESS: String = "parry_twist_readiness"
+const COMBATANT_SLOT_KEY: String = "slot_key"
+
+
 
 # --- Formation dict keys (formation records) ---
 const FORMATION_LINE_COHESION: String = "line_cohesion"
 const FORMATION_ENGAGEMENT_POSTURE: String = "engagement_posture"
 const FORMATION_INCURSION_PRESSURE: String = "incursion_pressure"
+const FORMATION_SLOTS: String = "slots"
+const FORMATION_LINE_DISCIPLINE: String = "line_discipline"
 const FORMATION_LANE_STRESS_BY_FILE: String = "lane_stress_by_file"
 
 # --- Event dispatch dict keys (CombatEventDispatch, CombatFormationFlow) ---
@@ -196,6 +260,15 @@ const RESULT_FINAL_BONE: String = "final_bone"
 const RESULT_MECHANICAL_POST_ARMOR: String = "mechanical_post_armor"
 const RESULT_PART: String = "part"
 const RESULT_OUTCOME: String = "outcome"
+const RESULT_MOVE_ID: String = "move_id"
+const RESULT_POWER: String = "power"
+const RESULT_FOLLOW_THROUGH: String = "follow_through"
+const RESULT_ATTACK_LINE: String = "attack_line"
+const RESULT_WEAPON_ID: String = "weapon_id"
+const RESULT_KINEMATIC_DELIVERY: String = "kinematic_delivery"
+const PA_WEAPON_FORM: String = "weapon_form"
+const COMBATANT_FORM_STR: String = "_form_str"
+const RESOLVE_GAUGE_DEF_PRE: String = "gauge_def_pre"
 
 # --- Alignment context dict keys (alignment_context in AttackPathResolver / CombatConstants) ---
 const ALIGNMENT_ATTACK_ANGLE_DEG: String = "attack_angle_deg"
@@ -217,6 +290,8 @@ const SNAPSHOT_EFFECTIVE_CONSCIOUSNESS: String = "effective_consciousness"
 const SNAPSHOT_PERFORMANCE_MODIFIER: String = "performance_modifier"
 const SNAPSHOT_IS_UNCONSCIOUS: String = "is_unconscious"
 const SNAPSHOT_HAS_UNTREATED_WOUNDS: String = "has_untreated_wounds"
+const SNAPSHOT_IS_COUNTER_TEMPO_WIND_UP: String = "is_counter_tempo_wind_up"
+const SNAPSHOT_PENDING_MEDICAL: String = "pending_medical"
 const SNAPSHOT_UNTREATED_PARTS: String = "untreated_parts"
 const SNAPSHOT_AFFLICTION_LABELS: String = "affliction_labels"
 const SNAPSHOT_AFFLICTION_EFFECTS: String = "affliction_effects"
@@ -226,6 +301,7 @@ const SNAPSHOT_IS_PARTY_LEADER: String = "is_party_leader"
 const SNAPSHOT_IS_ENEMY_LEADER: String = "is_enemy_leader"
 
 # --- Formation/dialogue context keys ---
+const FRONT_COUNT: String = "front_count"
 const FORMATION_DENSITY: String = "density"
 const FORMATION_FILES: String = "files"
 const FORMATION_RANKS: String = "ranks"
@@ -469,6 +545,34 @@ const PA_FEINT_WINDUP_DURATION_MULT: String = "feint_windup_duration_mult"
 const PA_FEINT_TARGET_REVEAL_AT_PROGRESS: String = "feint_target_reveal_at_progress"
 const PA_COUNTER_TEMPO: String = "counter_tempo"
 const PA_RIPOSTE_CHAIN: String = "riposte_chain"
+const PA_GAUGE_ATK_PRE: String = "gauge_atk_pre"
+const PA_GAUGE_DEF_PRE: String = "gauge_def_pre"
+const PA_TUNING_FT_PARENT_STRIKE: String = "tuning_ft_parent_strike"
+const PA_DEFENDER_FORM_AT_PARRY: String = "defender_form_at_parry"
+const PA_OVERCOMMIT_PARRY_MULT: String = "overcommit_parry_mult"
+const PA_GUARD_DEFLECT_BLEND: String = "guard_deflect_blend"
+const PA_GUARD_DEFLECT_FROM_LINE: String = "guard_deflect_from_line"
+const PA_PENDING_RETRY: String = "pending_retry"
+const PA_VELOCITY_M_S: String = "velocity_m_s"
+const PA_PARTIAL_DODGE_PART: String = "partial_dodge_part"
+const PA_PASSIVE_PARRY_ATTEMPTED: String = "passive_parry_attempted"
+
+# --- Combatant dict keys (combatant.get()/set()) ---
+const BIND_ACTION_COOLDOWN_UNTIL: String = "bind_action_cooldown_until"
+const ACTION_COOLDOWN_UNTIL: String = "action_cooldown_until"
+
+# --- Attention/awareness entry dict keys (CombatAttention) ---
+const ATTENTION_PRIORITY_RANK: String = "priority_rank"
+const ATTENTION_WEIGHT: String = "attention_weight"
+const ATTENTION_RECENT_WINDOW_AGE: String = "recent_window_age"
+const ATTENTION_LAST_TICK: String = "last_tick"
+const ATTENTION_RECENT_LINE_COUNTS: String = "recent_line_counts"
+const ATTENTION_RECENT_MOVE_ID_COUNTS: String = "recent_move_id_counts"
+
+# --- Deception/Yomi entry dict keys (CombatAttention) ---
+const DECEPTION_PHASE: String = "phase"
+const DECEPTION_RESISTANCE: String = "resistance"
+const DECEPTION_EXPLOIT_COUNTER: String = "exploit_counter"
 
 # --- Entity node property keys (entity.get() on CoreEntity/Node) ---
 const ENTITY_DOMINANT_HAND: String = "dominant_hand"
@@ -552,6 +656,211 @@ const VAR_CTX_WEAPON_MASS_KG: String = "weapon_mass_kg"
 const ARCHETYPE_WEAPON_EXTENSION_COMMIT_FRACTION: String = "weapon_extension_commit_fraction"
 const ARCHETYPE_KINEMATIC_MIXED_BLEND: String = "kinematic_mixed_blend"
 
+# --- Entity stat dict keys (combatant stats_dict) ---
+const ENTITY_MELEE_SKILL: String = "melee_skill"
+
+# --- Movement policy dict keys (CombatEngagementMode.movement_policy → CombatResolveAction/CombatFormationMoveListing) ---
+const MOVE_POLICY_ALLOW_SWAP_RANK: String = "allow_swap_rank"
+const MOVE_POLICY_ALLOW_DRAG_BACK: String = "allow_drag_back"
+const MOVE_POLICY_ALLOW_FALL_BACK: String = "allow_fall_back"
+
 # --- UI/result display keys (CombatLogFormatter, BattleScene) ---
 const RESULT_TOTAL_PHYSICAL: String = "total_physical"
 const RESULT_PRE_ARMOR: String = "pre_armor"
+const SOAK_TRACE_PASS: String = "pass"
+const SCAN_COUNT: String = "count"
+
+# --- Attack path angle keys (pending_attack pa dict) ---
+const PA_ARC_END_DEG: String = "arc_end_deg"
+
+# --- Formation dict keys (new additions) ---
+const FM_FORMATION_PLUG_FORWARD_COOLDOWN_UNTIL: String = "formation_plug_forward_cooldown_until"
+# (FM_VACANCY_LATERAL_LAST_FROM_FILE declared at line 446, FM_VACANCY_LATERAL_LAST_TO_FILE at 447, FM_VACANCY_LATERAL_REVERSE_LOCK_UNTIL at 445)
+const FM_GAP_COLUMN_FILES: String = "gap_column_files"
+
+# --- Parry/attack keys (new additions) ---
+const PA_PARRY_TELEGRAPH: String = "parry_telegraph"
+const PA_PARRY_ALL_INCOMING_BATCH: String = "parry_all_incoming_batch"
+const PA_PARRY_COMMITMENT_ATTACKER_ID: String = "parry_commitment_attacker_id"
+const PA_PARRY_TELEGRAPH_APPARENT: String = "parry_telegraph_apparent"
+
+# --- Medical wind-up config keys ---
+const MEDICAL_OUTCOME: String = "outcome"
+
+# --- Bind/afterblow/formation keys (new additions) ---
+const PA_AFTERBLOW_DAMAGE_MULT: String = "afterblow_damage_mult"
+const BIND_LANE_OFFSET: String = "lane_offset"
+const BIND_ANGULAR_ADVANTAGE_UNTIL: String = "angular_advantage_until"
+const BIND_ANGULAR_ADVANTAGE_SIDE: String = "angular_advantage_side"
+
+# --- Formation engine keys (new additions) ---
+const FM_ROTATE_FILE_COOLDOWN_UNTIL: String = "formation_rotate_file_cooldown_until"
+# (FM_ROTATE_FILE_REVERSE_LOCK_UNTIL declared at line 441, FM_ROTATE_FILE_REVERSE_PARTNER_ID at 442)
+const FM_PAIR_ABORT_COOLDOWN_UNTIL: String = "formation_pair_abort_cooldown_until"
+const FM_SLOT_OBSTACLES: String = "slot_obstacles"
+
+# --- Combat depth/polearm keys (new additions) ---
+const PA_DEPTH_POLEARM_LANE_TYPE: String = "depth_polearm_lane_type"
+const PA_ZONE_GEOMETRY_ATK_DENSITY: String = "zone_geometry_atk_density"
+
+# --- Combat doctrine keys (new additions) ---
+const CLOSE_BLOCK_UNTIL_BY_TARGET_ID: String = "close_block_until_by_target_id"
+
+# --- Event/resolve keys (new additions) ---
+# (EVENT_RESOLVE_AT declared at line 185)
+
+# --- Zone of control / duration keys (new additions) ---
+const ZONE_FID_DURATION: String = "zone_fid"
+const COWERING_EARLY_EXIT: String = "cowering_early_exit"
+
+# --- Formation move duration keys (new additions) ---
+const DURATION_LANE_FOOT: String = "lane_foot"
+const DURATION_PRESSURE_MOD: String = "pressure_mod"
+const DURATION_CONTROLLING_FRONT: String = "controlling_front"
+const DURATION_ARMOR_MULT: String = "armor_mult"
+const DURATION_VALUE_S: String = "duration_s"
+
+# --- Formation move hint keys (new additions) ---
+const FORMATION_MOVE_DURATION_HINT: String = "formation_move_duration_hint"
+
+# --- Form switch keys (new additions) ---
+const FORM_SWITCH_COOLDOWN_UNTIL: String = "form_switch_cooldown_until"
+
+# --- Close contest / resolve keys (new additions) ---
+const CLOSE_CONTEST_NOTE: String = "close_contest_note"
+
+# --- UI hint keys (new additions) ---
+const POSITION_ANGLE_UI_HINT: String = "position_angle_ui_hint"
+const ATTENTION_UI_HINT: String = "attention_ui_hint"
+const COUNTER_TEMPO_UI_HINT: String = "counter_tempo_ui_hint"
+
+# --- Morale cohesion keys (new additions) ---
+const FORMATION_MORALE_COHESION_FACTOR: String = "morale_cohesion_factor"
+
+# --- Engagement role keys (new additions) ---
+const ENGAGEMENT_ROLE: String = "engagement_role"
+
+# --- Campaign/attack path config keys (new additions) ---
+const CAMPAIGN_STAMINA_MULT: String = "campaign_stamina_mult"
+const MOVE_DEF_ANGLE_OFFSET_DEG: String = "angle_offset_deg"
+const MOVE_DEF_ANGLE_VARIANCE_DEG: String = "angle_variance_deg"
+const MOVE_DEF_ID: String = "id"
+const MOVE_DEF_PREFERRED_PARTS: String = "preferred_parts"
+const WOBBLE_CONTEXT_PARRY_READINESS: String = "parry_readiness"
+const WOBBLE_CONTEXT_DEFENDER_MASS_KG: String = "defender_mass_kg"
+
+# --- Engagement snapshot keys (new additions) ---
+const SNAPSHOT_PLAYER_FRONT_FILL: String = "player_front_fill"
+const SNAPSHOT_ENEMY_FRONT_FILL: String = "enemy_front_fill"
+
+# --- Formation discipline keys (new additions) ---
+const FORMATION_DISCIPLINE_POSTURE_ENTER_DELTA: String = "discipline_posture_enter_delta"
+const FORMATION_DISCIPLINE_POSTURE_LEAVE_DELTA: String = "discipline_posture_leave_delta"
+
+# --- Formation flee context keys (new additions) ---
+const FLEE_CTX_CASUALTY_RATIO: String = "casualty_ratio"
+const FLEE_CTX_FORMATION_STRESSED: String = "formation_stressed"
+const FLEE_CTX_SIDE_HOLDING_FIELD: String = "side_holding_field"
+
+# --- Telemetry keys (new additions) ---
+const TEL_ENGAGEMENT_MODE_TRANSITIONS: String = "engagement_mode_transitions"
+const TEL_LAST_MODE_TRANSITION: String = "last_mode_transition"
+
+# --- Attack result payload keys (new additions) ---
+const PAYLOAD_WIND_UP_S: String = "wind_up_s"
+const PAYLOAD_GAUGE_DEF_PRE: String = "gauge_def_pre"
+const PAYLOAD_ATK_GUARD: String = "atk_guard"
+const PAYLOAD_ATK_FORM: String = "atk_form"
+const PAYLOAD_DEF_GUARD: String = "def_guard"
+const PAYLOAD_PARRY_BIND: String = "parry_bind"
+const PAYLOAD_FOLLOW_THROUGH_REM: String = "follow_through_rem"
+
+# --- Attention entry keys (new additions) ---
+const ATTENTION_ENTRY_LINE_COUNTS: String = "line_counts"
+const ATTENTION_ENTRY_MOVE_ID_COUNTS: String = "move_id_counts"
+const ATTENTION_ENTRY_FEINT_RESOLVED: String = "feint_resolved"
+const ATTENTION_ENTRY_PARRY_DEFLECT: String = "parry_deflect"
+const ATTENTION_ENTRY_ATTENTION_WEIGHT: String = "attention_weight"
+const ATTENTION_ENTRY_WEIGHTED_LINE_COUNTS: String = "weighted_line_counts"
+const ATTENTION_WEIGHTED_LINE_COUNTS: String = "weighted_line_counts"
+const ATTENTION_ENTRY_WEIGHTED_MOVE_ID_COUNTS: String = "weighted_move_id_counts"
+const ATTENTION_WEIGHTED_MOVE_ID_COUNTS: String = "weighted_move_id_counts"
+const ATTENTION_ENTRY_CONTACT_TYPE_COUNTS: String = "contact_type_counts"
+const ATTENTION_ENTRY_RECENT_LINE_COUNTS: String = "recent_line_counts"
+const ATTENTION_ENTRY_RECENT_MOVE_ID_COUNTS: String = "recent_move_id_counts"
+
+# --- Engagement snapshot keys (active/front counts, not fill) ---
+const SNAPSHOT_PLAYER_ACTIVE: String = "player_active"
+const SNAPSHOT_ENEMY_ACTIVE: String = "enemy_active"
+const SNAPSHOT_PLAYER_FRONT: String = "player_front"
+const SNAPSHOT_ENEMY_FRONT: String = "enemy_front"
+const SNAPSHOT_RAW_MODE: String = "raw_mode"
+const SNAPSHOT_RAW_MODE_CODE: String = "raw_mode_code"
+
+# --- Sim cap key (used in fast-forward drive) ---
+const SIM_CAP: String = "sim_cap"
+
+# --- Telemetry resolved mode key ---
+const TEL_LAST_RESOLVED_MODE: String = "last_resolved_mode"
+
+# --- Tactical combat formation keys ---
+# (FORMATION_INCURSION_PRESSURE declared at line 176, FORMATION_LANE_STRESS_BY_FILE at 177)
+
+# --- Combatant identity/flag keys ---
+const COMBATANT_IS_PARTY_LEADER: String = "is_party_leader"
+const COMBATANT_IS_ENEMY_LEADER: String = "is_enemy_leader"
+const COMBATANT_TACTICAL_PENETRATION_DEPTH: String = "tactical_penetration_depth"
+const COMBATANT_PENDING_RETRY: String = "pending_retry"
+const COMBATANT_FAILED_MEDICAL_PARTS: String = "failed_medical_parts"
+
+# --- Action dict keys ---
+const ACTION_PART: String = "part"
+
+# --- Clash context keys (GuardLineUpdater) ---
+const CLASH_DEFENDER_GUARD_LINE: String = "defender_guard_line"
+const CLASH_GUARD_ANGLE_DEG: String = "guard_angle_deg"
+const CLASH_ALIGNMENT: String = "alignment"
+
+# --- Parry config / defense choice keys ---
+const PARRY_CHOICE_CAN_PARRY_IN_TIME: String = "can_parry_in_time"
+const DEF_CHOICE_M_A_VELOCITY: String = "m_a_velocity"
+
+# --- Combatant state keys ---
+const COMBATANT_ENGAGED_WITH_ID: String = "engaged_with_id"
+const COMBATANT_FLURRY_EXCHANGES_LEFT: String = "flurry_exchanges_left"
+const COMBATANT_BANNER_CARRIER: String = "banner_carrier"
+
+# --- Morale cohesion keys ---
+const MORALE_COHESION_FACTOR_RAW: String = "morale_cohesion"
+
+# --- Rank pair context keys (swap/plug-forward) ---
+const RANK_PAIR_WE_PLUG_FORWARD: String = "we_plug_forward"
+const RANK_PAIR_LINE_PLUG_RELIEF: String = "line_plug_relief"
+const RANK_PAIR_ELIGIBLE: String = "eligible"
+const RANK_PAIR_ALLOW_SWAP: String = "allow_swap"
+const RANK_PAIR_WE_ARE_FRONT: String = "we_are_front"
+
+# --- Surround arc threat entry keys ---
+const THREAT_ARC_CENTER_DEG: String = "arc_center_deg"
+
+# --- Parry choice / defense config keys ---
+const PA_PARRY_CHOICE_BLOCKED: String = "parry_choice_blocked"
+const PCFG_REDIRECT_ATTEMPT_RATIO: String = "redirect_attempt_ratio"
+const PCFG_REDIRECT_ATTEMPT_AGILITY_SCALE: String = "redirect_attempt_agility_scale"
+const PCFG_REDIRECT_BONUS: String = "redirect_bonus"
+const PCFG_REDIRECT_SKILL_SCALE: String = "redirect_skill_scale"
+const PCFG_REDIRECT_THRUST_BONUS: String = "redirect_thrust_bonus"
+const PCFG_REDIRECT_BLUNT_PENALTY: String = "redirect_blunt_penalty"
+const PCFG_MASS_DISPARITY_BONUS: String = "mass_disparity_bonus"
+
+# --- GuardLineUpdater clash context keys ---
+const RESULT_CLASH_SEVERITY: String = "severity"
+const RESULT_ATTACK_TYPE: String = "attack_type"
+const ATTACK_ANGLE_DEG: String = "attack_angle_deg"
+const COMBATANT_GUARD_ZONE: String = "guard_zone"
+const COMBATANT_GUARD: String = "guard"
+const COMBATANT_GUARD_LINE: String = "guard_line"
+
+# --- Attack result / aim override keys ---
+const AIM_PART_OVERRIDE: String = "_AIM_PART_OVERRIDE"
+

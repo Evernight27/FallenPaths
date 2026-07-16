@@ -3,14 +3,14 @@ extends RefCounted
 
 ## Close attempts (`MOVE_ID_ATTEMPT_CLOSE`): close tactical range from **LONG** (or MID/CLOSE under III-4 **3e**
 ## envelop) so melee can threaten.
-## Footing: reads **`form_str`** for close/evasion pressure only --" not **`guard_line`** or Tier 4.4 PA. LIVE_PATHS
+## Footing: reads **`form_str`** for close/evasion pressure only — not **`guard_line`** or Tier 4.4 PA. LIVE_PATHS
 ## **`#wf-pick-vs-strike`** . **`#wf-assign-form-contract`**.
 ## Listing: `CombatMeleeListing`; resolve: `CombatResolveAction` --'' ' `CombatManager._resolve_close_attempt`.
 
 
 static func _finish_close_attempt_turn(manager: Node, atk: Dictionary, attacker_id: int) -> void:
     atk.gauge = 0.0
-    atk["action_cooldown_until"] = CombatantEntityAccess.combat_clock_plus(
+    atk[DataKeys.ACTION_COOLDOWN_UNTIL] = CombatantEntityAccess.combat_clock_plus(
         manager, CombatConstants.READY_DELAY_CLOSE_ATTEMPT_S
     )
     CombatEventScheduler.schedule_action_ready(manager, attacker_id, CombatConstants.READY_DELAY_CLOSE_ATTEMPT_S)
@@ -35,12 +35,14 @@ static func resolve_close_attempt(manager: Node, attacker_id: int, target_id: in
         _reject_close_attempt_slots_full(manager, atk, attacker_id, target_id, tgt)
         return
     var melee_range: float = CombatantEntityAccess.weapon_melee_reach(atk)
+    var atk_stats := CombatantEntityAccess.stats_dict(atk)
+    var tgt_stats := CombatantEntityAccess.stats_dict(tgt)
     var str_val: float = float(
-        CombatantEntityAccess.stats_dict(atk).get("strength", CombatConstants.DEFAULT_STAT_VALUE)
+        atk_stats.get(DataKeys.ENTITY_STRENGTH, CombatConstants.DEFAULT_STAT_VALUE)
     )
-    var agi_def: float = float(CombatantEntityAccess.stats_dict(tgt).get("agility", CombatConstants.DEFAULT_STAT_VALUE))
+    var agi_def: float = float(tgt_stats.get(DataKeys.ENTITY_AGILITY, CombatConstants.DEFAULT_STAT_VALUE))
     var pressure: float = (
-        str_val * CombatConstants.stamina_factor(CombatantEntityAccess.stamina_ratio(atk)) * (melee_range / 1.5)
+        str_val * CombatConstants.stamina_factor(CombatantEntityAccess.stamina_ratio(atk)) * (melee_range / CombatConstantsCloseSlots.CLOSE_CONTEST_MELEE_RANGE_NORMALIZER)
     )
     pressure *= CombatWeaponForm.mod(
         CombatantEntityAccess.form_str(atk), "close_attempt", CombatantEntityAccess.get_weapon(atk)
@@ -54,7 +56,7 @@ static func resolve_close_attempt(manager: Node, attacker_id: int, target_id: in
         evasion /= CombatWeaponForm.opponent_close_evasion_divisor(CombatantEntityAccess.form_str(tgt))
     var ctx_tgt: Dictionary = ZoneOfControl.zone_geometry_line_context(manager, tgt)
     var form_geom: Dictionary = ZoneOfControl.zone_geometry_formation_from_pack(ctx_tgt)
-    var density: String = str(form_geom.get("density", "normal")) if not form_geom.is_empty() else "normal"
+    var density: String = str(form_geom.get(DataKeys.FORMATION_DENSITY, "normal")) if not form_geom.is_empty() else "normal"
     evasion *= CombatConstants.get_density_close_mod(density)
     var success: bool = randf() < pressure / (pressure + maxf(evasion, 1.0))
     if CombatDebug.flow_verbose_enabled():
@@ -69,7 +71,7 @@ static func resolve_close_attempt(manager: Node, attacker_id: int, target_id: in
         var tgt_name: String = CombatantEntityAccess.get_display_name(tgt, target_id)
         CombatDebug.combat_session(
             (
-                "close attempt %s --'' ' %s: %s (next turn in %.1fs)"
+                "close attempt %s vs %s: %s (next turn in %.1fs)"
                 % [atk_name, tgt_name, "success" if success else "failed", CombatConstants.READY_DELAY_CLOSE_ATTEMPT_S]
             )
         )
@@ -80,7 +82,7 @@ static func resolve_close_attempt(manager: Node, attacker_id: int, target_id: in
         if CombatWeaponForm.controlling_pressure_active(tgt):
             contest_tag = CombatUiHints.close_attempt_list_hint_for_defender(tgt)
         if not contest_tag.is_empty():
-            close_result["close_contest_note"] = contest_tag
+            close_result[DataKeys.CLOSE_CONTEST_NOTE] = contest_tag
     manager.emit_signal("action_resolved", attacker_id, target_id, close_result)
     var blk: Dictionary = CombatantEntityAccess.nested_dictionary_for_mutation(atk, "close_block_until_by_target_id")
     if success:
@@ -139,3 +141,9 @@ static func _reject_close_attempt_slots_full(
         CombatantEntityAccess.combat_clock_float(manager) + CombatConstants.CLOSE_ATTEMPT_SAME_TARGET_COOLDOWN_S
     )
     _finish_close_attempt_turn(manager, atk, attacker_id)
+
+
+
+
+
+

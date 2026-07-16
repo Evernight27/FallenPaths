@@ -82,13 +82,17 @@ static func get_attacking_arm(entity: Node) -> String:
     return dominant_hand if dom_eff >= off_eff else offhand
 
 
+static func _get_attack_base_modifier(entity: Node, arm: String) -> float:
+    var dominant_hand: String = entity.dominant_hand if "dominant_hand" in entity else BodyPartConstants.PART_RIGHT_ARM
+    var offhand_functionality: float = entity.offhand_functionality if "offhand_functionality" in entity else 0.8
+    return 1.0 if arm == dominant_hand else offhand_functionality
+
+
 static func get_attack_damage_modifier(entity: Node) -> float:
     var arm: String = get_attacking_arm(entity)
     if arm.is_empty():
         return 0.0
-    var dominant_hand: String = entity.dominant_hand if "dominant_hand" in entity else BodyPartConstants.PART_RIGHT_ARM
-    var offhand_functionality: float = entity.offhand_functionality if "offhand_functionality" in entity else 0.8
-    var base: float = 1.0 if arm == dominant_hand else offhand_functionality
+    var base: float = _get_attack_base_modifier(entity, arm)
     var arm_func: float = BodyPartQuery.get_arm_functionality(entity, arm)
     var arm_pain_mod: float = 1.0
     if entity.has_method("_get_effective_pain_for_region"):

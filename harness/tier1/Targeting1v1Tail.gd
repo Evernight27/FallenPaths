@@ -419,7 +419,7 @@ static func _format_scenario_result(name: String, exchange_result: Dictionary, _
 
 static func format_report(result: Dictionary) -> String:
     var lines := PackedStringArray()
-    lines.append("--- Targeting 1v1 Report: %s ---" % result.get("name", ""))
+    lines.append("--- Targeting 1v1 Report: %s — %s" % [result.get("name", ""), result.get("win_rate_pct", 0)])
     lines.append("Total attacks: %d" % result.get("total_attacks", 0))
 
     var aim_dist: Dictionary = result.get("aim_distribution", {})

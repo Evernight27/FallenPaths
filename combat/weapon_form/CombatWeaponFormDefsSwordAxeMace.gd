@@ -14,6 +14,7 @@ static func _neutral_mod() -> Dictionary:
         "close_attempt": 1.0,
         "ai_melee_focus": 1.0,
         "feint_readthrough": 1.0,
+        "meisterhau_readthrough": 1.0,
         "ai_feint_listing": 1.0,
     }
 
@@ -36,6 +37,7 @@ static func _sword_forms() -> Dictionary:
                 "close_attempt": 0.9,
                 "ai_melee_focus": 0.92,
                 "feint_readthrough": 1.06,
+                "meisterhau_readthrough": 1.06,
                 "ai_feint_listing": 0.94,
             },
             "move_family_mult":
@@ -318,6 +320,119 @@ static func _sword_forms() -> Dictionary:
                 "slash": {"left_arm": 1.12, "right_arm": 1.12, "head": 1.08},
             },
             "duel_offense_forms": PackedStringArray(),
+        },
+        "half_sword":
+        {
+            "display_name": "Half sword",
+            "home_guard": "low_left",
+            "preferred_guards": PackedStringArray(["low_left", "left"]),
+            "pressure_class": "controlling",
+            "min_stamina_ratio": 0.15,
+            "wait_weight_mult": 1.1,
+            "mod":
+            {
+                "parry": 0.92,
+                "evasion": 0.88,
+                "damage": 1.35,
+                "close_attempt": 1.25,
+                "ai_melee_focus": 0.75,
+                "feint_readthrough": 0.9,
+                "meisterhau_readthrough": 0.9,
+                "ai_feint_listing": 0.82,
+            },
+            "move_family_mult":
+            {
+                "thrust": 1.5,
+                "high_cut": 0.4,
+                "low_cut": 0.35,
+                "slash": 0.3,
+                "feint": 0.25,
+                "parry": 0.75,
+                "close": 1.35,
+            },
+            "move_id_mult":
+            {
+                "thrust": 1.55,
+                "pommel_strike": 1.4,
+                "low_thrust_sword": 1.3,
+                "krumphau": 1.2,
+            },
+            "signature":
+            {
+                "move_ids": {"thrust": 1.6, "pommel_strike": 1.35},
+                "contact_types": {"stab": 1.4, "blunt": 1.25},
+                "lines": {"low_left": 0.9, "left": 0.85},
+                "feint_bias": 0.02,
+            },
+            "counters":
+            {
+                "wall": {"mult": 1.15, "families": ["thrust"]},
+                "balanced": {"mult": 1.1, "families": ["thrust", "parry"]},
+            },
+            "target_part_bias": {"head": 1.25, "left_arm": 1.18, "right_arm": 1.18, "chest": 0.85},
+            "move_family_part_bias":
+            {
+                "thrust": {"head": 1.3, "left_arm": 1.15, "right_arm": 1.15},
+                "close": {"head": 1.2, "chest": 1.1},
+            },
+            "duel_offense_forms": PackedStringArray(["mordhau", "fool"]),
+        },
+        "mordhau":
+        {
+            "display_name": "Mordhau",
+            "home_guard": "high_left",
+            "preferred_guards": PackedStringArray(["high_left", "left", "low"]),
+            "pressure_class": "controlling",
+            "min_stamina_ratio": 0.12,
+            "wait_weight_mult": 1.15,
+            "mod":
+            {
+                "parry": 0.82,
+                "evasion": 0.78,
+                "damage": 1.5,
+                "close_attempt": 1.45,
+                "ai_melee_focus": 0.65,
+                "feint_readthrough": 0.82,
+                "meisterhau_readthrough": 0.82,
+                "ai_feint_listing": 0.72,
+            },
+            "move_family_mult":
+            {
+                "thrust": 1.35,
+                "high_cut": 0.25,
+                "low_cut": 0.2,
+                "slash": 0.2,
+                "feint": 0.15,
+                "parry": 0.65,
+                "close": 1.65,
+            },
+            "move_id_mult":
+            {
+                "thrust": 1.5,
+                "pommel_strike": 1.7,
+                "low_thrust_sword": 1.4,
+                "krumphau": 1.3,
+                "oberhau": 0.15,
+            },
+            "signature":
+            {
+                "move_ids": {"pommel_strike": 1.7, "thrust": 1.45},
+                "contact_types": {"blunt": 1.5, "stab": 1.35},
+                "lines": {"left": 0.85, "high_left": 0.75},
+                "feint_bias": 0.0,
+            },
+            "counters":
+            {
+                "wall": {"mult": 1.2, "families": ["thrust", "parry"]},
+                "balanced": {"mult": 1.12, "families": ["close"]},
+            },
+            "target_part_bias": {"head": 1.35, "left_arm": 1.22, "right_arm": 1.22, "chest": 0.75},
+            "move_family_part_bias":
+            {
+                "close": {"head": 1.4, "chest": 1.2},
+                "thrust": {"left_arm": 1.2, "right_arm": 1.2},
+            },
+            "duel_offense_forms": PackedStringArray(["half_sword", "fool"]),
         },
     }
 

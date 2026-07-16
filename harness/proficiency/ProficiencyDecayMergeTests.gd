@@ -1,7 +1,7 @@
 class_name ProficiencyDecayMergeTests
 extends CombatRegressionHarnessCore
 ## XCamp-4: use-based stat proficiency system tests.
-## All tests are gated by CompanyState.read_stub_proficiency_enabled() --" stub is false by default.
+## All tests are gated by CompanyState.read_stub_proficiency_enabled() — stub is false by default.
 
 
 ## Parry deflect awards END gain for defender (absorbing recoil).
@@ -340,7 +340,7 @@ static func _run_dodge_formula_divisor(failures: PackedStringArray) -> void:
     if absf(dodge_factor - 0.25) > 0.001:
         CombatRegressionHarness._fail(failures, "dodge_divisor: expected 0.25 (got %.4f)" % dodge_factor)
 
-    # Old formula would have given: 50/200 * 0.5 = 0.125 --" half as much.
+    # Old formula would have given: 50/200 * 0.5 = 0.125 — half as much.
     var old_dodge_factor: float = float(ent.agility - 100) / 200.0 * 0.5
     if absf(old_dodge_factor - 0.125) > 0.001:
         CombatRegressionHarness._fail(
@@ -426,7 +426,7 @@ static func _run_decay_skips_never_fought_entities(failures: PackedStringArray) 
     var ent: CoreEntity = CombatRegressionHarness._new_entity("SWORD")
 
     ent._proficiency_bonus = {"strength": 0, "endurance": 25, "intelligence": 0, "agility": 0, "perception": 0}
-    ent.last_fought_day = 0  # Never fought --" should NOT decay
+    ent.last_fought_day = 0  # Never fought — should NOT decay
 
     EntityProficiency.apply_decay(ent, 1)  # Day 1, last_fought=0 |' skip
 
@@ -436,7 +436,7 @@ static func _run_decay_skips_never_fought_entities(failures: PackedStringArray) 
             "never-fought decay: endurance should stay 25 (got %.4f)" % ent._proficiency_bonus.get("endurance", 0)
         )
 
-    # Now set last_fought_day to a past day --" decay should apply.
+    # Now set last_fought_day to a past day — decay should apply.
     ent.last_fought_day = -10  # 11 inactive days on day 1
     var expected_after_decay: float = maxf(
         0.0, 25.0 + (EntityProficiency.DECAY_RATE_VETERAN_PLUS * EntityProficiency.DECAY_MULT_END) * 11
@@ -482,7 +482,7 @@ static func _run_outnumbered_dodge_bonus_with_slot_group_check(failures: PackedS
 
     mock_mgr.queue_free()
 
-    # Verify slot-group counting logic directly --" should be 1 for defender alone, 2 with ally.
+    # Verify slot-group counting logic directly — should be 1 for defender alone, 2 with ally.
     var ally := {"slot_key": "player_1_1", "side": "player", "alive": true}
     var enemy := {"slot_key": "enemy_2_0", "side": "enemy", "alive": true}
 

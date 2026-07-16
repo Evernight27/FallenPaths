@@ -529,7 +529,7 @@ static func _run_formation_move_duration_matches_flow_pair_start(failures: Packe
     var id1: int = EntityAccess.id_int(p1)
     var want: float = FormationMoveDuration.estimate_adjacent_rank_pair_duration_s(mgr, p0, p1, "swap_rank")
     FormationFlow.start_pair_move(mgr, id0, id1, "swap_rank")
-    var got: float = float(p0.get("state_duration", -1.0))
+    var got: float = float(p0.get(DataKeys.PA_STATE_DURATION, -1.0))
     _free_manager(mgr)
     if not is_equal_approx(got, want):
         _fail(failures, "form_dur_flow: pair start want %.4f got %.4f" % [want, got])

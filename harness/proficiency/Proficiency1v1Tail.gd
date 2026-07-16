@@ -232,7 +232,7 @@ static func simulate_rounds(data: Dictionary, num_rounds: int = 5, player_move: 
 
 static func format_report(result: Dictionary) -> String:
     var lines := PackedStringArray()
-    lines.append("--- Proficiency 1v1 Report ---")
+    lines.append("--- Proficiency 1v1 Report —")
     lines.append("Rounds played: %d" % result.get("total_rounds_played", 0))
     lines.append("")
 
@@ -274,7 +274,7 @@ static func format_round_details(result: Dictionary) -> String:
 
     for i in range(rounds.size()):
         var r: Dictionary = rounds[i]
-        lines.append("--- Round %d ---" % (i + 1))
+        lines.append("--- Round %d —" % (i + 1))
         lines.append("  Player action: %s" % r.get("player_result", {}).get("action", "unknown"))
         lines.append("  Enemy action: %s" % r.get("enemy_result", {}).get("action", "unknown"))
 
@@ -407,7 +407,7 @@ static func run_tuning_all() -> Dictionary:
         var runner: Callable = scenarios[name]
         var result: Dictionary = runner.call()
         reports[name] = format_report(result)
-        print("--- Tuning report: %s ---" % name)
+        print("--- Tuning report: %s —" % name)
         print(reports[name])
 
     return reports

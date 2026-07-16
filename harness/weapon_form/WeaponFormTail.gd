@@ -38,4 +38,6 @@ static func run(failures: PackedStringArray) -> void:
     WeaponFormAssignTests._run_weapon_form_yomi_inference(failures)
     WeaponFormAssignTests._run_weapon_form_counter_pick(failures)
     WeaponFormGaugeTests._run_weapon_form_ui_suffix(failures)
+    WeaponFormGaugeTests._run_weapon_form_yomi_inference_suite(failures)
     WeaponFormGaugeTests._run_weapon_form_wf_t2_suite(failures)
+    WeaponFormGaugeTests._run_weapon_form_phase2_suite(failures)

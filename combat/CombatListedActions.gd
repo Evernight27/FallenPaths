@@ -11,11 +11,11 @@ static func _entry(raw: Variant) -> Dictionary:
 
 
 static func entry_move_id(a: Dictionary) -> String:
-    return str(a.get("move_id", ""))
+    return str(a.get(DataKeys.ACTION_MOVE_ID, ""))
 
 
 static func entry_target_id(a: Dictionary, missing: int = -1) -> int:
-    return a.get("target_id", missing)
+    return a.get(DataKeys.ACTION_TARGET_ID, missing)
 
 
 static func action_entry_is_self_target_move(a: Dictionary, combatant_id: int, move_id: String) -> bool:
@@ -27,7 +27,7 @@ static func action_list_has_hostile_strike(actions: Array, self_id: int) -> bool
     return _action_list_has_hostile_engagement(actions, self_id, true)
 
 
-## Listed melee/feint vs hostile target --" excludes **`attempt_close`** (III-4 **3e** rotate suppress).
+## Listed melee/feint vs hostile target — excludes **`attempt_close`** (III-4 **3e** rotate suppress).
 static func action_list_has_hostile_melee_strike(actions: Array, self_id: int) -> bool:
     return _action_list_has_hostile_engagement(actions, self_id, false)
 
@@ -87,7 +87,7 @@ static func action_list_is_hold_line_only(actions: Array) -> bool:
     return saw_action
 
 
-## Hold-line plus **`attempt_close`** only (no melee) --" same reserve posture / wait requirement.
+## Hold-line plus **`attempt_close`** only (no melee) — same reserve posture / wait requirement.
 static func action_list_is_reserve_posture_only(actions: Array) -> bool:
     var saw_action: bool = false
     for raw in actions:
@@ -248,7 +248,7 @@ static func filter_actions(actions: Array, keep_predicate: Callable) -> Array:
     return out
 
 
-## LONG band, close listed but no melee strikes --" mapped rank-0 band-lag shuffle (not bind-close wings).
+## LONG band, close listed but no melee strikes — mapped rank-0 band-lag shuffle (not bind-close wings).
 static func long_close_only_offense_menu(manager: Node, c: Dictionary, combatant_id: int, all_actions: Array) -> bool:
     if manager == null or c.is_empty() or combatant_id < 0 or all_actions.is_empty():
         return false
@@ -269,9 +269,9 @@ static func long_close_only_offense_menu(manager: Node, c: Dictionary, combatant
         var a: Dictionary = _entry(raw)
         if a.is_empty():
             continue
-        if str(a.get("move_id", "")) != CombatConstants.MOVE_ID_ATTEMPT_CLOSE:
+        if entry_move_id(a) != CombatConstants.MOVE_ID_ATTEMPT_CLOSE:
             continue
-        var tid: int = a.get("target_id", -1)
+        var tid: int = entry_target_id(a, -1)
         if tid < 0:
             continue
         if CombatantEntityAccess.distance_to_opponent_band(c, tid, "") != CombatConstants.DISTANCE_LONG:

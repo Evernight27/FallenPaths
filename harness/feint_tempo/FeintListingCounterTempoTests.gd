@@ -805,13 +805,13 @@ static func _run_counter_tempo_window_opens_on_incoming_wind_up(failures: Packed
     mgr.combat_clock = 1.0
     AttackWindUpStarter.start(mgr, atk_id, def_id, "oberhau", {"target_part": "chest"})
     var until: float = float(def.get(CombatConstants.COMBATANT_KEY_COUNTER_WINDOW_UNTIL, -1.0))
-    var want_until: float = 1.0 + float(atk.get("state_duration", 0.0)) * CombatConstants.COUNTER_TEMPO_WINDOW_FRACTION
+    var want_until: float = 1.0 + float(atk.get(DataKeys.PA_STATE_DURATION, 0.0)) * CombatConstants.COUNTER_TEMPO_WINDOW_FRACTION
     if absf(until - want_until) > 0.0002:
         CombatRegressionHarness._fail(
             failures,
             (
                 "counter_tempo_window: until want %.4f got %.4f dur=%.4f"
-                % [want_until, until, float(atk.get("state_duration", 0.0))]
+                % [want_until, until, float(atk.get(DataKeys.PA_STATE_DURATION, 0.0))]
             )
         )
     if CounterTempo.incoming_attacker_id(mgr, def_id) != atk_id:
@@ -836,7 +836,7 @@ static func _run_counter_tempo_lists_melee_actions_when_window_open(failures: Pa
         {
             "type": CombatConstants.EVENT_MELEE_ATTACK,
             "combatant_id": atk_id,
-            "resolve_at": mgr.combat_clock + float(atk.get("state_duration", 0.0)),
+            "resolve_at": mgr.combat_clock + float(atk.get(DataKeys.PA_STATE_DURATION, 0.0)),
             "data": {}
         }
     )
@@ -891,7 +891,7 @@ static func _run_counter_tempo_defers_incoming_melee_until_after_counter_wind_up
     def["gauge"] = 60.0
     AttackWindUpStarter.start(mgr, atk_id, def_id, "oberhau")
     CombatRegressionHarness._harness_counter_tempo_set_incoming_progress(mgr, atk_id, 0.55)
-    var incoming_at: float = mgr.combat_clock + float(atk.get("state_duration", 0.0))
+    var incoming_at: float = mgr.combat_clock + float(atk.get(DataKeys.PA_STATE_DURATION, 0.0))
     CombatEventScheduler.schedule_event(
         mgr, {"type": CombatConstants.EVENT_MELEE_ATTACK, "combatant_id": atk_id, "resolve_at": incoming_at, "data": {}}
     )
@@ -900,7 +900,7 @@ static func _run_counter_tempo_defers_incoming_melee_until_after_counter_wind_up
     )
     var counter_at: float = CombatEventScheduler.get_pending_melee_attack_resolve_at(mgr, def_id)
     var incoming_at1: float = CombatEventScheduler.get_pending_melee_attack_resolve_at(mgr, atk_id)
-    var counter_end: float = mgr.combat_clock + float(def.get("state_duration", 0.0))
+    var counter_end: float = mgr.combat_clock + float(def.get(DataKeys.PA_STATE_DURATION, 0.0))
     if counter_at < 0.0:
         CombatRegressionHarness._fail(failures, "counter_tempo_defer: counter melee not scheduled")
     if incoming_at1 < counter_end + CombatConstants.COUNTER_TEMPO_INCOMING_DEFER_AFTER_COUNTER_S - 0.0001:
@@ -959,7 +959,7 @@ static func _run_counter_tempo_wind_up_stamps_pa_and_shortens_duration(failures:
     var en_id: int = CombatantEntityAccess.id_int(en)
     seed(CombatRegressionHarness._FEINT_WINDUP_HARNESS_SEED)
     AttackWindUpStarter.start(mgr_n, pn_id, en_id, "oberhau", {"target_part": "chest"})
-    var d_plain: float = float(pn.get("state_duration", 0.0))
+    var d_plain: float = float(pn.get(DataKeys.PA_STATE_DURATION, 0.0))
     var mgr_c: Node = CombatManager.new()
     mgr_c.register(CombatRegressionHarness._new_entity("SWORD"), "player")
     mgr_c.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
@@ -972,7 +972,7 @@ static func _run_counter_tempo_wind_up_stamps_pa_and_shortens_duration(failures:
     AttackWindUpStarter.start(
         mgr_c, pc_id, ec_id, "oberhau", {"target_part": "chest", CombatConstants.ACTION_KEY_COUNTER_TEMPO: true}
     )
-    var d_counter: float = float(pc.get("state_duration", 0.0))
+    var d_counter: float = float(pc.get(DataKeys.PA_STATE_DURATION, 0.0))
     var pa: Dictionary = CombatantEntityAccess.nested_dictionary_read(pc, "pending_attack")
     if not pa.get(CombatConstants.PA_KEY_COUNTER_TEMPO, false):
         CombatRegressionHarness._fail(failures, "counter_tempo_windup: pa should stamp counter_tempo")

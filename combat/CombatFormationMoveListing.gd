@@ -101,11 +101,11 @@ static func _rank_pair_swap_context(manager: Node, c: Dictionary, partner: Dicti
     elif we_are_front:
         allow_swap = CombatAIActionPicker.is_disengage_swap_tactically_allowed(c, partner, manager)
     return {
-        "eligible": eligible,
-        "allow_swap": allow_swap,
-        "we_are_front": we_are_front,
-        "we_plug_forward": we_plug_forward,
-        "line_plug_relief": line_plug_relief,
+        DataKeys.RANK_PAIR_ELIGIBLE: eligible,
+        DataKeys.RANK_PAIR_ALLOW_SWAP: allow_swap,
+        DataKeys.RANK_PAIR_WE_ARE_FRONT: we_are_front,
+        DataKeys.RANK_PAIR_WE_PLUG_FORWARD: we_plug_forward,
+        DataKeys.RANK_PAIR_LINE_PLUG_RELIEF: line_plug_relief,
     }
 
 
@@ -115,19 +115,19 @@ static func listed_action_is_formation_plug_pick(
 ) -> bool:
     if manager == null or c.is_empty() or action.is_empty():
         return false
-    var mid: String = str(action.get("move_id", ""))
+    var mid: String = str(action.get(DataKeys.ACTION_MOVE_ID, ""))
     var our_rank: int = CombatantEntityAccess.rank_int(c)
     var fid: String = CombatantEntityAccess.formation_id_str(c)
     var line_gap: bool = CombatFormationFlow.formation_line_has_rank0_gap(manager, fid)
     if mid == CombatConstants.MOVE_ID_SWAP_RANK:
-        var partner_id: int = action.get("target_id", -1)
+        var partner_id: int = action.get(DataKeys.ACTION_TARGET_ID, -1)
         var partner: Dictionary = CombatantEntityAccess.manager_get_combatant(manager, partner_id)
         if partner.is_empty() or not swap_rank_action_legal(manager, c, partner):
             return false
         var pc: Dictionary = _rank_pair_swap_context(manager, c, partner, fid)
-        if pc.get("we_plug_forward", false):
+        if pc.get(DataKeys.RANK_PAIR_WE_PLUG_FORWARD, false):
             return true
-        return line_gap and our_rank > 0 and pc.get("line_plug_relief", false)
+        return line_gap and our_rank > 0 and pc.get(DataKeys.RANK_PAIR_LINE_PLUG_RELIEF, false)
     if mid != CombatConstants.MOVE_ID_ROTATE_FILE or our_rank != 0 or not line_gap:
         return false
     if CombatDoctrine.should_suppress_skirmish_rotate_file(manager, c, all_actions):
@@ -143,7 +143,7 @@ static func listed_action_is_formation_plug_pick(
         return false
     if str(CombatEngagementMode.engagement_mode(manager)) != CombatConstants.ENGAGEMENT_MODE_SKIRMISH:
         return false
-    var rot_partner_id: int = action.get("target_id", -1)
+    var rot_partner_id: int = action.get(DataKeys.ACTION_TARGET_ID, -1)
     var rot_partner: Dictionary = CombatantEntityAccess.manager_get_combatant(manager, rot_partner_id)
     if rot_partner.is_empty():
         return false
@@ -162,7 +162,7 @@ static func swap_rank_action_legal(
     if fid.is_empty():
         return false
     var pc: Dictionary = _rank_pair_swap_context(manager, c, partner, fid)
-    return pc.get("eligible", false) and pc.get("allow_swap", false)
+    return pc.get(DataKeys.RANK_PAIR_ELIGIBLE, false) and pc.get(DataKeys.RANK_PAIR_ALLOW_SWAP, false)
 
 
 ## III-4 **3e**: depth fighter can plug forward into rank-0 during envelop mop-up.
@@ -216,7 +216,7 @@ static func front_rank_paired_retreat_action_legal(
     if fid.is_empty():
         return false
     var pc: Dictionary = _rank_pair_swap_context(manager, c, partner, fid)
-    if pc.get("we_are_front", false) != true or pc.get("we_plug_forward", false):
+    if pc.get(DataKeys.RANK_PAIR_WE_ARE_FRONT, false) != true or pc.get(DataKeys.RANK_PAIR_WE_PLUG_FORWARD, false):
         return false
     return CombatAIActionPicker.is_disengage_swap_tactically_allowed(c, partner, manager)
 
@@ -239,7 +239,7 @@ static func solo_fall_back_action_legal(
     var our_formation: Dictionary = ZoneOfControl.zone_geometry_formation_from_pack(ctx_atk)
     if our_formation.is_empty():
         return false
-    if int(our_formation.get("ranks", 1)) <= 1:
+    if int(our_formation.get(DataKeys.FORMATION_RANKS, 1)) <= 1:
         return false
     var disc: String = CombatFormationEngagement.effective_line_discipline(manager, our_formation)
     if not CombatConstants.line_discipline_allows_solo_fall_back(disc):
@@ -306,7 +306,7 @@ static func rotate_file_action_legal(
     var fid: String = ZoneOfControl.zone_geometry_fid_from_pack(ctx)
     if fid.is_empty():
         return false
-    if int(ZoneOfControl.zone_geometry_formation_from_pack(ctx).get("files", 1)) < 2:
+    if int(ZoneOfControl.zone_geometry_formation_from_pack(ctx).get(DataKeys.FORMATION_FILES, 1)) < 2:
         return false
     return _is_adjacent_file_same_rank_ally(
         manager, c, ally, fid, CombatantEntityAccess.rank_int(c), CombatantEntityAccess.file_int(c)
@@ -359,7 +359,7 @@ static func _append_adjacent_rank_partner_actions(
             actions,
             {"target_id": CombatantEntityAccess.id_int(ally), "move_id": CombatConstants.MOVE_ID_SWAP_RANK}
         )
-        if pc.get("we_are_front", false) and pc.get("we_plug_forward", false) != true and can_drag_back:
+        if pc.get(DataKeys.RANK_PAIR_WE_ARE_FRONT, false) and pc.get(DataKeys.RANK_PAIR_WE_PLUG_FORWARD, false) != true and can_drag_back:
             if front_rank_paired_retreat_action_legal(manager, c, ally, zone_geometry_line_context_cache):
                 _append_formation_action(
                     manager,
@@ -414,13 +414,13 @@ static func append_formation_move_actions(
     var our_formation: Dictionary = ZoneOfControl.zone_geometry_formation_from_pack(ctx_c)
     var our_rank: int = CombatantEntityAccess.rank_int(c)
     var our_file: int = CombatantEntityAccess.file_int(c)
-    out["zone_fid"] = fid
-    var formation_ranks: int = int(our_formation.get("ranks", 1))
+    out[DataKeys.ZONE_FID_DURATION] = fid
+    var formation_ranks: int = int(our_formation.get(DataKeys.FORMATION_RANKS, 1))
     var pair_abort_blocked: bool = in_pair_abort_cooldown(manager, c)
     var move_policy: Dictionary = CombatEngagementMode.movement_policy(manager)
-    var can_swap_rank: bool = move_policy.get("allow_swap_rank", false)
-    var can_drag_back: bool = move_policy.get("allow_drag_back", false)
-    var can_fall_back: bool = move_policy.get("allow_fall_back", false)
+    var can_swap_rank: bool = move_policy.get(DataKeys.MOVE_POLICY_ALLOW_SWAP_RANK, false)
+    var can_drag_back: bool = move_policy.get(DataKeys.MOVE_POLICY_ALLOW_DRAG_BACK, false)
+    var can_fall_back: bool = move_policy.get(DataKeys.MOVE_POLICY_ALLOW_FALL_BACK, false)
     var home_fid: String = CombatantEntityAccess.formation_id_str(c)
     var can_rotate_file: bool = CombatEngagementMode.allow_rotate_file_for_formation(manager, home_fid)
     if (
@@ -437,7 +437,7 @@ static func append_formation_move_actions(
     if (
         not formation_retreat_only
         and not our_formation.is_empty()
-        and int(our_formation.get("files", 1)) >= 2
+        and int(our_formation.get(DataKeys.FORMATION_FILES, 1)) >= 2
         and our_rank == 0
         and not pair_abort_blocked
         and can_rotate_file
@@ -488,7 +488,7 @@ static func append_formation_move_actions(
         )
     CombatLeaderFormationCommand.append_leader_formation_commands(manager, c, combatant_id, actions)
     if formation_retreat_only:
-        out["cowering_early_exit"] = true
+        out[DataKeys.COWERING_EARLY_EXIT] = true
     return out
 
 
@@ -505,22 +505,22 @@ static func append_combat_wait_if_needed(manager: Node, c: Dictionary, actions: 
     if actions.is_empty():
         var entry: Dictionary = {"target_id": combatant_id, "move_id": CombatConstants.MOVE_ID_WAIT}
         if dampened:
-            entry["weight"] = 0.01
+            entry[DataKeys.ENTRY_WEIGHT] = 0.01
         actions.append(entry)
         return
     if CombatListedActions.action_list_is_reserve_posture_only(actions):
         var entry2: Dictionary = {"target_id": combatant_id, "move_id": CombatConstants.MOVE_ID_WAIT}
         if dampened:
-            entry2["weight"] = 0.01
+            entry2[DataKeys.ENTRY_WEIGHT] = 0.01
         actions.append(entry2)
         return
     for a in actions:
-        var mid: String = str(a.get("move_id", ""))
+        var mid: String = str(a.get(DataKeys.ACTION_MOVE_ID, ""))
         if not CombatConstants.is_formation_movement_move(mid) and mid != CombatConstants.MOVE_ID_YIELD:
             return
     var entry3: Dictionary = {"target_id": combatant_id, "move_id": CombatConstants.MOVE_ID_WAIT}
     if dampened:
-        entry3["weight"] = 0.01
+        entry3[DataKeys.ENTRY_WEIGHT] = 0.01
     actions.append(entry3)
 
 

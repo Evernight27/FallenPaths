@@ -134,7 +134,7 @@ static func get_treatment_channel_count(entity: Node, part: String) -> int:
         if injury.get("is_stump", false) or injury.get("is_arterial", false):
             extra_severe += 1
         else:
-            var sev: String = str(injury.get("severity", BleedingConstants.SEVERITY_MODERATE))
+            var sev: String = str(injury.get(DataKeys.INJURY_SEVERITY, BleedingConstants.SEVERITY_MODERATE))
             if sev == BleedingConstants.SEVERITY_CRITICAL or sev == BleedingConstants.SEVERITY_SEVERE:
                 extra_severe += 1
     return maxi(1, channels.size() + maxi(0, extra_severe - 1))
@@ -157,7 +157,7 @@ static func _can_apply_bandage(entity: Node, part: String) -> bool:
         return false
     if entity.tourniquet_applied.has(part) or part_is_bandaged(entity, part):
         return false
-    # Life-threatening limb hemorrhage: TQ path --" do not bandage over indicated extremity bleed (combat listing
+    # Life-threatening limb hemorrhage: TQ path — do not bandage over indicated extremity bleed (combat listing
     # parity).
     if BodyPartQuery.is_limb(part) and _is_tourniquet_indicated_for_part(entity, part):
         return false
@@ -211,7 +211,7 @@ static func _get_stabilize_application_time_seconds_for_part(entity: Node, part:
     )
 
 
-## Quick hemostatic control while pressure is held; trims bleed rate only --" does **not** set `is_stabilized`
+## Quick hemostatic control while pressure is held; trims bleed rate only — does **not** set `is_stabilized`
 ## (definitive dress still required).
 static func _can_apply_stabilize(entity: Node, part: String) -> bool:
     if part.is_empty() or not entity.wounds.has(part) or entity.wounds[part].is_empty():
@@ -280,7 +280,7 @@ static func _injury_in_strict_packing_sub_region(part: String, injury: Dictionar
 static func injury_meets_packing_severity(part: String, injury: Dictionary) -> bool:
     if injury is not Dictionary:
         return false
-    var rank: int = _wound_severity_rank(str(injury.get("severity", BleedingConstants.SEVERITY_MODERATE)))
+    var rank: int = _wound_severity_rank(str(injury.get(DataKeys.INJURY_SEVERITY, BleedingConstants.SEVERITY_MODERATE)))
     var min_rank: int = _wound_severity_rank(BleedingConstants.PACKING_MIN_SEVERITY)
     if _injury_in_strict_packing_sub_region(part, injury):
         if injury.get("is_arterial", false):
@@ -639,7 +639,7 @@ static func _is_tourniquet_indicated_for_part(entity: Node, part: String) -> boo
         if injury.get("is_stump", false):
             return true
     for injury in entity.wounds[part]:
-        var sev: String = injury.get("severity", BleedingConstants.SEVERITY_MODERATE)
+        var sev: String = injury.get(DataKeys.INJURY_SEVERITY, BleedingConstants.SEVERITY_MODERATE)
         if sev == BleedingConstants.SEVERITY_SEVERE or sev == BleedingConstants.SEVERITY_CRITICAL:
             return true
     if entity.get_bleeding_rate_for_part(part) >= BleedingConstants.TOURNIQUET_BLEEDING_RATE_THRESHOLD:

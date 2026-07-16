@@ -9,7 +9,7 @@ const TILE_SIZE = 64.0
 ## True for the player-controlled lead only. Companions stay false. Set in scene and/or `PlayerCompanionSetup`; copied
 ## into combatant dict on `CombatManager.register`.
 @export var is_party_leader: bool = false
-## IV-11: enemy formation commander --" set in `EncounterNode.spawn_enemies` (default index 0) or scene export; copied
+## IV-11: enemy formation commander — set in `EncounterNode.spawn_enemies` (default index 0) or scene export; copied
 ## on `CombatManager.register` (enemy side only).
 @export var is_enemy_leader: bool = false
 ## Expand WF-4: preferred weapon form id (`ox`, `wall`, ...). Empty |' encounter side default |' weapon default at
@@ -396,7 +396,7 @@ func _snap_to_grid(pos: Vector2) -> Vector2:
     )
 
 
-## Overworld rejected a step (bleed block, combat gate, ...) --" keep sprite and next input on the same tile.
+## Overworld rejected a step (bleed block, combat gate, ...) — keep sprite and next input on the same tile.
 func _cancel_grid_move_to(world_pos: Vector2) -> void:
     var grid_pos: Vector2 = _snap_to_grid(world_pos)
     position = grid_pos
@@ -432,6 +432,7 @@ func _process(delta: float) -> void:
         if distance < 2.0:
             position = target_position
             is_moving = false
-            emit_signal("moved")
+            moved.emit()
         else:
             position = position.move_toward(target_position, TILE_SIZE * 8 * delta)
+

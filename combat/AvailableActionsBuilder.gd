@@ -34,10 +34,6 @@ static func build(manager: Node, combatant_id: int) -> Array:
         and state != CombatConstants.STATE_COWERING
     ):
         return []
-    if CombatantEntityAccess.is_unconscious(c):
-        return []
-    if CombatantEntityAccess.is_yielded(c):
-        return []
     CombatMobilityRetreat.sync_cowering_state_if_no_functional_arm(c)
     state = CombatantEntityAccess.state_str(c)
     var formation_retreat_only: bool = CombatMobilityRetreat.formation_retreat_only_for(c)
@@ -61,8 +57,8 @@ static func build(manager: Node, combatant_id: int) -> Array:
         var fm_ctx: Dictionary = CombatFormationMoveListing.append_formation_move_actions(
             manager, c, combatant_id, combatants, actions, formation_retreat_only, zone_ctx
         )
-        log_fid = fm_ctx.get("zone_fid", "")
-        if fm_ctx.get("cowering_early_exit", false):
+        log_fid = fm_ctx.get(DataKeys.ZONE_ID, "")
+        if fm_ctx.get(DataKeys.COWERING_EARLY_EXIT, false):
             CombatFormationMoveListing.append_combat_wait_if_needed(manager, c, actions, combatant_id)
             return actions
         CombatAttention.append_focus_line_listing_actions(c, combatant_id, actions)
@@ -89,7 +85,7 @@ static func _drop_actions_vs_dead_opponents(manager: Node, actor: Dictionary, ac
         return actions
     var kept: Array = []
     for a in actions:
-        var tid: int = a.get("target_id", -1)
+        var tid: int = a.get(DataKeys.ACTION_TARGET_ID, -1)
         if tid < 0:
             kept.append(a)
             continue

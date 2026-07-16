@@ -607,7 +607,7 @@ static func _run_parry_partial_clash_context_calibration_fields(failures: Packed
             _fail(failures, "parry_partial_clash: missing key %s" % _sk_part)
             _free_manager_restore_global_rng(mgr2)
             return
-    if not clash_partial.has("remaining_ratio") or not clash_partial.has("geometric_leak"):
+    if not clash_partial.has(DataKeys.RESULT_REMAINING_RATIO) or not clash_partial.has("geometric_leak"):
         _fail(failures, "parry_partial_clash: missing remaining_ratio or geometric_leak")
         _free_manager_restore_global_rng(mgr2)
         return

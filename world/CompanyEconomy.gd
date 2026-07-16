@@ -395,7 +395,7 @@ static func _get_or_create_overlay(root: Node) -> CanvasLayer:
 static func _resolve_hud(world: Node) -> Control:
     if world != null and world.has_meta(_get_state().WORLD_META_COMPANY_HUD):
         var meta_hud: Variant = world.get_meta(_get_state().WORLD_META_COMPANY_HUD)
-        if typeof(meta_hud) == TYPE_OBJECT and is_instance_valid(meta_hud) and meta_hud is Control:
+        if is_instance_valid(meta_hud) and meta_hud is Control:
             return meta_hud
     if world == null or not world.is_inside_tree():
         return null

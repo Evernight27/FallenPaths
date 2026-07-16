@@ -447,10 +447,8 @@ static func format_cycle_hema_summary(
         total_exchanges += int(outcome_counts[k])
     var lines := PackedStringArray()
     lines.push_back(
-        (
-            "--- Cycle %d: %s (%s) | exchanges=%d strikes_logged=%d ---"
-            % [cycle_index, winner_name, end_cause, total_exchanges, strikes]
-        )
+        "--- Cycle %d: %s (%s) | exchanges=%d strikes_logged=%d —"
+        % [cycle_index, winner_name, end_cause, total_exchanges, strikes]
     )
     if not scenario_key.is_empty():
         lines.push_back("  scenario: %s" % scenario_key)

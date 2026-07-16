@@ -343,7 +343,7 @@ static func _run_flee_ai_critical_stamina_beats_rotate_file(failures: PackedStri
     var c: Dictionary = mgr.combatants[0]
     var cid: int = CombatantEntityAccess.id_int(c)
     c[CombatConstants.COMBATANT_KEY_EXHAUSTION] = CombatConstants.MENTAL_STACK_EXHAUSTION_TUNNEL_THRESHOLD - 0.15
-    c["stamina"] = 0.05 * float(c.get("stamina_max", 100.0))
+    c["stamina"] = 0.05 * float(c.get(DataKeys.STAMINA_MAX, 100.0))
     if CombatantEntityAccess.stamina_ratio(c) >= CombatConstants.AI_FLEE_CRITICAL_STAMINA_RATIO:
         CombatRegressionHarness._fail(failures, "flee_ai_critical: stamina setup should be below critical ratio")
     var flee_act: Dictionary = {"move_id": CombatConstants.MOVE_ID_FLEE, "target_id": cid}
@@ -368,7 +368,7 @@ static func _run_flee_ai_pick_critical_stamina_never_rotate(failures: PackedStri
     var c: Dictionary = mgr.combatants[0]
     var cid: int = CombatantEntityAccess.id_int(c)
     c[CombatConstants.COMBATANT_KEY_EXHAUSTION] = 0.0
-    c["stamina"] = 0.05 * float(c.get("stamina_max", 100.0))
+    c["stamina"] = 0.05 * float(c.get(DataKeys.STAMINA_MAX, 100.0))
     var acts: Array = [
         {"move_id": CombatConstants.MOVE_ID_FLEE, "target_id": cid},
         {"move_id": CombatConstants.MOVE_ID_ROTATE_FILE, "target_id": cid},
@@ -530,7 +530,7 @@ static func _run_flee_resolve_marks_combat_absent_and_clears_slot(failures: Pack
         CombatRegressionHarness._free_manager_restore_global_rng(mgr)
         return
     CombatResolveAction.resolve(mgr, cid, cid, CombatConstants.MOVE_ID_FLEE, {})
-    if not bool(c.get("combat_absent", false)):
+    if not bool(c.get(DataKeys.COMBATANT_COMBAT_ABSENT, false)):
         CombatRegressionHarness._fail(failures, "flee_resolve: want combat_absent after flee")
     if CombatantEntityAccess.state_str(c) != CombatConstants.STATE_FLED:
         CombatRegressionHarness._fail(
@@ -648,10 +648,10 @@ static func _run_flee_ui_gauge_label_fled(failures: PackedStringArray) -> void:
 static func _run_flee_combat_start_clears_absent_state(failures: PackedStringArray) -> void:
     var mgr: Node = CombatRegressionHarness._harness_start_1v1()
     var c: Dictionary = mgr.combatants[0]
-    c["combat_absent"] = true
+    c[DataKeys.COMBATANT_COMBAT_ABSENT] = true
     c.state = CombatConstants.STATE_FLED
     mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
-    if bool(c.get("combat_absent", false)):
+    if bool(c.get(DataKeys.COMBATANT_COMBAT_ABSENT, false)):
         CombatRegressionHarness._fail(failures, "flee_start: combat_absent should clear on start()")
     if CombatantEntityAccess.state_str(c) == CombatConstants.STATE_FLED:
         CombatRegressionHarness._fail(failures, "flee_start: STATE_FLED should reset to waiting on start()")

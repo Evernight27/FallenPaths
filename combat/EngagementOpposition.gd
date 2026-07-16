@@ -31,8 +31,8 @@ static func seed_from_formations(manager: Node) -> void:
     var fd: Dictionary = forms as Dictionary
     if not fd.has("player") or not fd.has("enemy"):
         return
-    var p_files: int = int((fd["player"] as Dictionary).get("files", 1))
-    var e_files: int = int((fd["enemy"] as Dictionary).get("files", 1))
+    var p_files: int = int((fd["player"] as Dictionary).get(DataKeys.FORMATION_FILES, 1))
+    var e_files: int = int((fd["enemy"] as Dictionary).get(DataKeys.FORMATION_FILES, 1))
     var offset_player: int = int(floorf(float(p_files - e_files) / 2.0))
     manager.set_meta(META_OPPOSITION_FILE_OFFSET_BY_SIDE, {"player": offset_player, "enemy": -offset_player})
 
@@ -168,7 +168,7 @@ static func rank0_needs_bind_close_at_long(manager: Node, c: Dictionary) -> bool
 static func _defender_has_free_close_slot(manager: Node, defender: Dictionary, exclude_attacker_id: int) -> bool:
     var ctx: Dictionary = ZoneOfControl.zone_geometry_line_context(manager, defender)
     var form_geom: Dictionary = ZoneOfControl.zone_geometry_formation_from_pack(ctx)
-    var density: String = str(form_geom.get("density", "normal")) if not form_geom.is_empty() else "normal"
+    var density: String = str(form_geom.get(DataKeys.FORMATION_DENSITY, "normal")) if not form_geom.is_empty() else "normal"
     var cap: int = CombatConstants.max_close_slots_for_density(density)
     var defender_id: int = CombatantEntityAccess.id_int(defender)
     var n: int = 0

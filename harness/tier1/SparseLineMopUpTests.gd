@@ -21,7 +21,7 @@ static func _run_sparse_line_rotate_no_line_plug_weight_floor(failures: PackedSt
             CombatRegressionHarness._free_manager(mgr)
             return
         FormationSlots.remove_combatant_from_slots(slots, CombatantEntityAccess.id_int(fled))
-        fled["combat_absent"] = true
+        fled[DataKeys.COMBATANT_COMBAT_ABSENT] = true
         fled.state = CombatConstants.STATE_FLED
     mgr.recompute_zoc_and_distance()
     var survivor: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(mgr, "player", 0, 4)
@@ -76,7 +76,7 @@ static func _run_sparse_line_swap_no_line_plug_weight_floor(failures: PackedStri
             CombatRegressionHarness._free_manager(mgr)
             return
         FormationSlots.remove_combatant_from_slots(slots, CombatantEntityAccess.id_int(fled))
-        fled["combat_absent"] = true
+        fled[DataKeys.COMBATANT_COMBAT_ABSENT] = true
         fled.state = CombatConstants.STATE_FLED
     mgr.recompute_zoc_and_distance()
     if not CombatFormationFlow.skirmish_line_sparse_after_casualties(mgr, "player"):
@@ -309,7 +309,7 @@ static func _run_sparse_prefer_finish_helper_close_band(failures: PackedStringAr
             CombatRegressionHarness._free_manager(mgr)
             return
         FormationSlots.remove_combatant_from_slots(slots, CombatantEntityAccess.id_int(fled))
-        fled["combat_absent"] = true
+        fled[DataKeys.COMBATANT_COMBAT_ABSENT] = true
         fled.state = CombatConstants.STATE_FLED
     mgr.recompute_zoc_and_distance()
     var survivor: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(mgr, "player", 0, 4)
@@ -471,7 +471,7 @@ static func _run_fight_finish_hold_line_focus_hint(failures: PackedStringArray) 
             CombatRegressionHarness._free_manager(mgr)
             return
         FormationSlots.remove_combatant_from_slots(slots, CombatantEntityAccess.id_int(fled))
-        fled["combat_absent"] = true
+        fled[DataKeys.COMBATANT_COMBAT_ABSENT] = true
         fled.state = CombatConstants.STATE_FLED
     mgr.recompute_zoc_and_distance()
     var survivor: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(mgr, "player", 0, 4)
@@ -542,7 +542,7 @@ static func _run_skirmish_line_sparse_threshold(failures: PackedStringArray) -> 
             CombatRegressionHarness._free_manager(mgr_sparse)
             return
         FormationSlots.remove_combatant_from_slots(slots_sparse, CombatantEntityAccess.id_int(fled))
-        fled["combat_absent"] = true
+        fled[DataKeys.COMBATANT_COMBAT_ABSENT] = true
     if not CombatFormationFlow.skirmish_line_sparse_after_casualties(mgr_sparse, "player"):
         CombatRegressionHarness._fail(failures, "sparse_threshold: want sparse at 3/6 rank-0 occupancy with holes")
     CombatRegressionHarness._free_manager(mgr_sparse)
@@ -585,7 +585,7 @@ static func _run_sparse_skirmish_line_fight_hint(failures: PackedStringArray) ->
             CombatRegressionHarness._free_manager(mgr)
             return
         FormationSlots.remove_combatant_from_slots(slots, CombatantEntityAccess.id_int(fled))
-        fled["combat_absent"] = true
+        fled[DataKeys.COMBATANT_COMBAT_ABSENT] = true
         fled.state = CombatConstants.STATE_FLED
     mgr.recompute_zoc_and_distance()
     var survivor: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(mgr, "player", 0, 4)
@@ -628,7 +628,7 @@ static func _run_mop_up_sparse_fight_finish_hint(failures: PackedStringArray) ->
             CombatRegressionHarness._free_manager(mgr)
             return
         FormationSlots.remove_combatant_from_slots(slots, CombatantEntityAccess.id_int(fled))
-        fled["combat_absent"] = true
+        fled[DataKeys.COMBATANT_COMBAT_ABSENT] = true
         fled.state = CombatConstants.STATE_FLED
     mgr.recompute_zoc_and_distance()
     var survivor: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(mgr, "player", 0, 6)
@@ -682,7 +682,7 @@ static func _run_sparse_line_hold_close_pick_eligible(failures: PackedStringArra
             CombatRegressionHarness._free_manager(mgr)
             return
         FormationSlots.remove_combatant_from_slots(slots, CombatantEntityAccess.id_int(fled))
-        fled["combat_absent"] = true
+        fled[DataKeys.COMBATANT_COMBAT_ABSENT] = true
         fled.state = CombatConstants.STATE_FLED
     mgr.recompute_zoc_and_distance()
     var survivor: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(mgr, "player", 0, 4)
@@ -717,7 +717,7 @@ static func _run_sparse_line_offense_weight_beats_focus(failures: PackedStringAr
             CombatRegressionHarness._free_manager(mgr)
             return
         FormationSlots.remove_combatant_from_slots(slots, CombatantEntityAccess.id_int(fled))
-        fled["combat_absent"] = true
+        fled[DataKeys.COMBATANT_COMBAT_ABSENT] = true
         fled.state = CombatConstants.STATE_FLED
     mgr.recompute_zoc_and_distance()
     var survivor: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(mgr, "player", 0, 4)
@@ -792,7 +792,7 @@ static func _run_sparse_line_attrition_offense_exempt(failures: PackedStringArra
             CombatRegressionHarness._free_manager(mgr)
             return
         FormationSlots.remove_combatant_from_slots(slots, CombatantEntityAccess.id_int(fled))
-        fled["combat_absent"] = true
+        fled[DataKeys.COMBATANT_COMBAT_ABSENT] = true
         fled.state = CombatConstants.STATE_FLED
     mgr.recompute_zoc_and_distance()
     var survivor: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(mgr, "player", 0, 4)

@@ -26,10 +26,10 @@ static func recompute_all(manager: Node) -> void:
         var opp_fid: String = CombatantEntityAccess.opponent_side_label(fid)
         var opp_coh: float = coh_by_fid.get(opp_fid, coh)
         var posture: String = _compute_posture(manager, fid, coh, form, opp_coh, snap)
-        var prev_c: float = form.get("line_cohesion", -1.0)
-        var prev_p: String = str(form.get("engagement_posture", ""))
-        form["line_cohesion"] = coh
-        form["engagement_posture"] = posture
+        var prev_c: float = form.get(DataKeys.FORMATION_LINE_COHESION, -1.0)
+        var prev_p: String = str(form.get(DataKeys.FORMATION_ENGAGEMENT_POSTURE, ""))
+        form[DataKeys.FORMATION_LINE_COHESION] = coh
+        form[DataKeys.FORMATION_ENGAGEMENT_POSTURE] = posture
         var changed: bool = absf(prev_c - coh) > 0.004 or prev_p != posture
         if changed:
             CombatantEntityAccess.manager_notify_engagement_state_changed(manager, fid, coh, posture)
@@ -54,15 +54,15 @@ static func _avg_lane_stress(form: Dictionary) -> float:
 static func _compute_line_cohesion(manager: Node, fid: String, form: Dictionary, snap: Dictionary) -> float:
     var front_fill: float = 0.0
     if fid == CombatConstants.SIDE_PLAYER:
-        front_fill = snap.get("player_front_fill", 0.0)
+        front_fill = snap.get(DataKeys.SNAPSHOT_PLAYER_FRONT_FILL, 0.0)
     elif fid == CombatConstants.SIDE_ENEMY:
-        front_fill = snap.get("enemy_front_fill", 0.0)
+        front_fill = snap.get(DataKeys.SNAPSHOT_ENEMY_FRONT_FILL, 0.0)
     else:
         var n_front: int = CombatEngagementMode.count_front_rank_alive(manager, fid)
-        var files: int = maxi(1, int(form.get("files", 1)))
+        var files: int = maxi(1, int(form.get(DataKeys.FORMATION_FILES, 1)))
         front_fill = clampf(float(n_front) / float(files), 0.0, 1.0)
     var lane_stress_avg: float = _avg_lane_stress(form)
-    var morale: float = clampf(form.get("morale_cohesion_factor", 1.0), CombatConstants.MORALE_COHESION_FACTOR_MIN, 1.0)
+    var morale: float = clampf(form.get(DataKeys.FORMATION_MORALE_COHESION_FACTOR, 1.0), CombatConstants.MORALE_COHESION_FACTOR_MIN, 1.0)
     var raw: float = (
         (CombatConstants.COHESION_BASE_FLOOR + CombatConstants.COHESION_FILL_SCALE * front_fill)
         * (1.0 - CombatConstants.COHESION_LANE_STRESS_WEIGHT * lane_stress_avg)
@@ -77,8 +77,8 @@ static func effective_line_discipline(manager: Node, form: Dictionary) -> String
     if manager != null:
         var enc: Variant = manager.get("encounter")
         if enc is Dictionary:
-            disc_enc = enc.get(CombatConstants.ENCOUNTER_KEY_LINE_DISCIPLINE, "").strip_edges().to_lower()
-    var disc_form: String = form.get("line_discipline", "").strip_edges().to_lower()
+            disc_enc = str(enc.get(CombatConstants.ENCOUNTER_KEY_LINE_DISCIPLINE, "")).strip_edges().to_lower()
+    var disc_form: String = form.get(DataKeys.FORMATION_LINE_DISCIPLINE, "").strip_edges().to_lower()
     return disc_form if not disc_form.is_empty() else disc_enc
 
 
@@ -105,8 +105,8 @@ static func _effective_posture_thresholds(
             var ed: Dictionary = enc
             l_in += ed.get(CombatConstants.ENCOUNTER_KEY_POSTURE_ENTER_DELTA, 0.0)
             l_out += ed.get(CombatConstants.ENCOUNTER_KEY_POSTURE_LEAVE_DELTA, 0.0)
-    l_in += form.get("discipline_posture_enter_delta", 0.0)
-    l_out += form.get("discipline_posture_leave_delta", 0.0)
+    l_in += form.get(DataKeys.FORMATION_DISCIPLINE_POSTURE_ENTER_DELTA, 0.0)
+    l_out += form.get(DataKeys.FORMATION_DISCIPLINE_POSTURE_LEAVE_DELTA, 0.0)
     var disc_pick: String = effective_line_discipline(manager, form)
     var disc_xy: Vector2 = CombatConstants.line_discipline_posture_extra_deltas(disc_pick)
     l_in += disc_xy.x
@@ -126,10 +126,10 @@ static func _effective_posture_thresholds(
 static func _compute_posture(
     manager: Node, _fid: String, cohesion: float, form: Dictionary, opp_coh: float, snap: Dictionary
 ) -> String:
-    var mode_now: String = str(snap.get("raw_mode", "skirmish"))
+    var mode_now: String = str(snap.get(DataKeys.SNAPSHOT_RAW_MODE, "skirmish"))
     if mode_now == "duel":
         return CombatConstants.ENGAGEMENT_POSTURE_DUEL
-    var prev: String = str(form.get("engagement_posture", ""))
+    var prev: String = str(form.get(DataKeys.FORMATION_ENGAGEMENT_POSTURE, ""))
     var thr: Vector2 = _effective_posture_thresholds(manager, form, cohesion, opp_coh)
     var l_in: float = thr.x
     var l_out: float = thr.y

@@ -15,7 +15,7 @@ extends RefCounted
 ## (**`ACTION_KEY_COUNTER_TEMPO`**) ->'' -  **`CounterTempo.counter_tempo_listing_weight_mult`**
 ## (**`AI_COUNTER_TEMPO_*`**). **`is_feint`** moves get **`CombatConstants.AI_IS_FEINT_MOVE_LISTING_WEIGHT_MULT`** ->''
 ## -  defender-readiness lerp (**`PassiveParryContext.get_passive_parry_readiness`** ->'' -
-## **`CombatConstants.passive_parry_readiness_incoming_contact_mult`** for this move'"--"''s **`contact_type`** ->'' -
+## **`CombatConstants.passive_parry_readiness_incoming_contact_mult`** for this move'"—''s **`contact_type`** ->'' -
 ## **`CombatConstants.defender_passive_readiness_stamina_mult_from_ratio`** on the defender ->'' -
 ## **`CombatConstants.ai_feint_listing_defender_readiness_spacing_mult`** from defender **`distance_to[attacker]`** '""
 ## same curve as **`DefenseChoiceResolver`** reported readiness, not attacker stamina) ->'' -  attacker
@@ -95,7 +95,7 @@ static func _get_action_weight(
     zone_geometry_by_combatant_id: Dictionary = {},
     all_actions: Array = []
 ) -> float:
-    var mid: String = a.get("move_id", "")
+    var mid: String = a.get(DataKeys.ACTION_MOVE_ID, "")
     if CombatConstants.is_medical_move(mid):
         return CombatAIActionWeights._get_medical_weight(a, combatant_id, manager)
     # Combat actions: attack, attempt_close, swap_rank
@@ -104,11 +104,11 @@ static func _get_action_weight(
         return 1.0
     if (
         CombatMobilityRetreat.cannot_commit_melee(c)
-        and not CombatMobilityRetreat.resolve_move_allowed_when_cannot_melee(mid, a.get("target_id", -1), combatant_id)
+        and not CombatMobilityRetreat.resolve_move_allowed_when_cannot_melee(mid, a.get(DataKeys.ACTION_TARGET_ID, -1), combatant_id)
     ):
         return 0.0
     if mid == CombatConstants.MOVE_ID_WAIT:
-        var preset_w: float = a.get("weight", -1.0)
+        var preset_w: float = a.get(DataKeys.ACTION_WEIGHT, -1.0)
         if preset_w >= 0.0:
             return preset_w
         if (
@@ -139,12 +139,12 @@ static func _get_action_weight(
     if CombatConstants.is_focus_line_move(mid):
         return CombatAIActionWeights._focus_line_action_weight(mid, combatant_id, manager, c, all_actions)
     if CombatConstants.is_leader_formation_command_move(mid):
-        if a.get("target_id", -1) != combatant_id:
+        if a.get(DataKeys.ACTION_TARGET_ID, -1) != combatant_id:
             return 0.0
         if not CombatantEntityAccess.is_formation_command_issuer(c):
             return 0.0
         return CombatAIActionWeights._leader_formation_command_pick_weight(manager, c, mid)
-    if mid == CombatConstants.MOVE_ID_FLEE and a.get("target_id", -1) == combatant_id:
+    if mid == CombatConstants.MOVE_ID_FLEE and a.get(DataKeys.ACTION_TARGET_ID, -1) == combatant_id:
         if CombatMobilityRetreat.formation_retreat_only_for(c):
             if CombatFormationRout.duel_disarmed_retreat_menu(manager, c):
                 return CombatConstants.DUEL_DISARMED_FLEE_AI_WEIGHT
@@ -162,11 +162,11 @@ static func _get_action_weight(
         )
         flee_w *= mood_flee_mult
         return flee_w
-    if mid == CombatConstants.MOVE_ID_YIELD and a.get("target_id", -1) == combatant_id:
+    if mid == CombatConstants.MOVE_ID_YIELD and a.get(DataKeys.ACTION_TARGET_ID, -1) == combatant_id:
         if CombatFormationRout.duel_disarmed_retreat_menu(manager, c):
             return CombatConstants.DUEL_DISARMED_YIELD_AI_WEIGHT
         return 0.0
-    if mid == CombatConstants.MOVE_ID_FALL_BACK and a.get("target_id", -1) == combatant_id:
+    if mid == CombatConstants.MOVE_ID_FALL_BACK and a.get(DataKeys.ACTION_TARGET_ID, -1) == combatant_id:
         if CombatMobilityRetreat.formation_retreat_only_for(c):
             return CombatConstants.COWERING_SOLO_FALL_BACK_AI_WEIGHT
         # Offered only when desperate / peril (AvailableActionsBuilder); keep below routine wait.
@@ -179,14 +179,14 @@ static func _get_action_weight(
             / CombatAIActionWeights._opponent_controlling_disengage_listing_divisor(manager, c)
         )
     if mid == CombatConstants.MOVE_ID_ROTATE_FILE:
-        var partner_id_rot: int = a.get("target_id", -1)
+        var partner_id_rot: int = a.get(DataKeys.ACTION_TARGET_ID, -1)
         if CombatFormationFlow.rotate_file_reverse_pair_blocked(manager, c, partner_id_rot):
             return 0.0
         if not all_actions.is_empty() and CombatDoctrine.should_suppress_skirmish_rotate_file(manager, c, all_actions):
             return 0.0
         var rot_w: float = 0.55
         var lane_preview: Dictionary = CombatFormationMoveDuration.preview_lane_pressure_for_combatant(manager, c)
-        if lane_preview.get("lane_foot", 0.0) >= CombatConstants.LANE_MOD_BLOCKED - 0.05:
+        if lane_preview.get(DataKeys.DURATION_LANE_FOOT, 0.0) >= CombatConstants.LANE_MOD_BLOCKED - 0.05:
             rot_w *= CombatConstants.AI_FORMATION_MOVE_BLOCKED_LANE_MULT
         if CombatDoctrine.envelop_mop_up_active(manager, CombatantEntityAccess.formation_id_str(c)):
             rot_w *= CombatConstants.ENVELOP_MOP_UP_ROTATE_AI_WEIGHT_MULT
@@ -215,7 +215,7 @@ static func _get_action_weight(
         return rot_w
     ## III-4 **3e**: plug_forward AI weight during envelop mop-up.
     if mid == CombatConstants.MOVE_ID_PLUG_FORWARD:
-        var partner_id_pf: int = a.get("target_id", -1)
+        var partner_id_pf: int = a.get(DataKeys.ACTION_TARGET_ID, -1)
         if partner_id_pf < 0:
             return 0.0
         var partner_pf: Dictionary = CombatantEntityAccess.manager_get_combatant(manager, partner_id_pf)
@@ -237,11 +237,11 @@ static func _get_action_weight(
         ## vacancy reconciliation cost when _get_action_weight is called twice per action).
         var partner_has_strikes: bool = false
         if manager != null and not partner_pf.is_empty():
-            var distance_to: Variant = partner_pf.get("distance_to", {})
-            if distance_to is Dictionary:
+            var dist_data: Variant = partner_pf.get(DataKeys.COMBATANT_DISTANCE_TO, {})
+            if dist_data is Dictionary:
                 var hostile_side: String = CombatantEntityAccess.opponent_side_label(CombatantEntityAccess.side_str(c))
-                for _k in distance_to:
-                    if distance_to[_k] == "CLOSE" or distance_to[_k] == "MEDIUM":
+                for _k in dist_data:
+                    if dist_data[_k] == "CLOSE" or dist_data[_k] == "MEDIUM":
                         var hostile: Dictionary = CombatantEntityAccess.manager_get_combatant(manager, int(_k))
                         if not hostile.is_empty() and CombatantEntityAccess.is_alive_in_combat(hostile):
                             if CombatantEntityAccess.side_str(hostile) == hostile_side:
@@ -251,7 +251,7 @@ static func _get_action_weight(
             return CombatConstants.PLUG_FORWARD_AI_LOW_WEIGHT
         return CombatConstants.PLUG_FORWARD_AI_HIGH_WEIGHT
     if mid == CombatConstants.MOVE_ID_ATTEMPT_CLOSE:
-        var tgt_id_close: int = a.get("target_id", -1)
+        var tgt_id_close: int = a.get(DataKeys.ACTION_TARGET_ID, -1)
         if tgt_id_close < 0:
             return 0.0
         var dist_close: String = CombatantEntityAccess.distance_to_opponent_band(c, tgt_id_close)
@@ -292,7 +292,7 @@ static func _get_action_weight(
             and CombatDoctrine.fight_finish_tail_active(manager, c, all_actions, combatant_id)
         ):
             return 0.0
-        var partner_id: int = a.get("target_id", -1)
+        var partner_id: int = a.get(DataKeys.ACTION_TARGET_ID, -1)
         var partner: Dictionary = CombatantEntityAccess.manager_get_combatant_optional(manager, partner_id)
         var partner_incapacitated: bool = not partner.is_empty() and CombatantEntityAccess.is_incapacitated(partner)
         if partner_incapacitated:
@@ -383,7 +383,7 @@ static func _compute_attack_weight_components(
         )
     form_move_m *= prof_occ_m
     var form_counter_m: float = 1.0
-    var tid_counter: int = a.get("target_id", -1)
+    var tid_counter: int = a.get(DataKeys.ACTION_TARGET_ID, -1)
     if tid_counter >= 0:
         var inferred: String = ""
         var cache_raw: Variant = c.get(CombatConstants.COMBATANT_KEY_INFERRED_OPP_FORM_BY_ID, null)
@@ -396,7 +396,7 @@ static func _compute_attack_weight_components(
         )
     var feint_list_m: float = 1.0
     if move_id != CombatConstants.MOVE_ID_ATTEMPT_CLOSE and WeaponConstants.is_feint_move(move_id):
-        var tid_feint: int = a.get("target_id", -1)
+        var tid_feint: int = a.get(DataKeys.ACTION_TARGET_ID, -1)
         var resistance_active: bool = (
             CombatConstants.is_feature_ms_feint_resistance_enabled()
             and tid_feint >= 0
@@ -438,7 +438,7 @@ static func _compute_attack_weight_components(
                         feint_list_m *= CombatConstants.AI_FEINT_LISTING_DEFENDER_OFF_BALANCE_MULT
                     elif CombatantEntityAccess.state_str(tgt_ob) == CombatConstants.STATE_RECOVERING:
                         feint_list_m *= CombatConstants.ai_feint_listing_defender_recovering_footwork_mult_for_cause(
-                            str(tgt_ob.get("recovery_cause", "skip"))
+                            str(tgt_ob.get(DataKeys.ATTACK_RECOVERY_CAUSE, "skip"))
                         )
                     elif CombatantEntityAccess.state_str(tgt_ob) == CombatConstants.STATE_WAITING:
                         feint_list_m *= CombatConstants.AI_FEINT_LISTING_DEFENDER_SETTLED_FOOTWORK_MULT
@@ -516,7 +516,7 @@ static func _compute_attack_weight_components(
     ):
         w *= CombatConstants.AI_SPARSE_LINE_OFFENSE_MULT
     if move_id == CombatConstants.MOVE_ID_ATTEMPT_CLOSE:
-        var tgt_id_close_w: int = a.get("target_id", -1)
+        var tgt_id_close_w: int = a.get(DataKeys.ACTION_TARGET_ID, -1)
         if tgt_id_close_w >= 0:
             var tgt_close: Dictionary = CombatantEntityAccess.manager_get_combatant(manager, tgt_id_close_w)
             if not tgt_close.is_empty():
@@ -575,9 +575,9 @@ static func _long_close_only_offense_menu(manager: Node, c: Dictionary, combatan
         if raw is not Dictionary:
             continue
         var a: Dictionary = raw as Dictionary
-        if a.get("move_id", "") != CombatConstants.MOVE_ID_ATTEMPT_CLOSE:
+        if a.get(DataKeys.ACTION_MOVE_ID, "") != CombatConstants.MOVE_ID_ATTEMPT_CLOSE:
             continue
-        var tid: int = a.get("target_id", -1)
+        var tid: int = a.get(DataKeys.ACTION_TARGET_ID, -1)
         if tid < 0:
             continue
         if CombatantEntityAccess.distance_to_opponent_band(c, tid, "") != CombatConstants.DISTANCE_LONG:
@@ -604,10 +604,10 @@ static func _post_strike_weight_mult(c: Dictionary, a: Dictionary, manager: Node
     var struck_id: int = c.get(CombatConstants.COMBATANT_KEY_LAST_STRIKE_TARGET_ID, -1)
     if struck_id < 0:
         return 1.0
-    var tid: int = a.get("target_id", -1)
+    var tid: int = a.get(DataKeys.ACTION_TARGET_ID, -1)
     if tid != struck_id:
         return 1.0
-    var mid: String = a.get("move_id", "")
+    var mid: String = a.get(DataKeys.ACTION_MOVE_ID, "")
     if CombatConstants.is_medical_move(mid):
         return 1.0
     if mid == CombatConstants.MOVE_ID_WAIT or mid == CombatConstants.MOVE_ID_FLEE:
@@ -619,7 +619,7 @@ static func _post_strike_weight_mult(c: Dictionary, a: Dictionary, manager: Node
     if tgt.is_empty() or not CombatantEntityAccess.alive_bool(tgt):
         return 1.0
     # Check if defender was forced to parry (has parry_against_id set).
-    var parry_forced: bool = tgt.has("parry_against_id") and int(tgt.get("parry_against_id", -1)) >= 0
+    var parry_forced: bool = tgt.has(DataKeys.PA_PARRY_AGAINST_ID) and int(tgt.get(DataKeys.PA_PARRY_AGAINST_ID, -1)) >= 0
     if parry_forced:
         return CombatConstants.POST_STRIKE_MOMENTUM_WEIGHT_BONUS
     return CombatConstants.POST_STRIKE_HIT_WEIGHT_BONUS
@@ -728,7 +728,7 @@ static func _focus_line_action_weight(
     var line: String = CombatConstants.guard_line_for_focus_move_id(move_id)
     if line.is_empty():
         return 0.0
-    var cur_line: String = str(c.get("guard_line", CombatConstants.GUARD_DEFAULT)).strip_edges()
+    var cur_line: String = str(c.get(DataKeys.ATTACK_GUARD_LINE, CombatConstants.GUARD_DEFAULT)).strip_edges()
     if cur_line == line:
         return 0.0
     var part: String = CombatConstants.LINE_TO_DEFAULT_PART.get(line, "")
@@ -874,9 +874,9 @@ static func _get_positioning_fitness(c: Dictionary) -> float:
 
 
 static func _get_medical_weight(a: Dictionary, combatant_id: int, manager: Node) -> float:
-    var mid: String = a.get("move_id", "")
-    var tgt_id: int = a.get("target_id", -1)
-    var part: String = a.get("target_part", "")
+    var mid: String = a.get(DataKeys.ACTION_MOVE_ID, "")
+    var tgt_id: int = a.get(DataKeys.ACTION_TARGET_ID, -1)
+    var part: String = a.get(DataKeys.ACTION_TARGET_PART, "")
     if not CombatMedicalCoordination.medical_action_allowed(manager, combatant_id, tgt_id, part, mid):
         return MedicalPhaseBatchResolve.MEDICAL_AI_WEIGHT_COORDINATION_BLOCKED
     var tgt: Dictionary = CombatantEntityAccess.manager_get_combatant(manager, tgt_id)
@@ -910,19 +910,19 @@ static func _get_medical_weight(a: Dictionary, combatant_id: int, manager: Node)
     # Pending retry: only one who can help; strongly prefer retrying the failed part.
     var pending: Dictionary = {}
     if performer != null:
-        var pnd_raw: Variant = performer.get("pending_retry", null)
+        var pnd_raw: Variant = performer.get(DataKeys.COMBATANT_PENDING_RETRY, null)
         if pnd_raw is Dictionary:
             pending = pnd_raw as Dictionary
     if (
         not pending.is_empty()
-        and pending.get("target_id", -1) == a.get("target_id", -1)
-        and pending.get("part", "") == a.get("target_part", "")
+        and pending.get(DataKeys.ACTION_TARGET_ID, -1) == tgt_id
+        and pending.get(DataKeys.ACTION_PART, "") == a.get(DataKeys.ACTION_TARGET_PART, "")
     ):
         if not tgt.is_empty() and CombatantEntityAccess.is_in_immediate_peril(manager, tgt):
             w *= MedicalPhaseBatchResolve.MEDICAL_AI_WEIGHT_PENDING_RETRY_PERIL
         else:
             w *= MedicalPhaseBatchResolve.MEDICAL_AI_WEIGHT_PENDING_RETRY
-    var failed_raw: Variant = tgt.get("failed_medical_parts", null) if not tgt.is_empty() else null
+    var failed_raw: Variant = tgt.get(DataKeys.COMBATANT_FAILED_MEDICAL_PARTS, null) if not tgt.is_empty() else null
     if failed_raw is Array and part in (failed_raw as Array) and CombatConstants.is_wind_up_medical_move(mid):
         w *= MedicalPhaseBatchResolve.MEDICAL_AI_WEIGHT_FAILED_PART_RETRY
     if not tgt.is_empty() and not CombatantEntityAccess.is_in_immediate_peril(manager, tgt):

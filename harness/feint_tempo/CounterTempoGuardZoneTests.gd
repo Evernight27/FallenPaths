@@ -152,7 +152,7 @@ static func _run_riposte_chain_after_parry_deflect_shortens_wind_up_vs_plain(fai
     var atk_p_id: int = CombatantEntityAccess.id_int(atk_p)
     seed(CombatRegressionHarness._FEINT_WINDUP_HARNESS_SEED)
     AttackWindUpStarter.start(mgr_p, def_p_id, atk_p_id, "oberhau", {"target_part": "chest"})
-    var d_plain: float = float(def_p.get("state_duration", 0.0))
+    var d_plain: float = float(def_p.get(DataKeys.PA_STATE_DURATION, 0.0))
     var mgr_r: Node = CombatManager.new()
     mgr_r.register(CombatRegressionHarness._new_entity("SWORD"), "player")
     mgr_r.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
@@ -164,7 +164,7 @@ static func _run_riposte_chain_after_parry_deflect_shortens_wind_up_vs_plain(fai
     CounterTempo.grant_riposte_chain(mgr_r, def_r, atk_r_id)
     seed(CombatRegressionHarness._FEINT_WINDUP_HARNESS_SEED)
     AttackWindUpStarter.start(mgr_r, def_r_id, atk_r_id, "oberhau", {"target_part": "chest"})
-    var d_rip: float = float(def_r.get("state_duration", 0.0))
+    var d_rip: float = float(def_r.get(DataKeys.PA_STATE_DURATION, 0.0))
     var pa_r: Dictionary = CombatantEntityAccess.nested_dictionary_read(def_r, "pending_attack")
     if not pa_r.get(CombatConstants.PA_KEY_RIPOSTE_CHAIN, false):
         CombatRegressionHarness._fail(failures, "riposte_chain: pending_attack should stamp riposte_chain")
@@ -345,9 +345,9 @@ static func _run_feint_move_listing_defender_off_balance_boosts_feint_weight(fai
 static func _run_feint_opts_from_choice_and_non_feint_attack_no_feint_part(failures: PackedStringArray) -> void:
     var c_target_only: Dictionary = {"move_id": "oberhau", "target_id": 1, "target_part": "chest"}
     var o_target: Dictionary = CombatAIActionPicker.opts_from_choice(c_target_only)
-    if not o_target.has("target_part") or str(o_target.get("target_part", "")) != "chest":
+    if not o_target.has(DataKeys.ACTION_TARGET_PART) or str(o_target.get("target_part", "")) != "chest":
         CombatRegressionHarness._fail(failures, "feint_opts: expected target_part chest in opts got %s" % str(o_target))
-    if o_target.has("feint_part"):
+    if o_target.has(DataKeys.ACTION_FEINT_PART):
         CombatRegressionHarness._fail(
             failures, "feint_opts: non-feint choice should omit feint_part got %s" % str(o_target)
         )
@@ -372,7 +372,7 @@ static func _run_feint_opts_from_choice_and_non_feint_attack_no_feint_part(failu
         "move_id": "oberhau_feint", "target_id": 1, "target_part": "chest", "feint_part": ""
     }
     var o_no_feint: Dictionary = CombatAIActionPicker.opts_from_choice(c_empty_feint)
-    if o_no_feint.has("feint_part"):
+    if o_no_feint.has(DataKeys.ACTION_FEINT_PART):
         CombatRegressionHarness._fail(
             failures, "feint_opts: empty feint_part should be omitted got %s" % str(o_no_feint)
         )
@@ -386,7 +386,7 @@ static func _run_feint_opts_from_choice_and_non_feint_attack_no_feint_part(failu
     CombatAIActionPicker._add_attack_target_part(choice, mgr, p_id)
     if str(choice.get("target_part", "")).is_empty():
         CombatRegressionHarness._fail(failures, "feint_neg: expected oberhau target_part from _add_attack_target_part")
-    if choice.has("feint_part") and str(choice.get("feint_part", "")) != "":
+    if choice.has(DataKeys.ACTION_FEINT_PART) and str(choice.get("feint_part", "")) != "":
         CombatRegressionHarness._fail(
             failures,
             "feint_neg: non-feint oberhau must not set non-empty feint_part got %s" % str(choice.get("feint_part", ""))

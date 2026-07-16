@@ -27,9 +27,9 @@ static func _get_company_state() -> GDScript:
 
 
 static func complete(manager: Node, c: Dictionary, pm: Dictionary) -> void:
-    var med_id: String = pm.get("medical_id", "")
-    var part: String = pm.get("target_part", "")
-    var tgt_cid: int = pm.get("target_combatant_id", _get_entity_access().id_int(c))
+    var med_id: String = pm.get(DataKeys.MEDICAL_ID, "")
+    var part: String = pm.get(DataKeys.ACTION_TARGET_PART, "")
+    var tgt_cid: int = pm.get(DataKeys.MEDICAL_TARGET_COMBATANT_ID, _get_entity_access().id_int(c))
     var tgt_c: Dictionary = _get_entity_access().manager_get_combatant(manager, tgt_cid)
     var tgt_nd: Node = _get_entity_access().scene_node(tgt_c)
     var who_m: String = _get_entity_access().get_display_name(c)
@@ -82,11 +82,11 @@ static func complete(manager: Node, c: Dictionary, pm: Dictionary) -> void:
             _proficiency_medical_gains(c, perf_entity, tgt_entity, world, med_id, result, who_m)
     # Target finishes receiving care: ready to act immediately
     if not tgt_c.is_empty() and tgt_cid != _get_entity_access().id_int(c):
-        tgt_c.receiving_medical_count = max(0, tgt_c.get("receiving_medical_count", 0) - 1)
+        tgt_c.receiving_medical_count = max(0, tgt_c.get(DataKeys.PA_RECEIVING_MEDICAL_COUNT, 0) - 1)
         if tgt_c.receiving_medical_count <= 0:
             CombatFootwork.return_to_waiting(tgt_c)
             tgt_c.gauge = 100.0
-            tgt_c["guard"] = CombatConstants.GUARD_AFTER_ATTACK
+            tgt_c[DataKeys.COMBATANT_GUARD] = CombatConstants.GUARD_AFTER_ATTACK
             if _get_entity_access().is_player_side(tgt_c):
                 manager.notify_turn_ready(tgt_cid)
     CombatFootwork.clear_on_exchange_end(c)
@@ -110,7 +110,7 @@ static func _outcome_for_medical_method(
     var outcome := CombatConstants.medical_outcome_string(target_method, ok)
     if outcome != "":
         return outcome
-    return str(wind_up_cfg.get("outcome", med_id))
+    return str(wind_up_cfg.get(DataKeys.MEDICAL_OUTCOME), med_id)
 
 
 static func _finish_medical_procedure(
@@ -138,8 +138,7 @@ static func _finish_medical_procedure(
         )
         var self_id: int = _get_entity_access().id_int(c)
         (
-            manager
-            . emit_signal(
+            manager.emit_signal(
                 "action_resolved",
                 self_id,
                 tgt_cid,
@@ -155,7 +154,7 @@ static func _finish_medical_procedure(
             )
         )
         if not _medical_procedure_succeeded(result):
-            manager.track_medical_failure_and_maybe_retry(c, tgt_c, part, tgt_cid)
+            manager._track_medical_failure_and_maybe_retry(c, tgt_c, part, tgt_cid)
         else:
             c.pending_retry = {}
             var failed: Array = _get_entity_access().nested_array_for_mutation(tgt_c, "failed_medical_parts")
@@ -213,3 +212,8 @@ static func _proficiency_medical_gains(
     # Record this medic action for post-combat INT floor bonus (per-entity tracking).
     if world != null:
         CampaignEncounterBridge.record_medic_action(world, perf_entity)
+
+
+
+
+

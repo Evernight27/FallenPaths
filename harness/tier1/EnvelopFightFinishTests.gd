@@ -21,7 +21,7 @@ static func _run_sparse_finish_wait_below_offense_weight(failures: PackedStringA
             CombatRegressionHarness._free_manager(mgr)
             return
         FormationSlots.remove_combatant_from_slots(slots, CombatantEntityAccess.id_int(fled))
-        fled["combat_absent"] = true
+        fled[DataKeys.COMBATANT_COMBAT_ABSENT] = true
         fled.state = CombatConstants.STATE_FLED
     mgr.recompute_zoc_and_distance()
     var survivor: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(mgr, "player", 0, 4)
@@ -79,7 +79,7 @@ static func _run_exhaustion_rank0_strikes_blocks_rotate_file(failures: PackedStr
     var fighter: Dictionary = mgr.combatants[0]
     var fighter_id: int = CombatantEntityAccess.id_int(fighter)
     var enemy_id: int = CombatantEntityAccess.id_int(mgr.combatants[1])
-    fighter["stamina"] = 0.01 * float(fighter.get("stamina_max", 100.0))
+    fighter["stamina"] = 0.01 * float(fighter.get(DataKeys.STAMINA_MAX, 100.0))
     if CombatantEntityAccess.stamina_ratio(fighter) >= CombatConstants.AI_FLEE_CRITICAL_STAMINA_RATIO:
         CombatRegressionHarness._fail(failures, "exhaustion_rank0_rotate: stamina should be critical")
         CombatRegressionHarness._free_manager(mgr)
@@ -242,7 +242,7 @@ static func _run_fight_finish_skips_exhaustion_with_listed_offense(failures: Pac
         CombatRegressionHarness._fail(failures, "fight_finish_skip_exhaustion: missing rank-0 player fixture")
         CombatRegressionHarness._free_manager(mgr)
         return
-    player["stamina"] = 0.01 * float(player.get("stamina_max", 100.0))
+    player["stamina"] = 0.01 * float(player.get(DataKeys.STAMINA_MAX, 100.0))
     player["gauge"] = 100.0
     var player_id: int = CombatantEntityAccess.id_int(player)
     var acts: Array = AvailableActionsBuilder.build(mgr, player_id)
@@ -353,7 +353,7 @@ static func _run_exhaustion_rank0_strikes_blocks_focus_line(failures: PackedStri
     var fighter: Dictionary = mgr.combatants[0]
     var fighter_id: int = CombatantEntityAccess.id_int(fighter)
     var enemy_id: int = CombatantEntityAccess.id_int(mgr.combatants[1])
-    fighter["stamina"] = 0.01 * float(fighter.get("stamina_max", 100.0))
+    fighter["stamina"] = 0.01 * float(fighter.get(DataKeys.STAMINA_MAX, 100.0))
     if CombatantEntityAccess.stamina_ratio(fighter) >= CombatConstants.AI_FLEE_CRITICAL_STAMINA_RATIO:
         CombatRegressionHarness._fail(failures, "exhaustion_rank0_focus: stamina should be critical")
         CombatRegressionHarness._free_manager(mgr)
@@ -399,7 +399,7 @@ static func _run_mop_up_rank0_exhaustion_prefers_fight_finish(failures: PackedSt
         CombatRegressionHarness._fail(failures, "mop_up_rank0_exhaustion: missing rank-0 player")
         CombatRegressionHarness._free_manager(mgr)
         return
-    player["stamina"] = 0.01 * float(player.get("stamina_max", 100.0))
+    player["stamina"] = 0.01 * float(player.get(DataKeys.STAMINA_MAX, 100.0))
     player["gauge"] = 100.0
     var player_id: int = CombatantEntityAccess.id_int(player)
     var acts: Array = AvailableActionsBuilder.build(mgr, player_id)
@@ -457,7 +457,7 @@ static func _run_envelop_mop_up_excludes_fled_allies(failures: PackedStringArray
             continue
         if fled_count >= 3:
             break
-        c["combat_absent"] = true
+        c[DataKeys.COMBATANT_COMBAT_ABSENT] = true
         c["state"] = CombatConstants.STATE_FLED
         fled_count += 1
     if not CombatDoctrine.envelop_mop_up_active(mgr, "player"):
@@ -478,7 +478,7 @@ static func _run_living_hostile_excludes_fled_enemy(failures: PackedStringArray)
     mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
     var player: Dictionary = mgr.combatants[0]
     var enemy: Dictionary = mgr.combatants[1]
-    enemy["combat_absent"] = true
+    enemy[DataKeys.COMBATANT_COMBAT_ABSENT] = true
     enemy["state"] = CombatConstants.STATE_FLED
     if CombatantEntityAccess.is_living_hostile_to(player, enemy):
         CombatRegressionHarness._fail(failures, "living_hostile_fled: fled enemy must not be hostile target")
@@ -510,7 +510,7 @@ static func _run_fled_enemy_distance_to_purged_after_recompute(failures: PackedS
     CombatantEntityAccess.nested_dictionary_for_mutation(player, "distance_to")[fled_id] = (
         CombatConstants.DISTANCE_CLOSE
     )
-    fled["combat_absent"] = true
+    fled[DataKeys.COMBATANT_COMBAT_ABSENT] = true
     fled["state"] = CombatConstants.STATE_FLED
     mgr.recompute_zoc_and_distance()
     var d_to: Dictionary = CombatantEntityAccess.nested_dictionary_read(player, "distance_to")

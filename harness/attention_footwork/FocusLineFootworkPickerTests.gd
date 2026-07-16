@@ -189,7 +189,7 @@ static func _run_mental_stack_critical_stamina_flee_beats_rotate_file(failures: 
     var fighter: Dictionary = mgr.combatants[0]
     var fighter_id: int = CombatantEntityAccess.id_int(fighter)
     fighter[CombatConstants.COMBATANT_KEY_EXHAUSTION] = CombatConstants.MENTAL_STACK_EXHAUSTION_TUNNEL_THRESHOLD - 0.15
-    fighter["stamina"] = 0.05 * float(fighter.get("stamina_max", 100.0))
+    fighter["stamina"] = 0.05 * float(fighter.get(DataKeys.STAMINA_MAX, 100.0))
     var actions: Array = [
         {"move_id": CombatConstants.MOVE_ID_WAIT, "target_id": fighter_id},
         {"move_id": CombatConstants.MOVE_ID_FLEE, "target_id": fighter_id},
@@ -375,7 +375,7 @@ static func _run_focus_line_party_leader_prefers_telegraph_match(failures: Packe
     mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
     var player: Dictionary = mgr.combatants[0]
     var pid: int = CombatantEntityAccess.id_int(player)
-    player["is_party_leader"] = true
+    player[DataKeys.COMBATANT_IS_PARTY_LEADER] = true
     player["guard_line"] = "low"
     player[CombatConstants.COMBATANT_KEY_FOCUS_PART] = "left_leg"
     player[CombatConstants.COMBATANT_KEY_INCOMING_ATTACK_TELEGRAPH_PART] = "head"

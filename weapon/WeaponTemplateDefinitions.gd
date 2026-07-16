@@ -33,7 +33,7 @@ const ARCHETYPE_HEAVY_BLUNT: String = "heavy_blunt"
 const ARCHETYPE_THRUSTING_BLUNT: String = "thrusting_blunt"
 
 ## Kinematic delivery for `WeaponDamageHelper` (abstract  -  no unit positions): thrust = linear band + point-mass KE;
-## swing = ???? - lever + rotational KE; mixed = blend (`kinematic_mixed_blend` 0..1).
+## swing = (lever-swing) - lever + rotational KE; mixed = blend (`kinematic_mixed_blend` 0..1).
 const KINEMATIC_DELIVERY_THRUST := "thrust"
 const KINEMATIC_DELIVERY_SWING := "swing"
 const KINEMATIC_DELIVERY_MIXED := "mixed"
@@ -420,7 +420,7 @@ static func _archetype_definitions_build() -> Dictionary:
     }
 
 
-## Weapon template id (`SWORD`, `AXE`, �) from equipped weapon node/dict.
+## Weapon template id (`SWORD`, `AXE`, ï¿½) from equipped weapon node/dict.
 
 
 static func _weapon_template_id(weapon: Variant) -> String:
@@ -433,3 +433,4 @@ static func _weapon_template_id(weapon: Variant) -> String:
     return ""
 
 ## Legacy encounter / mood keys -> weapon-native form id (e.g. axe `wrath` -> `demi_hache`).
+

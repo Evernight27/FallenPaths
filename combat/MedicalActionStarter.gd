@@ -71,8 +71,8 @@ static func start(
     var pr_raw: Variant = c.get("pending_retry", null)
     if pr_raw is Dictionary:
         var pr: Dictionary = pr_raw
-        if not pr.is_empty() and (pr.get("target_id", -1) != target_combatant_id or pr.get("part", "") != target_part):
-            c["pending_retry"] = {}
+        if not pr.is_empty() and (pr.get(DataKeys.ACTION_TARGET_ID, -1) != target_combatant_id or pr.get(DataKeys.ACTION_PART, "") != target_part):
+            c[DataKeys.PA_PENDING_RETRY] = {}
     var who_name: String = CombatantEntityAccess.get_display_name(c, combatant_id)
     # Bandage/pack/tourniquet: free treater's other holds; keep compression on the wound being dressed.
     if CombatConstants.is_wind_up_medical_move(medical_id):
@@ -137,7 +137,7 @@ static func start(
                     )
         CombatFootwork.clear_on_exchange_end(c)
         c.gauge = 0.0
-        c["guard"] = CombatConstants.GUARD_AFTER_ATTACK
+        c[DataKeys.COMBATANT_GUARD] = CombatConstants.GUARD_AFTER_ATTACK
         c.state = CombatConstants.STATE_RECOVERING
         c.state_timer = 0.0
         c.state_duration = med_rec_dur
@@ -172,7 +172,7 @@ static func start(
         )
     CombatFootwork.reconcile_idle_offset(c)
     c.gauge = 0.0
-    c["guard"] = CombatConstants.GUARD_AFTER_ATTACK
+    c[DataKeys.COMBATANT_GUARD] = CombatConstants.GUARD_AFTER_ATTACK
     c.state = CombatConstants.STATE_MEDICAL_WIND_UP
     c.state_timer = 0.0
     c.state_duration = duration
@@ -182,6 +182,9 @@ static func start(
     # Target (ally) enters receiving_medical_attention: gauge full, cannot act until care finishes
     if target_combatant_id != combatant_id:
         CombatFootwork.reconcile_idle_offset(target_node)
-        target_node.receiving_medical_count = target_node.get("receiving_medical_count", 0) + 1
+        target_node.receiving_medical_count = target_node.get(DataKeys.PA_RECEIVING_MEDICAL_COUNT, 0) + 1
         target_node.state = CombatConstants.STATE_RECEIVING_MEDICAL_ATTENTION
         target_node.gauge = 100.0
+
+
+

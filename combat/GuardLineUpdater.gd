@@ -32,23 +32,23 @@ static func set_guard_deflected(
     if atk_line.is_empty() and not move_id.is_empty():
         var move_def: Dictionary = WeaponConstants.get_move(move_id)
         if not move_def.is_empty():
-            atk_line = move_def.get("attack_line", "")
+            atk_line = move_def.get(DataKeys.PA_ATTACK_LINE, "")
     if atk_line.is_empty():
         return
-    var def_guard: String = clash_context.get("defender_guard_line", defender_guard_line)
+    var def_guard: String = clash_context.get(DataKeys.CLASH_DEFENDER_GUARD_LINE, defender_guard_line)
     if def_guard.is_empty():
         def_guard = defender_guard_line
-    var parry_control: float = clash_context.get("parry_control", 1.0)
-    var arch_id: String = clash_context.get("archetype_id", "")
+    var parry_control: float = clash_context.get(DataKeys.RESULT_PARRY_CONTROL, 1.0)
+    var arch_id: String = clash_context.get(DataKeys.PA_ARCHETYPE_ID, "")
     var can_bind: bool = arch_id.is_empty() or arch_id not in CombatConstants.ARCHETYPES_NEVER_BIND
     var severity: float = 1.0
-    if clash_context.has("severity"):
-        severity = float(clash_context["severity"])
-    elif clash_context.has("margin_ratio"):
-        severity = CombatConstants.parry_deflect_severity_from_margin_ratio(float(clash_context["margin_ratio"]))
+    if clash_context.has(DataKeys.RESULT_CLASH_SEVERITY):
+        severity = float(clash_context[DataKeys.RESULT_CLASH_SEVERITY])
+    elif clash_context.has(DataKeys.CLASH_MARGIN_RATIO):
+        severity = CombatConstants.parry_deflect_severity_from_margin_ratio(float(clash_context[DataKeys.CLASH_MARGIN_RATIO]))
     # Prefer explicit contact_type from clash (e.g. parry_deflect); else derive from move_id in attack_type.
-    var ct_ctx: String = str(clash_context.get("contact_type", "")).to_lower().strip_edges()
-    var attack_move_id: String = str(clash_context.get("attack_type", "cut"))
+    var ct_ctx: String = str(clash_context.get(DataKeys.WEAPON_CONTACT_TYPE, "")).to_lower().strip_edges()
+    var attack_move_id: String = str(clash_context.get(DataKeys.RESULT_ATTACK_TYPE, "cut"))
     var deflect_contact: String = ct_ctx
     if (
         ct_ctx != WeaponConstants.ATTACK_TYPE_STAB
@@ -62,9 +62,9 @@ static func set_guard_deflected(
         line = atk_line
         blend = 0.0
     elif not def_guard.is_empty() and not clash_context.is_empty():
-        var atk_angle: float = clash_context.get("attack_angle_deg", CombatConstants.line_to_angle(atk_line))
-        var guard_angle: float = clash_context.get("guard_angle_deg", CombatConstants.line_to_angle(def_guard))
-        var alignment: float = clash_context.get("alignment", CombatConstants.get_line_alignment(atk_line, def_guard))
+        var atk_angle: float = clash_context.get(DataKeys.ATTACK_ANGLE_DEG, CombatConstants.line_to_angle(atk_line))
+        var guard_angle: float = clash_context.get(DataKeys.CLASH_GUARD_ANGLE_DEG, CombatConstants.line_to_angle(def_guard))
+        var alignment: float = clash_context.get(DataKeys.CLASH_ALIGNMENT, CombatConstants.get_line_alignment(atk_line, def_guard))
         line = CombatConstants.get_deflected_line_from_angles(
             atk_angle, guard_angle, severity, deflect_contact, alignment
         )
@@ -81,18 +81,18 @@ static func set_guard_deflected(
         else:
             line = CombatConstants.DEFLECTED_GUARD_FROM_ATTACK.get(atk_line, atk_line)
         blend = 1.0
-    var prev: String = c.get("guard_line", CombatConstants.GUARD_DEFAULT)
-    c["guard_line"] = line
-    c["guard_deflect_blend"] = blend
-    c["guard_deflect_from_line"] = atk_line
+    var prev: String = c.get(DataKeys.ATTACK_GUARD_LINE, CombatConstants.GUARD_DEFAULT)
+    c[DataKeys.ATTACK_GUARD_LINE] = line
+    c[DataKeys.PA_GUARD_DEFLECT_BLEND] = blend
+    c[DataKeys.PA_GUARD_DEFLECT_FROM_LINE] = atk_line
     _sync_guard_zone_from_line(c, line)
     if CombatConstants.combat_debug_active():
         var name_s: String = CombatantEntityAccess.get_display_name(c)
         var kind: String = "bind" if line == atk_line else "deflect"
         var angle_info: String = ""
-        if not clash_context.is_empty() and clash_context.get("attack_angle_deg", null) is float:
-            var atk_a: float = float(clash_context["attack_angle_deg"])
-            var guard_a: float = clash_context.get("guard_angle_deg", CombatConstants.line_to_angle(def_guard))
+        if not clash_context.is_empty() and clash_context.get(DataKeys.ATTACK_ANGLE_DEG, null) is float:
+            var atk_a: float = float(clash_context[DataKeys.ATTACK_ANGLE_DEG])
+            var guard_a: float = clash_context.get(DataKeys.CLASH_GUARD_ANGLE_DEG, CombatConstants.line_to_angle(def_guard))
             angle_info = " [atk=%.0f'deg guard=%.0f'deg]" % [atk_a, guard_a]
         CombatDebug.log(
             (
@@ -110,12 +110,12 @@ static func set_guard_from_move(c: Dictionary, move_id: String, effective_line_o
     if line.is_empty() and not move_id.is_empty():
         var move_def: Dictionary = WeaponConstants.get_move(move_id)
         if not move_def.is_empty():
-            line = move_def.get("attack_line", "")
+            line = move_def.get(DataKeys.PA_ATTACK_LINE, "")
     if not line.is_empty():
-        var prev: String = c.get("guard_line", CombatConstants.GUARD_DEFAULT)
-        c["guard_line"] = line
-        c.erase("guard_deflect_blend")
-        c.erase("guard_deflect_from_line")
+        var prev: String = c.get(DataKeys.ATTACK_GUARD_LINE, CombatConstants.GUARD_DEFAULT)
+        c[DataKeys.ATTACK_GUARD_LINE] = line
+        c.erase(DataKeys.PA_GUARD_DEFLECT_BLEND)
+        c.erase(DataKeys.PA_GUARD_DEFLECT_FROM_LINE)
         _sync_guard_zone_from_line(c, line, true)
         if CombatConstants.combat_debug_active():
             var name_s: String = CombatantEntityAccess.get_display_name(c)
@@ -127,10 +127,10 @@ static func set_guard_from_move(c: Dictionary, move_id: String, effective_line_o
 static func set_guard_from_line(c: Dictionary, line: String) -> void:
     if line.is_empty():
         return
-    var prev: String = c.get("guard_line", CombatConstants.GUARD_DEFAULT)
-    c["guard_line"] = line
-    c.erase("guard_deflect_blend")
-    c.erase("guard_deflect_from_line")
+    var prev: String = c.get(DataKeys.ATTACK_GUARD_LINE, CombatConstants.GUARD_DEFAULT)
+    c[DataKeys.ATTACK_GUARD_LINE] = line
+    c.erase(DataKeys.PA_GUARD_DEFLECT_BLEND)
+    c.erase(DataKeys.PA_GUARD_DEFLECT_FROM_LINE)
     _sync_guard_zone_from_line(c, line, true)
     if CombatConstants.combat_debug_active():
         var name_s: String = CombatantEntityAccess.get_display_name(c)
@@ -141,7 +141,7 @@ static func set_guard_from_line(c: Dictionary, line: String) -> void:
 static func _sync_guard_zone_from_line(c: Dictionary, line: String, sync_focus: bool = false) -> void:
     var part: String = CombatConstants.guard_zone_for_guard_line(line)
     if not part.is_empty():
-        c["guard_zone"] = part
+        c[DataKeys.COMBATANT_GUARD_ZONE] = part
         if sync_focus and CombatAttention.enabled():
             CombatAttention.set_focus(c, part)
         elif str(c.get(CombatConstants.COMBATANT_KEY_FOCUS_PART, "")).is_empty():

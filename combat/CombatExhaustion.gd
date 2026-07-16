@@ -1,7 +1,7 @@
 class_name CombatExhaustion
 extends RefCounted
 
-## MXm: cumulative fight exhaustion (0--"1) on combatant dict; gain on stamina spend; recovery in WAITING.
+## MXm: cumulative fight exhaustion (0—1) on combatant dict; gain on stamina spend; recovery in WAITING.
 ## MXm-2: **`performance_mult_for_combatant`** --'' ' parry readiness, wind-up, surround awareness.
 ## MXm-3: **`effective_stamina_max`** / **`effective_stamina_refill_rate`** -- central fatigue + blood cap burst pool.
 
@@ -15,7 +15,7 @@ static func apply_exertion_from_stamina_spend(manager: Node, combatant: Dictiona
         return
     var exertion: float = stamina_spent * CombatConstants.EXHAUSTION_EXERTION_PER_STAMINA_POINT
     var stats: Dictionary = CombatantEntityAccess.stats_dict(combatant)
-    var end_stat: float = float(stats.get("endurance", CombatConstants.DEFAULT_STAT_VALUE))
+    var end_stat: float = float(stats.get(DataKeys.ENTITY_ENDURANCE, CombatConstants.DEFAULT_STAT_VALUE))
     var end_ratio: float = clampf(end_stat / 100.0, 0.0, 1.0)
     var relief: float = end_ratio * CombatConstants.EXHAUSTION_ENDURANCE_MAX_RELIEF
     exertion *= 1.0 - relief
@@ -32,7 +32,7 @@ static func apply_exertion_from_stamina_spend(manager: Node, combatant: Dictiona
 static func blood_stamina_cap_mult(combatant: Dictionary) -> float:
     if combatant.is_empty():
         return 1.0
-    var blood: float = CombatantEntityAccess.stats_dict(combatant).get("blood_volume", 100.0)
+    var blood: float = CombatantEntityAccess.stats_dict(combatant).get(DataKeys.BLOOD_VOLUME, 100.0)
     var start_t: float = PainConsciousnessConstants.BLOOD_CONSCIOUSNESS_START_THRESHOLD
     var floor_t: float = PainConsciousnessConstants.BLOOD_CONSCIOUSNESS_FLOOR_THRESHOLD
     if blood >= start_t:
@@ -52,7 +52,7 @@ static func effective_stamina_max(combatant: Dictionary) -> float:
     var ex: float = CombatantEntityAccess.exhaustion_float(combatant)
     var exh_m: float = lerpf(1.0, CombatConstants.STAMINA_EXHAUSTION_MAX_MULT_FLOOR, ex)
     var camp_m: float = clampf(
-        combatant.get("campaign_stamina_mult", 1.0),
+        combatant.get(DataKeys.CAMPAIGN_STAMINA_MULT, 1.0),
         CombatConstants.STAMINA_MULT_FLOOR,
         CombatConstants.STAMINA_MULT_CEILING
     )
@@ -68,7 +68,7 @@ static func effective_stamina_refill_rate(combatant: Dictionary) -> float:
     return rate * lerpf(CombatConstants.STAMINA_REFILL_EXHAUSTION_MULT_FLOOR, 1.0, 1.0 - ex)
 
 
-## Stamina / **`effective_stamina_max`** --" use for ratios, UI %, and turn-delay curves.
+## Stamina / **`effective_stamina_max`** — use for ratios, UI %, and turn-delay curves.
 static func stamina_ratio(combatant: Dictionary) -> float:
     var cap: float = effective_stamina_max(combatant)
     if cap <= 0.001:
@@ -80,10 +80,10 @@ static func clamp_stamina_to_effective_max(combatant: Dictionary) -> void:
     if combatant.is_empty():
         return
     var cap: float = effective_stamina_max(combatant)
-    combatant["stamina"] = minf(CombatantEntityAccess.stamina_float(combatant, 0.0), cap)
+    combatant[DataKeys.COMBATANT_STAMINA] = minf(CombatantEntityAccess.stamina_float(combatant, 0.0), cap)
 
 
-## MS-L7: mental stack tunnel --" prefer wait / disengage over new offense.
+## MS-L7: mental stack tunnel — prefer wait / disengage over new offense.
 ## Fires at **`MENTAL_STACK_EXHAUSTION_TUNNEL_THRESHOLD`** (0.50). The `exhaustion_offense_weight_mult`
 ## function uses the higher **`MENTAL_STACK_EXHAUSTION_TUNNEL_EXHAUSTED_THRESHOLD`** (0.75) for its lerp span,
 ## creating a "winded" zone (0.50-0.75) where offense is partially damped but disengage is preferred by layer
@@ -95,7 +95,7 @@ static func exhaustion_tunnel_active(combatant: Dictionary) -> bool:
 
 
 ## Gradual offense damp (below tunnel threshold); stacks with salience damp in **`CombatAIActionPicker`**.
-## Extended lerp range: [0.25, 0.75] --" "fatigued" zone ramps down, "winded" (0.50-0.75) still allows offense (~0.675),
+## Extended lerp range: [0.25, 0.75] — "fatigued" zone ramps down, "winded" (0.50-0.75) still allows offense (~0.675),
 ## "exhausted" (>=0.75) floors at damp floor.
 static func exhaustion_offense_weight_mult(combatant: Dictionary) -> float:
     if not CombatConstants.is_feature_fight_exhaustion_enabled() or combatant.is_empty():

@@ -10,6 +10,7 @@ const CLOSE_SLOTS_PER_TARGET := 3
 const CLOSE_SLOTS_PER_TARGET_TIGHT_BONUS := 1
 const CLOSE_SLOTS_FULL_TARGETING_MULT := 0.32
 const CLOSE_ATTEMPT_SAME_TARGET_COOLDOWN_S := 1.65
+const CLOSE_CONTEST_MELEE_RANGE_NORMALIZER: float = 1.5
 
 
 static func max_close_slots_for_density(density: String) -> int:

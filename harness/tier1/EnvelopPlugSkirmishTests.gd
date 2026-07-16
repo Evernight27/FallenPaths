@@ -27,7 +27,7 @@ static func _run_fall_back_solo_depth_recheck_rank2_after_resolve(failures: Pack
     var rank0_id: int = CombatantEntityAccess.id_int(rank0)
     var rank2_id: int = CombatantEntityAccess.id_int(rank2)
     rank0["state"] = CombatConstants.STATE_FALLING_BACK
-    rank0["state_timer"] = float(rank0.get("state_duration", CombatConstants.BASE_FALL_BACK_S))
+    rank0["state_timer"] = float(rank0.get(DataKeys.PA_STATE_DURATION, CombatConstants.BASE_FALL_BACK_S))
     CombatFormationFlow.handle_fall_back_solo_resolve(mgr, {"combatant_id": rank0_id, "resolve_at": 0.0, "data": {}})
     var after: Dictionary = CombatantEntityAccess.manager_get_combatant(mgr, rank0_id)
     var rank_after: int = CombatantEntityAccess.rank_int(after)
@@ -864,7 +864,7 @@ static func _run_sparse_skirmish_line_rotate_suppressed_when_engagement_listed(f
             CombatRegressionHarness._free_manager(mgr)
             return
         FormationSlots.remove_combatant_from_slots(slots, CombatantEntityAccess.id_int(fled))
-        fled["combat_absent"] = true
+        fled[DataKeys.COMBATANT_COMBAT_ABSENT] = true
         fled.state = CombatConstants.STATE_FLED
     mgr.recompute_zoc_and_distance()
     if not CombatFormationFlow.skirmish_line_sparse_after_casualties(mgr, "player"):
@@ -920,7 +920,7 @@ static func _run_sparse_line_rotate_suppressed_close_band(failures: PackedString
             CombatRegressionHarness._free_manager(mgr)
             return
         FormationSlots.remove_combatant_from_slots(slots, CombatantEntityAccess.id_int(fled))
-        fled["combat_absent"] = true
+        fled[DataKeys.COMBATANT_COMBAT_ABSENT] = true
         fled.state = CombatConstants.STATE_FLED
     mgr.recompute_zoc_and_distance()
     var survivor: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(mgr, "player", 0, 4)

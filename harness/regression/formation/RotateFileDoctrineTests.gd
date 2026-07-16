@@ -64,7 +64,7 @@ static func _run_rotate_file_start_sets_duration_matches_estimate(failures: Pack
     var id1: int = EntityAccess.id_int(p1)
     var want: float = FormationMoveDuration.estimate_rotate_file_duration_s(mgr, p0, p1)
     FormationFlow.start_rotate_file(mgr, id0, id1)
-    var got: float = float(p0.get("state_duration", -1.0))
+    var got: float = float(p0.get(DataKeys.PA_STATE_DURATION, -1.0))
     _free_manager(mgr)
     if not is_equal_approx(got, want):
         _fail(failures, "rotate_dur_flow: want %.4f got %.4f" % [want, got])

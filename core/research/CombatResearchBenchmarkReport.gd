@@ -179,17 +179,13 @@ static func append_research_benchmark_lines(lines: PackedStringArray) -> void:
     )
     lines.append(
         (
-            (
-                "cut_bone_pen_gate_mm game_MFB=%.1f curve_graze_yield=%.1f literature_deep_laceration_reaches_cortex no"
-                + "te=abstract_RHA_mm_not_CT"
-            )
+            "cut_bone_pen_gate_mm game_MFB=%.1f curve_graze_yield=%.1f literature_deep_laceration_reaches_cortex note=abstract_RHA_mm_not_CT"
             % [CombatDamageMechanism.MFB_CUT_BONE_MIN_PENETRATION_MM, MaterialFailureCurves.CUT_TISSUE_YIELD_PEN_MM]
         )
     )
     lines.append(
         (
-            "forearm_blunt_fracture_anchor_J game=%.0f committed_oberhau_J=%.0f bone_damage_at_anchor=%.2f literatu"
-            + "re=Nm_not_1:1_J verdict=note" % [forearm_j, ke_commit, bone_at_ke]
+            "forearm_blunt_fracture_anchor_J game=%.0f committed_oberhau_J=%.0f bone_damage_at_anchor=%.2f literature=Nm_not_1:1_J verdict=note" % [forearm_j, ke_commit, bone_at_ke]
         )
     )
     lines.append(

@@ -70,7 +70,7 @@ static func _batch_outcome_for_method(
     var outcome := CombatConstants.medical_outcome_string(target_method, ok)
     if outcome != "":
         return outcome
-    return str(wind_up_cfg.get("outcome", med_id))
+    return str(wind_up_cfg.get(DataKeys.MEDICAL_OUTCOME), med_id)
 
 
 ## Returns the medical item type multiplier for batch resolve proficiency gains.
@@ -115,10 +115,10 @@ static func _fast_forward_drive_sync(manager: Node, sim_state: Dictionary) -> St
     var break_reason: String = "sim_cap"
     while true:
         var chunk: Dictionary = MedicalPhaseController.fast_forward_advance_chunk(
-            manager, sim_state, float(sim_state["sim_cap"]), INSTANT_FAST_FORWARD_MAX_ITERATIONS
+            manager, sim_state, float(sim_state[DataKeys.SIM_CAP]), INSTANT_FAST_FORWARD_MAX_ITERATIONS
         )
-        if chunk.get("continue_loop", false) != true:
-            break_reason = str(chunk.get("break_reason", "sim_cap"))
+        if chunk.get(DataKeys.MEDICAL_CONTINUE_LOOP, false) != true:
+            break_reason = str(chunk.get(DataKeys.MEDICAL_BREAK_REASON, "sim_cap"))
             break
     return break_reason
 
@@ -143,44 +143,44 @@ static func _clear_instant_complete_fast_forward_meta(manager: Node) -> void:
 static func _instant_complete_fast_forward_step(manager: Node, sim_state: Dictionary) -> Dictionary:
     MedicalPhaseFastForward._ensure_winner_recovery_end_events(manager)
     var dt: float = MedicalPhaseFastForward._next_fast_forward_delta(manager)
-    var stagnant_steps: int = sim_state.get("stagnant_steps", 0)
-    var sim_seconds: float = sim_state.get("sim_seconds", 0.0)
+    var stagnant_steps: int = sim_state.get(DataKeys.SIM_STATE_STAGNANT_STEPS, 0)
+    var sim_seconds: float = sim_state.get(DataKeys.SIM_STATE_SIM_SECONDS, 0.0)
     if dt <= 0.0:
         if MedicalPhaseFastForward._resolve_stalled_winner_turns(manager):
             # Advance clock on turn picks; otherwise sim_s never moves and the loop can spin forever.
             MedicalPhaseBatchResolve._get_process_tick().tick(manager, INSTANT_FAST_FORWARD_MIN_STEP_S)
             sim_seconds += INSTANT_FAST_FORWARD_MIN_STEP_S
-            sim_state["sim_seconds"] = sim_seconds
-            sim_state["stagnant_steps"] = 0
+            sim_state[DataKeys.SIM_STATE_SIM_SECONDS] = sim_seconds
+            sim_state[DataKeys.SIM_STATE_STAGNANT_STEPS] = 0
             return {"continue_loop": true, "stepped": true}
         if MedicalPhaseController.winner_side_untreated_part_count(manager) > 0:
             MedicalPhaseBatchResolve._get_process_tick().tick(manager, INSTANT_FAST_FORWARD_IDLE_STEP_S)
             sim_seconds += INSTANT_FAST_FORWARD_IDLE_STEP_S
-            sim_state["sim_seconds"] = sim_seconds
-            sim_state["stagnant_steps"] = 0
+            sim_state[DataKeys.SIM_STATE_SIM_SECONDS] = sim_seconds
+            sim_state[DataKeys.SIM_STATE_STAGNANT_STEPS] = 0
             return {"continue_loop": true, "stepped": true}
         stagnant_steps += 1
-        sim_state["stagnant_steps"] = stagnant_steps
+        sim_state[DataKeys.SIM_STATE_STAGNANT_STEPS] = stagnant_steps
         if stagnant_steps >= INSTANT_FAST_FORWARD_STAGNANT_LIMIT:
             if MedicalPhaseFastForward._unstick_medical_turns(manager):
-                sim_state["stagnant_steps"] = 0
+                sim_state[DataKeys.SIM_STATE_STAGNANT_STEPS] = 0
                 return {"continue_loop": true, "stepped": false}
             return {"continue_loop": false, "stepped": false}
         # Nudge clock while waiting for wind-ups / recovery to produce the next delta.
         MedicalPhaseBatchResolve._get_process_tick().tick(manager, INSTANT_FAST_FORWARD_MIN_STEP_S)
-        sim_state["sim_seconds"] = sim_seconds + INSTANT_FAST_FORWARD_MIN_STEP_S
+        sim_state[DataKeys.SIM_STATE_SIM_SECONDS] = sim_seconds + INSTANT_FAST_FORWARD_MIN_STEP_S
         return {"continue_loop": true, "stepped": true}
-    sim_state["stagnant_steps"] = 0
+    sim_state[DataKeys.SIM_STATE_STAGNANT_STEPS] = 0
     MedicalPhaseBatchResolve._get_process_tick().tick(manager, dt)
-    sim_state["sim_seconds"] = sim_seconds + dt
+    sim_state[DataKeys.SIM_STATE_SIM_SECONDS] = sim_seconds + dt
     return {"continue_loop": true, "stepped": true}
 
 
 static func _log_instant_complete_result(
     manager: Node, sim_state: Dictionary, break_reason: String = "sim_cap"
 ) -> void:
-    var sim_seconds: float = sim_state.get("sim_seconds", 0.0)
-    var total_iterations: int = sim_state.get("total_iterations", 0)
+    var sim_seconds: float = sim_state.get(DataKeys.SIM_STATE_SIM_SECONDS, 0.0)
+    var total_iterations: int = sim_state.get(DataKeys.SIM_STATE_TOTAL_ITERATIONS, 0)
     var can_end: bool = MedicalPhaseController.can_end_medical_phase(manager)
     var reason: String = break_reason if not break_reason.is_empty() else "sim_cap"
     if OperationalLog.is_play_session_active():
@@ -235,7 +235,7 @@ static func _next_fast_forward_delta(manager: Node) -> float:
         var ev: Dictionary = raw
         if MedicalPhaseController.should_block_scheduled_event(manager, ev):
             continue
-        var resolve_at: float = float(ev.get("resolve_at", INF))
+        var resolve_at: float = float(ev.get(DataKeys.EVENT_RESOLVE_AT, INF))
         if resolve_at > clock:
             best = minf(best, resolve_at - clock)
     for c in manager.combatants:
@@ -243,13 +243,13 @@ static func _next_fast_forward_delta(manager: Node) -> float:
             continue
         var st: String = CombatantEntityAccess.state_str(c)
         if st == CombatConstants.STATE_MEDICAL_WIND_UP:
-            var wind_rem: float = c.get("state_duration", 0.0) - c.get("state_timer", 0.0)
+            var wind_rem: float = c.get(DataKeys.PA_STATE_DURATION, 0.0) - c.get(DataKeys.PA_STATE_TIMER, 0.0)
             if wind_rem > 0.0:
                 best = minf(best, wind_rem)
             else:
                 best = minf(best, INSTANT_FAST_FORWARD_MIN_STEP_S)
         elif st == CombatConstants.STATE_RECEIVING_MEDICAL_ATTENTION:
-            var cd: float = c.get("receiving_care_action_cooldown", 0.0)
+            var cd: float = c.get(DataKeys.PA_RECEIVING_CARE_COOLDOWN, 0.0)
             if cd > 0.0:
                 best = minf(best, cd)
             else:
@@ -269,7 +269,7 @@ static func _has_pending_recovery_end(manager: Node, combatant_id: int) -> bool:
         if raw is not Dictionary:
             continue
         var ev: Dictionary = raw
-        if ev.get("type", "") == CombatConstants.EVENT_RECOVERY_END and int(ev.get("combatant_id", -1)) == combatant_id:
+        if ev.get(DataKeys.EVENT_TYPE, "") == CombatConstants.EVENT_RECOVERY_END and int(ev.get(DataKeys.EVENT_COMBATANT_ID, -1)) == combatant_id:
             return true
     return false
 
@@ -283,7 +283,7 @@ static func _ensure_winner_recovery_end_events(manager: Node) -> void:
         var cid: int = CombatantEntityAccess.id_int(c)
         if MedicalPhaseFastForward._has_pending_recovery_end(manager, cid):
             continue
-        var remaining: float = maxf(0.0, c.get("state_duration", 0.0) - c.get("state_timer", 0.0))
+        var remaining: float = maxf(0.0, c.get(DataKeys.PA_STATE_DURATION, 0.0) - c.get(DataKeys.PA_STATE_TIMER, 0.0))
         (
             CombatantEntityAccess
             . manager_schedule_event(

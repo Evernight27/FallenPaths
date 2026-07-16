@@ -38,8 +38,8 @@ static func clear_all_targeting_state_for_dead_defender(manager: Node, dead_id: 
     if manager == null or dead_id < 0:
         return
     for c in manager.combatants:
-        if c.get("doctrine_target_commit_id", -1) == dead_id:
-            c["doctrine_target_commit_id"] = -1
+        if c.get(DataKeys.DOCTRINE_TARGET_COMMIT_ID, -1) == dead_id:
+            c[DataKeys.DOCTRINE_TARGET_COMMIT_ID] = -1
         var blk: Dictionary = CombatantEntityAccess.nested_dictionary_for_mutation(c, "close_block_until_by_target_id")
         if blk.has(dead_id):
             blk.erase(dead_id)
@@ -50,15 +50,16 @@ static func prune_expired_commitments(manager: Node) -> void:
         return
     var clock: float = CombatantEntityAccess.combat_clock_float(manager)
     for c in manager.combatants:
-        var tid: int = c.get("doctrine_target_commit_id", -1)
+        var tid: int = c.get(DataKeys.DOCTRINE_TARGET_COMMIT_ID, -1)
         if tid < 0:
             continue
-        if clock > c.get("doctrine_commit_until", 0.0):
-            c["doctrine_target_commit_id"] = -1
+        if clock > c.get(DataKeys.DOCTRINE_COMMIT_UNTIL, 0.0):
+            c[DataKeys.DOCTRINE_TARGET_COMMIT_ID] = -1
             continue
         var t: Dictionary = CombatantEntityAccess.manager_get_combatant(manager, tid)
         if t.is_empty() or not CombatantEntityAccess.is_standing_combatant(t):
-            c["doctrine_target_commit_id"] = -1
+            c[DataKeys.DOCTRINE_TARGET_COMMIT_ID] = -1
+
 
 
 static func on_combat_commitment(manager: Node, attacker_id: int, target_id: int) -> void:
@@ -68,8 +69,8 @@ static func on_combat_commitment(manager: Node, attacker_id: int, target_id: int
     var tgt: Dictionary = CombatantEntityAccess.manager_get_combatant(manager, target_id)
     if tgt.is_empty() or not CombatantEntityAccess.is_alive_opponent_of(atk, tgt):
         return
-    atk["doctrine_target_commit_id"] = target_id
-    atk["doctrine_commit_until"] = (
+    atk[DataKeys.DOCTRINE_TARGET_COMMIT_ID] = target_id
+    atk[DataKeys.DOCTRINE_COMMIT_UNTIL] = (
         CombatantEntityAccess.combat_clock_float(manager) + CombatConstants.DOCTRINE_COMMITMENT_DURATION_S
     )
     CombatDoctrine.propagate_pincer_wing_commitments_from_center(manager, attacker_id, target_id)
@@ -236,7 +237,7 @@ static func ally_pressure_count(manager: Node, defender_id: int, ally_side: Stri
             continue
         if CombatantEntityAccess.id_int(c) == exclude_attacker_id:
             continue
-        if c.get("doctrine_target_commit_id", -1) != defender_id:
+        if c.get(DataKeys.DOCTRINE_TARGET_COMMIT_ID, -1) != defender_id:
             continue
         var rk: int = CombatantEntityAccess.rank_int(c)
         if rk == 0:
@@ -273,13 +274,13 @@ static func close_slot_saturation_targeting_mult(
 
 
 static func commitment_match_mult(actor: Dictionary, target_id: int) -> float:
-    if actor.get("doctrine_target_commit_id", -1) == target_id:
+    if actor.get(DataKeys.DOCTRINE_TARGET_COMMIT_ID, -1) == target_id:
         return CombatConstants.DOCTRINE_COMMIT_MATCH_WEIGHT_MULT
     return 1.0
 
 
-## Tier 1.6 (P7): LINE posture scales with cohesion (ragged --'' slightly lower listed-target weights; solid --'' slight
-## commit). OPEN/DUEL: looser cohesion --'' small aggression nudge.
+## Tier 1.6 (P7): LINE posture scales with cohesion (ragged — slightly lower listed-target weights; solid — slight
+## commit). OPEN/DUEL: looser cohesion — small aggression nudge.
 ## Intruders: uses host-line formation via **`formation_for_combatant_cached`** (cohesion/posture match tactical
 ## position).
 ## Optional **`formation_dict_cache`**: **`zone_geometry_line_context(manager, actor).formation`** when the caller
@@ -290,8 +291,8 @@ static func posture_cohesion_targeting_mult(
     var fd: Dictionary = ZoneOfControl.formation_for_combatant_cached(manager, actor, formation_dict_cache)
     if fd.is_empty():
         return 1.0
-    var coh: float = clampf(fd.get("line_cohesion", 1.0), 0.0, 1.0)
-    var pst: String = fd.get("engagement_posture", "").strip_edges().to_lower()
+    var coh: float = clampf(fd.get(DataKeys.FORMATION_LINE_COHESION, 1.0), 0.0, 1.0)
+    var pst: String = fd.get(DataKeys.FORMATION_ENGAGEMENT_POSTURE, "").strip_edges().to_lower()
     if pst == CombatConstants.ENGAGEMENT_POSTURE_LINE:
         return lerpf(CombatConstants.AI_TARGETING_LINE_COH_LO_MULT, CombatConstants.AI_TARGETING_LINE_COH_HI_MULT, coh)
     if pst == CombatConstants.ENGAGEMENT_POSTURE_OPEN or pst == CombatConstants.ENGAGEMENT_POSTURE_DUEL:
@@ -329,8 +330,8 @@ static func opponent_formation_targeting_mult(
     var fd: Dictionary = ZoneOfControl.formation_for_combatant_cached(manager, opp, formation_dict_cache)
     if fd.is_empty():
         return 1.0
-    var coh: float = clampf(fd.get("line_cohesion", 1.0), 0.0, 1.0)
-    var pst: String = fd.get("engagement_posture", "").strip_edges().to_lower()
+    var coh: float = clampf(fd.get(DataKeys.FORMATION_LINE_COHESION, 1.0), 0.0, 1.0)
+    var pst: String = fd.get(DataKeys.FORMATION_ENGAGEMENT_POSTURE, "").strip_edges().to_lower()
     if pst == CombatConstants.ENGAGEMENT_POSTURE_LINE:
         return lerpf(
             CombatConstants.AI_TARGETING_OPP_LINE_COH_SOLID_MULT,
@@ -457,10 +458,10 @@ static func ai_targeting_weight_mult(
 ) -> float:
     if not skip_prune:
         prune_expired_commitments(manager)
-    var mid: String = action.get("move_id", "")
+    var mid: String = action.get(DataKeys.ACTION_MOVE_ID, "")
     if not targets_hostile_for_scoring(mid):
         return 1.0
-    var tid: int = action.get("target_id", -1)
+    var tid: int = action.get(DataKeys.ACTION_TARGET_ID, -1)
     if tid < 0:
         return 1.0
     var atk: Dictionary = CombatantEntityAccess.manager_get_combatant(manager, attacker_id)

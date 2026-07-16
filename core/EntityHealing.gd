@@ -66,7 +66,7 @@ static func _process_healing(entity: Node, seconds: float) -> void:
                 BleedingConstants.SEVERITY_CRITICAL
             ]
             for injury in entity.wounds[part]:
-                var sev: String = injury.get("severity", BleedingConstants.SEVERITY_MINOR)
+                var sev: String = injury.get(DataKeys.INJURY_SEVERITY, BleedingConstants.SEVERITY_MINOR)
                 if order.find(sev) > order.find(severity):
                     severity = sev
         var tissue_duration: float = HealingConstants.get_tissue_heal_duration_seconds(part, severity)

@@ -15,7 +15,7 @@ extends RefCounted
 ## (**`ACTION_KEY_COUNTER_TEMPO`**) ->'' -  **`CounterTempo.counter_tempo_listing_weight_mult`**
 ## (**`AI_COUNTER_TEMPO_*`**). **`is_feint`** moves get **`CombatConstants.AI_IS_FEINT_MOVE_LISTING_WEIGHT_MULT`** ->''
 ## -  defender-readiness lerp (**`PassiveParryContext.get_passive_parry_readiness`** ->'' -
-## **`CombatConstants.passive_parry_readiness_incoming_contact_mult`** for this move'"--"''s **`contact_type`** ->'' -
+## **`CombatConstants.passive_parry_readiness_incoming_contact_mult`** for this move'"—''s **`contact_type`** ->'' -
 ## **`CombatConstants.defender_passive_readiness_stamina_mult_from_ratio`** on the defender ->'' -
 ## **`CombatConstants.ai_feint_listing_defender_readiness_spacing_mult`** from defender **`distance_to[attacker]`** '""
 ## same curve as **`DefenseChoiceResolver`** reported readiness, not attacker stamina) ->'' -  attacker
@@ -43,7 +43,8 @@ static func pick(actions: Array, combatant_id: int, manager: Node) -> Dictionary
         var choice_stacked: Dictionary = stacked.duplicate()
         CombatAIAttackTargetPart._add_attack_target_part(choice_stacked, manager, combatant_id)
         return choice_stacked
-    CombatWeaponForm.evaluate_automatic_form(manager, c_pick)
+    if CombatWeaponForm.evaluate_automatic_form(manager, c_pick):
+        return {}
     return pick_weighted(actions, combatant_id, manager)
 
 
@@ -81,7 +82,8 @@ static func pick_weighted(
             CombatAIAttackTargetPart._add_attack_target_part(choice, manager, combatant_id)
             return choice
         r -= w
-    var fallback: Dictionary = actions[0].duplicate()
+    ## Floating-point cumulative sum can miss the last action when r ≈ total due to precision.
+    var fallback: Dictionary = actions[-1].duplicate()
     CombatAIAttackTargetPart._add_attack_target_part(fallback, manager, combatant_id)
     return fallback
 
@@ -111,10 +113,10 @@ static func pick_highest_medical(actions: Array, combatant_id: int, manager: Nod
 ## Build opts dict from AI choice (target_part, feint_part) for resolve_action. Shared by all pick-and-resolve callers.
 static func opts_from_choice(choice: Dictionary) -> Dictionary:
     var opts: Dictionary = {}
-    if choice.get("target_part", "") != "":
-        opts["target_part"] = choice.target_part
-    if choice.get("feint_part", "") != "":
-        opts["feint_part"] = choice.feint_part
+    if choice.get(DataKeys.ACTION_TARGET_PART, "") != "":
+        opts[DataKeys.ACTION_TARGET_PART] = choice.get(DataKeys.ACTION_TARGET_PART, "")
+    if choice.get(DataKeys.ACTION_FEINT_PART, "") != "":
+        opts[DataKeys.ACTION_FEINT_PART] = choice.get(DataKeys.ACTION_FEINT_PART, "")
     if choice.get(CombatConstants.ACTION_KEY_COUNTER_TEMPO, false):
         opts[CombatConstants.ACTION_KEY_COUNTER_TEMPO] = true
     return opts
@@ -126,8 +128,8 @@ static func opts_from_choice(choice: Dictionary) -> Dictionary:
 ## Apply a picked move via **`CombatManager.resolve_action`** (shared by player/enemy turn paths).
 static func resolve_choice(manager: Node, combatant_id: int, choice: Dictionary, self_target: bool = false) -> bool:
     var opts: Dictionary = opts_from_choice(choice)
-    var target_id: int = combatant_id if self_target else int(choice.get("target_id", combatant_id))
-    var move_id: String = choice.get("move_id", "")
+    var target_id: int = combatant_id if self_target else int(choice.get(DataKeys.ACTION_TARGET_ID, combatant_id))
+    var move_id: String = choice.get(DataKeys.ACTION_MOVE_ID, "")
     var committed: bool = manager.resolve_action(combatant_id, target_id, move_id, opts)
     if not committed:
         CombatAIActionWeights._verify_turn_committed_after_resolve(manager, combatant_id, move_id)
@@ -148,7 +150,7 @@ static func resolve_picked_turn(
             manager, combatant_id, "pass", "medical coordination blocked stale pick"
         )
     elif not committed:
-        CombatAIActionWeights._verify_turn_committed_after_resolve(manager, combatant_id, choice.get("move_id", ""))
+        CombatAIActionWeights._verify_turn_committed_after_resolve(manager, combatant_id, choice.get(DataKeys.ACTION_MOVE_ID, ""))
     if not log_side.is_empty() and committed:
         CombatDebug.flow_log_turn(log_side, combatant_id, actions, choice, manager)
 

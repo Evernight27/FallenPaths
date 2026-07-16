@@ -20,7 +20,7 @@ static func filter_post_strike_actions(
         if raw is not Dictionary:
             continue
         var a: Dictionary = raw
-        var mid: String = str(a.get("move_id", ""))
+        var mid: String = str(a.get(DataKeys.ACTION_MOVE_ID, ""))
         if mid == CombatConstants.MOVE_ID_WAIT:
             continue
         if CombatConstants.is_medical_move(mid):
@@ -31,7 +31,7 @@ static func filter_post_strike_actions(
             continue
         if mid == CombatConstants.MOVE_ID_ATTEMPT_CLOSE:
             continue
-        var tid: int = a.get("target_id", -1)
+        var tid: int = a.get(DataKeys.ACTION_TARGET_ID, -1)
         if tid != struck_target_id:
             continue
         var tgt: Dictionary = CombatantEntityAccess.manager_get_combatant(manager, tid)
@@ -45,9 +45,9 @@ static func filter_post_strike_actions(
             if raw is not Dictionary:
                 continue
             var a: Dictionary = raw
-            if str(a.get("move_id", "")) != CombatConstants.MOVE_ID_ATTEMPT_CLOSE:
+            if str(a.get(DataKeys.ACTION_MOVE_ID, "")) != CombatConstants.MOVE_ID_ATTEMPT_CLOSE:
                 continue
-            var tid: int = a.get("target_id", -1)
+            var tid: int = a.get(DataKeys.ACTION_TARGET_ID, -1)
             if tid != struck_target_id:
                 continue
             out.append(a)

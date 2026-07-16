@@ -1,8 +1,8 @@
 extends Node
 
 ## Battle scene shell: wires **`BattleUIUpdater`** gauge rows and formation diagram.
-## Footing: suffix order **Step Ã¢â ' Grd/Atk Ã¢â ' Form** via **`CombatUiHints`** — LIVE_PATHS **`#battle-ui`** ·
-## **`#wf-footing-doc-map`** · soak **`#wf-soak-audit-status`**.
+## Footing: suffix order **Step ÃƒÂ¢Ã¢Â€Â ' Grd/Atk ÃƒÂ¢Ã¢Â€Â ' Form** via **`CombatUiHints`** â€” LIVE_PATHS **`#battle-ui`** Â·
+## **`#wf-footing-doc-map`** Â· soak **`#wf-soak-audit-status`**.
 
 signal battle_ended(winner: String, defeated: Node)
 
@@ -60,11 +60,11 @@ func _ready() -> void:
 
 ## Start battle. Optional p_player_formation and p_enemy_formation: { files, ranks, density, optional
 ## **`CombatConstants.FORMATION_PRESET_KEY_DOCTRINE`** or **`FORMATION_PRESET_KEY_DOCTRINE_ALT`**, optional
-## **`CombatConstants.FORMATION_PRESET_KEY_DEPTH_POLEARM_AI_MULTS`**, —Â¦ }.
+## **`CombatConstants.FORMATION_PRESET_KEY_DEPTH_POLEARM_AI_MULTS`**, â€”Ã‚Â¦ }.
 ## When omitted, uses world meta "party_formation" / "enemy_formation" or defaults from count.
 ## Optional p_encounter: merged into **`CombatManager.encounter`** before **`manager.start()`** (same keys as
-## **`CombatManager.start`** default_enc — doctrine, **`depth_polearm_ai_doctrine_mults_*`**,
-## **`ENCOUNTER_KEY_FLEE_*`**, posture deltas, —Â¦). Preset dicts may set **`FORMATION_PRESET_KEY_FLEE_*`** rout
+## **`CombatManager.start`** default_enc â€” doctrine, **`depth_polearm_ai_doctrine_mults_*`**,
+## **`ENCOUNTER_KEY_FLEE_*`**, posture deltas, â€”Ã‚Â¦). Preset dicts may set **`FORMATION_PRESET_KEY_FLEE_*`** rout
 ## overrides per side. If empty, reads **`parent_scene`** meta **`CombatConstants.WORLD_META_COMBAT_ENCOUNTER`** when
 ## present (**`CombatFlow.start_combat`** can set it on the world).
 func start(
@@ -112,7 +112,7 @@ func start(
         BattleUIConstants.MAIN_LIST_PATH + "/EnemyStatsScroll/EnemyPanel/EnemyVBox/EnemyList"
     )
     if _player_list == null or _enemy_list == null:
-        push_error("BattleScene: missing PlayerList or EnemyList in UI tree — combatant rows will not render")
+        push_error("BattleScene: missing PlayerList or EnemyList in UI tree â€” combatant rows will not render")
     for pl in players:
         var pid = manager.register(pl, CombatConstants.SIDE_PLAYER)
         CombatantRowBuilder.create_row(pid, pl, _player_list, id_to_controls)
@@ -442,21 +442,21 @@ func _log_fp_diagram_banner_if_changed() -> void:
 
 func _format_engagement_line(form: Dictionary, formation_id: String) -> String:
     if form.is_empty():
-        return "—"
-    var mode_disp: String = "—"
+        return "â€”"
+    var mode_disp: String = "â€”"
     if manager != null:
         mode_disp = CombatEngagementMode.mode_display_name(CombatEngagementMode.engagement_mode(manager))
-    var posture: String = str(form.get("engagement_posture", "—"))
+    var posture: String = str(form.get("engagement_posture", "â€”"))
     var coh: float = form.get("line_cohesion", 0.0)
-    var line: String = "%s · %s · cohesion %d%%" % [mode_disp, posture.capitalize(), int(roundf(coh * 100.0))]
+    var line: String = "%s Â· %s Â· cohesion %d%%" % [mode_disp, posture.capitalize(), int(roundf(coh * 100.0))]
     if manager != null:
         var cas_pct: int = CombatFormationRout.casualty_percent_for_formation(manager, formation_id)
         if cas_pct > 0:
-            line += " · %d%% casualties" % cas_pct
+            line += " Â· %d%% casualties" % cas_pct
     if manager != null and manager.has_method("get_formation_doctrine"):
         var doc: String = str(manager.get_formation_doctrine(formation_id))
         if doc != CombatConstants.DOCTRINE_DEFAULT and not doc.is_empty():
-            line += " · %s" % doc.replace("_", " ").capitalize()
+            line += " Â· %s" % doc.replace("_", " ").capitalize()
     return line
 
 
@@ -516,7 +516,7 @@ func _on_action_resolved(attacker_id: int, target_id: int, result: Dictionary) -
         if target_id >= 0:
             killer_name = atk_name
         else:
-            killer_name = "—"
+            killer_name = "â€”"
             killer_node = null
         var weapon: String = ""
         if killer_node != null:
@@ -555,8 +555,8 @@ func _on_enemies_eliminated(winner_side: String) -> void:
         else:
             combat_log.append_text(
                 (
-                    "\n[color=orange]——— Enemies eliminated. Medical phase: dress all wounded (bandage/pack/TQ) before "
-                    + "ending. ———[/color]\n"
+                    "\n[color=orange]â€”â€”â€” Enemies eliminated. Medical phase: dress all wounded (bandage/pack/TQ) before "
+                    + "ending. â€”â€”â€”[/color]\n"
                 )
             )
         _scroll_combat_log_to_bottom()
@@ -571,9 +571,9 @@ func _on_combat_ended(winner_side: String, defeated_node: Node) -> void:
     var def_name: String = str(defeated_node.name) if defeated_node != null else "null"
     if not OperationalLog.is_play_session_active():
         CombatDebug.combat_session("combat_ended winner=%s defeated=%s" % [winner_side, def_name])
-    # Player medical-phase exit logs via finish_battle / campaign button — skip duplicate banner.
+    # Player medical-phase exit logs via finish_battle / campaign button â€” skip duplicate banner.
     if combat_log and not (winner_side == CombatConstants.SIDE_PLAYER and _in_medical_phase):
-        combat_log.append_text("\n[color=yellow]——— Combat ended. Winner: %s ———[/color]\n" % winner_side)
+        combat_log.append_text("\n[color=yellow]â€”â€”â€” Combat ended. Winner: %s â€”â€”â€”[/color]\n" % winner_side)
         _scroll_combat_log_to_bottom()
     # Enemy won: show End battle immediately. Player won: handled by _on_enemies_eliminated (medical phase first).
     if winner_side == CombatConstants.SIDE_ENEMY:
@@ -708,7 +708,7 @@ func _on_end_battle_button_pressed():
     _medical_exit_fast_forward_active = false
     if not is_inside_tree():
         return
-    emit_signal("battle_ended", _pending_winner, _pending_defeated)
+    battle_ended.emit(_pending_winner, _pending_defeated)
     queue_free()
 
 
@@ -736,3 +736,4 @@ func _exit_tree() -> void:
     # Restore visibility of the parent scene when this battle UI is removed
     if parent_scene != null:
         parent_scene.visible = true
+

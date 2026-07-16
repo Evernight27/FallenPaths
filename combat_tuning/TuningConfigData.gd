@@ -408,7 +408,7 @@ static func scenario_menu_entries() -> Array[Dictionary]:
     entries.append(
         {"key": "Random", "label": "Random", "description": "Fully randomized matchup each cycle", "separator": false}
     )
-    entries.append({"key": "", "label": "--- General ---", "description": "", "separator": true})
+    entries.append({"key": "", "label": "--- General", "description": "", "separator": true})
     entries.append(
         {
             "key": "Default",
@@ -426,7 +426,7 @@ static func scenario_menu_entries() -> Array[Dictionary]:
         }
     )
     entries.append(
-        {"key": "", "label": "--- Weapon mirrors (human, no armor) ---", "description": "", "separator": true}
+        {"key": "", "label": "--- Weapon mirrors (human, no armor)", "description": "", "separator": true}
     )
     for wid in WEAPON_IDS:
         (
@@ -440,7 +440,7 @@ static func scenario_menu_entries() -> Array[Dictionary]:
                 }
             )
         )
-    entries.append({"key": "", "label": "--- Species cross ---", "description": "", "separator": true})
+    entries.append({"key": "", "label": "--- Species cross", "description": "", "separator": true})
     (
         entries
         . append(
@@ -474,7 +474,7 @@ static func scenario_menu_entries() -> Array[Dictionary]:
             }
         )
     )
-    entries.append({"key": "", "label": "--- Armor tiers (human sword) ---", "description": "", "separator": true})
+    entries.append({"key": "", "label": "--- Armor tiers (human sword)", "description": "", "separator": true})
     (
         entries
         . append(
@@ -498,7 +498,7 @@ static func scenario_menu_entries() -> Array[Dictionary]:
                 }
             )
         )
-    entries.append({"key": "", "label": "--- Classic matchups ---", "description": "", "separator": true})
+    entries.append({"key": "", "label": "--- Classic matchups", "description": "", "separator": true})
     entries.append(
         {
             "key": "Heavy vs Light",

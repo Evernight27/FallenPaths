@@ -122,7 +122,7 @@ static func p4d_parry_bind_doc_sync_line() -> String:
 
 
 static func commitment_fraction_for_pending_attack(pa: Dictionary) -> float:
-    if not pa.get("feint_part", "").strip_edges().is_empty():
+    if not pa.get(DataKeys.ACTION_FEINT_PART, "").strip_edges().is_empty():
         return COMMITMENT_FRACTION_FEINT
     return COMMITMENT_FRACTION
 
@@ -138,17 +138,17 @@ static func glancing_factor(ratio: float, exponent: float = PARRY_GLANCING_EXPON
 static func compute_parry_redirect_mult(
     pcfg: Dictionary, agi: float, perc: float, contact_type: String, is_block_parry: bool, m_a: float, m_d: float
 ) -> float:
-    var r_bonus: float = pcfg.get("redirect_bonus", PARRY_REDIRECT_BONUS)
-    var r_scale: float = pcfg.get("redirect_skill_scale", PARRY_REDIRECT_SKILL_SCALE)
+    var r_bonus: float = pcfg.get(DataKeys.PCFG_REDIRECT_BONUS, PARRY_REDIRECT_BONUS)
+    var r_scale: float = pcfg.get(DataKeys.PCFG_REDIRECT_SKILL_SCALE, PARRY_REDIRECT_SKILL_SCALE)
     var redirect_skill: float = stats_factor_agi_perc(agi, perc)
     var redirect_mult: float = 1.0 + r_bonus + (redirect_skill - 0.5) * r_scale
     var ct: String = contact_type.to_lower()
     if ct == "stab":
-        redirect_mult *= 1.0 + pcfg.get("redirect_thrust_bonus", PARRY_REDIRECT_THRUST_BONUS)
+        redirect_mult *= 1.0 + pcfg.get(DataKeys.PCFG_REDIRECT_THRUST_BONUS, PARRY_REDIRECT_THRUST_BONUS)
     elif ct == "blunt":
-        redirect_mult *= 1.0 - pcfg.get("redirect_blunt_penalty", PARRY_REDIRECT_BLUNT_PENALTY)
+        redirect_mult *= 1.0 - pcfg.get(DataKeys.PCFG_REDIRECT_BLUNT_PENALTY, PARRY_REDIRECT_BLUNT_PENALTY)
     if not is_block_parry and m_a > 0.001 and m_d < m_a:
-        var mass_bonus: float = pcfg.get("mass_disparity_bonus", PARRY_MASS_DISPARITY_BONUS) * (1.0 - m_d / m_a)
+        var mass_bonus: float = pcfg.get(DataKeys.PCFG_MASS_DISPARITY_BONUS, PARRY_MASS_DISPARITY_BONUS) * (1.0 - m_d / m_a)
         redirect_mult *= 1.0 + mass_bonus
     return redirect_mult
 

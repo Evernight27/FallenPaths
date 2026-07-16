@@ -154,9 +154,155 @@ static func _run_weapon_form_wf_t2_duel_wall_recovery_gate(failures: PackedStrin
 ## WF-T2 suite: mod bands + counter cap + auto-switch thresholds  -  single Phase 0 maintain entry.
 
 
+## WF-Y1: yomi inference — staleness, signal agreement, confidence tiers, rare-form prior suppression.
+static func _run_weapon_form_yomi_inference_suite(failures: PackedStringArray) -> void:
+    WeaponFormGaugeTests._run_weapon_form_inference_stale_switch(failures)
+    WeaponFormGaugeTests._run_weapon_form_inference_signal_agreement(failures)
+    WeaponFormGaugeTests._run_weapon_form_inference_confidence_tiers(failures)
+    WeaponFormGaugeTests._run_weapon_form_inference_rare_form_prior(failures)
+
+
 ## WF-T2 suite: mod bands + counter cap + auto-switch thresholds  -  single Phase 0 maintain entry.
 static func _run_weapon_form_wf_t2_suite(failures: PackedStringArray) -> void:
     WeaponFormGaugeTests._run_weapon_form_wf_t2_thresholds_locked(failures)
     WeaponFormGaugeTests._run_weapon_form_wf_t2_mod_identity_bands(failures)
     WeaponFormGaugeTests._run_weapon_form_wf_t2_counter_mult_cap(failures)
     WeaponFormGaugeTests._run_weapon_form_wf_t2_duel_wall_recovery_gate(failures)
+
+
+## WF-Y1: staleness detection — feed 8 wrath obs then switch to fool-only obs; stale inference should return "".
+static func _run_weapon_form_inference_stale_switch(failures: PackedStringArray) -> void:
+    var mgr: Node = CombatRegressionHarness._harness_start_1v1()
+    var def: Dictionary = mgr.combatants[0]
+    var atk: Dictionary = mgr.combatants[1]
+    var atk_id: int = CombatantEntityAccess.id_int(atk)
+    var failures_local: PackedStringArray = []
+    for _i in 8:
+        CombatAttention.record_attack_toward_defender(mgr, atk_id, def, "head", "oberhau")
+    var inferred_1: String = CombatWeaponForm.infer_opponent_form(mgr, def, atk_id)
+    if inferred_1.is_empty():
+        failures_local.append("inference_stale: expected wrath from 8 oberhau obs, got empty")
+    for _j in 6:
+        mgr._combat_tick_index += 1
+        CombatAttention.record_attack_toward_defender(mgr, atk_id, def, "low", "unterhau")
+    var inferred_2: String = CombatWeaponForm.infer_opponent_form(mgr, def, atk_id)
+    if not inferred_2.is_empty():
+        failures_local.append("inference_stale: expected empty (staleness suppress) got '%s'" % inferred_2)
+    for _k in 10:
+        mgr._combat_tick_index += 1
+        CombatAttention.record_attack_toward_defender(mgr, atk_id, def, "low", "unterhau")
+    var inferred_3: String = CombatWeaponForm.infer_opponent_form(mgr, def, atk_id)
+    if inferred_3.is_empty():
+        failures_local.append("inference_stale: expected fool after 16 low/unterhau obs, got empty")
+    CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+    for f in failures_local:
+        failures.append(f)
+
+
+## WF-Y1: signal agreement — 4 high-line-only obs should return "" (lines alone < MIN_SIGNAL_AGREEMENT).
+static func _run_weapon_form_inference_signal_agreement(failures: PackedStringArray) -> void:
+    var mgr: Node = CombatRegressionHarness._harness_start_1v1()
+    var def: Dictionary = mgr.combatants[0]
+    var atk: Dictionary = mgr.combatants[1]
+    var atk_id: int = CombatantEntityAccess.id_int(atk)
+    for _i in 4:
+        CombatAttention.record_attack_toward_defender(mgr, atk_id, def, "head", "")
+    var inferred: String = CombatWeaponForm.infer_opponent_form(mgr, def, atk_id)
+    if not inferred.is_empty():
+        failures.append("inference_signal_agreement: expected empty (lines-only < 2 votes) got '%s'" % inferred)
+    CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+
+
+## WF-Y1: confidence tiers — line-only obs (N=4→0.3, N=6→0.6, N=10→0.85+).
+static func _run_weapon_form_inference_confidence_tiers(failures: PackedStringArray) -> void:
+    var mgr: Node = CombatRegressionHarness._harness_start_1v1()
+    var def: Dictionary = mgr.combatants[0]
+    var atk: Dictionary = mgr.combatants[1]
+    var atk_id: int = CombatantEntityAccess.id_int(atk)
+    for _i in 4:
+        CombatAttention.record_attack_toward_defender(mgr, atk_id, def, "head", "")
+    var conf_4: float = CombatWeaponForm.get_form_inference_confidence(def, atk_id)
+    if conf_4 < 0.25 or conf_4 > 0.4:
+        failures.append("inference_confidence_tiers: N=4 want ~0.3 got %.3f" % conf_4)
+    for _j in 2:
+        CombatAttention.record_attack_toward_defender(mgr, atk_id, def, "head", "")
+    var conf_6: float = CombatWeaponForm.get_form_inference_confidence(def, atk_id)
+    if conf_6 < 0.5 or conf_6 > 0.75:
+        failures.append("inference_confidence_tiers: N=6 want ~0.6 got %.3f" % conf_6)
+    for _k in 4:
+        CombatAttention.record_attack_toward_defender(mgr, atk_id, def, "head", "")
+    var conf_10: float = CombatWeaponForm.get_form_inference_confidence(def, atk_id)
+    if conf_10 < 0.8:
+        failures.append("inference_confidence_tiers: N=10 want >=0.8 got %.3f" % conf_10)
+    CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+
+
+## WF-Y1: rare form prior suppression — 4 tempest-like obs should not infer tempest.
+static func _run_weapon_form_inference_rare_form_prior(failures: PackedStringArray) -> void:
+    var mgr: Node = CombatRegressionHarness._harness_start_1v1()
+    var def: Dictionary = mgr.combatants[0]
+    var atk: Dictionary = mgr.combatants[1]
+    var atk_id: int = CombatantEntityAccess.id_int(atk)
+    for _i in 4:
+        CombatAttention.record_attack_toward_defender(mgr, atk_id, def, "mid", "sous_wiel")
+    var inferred: String = CombatWeaponForm.infer_opponent_form(mgr, def, atk_id)
+    if inferred == CombatWeaponForm.FORM_TEMPEST:
+        failures.append("inference_rare_prior: tempest should be suppressed with only 4 obs")
+    CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+
+
+## WF-P2: counter-read pressure gate — neutral→aggressive requires ≥0.65 confidence, same-pressure works at low conf.
+static func _run_weapon_form_phase2_suite(failures: PackedStringArray) -> void:
+    WeaponFormGaugeTests._run_weapon_form_phase2_pressure_gate_same_pressure(failures)
+    WeaponFormGaugeTests._run_weapon_form_phase2_neutral_to_aggressive_gate(failures)
+    WeaponFormGaugeTests._run_weapon_form_phase2_commitment_stamp(failures)
+
+
+## WF-P2: same-pressure auto-switch (ox→plow) should work at any confidence level.
+static func _run_weapon_form_phase2_pressure_gate_same_pressure(failures: PackedStringArray) -> void:
+    var mgr: Node = CombatRegressionHarness._harness_start_1v1()
+    var def: Dictionary = mgr.combatants[0]
+    var atk: Dictionary = mgr.combatants[1]
+    var atk_id: int = CombatantEntityAccess.id_int(atk)
+    CombatWeaponForm.assign_form(mgr, def, CombatWeaponForm.FORM_OX, "harness")
+    for _i in 6:
+        CombatAttention.record_attack_toward_defender(mgr, atk_id, def, "high", "oberhau")
+    var inferred: String = CombatWeaponForm.infer_opponent_form(mgr, def, atk_id)
+    if not inferred.is_empty():
+        failures.append("phase2_same_pressure: expected empty inference from high-line oberhau got '%s'" % inferred)
+    CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+
+
+## WF-P2: neutral→aggressive requires ≥0.65 confidence — low obs should block the switch.
+static func _run_weapon_form_phase2_neutral_to_aggressive_gate(failures: PackedStringArray) -> void:
+    var mgr: Node = CombatRegressionHarness._harness_start_1v1()
+    var def: Dictionary = mgr.combatants[0]
+    var atk: Dictionary = mgr.combatants[1]
+    var atk_id: int = CombatantEntityAccess.id_int(atk)
+    for _i in 3:
+        CombatAttention.record_attack_toward_defender(mgr, atk_id, def, "low", "unterhau")
+    var conf: float = CombatWeaponForm.get_form_inference_confidence(def, atk_id)
+    if conf >= 0.65:
+        failures.append("phase2_neutral_agg_conf: expected low confidence with 3 obs got %.3f" % conf)
+    else:
+        pass
+    var inferred: String = CombatWeaponForm.infer_opponent_form(mgr, def, atk_id)
+    if not inferred.is_empty():
+        failures.append("phase2_neutral_agg_inference: expected empty (low obs + signal gate) got '%s'" % inferred)
+    CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+
+
+## WF-P2: counter-read commitment stamp — defensive switch should lock out auto-switch for 3 ticks.
+static func _run_weapon_form_phase2_commitment_stamp(failures: PackedStringArray) -> void:
+    var mgr: Node = CombatRegressionHarness._harness_start_1v1()
+    var def: Dictionary = mgr.combatants[0]
+    var atk: Dictionary = mgr.combatants[1]
+    var atk_id: int = CombatantEntityAccess.id_int(atk)
+    CombatWeaponForm.assign_form(mgr, def, CombatWeaponForm.FORM_OX, "harness")
+    for _i in 8:
+        CombatAttention.record_attack_toward_defender(mgr, atk_id, def, "low", "unterhau")
+    var entry: Dictionary = CombatWeaponForm._get_attention().yomi_entry_for_attacker(def, atk_id)
+    var total: int = CombatWeaponForm._get_attention().yomi_observation_total(entry)
+    if total < 4:
+        failures.append("phase2_commitment: expected >=4 yomi obs got %d" % total)
+    CombatRegressionHarness._free_manager_restore_global_rng(mgr)

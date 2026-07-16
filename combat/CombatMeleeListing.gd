@@ -2,7 +2,7 @@ class_name CombatMeleeListing
 extends RefCounted
 
 ## Melee strike / attempt-close action listing and **`can_melee_threaten`** (reach + band + rank gates).
-## Footing: lists strikes only --" does **not** stamp PA or write **`guard_line`**. LIVE_PATHS **`#wf-pick-vs-strike`**.
+## Footing: lists strikes only — does **not** stamp PA or write **`guard_line`**. LIVE_PATHS **`#wf-pick-vs-strike`**.
 ## **Read order:** live rows |' threaten checks |' append listing (uses
 ## **`ZoneOfControl.opponent_formation_for_listing`**).
 
@@ -50,7 +50,7 @@ static func can_melee_threaten(
     return dist == CombatConstants.DISTANCE_CLOSE or dist == CombatConstants.DISTANCE_MID
 
 
-## III-4 **3e**: post-rout mop-up --" CLOSE/MID band may lag geometric reach; finish with strikes.
+## III-4 **3e**: post-rout mop-up — CLOSE/MID band may lag geometric reach; finish with strikes.
 static func envelop_mop_up_strike_at_band(manager: Node, attacker: Dictionary, band: String) -> bool:
     if band != CombatConstants.DISTANCE_CLOSE and band != CombatConstants.DISTANCE_MID:
         return false
@@ -72,7 +72,7 @@ static func max_close_slots_for_defender(manager: Node, defender: Dictionary) ->
         return CombatConstants.CLOSE_SLOTS_PER_TARGET
     var ctx: Dictionary = ZoneOfControl.zone_geometry_line_context(manager, defender)
     var form_geom: Dictionary = ZoneOfControl.zone_geometry_formation_from_pack(ctx)
-    var density: String = str(form_geom.get("density", "normal")) if not form_geom.is_empty() else "normal"
+    var density: String = str(form_geom.get(DataKeys.FORMATION_DENSITY, "normal")) if not form_geom.is_empty() else "normal"
     return CombatConstants.max_close_slots_for_density(density)
 
 
@@ -114,26 +114,42 @@ static func strip_redundant_attempt_close_for_finish(manager: Node, c: Dictionar
         return
     if not CombatListedActions.action_list_has_hostile_melee_strike(actions, cid):
         return
-    var kept: Array = []
+    var weapon: Variant = CombatantEntityAccess.get_weapon(c)
+    var melee_types: Array = []
+    if CombatantEntityAccess.weapon_has_attack_types(weapon):
+        melee_types = CombatantEntityAccess.weapon_attack_types(weapon)
+    var has_melee: bool = false
     for raw in actions:
         if raw is not Dictionary:
-            kept.append(raw)
             continue
         var a: Dictionary = raw
-        if str(a.get("move_id", "")) != CombatConstants.MOVE_ID_ATTEMPT_CLOSE:
-            kept.append(raw)
+        var mid: String = CombatListedActions.entry_move_id(a)
+        if mid.is_empty():
             continue
-        var tgt_id: int = a.get("target_id", -1)
+        if mid == CombatConstants.MOVE_ID_ATTEMPT_CLOSE or mid == CombatConstants.MOVE_ID_WAIT:
+            continue
+        if CombatConstants.is_focus_line_move(mid) or CombatConstants.is_formation_movement_move(mid) or CombatConstants.is_medical_move(mid):
+            continue
+        if melee_types.is_empty() or melee_types.has(mid):
+            has_melee = true
+            break
+    if not has_melee:
+        return
+    var to_remove: Array = []
+    for raw in actions:
+        if raw is not Dictionary:
+            continue
+        var a: Dictionary = raw
+        if str(a.get(DataKeys.ACTION_MOVE_ID, "")) != CombatConstants.MOVE_ID_ATTEMPT_CLOSE:
+            continue
+        var tgt_id: int = a.get(DataKeys.ACTION_TARGET_ID, -1)
         if tgt_id < 0:
-            kept.append(raw)
             continue
         var dist: String = CombatantEntityAccess.distance_to_opponent_band(c, tgt_id, "")
-        if dist != CombatConstants.DISTANCE_CLOSE and dist != CombatConstants.DISTANCE_MID:
-            kept.append(raw)
-            continue
-    actions.clear()
-    for entry in kept:
-        actions.append(entry)
+        if dist == CombatConstants.DISTANCE_CLOSE or dist == CombatConstants.DISTANCE_MID:
+            to_remove.append(raw)
+    for entry in to_remove:
+        actions.erase(entry)
 
 
 static func _append_attempt_close_action(actions: Array, opp: Dictionary) -> void:
@@ -199,7 +215,7 @@ static func append_melee_vs_enemy_line_rank(
         var dist: String = CombatantEntityAccess.distance_to_opponent_band(c, CombatantEntityAccess.id_int(opp))
         var mop_up_strike: bool = envelop_mop_up_strike_at_band(manager, c, dist)
         if in_swing_range or mop_up_strike:
-            # Geometric reach covers even when band still says LONG (pre-recompute lag) --" strike, don't close.
+            # Geometric reach covers even when band still says LONG (pre-recompute lag) — strike, don't close.
             if dist == CombatConstants.DISTANCE_CLOSE or dist == CombatConstants.DISTANCE_MID or in_swing_range:
                 for move_id in move_ids:
                     if WeaponConstants.is_parry_move(move_id):

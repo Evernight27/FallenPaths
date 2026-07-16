@@ -2,9 +2,11 @@ class_name CombatConstantsMisc
 extends RefCounted
 
 const DEFAULT_STAT_VALUE := 100
+const COOLDOWN_MIN_AGI_FLOOR: float = 50.0
 
 const MEDICAL_ITEM_TOURNIQUET := "tourniquet"
 const PATH_MAIN_SCENE := "res://main.tscn"
+const PATH_TUNING_SCENE := "res://combat_tuning/combat_tuning.tscn"
 const PATH_COUNTER_TEMPO := "res://combat/CounterTempo.gd"
 
 const SIDE_PLAYER := "player"

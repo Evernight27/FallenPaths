@@ -19,7 +19,7 @@ static var _rout_cache: Variant = null
 
 ## Opponent band from actor `distance_to` (default **LONG** when unset).
 static func alive_bool(combatant: Dictionary, default_alive: bool = false) -> bool:
-    var v = combatant.get("alive", default_alive)
+    var v = combatant.get(DataKeys.COMBATANT_ALIVE, default_alive)
     return v == true
 
 
@@ -56,9 +56,9 @@ static func is_unconscious(combatant: Dictionary) -> bool:
 
 
 static func has_left_battlefield(combatant: Dictionary) -> bool:
-    if combatant.get("combat_absent", false):
+    if combatant.get(DataKeys.COMBATANT_COMBAT_ABSENT, false):
         return true
-    return str(combatant.get("state", "")) == "fled"
+    return str(combatant.get(DataKeys.COMBATANT_STATE, "")) == "fled"
 
 
 ## `alive` combatant flag, on the field, and not `is_dead` on the scene node.
@@ -68,7 +68,7 @@ static func has_left_battlefield(combatant: Dictionary) -> bool:
 
 ## Returns true if combatant's node is incapacitated (consciousness/cowering) or has yielded.
 static func is_incapacitated(combatant: Dictionary) -> bool:
-    if bool(combatant.get("yielded", false)) or str(combatant.get("state", "")) == "yielded":
+    if bool(combatant.get(DataKeys.COMBATANT_YIELDED, false)) or str(combatant.get(DataKeys.COMBATANT_STATE, "")) == "yielded":
         return true
     var node = node_variant(combatant)
     if node == null or not node.has_method("is_incapacitated"):
@@ -162,7 +162,7 @@ static func _get_rout() -> GDScript:
 
 ## Scene `node` on the combatant dict (e.g. Character); null if missing.
 static func node_variant(combatant: Dictionary) -> Variant:
-    return combatant.get("node", null)
+    return combatant.get(DataKeys.COMBATANT_NODE, null)
 
 
 ## Typed scene node (`node_variant` as `Node`). Null if missing or not a `Node`.

@@ -37,7 +37,7 @@ static func resolve(manager: Node, attacker_id: int, target_id: int, move_id: St
     ):
         atk.receiving_care_turn_pending = false
         atk.receiving_care_action_cooldown = CombatConstants.RECOVERY_AFTER_MEDICAL_S
-        var part: String = str(options.get("target_part", ""))
+        var part: String = str(options.get(DataKeys.ACTION_TARGET_PART, ""))
         if part.is_empty():
             return false
         if not CombatMedicalCoordination.medical_action_allowed(
@@ -111,7 +111,7 @@ static func resolve(manager: Node, attacker_id: int, target_id: int, move_id: St
         if focus_line.is_empty():
             CombatDebug.resolve_action_rejected(manager, attacker_id, move_id, "unknown focus move")
             return false
-        var cur_line: String = str(atk.get("guard_line", CombatConstants.GUARD_DEFAULT)).strip_edges()
+        var cur_line: String = str(atk.get(DataKeys.ATTACK_GUARD_LINE, CombatConstants.GUARD_DEFAULT)).strip_edges()
         if cur_line == focus_line:
             manager.skip_turn(attacker_id, CombatConstants.SKIP_TURN_LOG_WAIT, "focus already set")
             return true
@@ -121,7 +121,7 @@ static func resolve(manager: Node, attacker_id: int, target_id: int, move_id: St
         CombatDebug.finish_instant_turn_and_schedule_ready(manager, atk)
         return true
     if is_medical_move(move_id):
-        var part: String = str(options.get("target_part", ""))
+        var part: String = str(options.get(DataKeys.ACTION_TARGET_PART, ""))
         if not CombatMedicalCoordination.medical_action_allowed(manager, attacker_id, target_id, part, move_id):
             var block_reason: String = CombatMedicalCoordination.medical_action_coordination_blocked(
                 manager, attacker_id, target_id, part, move_id
@@ -156,20 +156,20 @@ static func resolve(manager: Node, attacker_id: int, target_id: int, move_id: St
             var atk_name: String = CombatantEntityAccess.get_display_name(atk, attacker_id)
             var tgt_name: String = CombatantEntityAccess.get_display_name(tgt, target_id)
             CombatDebug.combat_session(
-                "%s attempting to close on %s (tactical distance  -  pressure vs evasion roll)" % [atk_name, tgt_name]
+                "%s attempting to close on %s (tactical distance - pressure vs evasion roll)" % [atk_name, tgt_name]
             )
         if OperationalLog.is_play_session_active():
             CombatF5SoakTrace.note_formation_move_pick(move_id, attacker_id, target_id)
         return _commit_close_attempt_resolve(manager, attacker_id, target_id)
     if CombatConstants.is_formation_reposition_move(move_id):
         var move_policy: Dictionary = CombatEngagementMode.movement_policy(manager)
-        if move_id == CombatConstants.MOVE_ID_SWAP_RANK and not move_policy.get("allow_swap_rank", false):
+        if move_id == CombatConstants.MOVE_ID_SWAP_RANK and not move_policy.get(DataKeys.MOVE_POLICY_ALLOW_SWAP_RANK, false):
             CombatDebug.resolve_action_rejected(manager, attacker_id, move_id, "movement policy blocks swap_rank")
             return false
-        if move_id == CombatConstants.MOVE_ID_DRAG_BACK and not move_policy.get("allow_drag_back", false):
+        if move_id == CombatConstants.MOVE_ID_DRAG_BACK and not move_policy.get(DataKeys.MOVE_POLICY_ALLOW_DRAG_BACK, false):
             CombatDebug.resolve_action_rejected(manager, attacker_id, move_id, "movement policy blocks drag_back")
             return false
-        if move_id == CombatConstants.MOVE_ID_FALL_BACK and not move_policy.get("allow_fall_back", false):
+        if move_id == CombatConstants.MOVE_ID_FALL_BACK and not move_policy.get(DataKeys.MOVE_POLICY_ALLOW_FALL_BACK, false):
             # Cowering solo retreat is listed without stable-line policy (`formation_retreat_only` in builder).
             var cowering_solo_retreat: bool = (
                 target_id == attacker_id
@@ -189,7 +189,7 @@ static func resolve(manager: Node, attacker_id: int, target_id: int, move_id: St
             return false
         if move_id == CombatConstants.MOVE_ID_PLUG_FORWARD:
             var can_plug: bool = (
-                move_policy.get("allow_swap_rank", false)
+                move_policy.get(DataKeys.MOVE_POLICY_ALLOW_SWAP_RANK, false)
                 or CombatDoctrine.envelop_mop_up_active(manager, CombatantEntityAccess.side_str(atk))
             )
             if not can_plug:
@@ -314,10 +314,10 @@ static func resolve(manager: Node, attacker_id: int, target_id: int, move_id: St
         CombatDebug.resolve_action_rejected(manager, attacker_id, move_id, "no functional arm for melee")
         return false
     var opts: Dictionary = {}
-    if options.has("target_part"):
-        opts["target_part"] = options.target_part
-    if options.has("feint_part"):
-        opts["feint_part"] = options.feint_part
+    if options.has(DataKeys.ACTION_TARGET_PART):
+        opts[DataKeys.ATTACK_TARGET_PART] = options.target_part
+    if options.has(DataKeys.ACTION_FEINT_PART):
+        opts[DataKeys.ATTACK_FEINT_PART] = options.feint_part
     if use_counter_tempo:
         opts[CombatConstants.ACTION_KEY_COUNTER_TEMPO] = true
         CounterTempo.spend_gauge(atk)
@@ -356,7 +356,7 @@ static func resolve(manager: Node, attacker_id: int, target_id: int, move_id: St
     return false
 
 
-## Close attempt: resolver clears gauge via **`_finish_close_attempt_turn`**; if it no-ops, **`skip_turn`** (no
+## Close attempt: resolver clears gauge via **`_resolve_close_attempt`**; if it no-ops, **`skip_turn`** (no
 ## **`FP_WARN`**).
 static func _commit_close_attempt_resolve(manager: Node, attacker_id: int, target_id: int) -> bool:
     manager._resolve_close_attempt(attacker_id, target_id)
@@ -371,3 +371,4 @@ static func _commit_close_attempt_resolve(manager: Node, attacker_id: int, targe
         return false
     manager.emit_signal("turn_resolved", attacker_id)
     return true
+

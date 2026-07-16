@@ -261,7 +261,7 @@ static func _log_soak_coverage() -> void:
     var tracks: Dictionary = result.get("tracks", {}) as Dictionary
     for track_id in tracks.keys():
         var track_result: Dictionary = tracks[track_id] as Dictionary
-        if bool(track_result.get("pass", false)):
+        if bool(track_result.get(DataKeys.SOAK_TRACE_PASS, false)):
             continue
         var optional: bool = bool(track_result.get("optional", false))
         var tag: String = "warn" if optional else "fail"
@@ -274,11 +274,9 @@ static func _log_soak_coverage() -> void:
             "soak_coverage note full II-0 needs cyan presets in other F5 runs: %s" % ", ".join(missing)
         )
     if ok:
+        var profile_str := ", ".join(profiles)
         OperationalLog.play_combat(
-            (
-                "soak_coverage pass this fight matches D-001 validator for %s  -  still grep FP_ERROR SCRIPT_ERROR "
-                + "in Output" % ", ".join(profiles)
-            )
+            "soak_coverage pass this fight matches D-001 validator for %s  -  still grep FP_ERROR SCRIPT_ERROR in Output" % [profile_str]
         )
     if CombatF5SoakTraceRollups._camp_trace_pending_for_supplement():
         CombatF5SoakTraceUiMatch._log_soak_coverage_camp_supplement()

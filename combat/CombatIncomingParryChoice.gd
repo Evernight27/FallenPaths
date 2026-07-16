@@ -1,11 +1,11 @@
 class_name CombatIncomingParryChoice
 extends RefCounted
 
-## Tier 0: overlapping melee wind-ups on one defender --" run **`can_parry_all`** first (split capacity via
+## Tier 0: overlapping melee wind-ups on one defender — run **`can_parry_all`** first (split capacity via
 ## **`choose_defense`**); if false, commit passive parry to highest **perceived telegraph** only.
 ## III-1 tie-break: equal threat scores |' highest sector flank weight
 ## (**`TacticalCombat.sector_weight_for_attacker_on_defender`**).
-## **`can_parry_all`** surround estimate uses **`TacticalCombat.stamp_surround_threat_on_pa`** (live scan --" matches
+## **`can_parry_all`** surround estimate uses **`TacticalCombat.stamp_surround_threat_on_pa`** (live scan — matches
 ## **`AttackResolver`**).
 ## **`parry_telegraph`** on **`pa`** (stamped at wind-up): commitment + contact type; feints inflate apparent telegraph
 ## until reveal.
@@ -26,7 +26,7 @@ static func incoming_attacker_ids_on_defender(manager: Node, defender_id: int, a
             continue
         var aid: int = CombatantEntityAccess.id_int(c)
         var pa: Dictionary = CombatantEntityAccess.nested_dictionary_read(c, "pending_attack")
-        if pa.get("target_id", -1) != defender_id:
+        if pa.get(DataKeys.ACTION_TARGET_ID, -1) != defender_id:
             continue
         var resolve_at: float = CombatEventScheduler.get_pending_melee_attack_resolve_at(manager, aid)
         if resolve_at < 0.0:
@@ -36,7 +36,7 @@ static func incoming_attacker_ids_on_defender(manager: Node, defender_id: int, a
     return out
 
 
-## Base telegraph 0--"1 from commitment rolls + contact type; optional move **`parry_telegraph`** override.
+## Base telegraph 0—1 from commitment rolls + contact type; optional move **`parry_telegraph`** override.
 static func compute_base_parry_telegraph(pa: Dictionary, move_def: Dictionary) -> float:
     var move_override: float = move_def.get("parry_telegraph", -1.0)
     if move_override >= 0.0:
@@ -44,10 +44,10 @@ static func compute_base_parry_telegraph(pa: Dictionary, move_def: Dictionary) -
     var intensity: float = clampf(
         pa.get(CombatConstants.PA_KEY_INTENSITY, CombatConstants.PA_DEFAULT_INTENSITY), 0.0, 1.0
     )
-    var power: float = clampf(pa.get("power", 0.5), 0.0, 1.0)
-    var follow: float = clampf(pa.get("follow_through", 0.5), 0.0, 1.0)
+    var power: float = clampf(pa.get(DataKeys.ATTACK_POWER, 0.5), 0.0, 1.0)
+    var follow: float = clampf(pa.get(DataKeys.ATTACK_FOLLOW_THROUGH, 0.5), 0.0, 1.0)
     var commit: float = intensity * (0.55 + 0.45 * power) * (0.72 + 0.28 * follow)
-    var contact: String = str(move_def.get("contact_type", WeaponConstants.ATTACK_TYPE_CUT))
+    var contact: String = str(move_def.get(DataKeys.WEAPON_CONTACT_TYPE, WeaponConstants.ATTACK_TYPE_CUT))
     return clampf(commit * CombatConstants.parry_telegraph_contact_mult(contact), 0.0, 1.0)
 
 
@@ -56,21 +56,21 @@ static func stamp_parry_telegraph_on_pa(pa: Dictionary, move_def: Dictionary) ->
     if pa.is_empty():
         return
     var base: float = compute_base_parry_telegraph(pa, move_def)
-    pa["parry_telegraph"] = base
-    if not pa.get("feint_part", "").is_empty() or move_def.get(CombatConstants.MOVE_DEF_KEY_IS_FEINT, false):
+    pa[DataKeys.PA_PARRY_TELEGRAPH] = base
+    if not pa.get(DataKeys.ACTION_FEINT_PART, "").is_empty() or move_def.get(CombatConstants.MOVE_DEF_KEY_IS_FEINT, false):
         var inflate: float = float(
             move_def.get("feint_parry_telegraph_mult", CombatConstants.PARRY_TELEGRAPH_FEINT_APPARENT_MULT)
         )
-        pa["parry_telegraph_apparent"] = clampf(base * maxf(inflate, 1.0), 0.0, 1.15)
+        pa[DataKeys.PA_PARRY_TELEGRAPH_APPARENT] = clampf(base * maxf(inflate, 1.0), 0.0, 1.15)
     else:
-        pa.erase("parry_telegraph_apparent")
+        pa.erase(DataKeys.PA_PARRY_TELEGRAPH_APPARENT)
 
 
 static func _attacker_wind_up_progress(atk: Dictionary) -> float:
-    var dur: float = atk.get("state_duration", 0.0)
+    var dur: float = atk.get(DataKeys.PA_STATE_DURATION, 0.0)
     if dur <= 0.0001:
         return 1.0
-    return clampf(atk.get("state_timer", 0.0) / dur, 0.0, 1.0)
+    return clampf(atk.get(DataKeys.PA_STATE_TIMER, 0.0) / dur, 0.0, 1.0)
 
 
 ## Defender-facing telegraph: feints look heavier early; perception reads through toward true commitment.
@@ -87,16 +87,16 @@ static func perceived_parry_telegraph(
     var move_def: Dictionary = WeaponConstants.get_move(attack_type) if not attack_type.is_empty() else {}
     # Always derive from current commitment rolls (harness may override intensity after wind-up).
     var base: float = compute_base_parry_telegraph(pa, move_def)
-    var feint_part: String = str(pa.get("feint_part", "")).strip_edges()
+    var feint_part: String = str(pa.get(DataKeys.ACTION_FEINT_PART, "")).strip_edges()
     if feint_part.is_empty() and not move_def.get(CombatConstants.MOVE_DEF_KEY_IS_FEINT, false):
         return base
     var inflate: float = float(
         move_def.get("feint_parry_telegraph_mult", CombatConstants.PARRY_TELEGRAPH_FEINT_APPARENT_MULT)
     )
     var apparent: float = clampf(base * maxf(inflate, 1.0), 0.0, 1.15)
-    var reveal: float = pa.get("feint_target_reveal_at_progress", 0.0)
+    var reveal: float = pa.get(DataKeys.PA_FEINT_TARGET_REVEAL_AT_PROGRESS, 0.0)
     if reveal <= 0.0:
-        reveal = move_def.get("feint_target_reveal_at_progress", 0.45)
+        reveal = move_def.get(DataKeys.WEAPON_FEINT_TARGET_REVEAL_AT_PROGRESS, 0.45)
     var progress: float = _attacker_wind_up_progress(atk)
     var t: float = clampf(progress / maxf(reveal, 0.05), 0.0, 1.0)
     var perc: float = 0.5
@@ -104,7 +104,7 @@ static func perceived_parry_telegraph(
         var def: Dictionary = CombatantEntityAccess.manager_get_combatant(manager, defender_id)
         if not def.is_empty():
             perc = clampf(
-                CombatantEntityAccess.stats_dict(def).get("perception", CombatConstants.DEFAULT_STAT_VALUE) / 100.0,
+                CombatantEntityAccess.stats_dict(def).get(DataKeys.ENTITY_PERCEPTION, CombatConstants.DEFAULT_STAT_VALUE) / 100.0,
                 0.0,
                 1.0
             )
@@ -126,7 +126,7 @@ static func threat_score_for_attacker(
         if defender_id >= 0
         else compute_base_parry_telegraph(pa, move_def)
     )
-    var str_val: float = CombatantEntityAccess.stats_dict(atk).get("strength", CombatConstants.DEFAULT_STAT_VALUE)
+    var str_val: float = CombatantEntityAccess.stats_dict(atk).get(DataKeys.ENTITY_STRENGTH, CombatConstants.DEFAULT_STAT_VALUE)
     return tele * (0.5 + str_val / 200.0)
 
 
@@ -146,7 +146,7 @@ static func choose_parry_target_attacker_id(manager: Node, defender_id: int, anc
         if score > best_score:
             best_score = score
             best_id = aid
-    # III-1: sector flank weight breaks ties only --" intensity / telegraph still wins outright.
+    # III-1: sector flank weight breaks ties only — intensity / telegraph still wins outright.
     if CombatConstants.is_feature_sector_surround_load() and incoming.size() > 1:
         var tie_eps := 0.001
         var tied_ids: Array[int] = []
@@ -188,10 +188,10 @@ static func can_parry_all(manager: Node, defender_id: int, anchor_time: float = 
     for raw in incoming:
         var aid: int = int(raw)
         var est: Dictionary = _incoming_parry_estimate(manager, tgt, aid)
-        if est.get("viable", false) != true:
+        if est.get(DataKeys.PA_VIABLE, false) != true:
             return false
-        total_p_a += est.get("parry_p_a", 0.0)
-        min_c_d = minf(min_c_d, est.get("parry_c_d", 0.0))
+        total_p_a += est.get(DataKeys.PA_PARRY_PRIORITY_A, 0.0)
+        min_c_d = minf(min_c_d, est.get(DataKeys.PA_PRIORITY_CD, 0.0))
     if min_c_d >= 1.0e11:
         return false
     var budget: float = min_c_d * CombatConstants.INCOMING_PARRY_ALL_COMBINED_P_A_BUDGET_MULT
@@ -223,23 +223,23 @@ static func _incoming_parry_estimate(manager: Node, tgt: Dictionary, attacker_id
     var archetype: Dictionary = {}
     if atk_w != null:
         var move_def: Dictionary = WeaponConstants.get_move(attack_type)
-        archetype = WeaponConstants.get_archetype(str(move_def.get("archetype_id", WeaponConstants.ARCHETYPE_OVERHEAD)))
+        archetype = WeaponConstants.get_archetype(str(move_def.get(DataKeys.PA_ARCHETYPE_ID, WeaponConstants.ARCHETYPE_OVERHEAD)))
     var dc: Dictionary = DefenseChoiceResolver.choose_defense(
         pa, atk, tgt, targetable, attack_type, archetype, -1.0, manager
     )
-    var p_a: float = dc.get("parry_p_a", 0.0)
-    var c_d: float = dc.get("parry_c_d", 0.0)
-    out["parry_p_a"] = p_a
-    out["parry_c_d"] = c_d
-    if dc.get("can_parry_in_time", false) != true:
+    var p_a: float = dc.get(DataKeys.PA_PARRY_PRIORITY_A, 0.0)
+    var c_d: float = dc.get(DataKeys.PA_PRIORITY_CD, 0.0)
+    out[DataKeys.PA_PARRY_PRIORITY_A] = p_a
+    out[DataKeys.PA_PRIORITY_CD] = c_d
+    if dc.get(DataKeys.PARRY_CHOICE_CAN_PARRY_IN_TIME, false) != true:
         return out
     if p_a <= c_d * CombatConstants.PARRY_DODGE_STRENGTH_RATIO:
-        out["viable"] = true
+        out[DataKeys.PA_VIABLE] = true
     return out
 
 
 static func _parry_viable_for_incoming_attack(manager: Node, tgt: Dictionary, attacker_id: int) -> bool:
-    return _incoming_parry_estimate(manager, tgt, attacker_id).get("viable", false)
+    return _incoming_parry_estimate(manager, tgt, attacker_id).get(DataKeys.PA_VIABLE, false)
 
 
 ## Stamps **`pa`** when this resolve is not the committed parry target among overlapping wind-ups.
@@ -257,14 +257,14 @@ static func stamp_parry_choice_on_pa(
     if incoming.size() <= 1:
         return
     if can_parry_all(manager, defender_id, anchor):
-        pa["parry_all_incoming_batch"] = true
+        pa[DataKeys.PA_PARRY_ALL_INCOMING_BATCH] = true
         return
     var chosen: int = choose_parry_target_attacker_id(manager, defender_id, anchor)
     if chosen < 0:
         return
-    pa["parry_commitment_attacker_id"] = chosen
+    pa[DataKeys.PA_PARRY_COMMITMENT_ATTACKER_ID] = chosen
     if attacker_id != chosen:
-        pa["parry_choice_blocked"] = true
+        pa[DataKeys.PA_PARRY_CHOICE_BLOCKED] = true
 
 
 ## True when **`choose_defense`** should skip parry capacity for this resolve (non-chosen overlapping wind-up).

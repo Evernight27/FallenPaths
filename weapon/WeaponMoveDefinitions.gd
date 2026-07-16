@@ -21,9 +21,9 @@ const BASELINE_MASS_KG: float = 1.0
 
 
 static func _move_definitions_build() -> Dictionary:
-    # attack_line: Liechtenauer 4 lines - high (0????), low (180????), left (270????), right (90????) + compound octants
+    # attack_line: Liechtenauer 4 lines - high (0°), low (180°), left (270°), right (90°) + compound octants
     # high_left, high_right, low_left. Blade path, not body target.
-    # angle_variance_deg: optional ????deg human error; heavier/awkward moves have more variance.
+    # angle_variance_deg: optional ~3deg human error; heavier/awkward moves have more variance.
     # angle_offset_deg: optional bias from base line (e.g. off_line_thrust angled toward flank).
     # impact_station_mean: fraction along weapon from hands (0=hands, 1=tip). Spear thrusts may exceed 0.8 due to long
     # shaft; clamped at 0.80.
@@ -150,6 +150,66 @@ static func _move_definitions_build() -> Dictionary:
             "attack_line": "left",
             "preferred_parts": ["left_arm", "right_arm"],
             "impact_station_mean": 0.62,
+            "impact_station_spread": 0.05
+        },
+        "zornhau":
+        {
+            # Liechtenauer Meisterhäue — decisive counter-strikes with yomi-intent scaling.
+            # Zornhau: parry high-right, cut low-left (wound from above through guard).
+            "name": "Zornhau (wrath strike)",
+            "contact_type": ATTACK_TYPE_CUT,
+            "archetype_id": WeaponTemplateDefinitions.ARCHETYPE_OVERHEAD,
+            "base_cooldown": 2.8,
+            "attack_line": "low_left",
+            "preferred_parts": ["left_arm", "right_leg"],
+            "angle_variance_deg": 8,
+            "weapon_extension_commit_fraction": 0.76,
+            "impact_station_mean": 0.68,
+            "impact_station_spread": 0.04
+        },
+        "scheitelhau":
+        {
+            # Scheitelhau:Decapitator — overhead cut from high with wide arc, targets head heavily.
+            "name": "Scheitelhau (decapitator)",
+            "contact_type": ATTACK_TYPE_CUT,
+            "archetype_id": WeaponTemplateDefinitions.ARCHETYPE_OVERHEAD,
+            "base_cooldown": 3.0,
+            "attack_line": "high",
+            "preferred_parts": ["head"],
+            "angle_variance_deg": 14,
+            "weapon_extension_commit_fraction": 0.82,
+            "impact_station_mean": 0.74,
+            "impact_station_spread": 0.07
+        },
+        "krumphau":
+        {
+            # Krumphau — binding strike that wraps around opponent blade to expose inner line.
+            "name": "Krumphau (hook cut)",
+            "contact_type": ATTACK_TYPE_CUT,
+            "archetype_id": WeaponTemplateDefinitions.ARCHETYPE_OVERHEAD,
+            "base_cooldown": 2.4,
+            "attack_line": "high_left",
+            "preferred_parts": ["left_arm", "head"],
+            "angle_variance_deg": 7,
+            "weapon_extension_commit_fraction": 0.54,
+            "impact_station_mean": 0.30,
+            "impact_station_spread": 0.03
+        },
+        "schielhau":
+        {
+            # Schielhau (peeking cut) — feint high-right, strike from low-right past guard edge.
+            "name": "Schielhau (peeking cut)",
+            "contact_type": ATTACK_TYPE_CUT,
+            "archetype_id": WeaponTemplateDefinitions.ARCHETYPE_OVERHEAD,
+            "base_cooldown": 2.6,
+            "is_feint": true,
+            "feint_windup_duration_mult": 1.08,
+            "feint_target_reveal_at_progress": 0.42,
+            "attack_line": "high_right",
+            "preferred_parts": ["head", "right_arm"],
+            "angle_variance_deg": 9,
+            "weapon_extension_commit_fraction": 0.78,
+            "impact_station_mean": 0.66,
             "impact_station_spread": 0.05
         },
         "spike_thrust":
@@ -688,10 +748,13 @@ static func _move_definitions_build() -> Dictionary:
 # lower p/A.
 # edge_width = effective sharp contact for blunt weapons (flanges/ridges that can break skin); used for sharp-component
 # penetration.
-# impact_velocity_bands (optional): Tier C overrides  -  keys stab|cut|blunt ?????? {"min":m/s,"max":m/s} or Vector2;
+# impact_velocity_bands (optional): Tier C overrides  -  keys stab|cut|blunt -> {"min":m/s,"max":m/s} or Vector2;
 # see ImpactVelocityModel.gd.
 # Data: Oakeshott/longsword 2 - 3 cm edge, 0.3 - 0.6 cm point; Le Jeu axe 3 - 4 cm edge, 0.5 - 1 cm spike; mace flanges
 # 0.4 - 0.6 cm (Williams, Tod Cutler); Fiore/Talhoffer dagger ~1.5 cm edge, 0.2 - 0.4 cm point; spear 0.4 - 0.8 cm
 # point, head blade 2 - 3 cm.
 # No weapon has 0% cutting (MIN_CUT_RATIO); each component uses get_sharp_contact_cm / get_blunt_contact_cm for its
 # damage type.
+
+
+

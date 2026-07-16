@@ -27,7 +27,7 @@ const DE_LEVA_REFERENCE_PCT: Dictionary = {
 static func run_and_write_report(soak_log_path: String = "") -> Dictionary:
     var failures: PackedStringArray = PackedStringArray()
     var lines: PackedStringArray = PackedStringArray()
-    lines.append("--- FP_CALIBRATION_AUDIT ---")
+    lines.append("--- FP_CALIBRATION_AUDIT —")
     lines.append("purpose=physics_and_medical_anchor_comparison")
     CalibrationBleedingParryTests._append_bleeding_section(lines, failures)
     CalibrationBleedingParryTests._append_species_pain_section(lines, failures)
@@ -46,7 +46,7 @@ static func run_and_write_report(soak_log_path: String = "") -> Dictionary:
     for msg in failures:
         lines.append("FAIL: %s" % msg)
     lines.append("ok=%s" % str(failures.is_empty()).to_lower())
-    lines.append("--- END FP_CALIBRATION_AUDIT ---")
+    lines.append("--- END FP_CALIBRATION_AUDIT —")
     var body: String = "\n".join(lines) + "\n"
     CalibrationBleedingParryTests._write_report(body)
     return {"ok": failures.is_empty(), "failures": failures, "lines": lines}

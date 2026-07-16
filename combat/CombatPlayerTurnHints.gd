@@ -310,9 +310,9 @@ static func plug_forward_incap_partner_hint(manager: Node, c: Dictionary, action
         if raw is not Dictionary:
             continue
         var a: Dictionary = raw as Dictionary
-        if a.get("move_id", "") != CombatConstants.MOVE_ID_SWAP_RANK:
+        if a.get(DataKeys.ACTION_MOVE_ID, "") != CombatConstants.MOVE_ID_SWAP_RANK:
             continue
-        var partner: Dictionary = CombatantEntityAccess.manager_get_combatant_optional(manager, a.get("target_id", -1))
+        var partner: Dictionary = CombatantEntityAccess.manager_get_combatant_optional(manager, a.get(DataKeys.ACTION_TARGET_ID, -1))
         if partner.is_empty():
             continue
         if CombatantEntityAccess.rank_int(partner) >= our_rank:
@@ -384,11 +384,11 @@ static func _log_medical_pack_wound_listed_if_applicable(manager: Node, c: Dicti
     for entry in actions:
         if not (entry is Dictionary):
             continue
-        var mid: String = entry.get("move_id", entry.get("id", "")).strip_edges()
+        var mid: String = entry.get(DataKeys.ACTION_MOVE_ID, entry.get("id", "")).strip_edges()
         if mid != CombatConstants.MOVE_ID_PACK_WOUND:
             continue
         CombatF5SoakTrace.note_medical_pack_listed(
-            CombatantEntityAccess.get_display_name(c), entry.get("target_part", "").strip_edges()
+            CombatantEntityAccess.get_display_name(c), entry.get(DataKeys.ACTION_TARGET_PART, "").strip_edges()
         )
         return
 

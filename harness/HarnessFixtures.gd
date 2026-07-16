@@ -172,7 +172,7 @@ static func _harness_sparse_post_flee_6v3_mgr(survivor_file: int = 4, fled_files
             _free_manager(mgr)
             return {}
         FormationSlots.remove_combatant_from_slots(slots, CombatantEntityAccess.id_int(fled))
-        fled["combat_absent"] = true
+        fled[DataKeys.COMBATANT_COMBAT_ABSENT] = true
         fled.state = CombatConstants.STATE_FLED
     mgr.recompute_zoc_and_distance()
     var survivor: Dictionary = _harness_find_living_at_rank_file(mgr, "player", 0, survivor_file)
@@ -235,7 +235,7 @@ static func _windup_duration_for_bind_test(weapon_id: String, move_id: String, b
         p["parry_against_id"] = e_id
     seed(90210)
     AttackWindUpStarter.start(mgr, p_id, e_id, move_id)
-    var dur: float = float(p.get("state_duration", 0.0))
+    var dur: float = float(p.get(DataKeys.PA_STATE_DURATION, 0.0))
     _free_manager_restore_global_rng(mgr)
     return dur
 
@@ -275,9 +275,9 @@ static func _harness_counter_tempo_set_incoming_progress(mgr: Node, attacker_id:
     var atk: Dictionary = mgr._get_by_id(attacker_id)
     if atk == null:
         return
-    var dur: float = float(atk.get("state_duration", 0.0))
+    var dur: float = float(atk.get(DataKeys.PA_STATE_DURATION, 0.0))
     if dur <= 0.0:
-        atk["state_duration"] = 1.0
+        atk[DataKeys.PA_STATE_DURATION] = 1.0
         dur = 1.0
     atk["state_timer"] = clampf(fraction, 0.0, 1.0) * dur
 
@@ -387,9 +387,9 @@ static func _harness_action_ready_resolve_at(mgr: Node, combatant_id: int) -> fl
         if typeof(ev) != TYPE_DICTIONARY:
             continue
         var evt := ev as Dictionary
-        if evt.get("type", "") == CombatConstants.EVENT_ACTION_READY:
-            if evt.get("combatant_id") == combatant_id:
-                return float(evt.get("resolve_at", -1.0))
+        if evt.get(DataKeys.EVENT_TYPE, "") == CombatConstants.EVENT_ACTION_READY:
+            if evt.get(DataKeys.EVENT_COMBATANT_ID) == combatant_id:
+                return float(evt.get(DataKeys.EVENT_RESOLVE_AT, -1.0))
     return -1.0
 
 

@@ -47,7 +47,7 @@ static func _apply_doctrine_order(
     var fid: String = CombatantEntityAccess.formation_id_str(c)
     manager.set_formation_doctrine(fid, doctrine)
     manager.emit_signal("action_resolved", combatant_id, combatant_id, {"outcome": outcome, "formation_id": fid})
-    manager.emit_signal("turn_resolved", combatant_id)
+    manager.turn_resolved.emit(combatant_id)
     CombatDebug.finish_instant_turn_and_schedule_ready(manager, c)
     return true
 
@@ -114,3 +114,8 @@ static func apply_leader_command(manager: Node, combatant_id: int, move_id: Stri
         CombatConstants.MOVE_ID_ORDER_PINCH_CENTER:
             return apply_order_pinch_center(manager, combatant_id)
     return false
+
+
+
+
+

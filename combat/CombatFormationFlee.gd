@@ -11,7 +11,7 @@ static func flee_action_legal(manager: Node, c: Dictionary) -> bool:
     if manager == null or c.is_empty():
         return false
     CombatFormationRout.ensure_rout_baseline(manager)
-    if c.get("combat_absent", false):
+    if c.get(DataKeys.COMBATANT_COMBAT_ABSENT, false):
         return false
     if not CombatantEntityAccess.can_flee_or_fall_back(c):
         return false
@@ -42,10 +42,10 @@ static func log_flee_listed_if_verbose(manager: Node, c: Dictionary) -> void:
                 % [
                     CombatantEntityAccess.id_int(c),
                     CombatantEntityAccess.get_display_name(c, CombatantEntityAccess.id_int(c)),
-                    ctx.get("line_cohesion", 0.0),
-                    ctx.get("casualty_ratio", 0.0),
-                    str(ctx.get("formation_stressed", false)),
-                    str(ctx.get("side_holding_field", false)),
+                    ctx.get(DataKeys.FORMATION_LINE_COHESION, 0.0),
+                    ctx.get(DataKeys.FLEE_CTX_CASUALTY_RATIO, 0.0),
+                    str(ctx.get(DataKeys.FLEE_CTX_FORMATION_STRESSED, false)),
+                    str(ctx.get(DataKeys.FLEE_CTX_SIDE_HOLDING_FIELD, false)),
                 ]
             )
         )
@@ -60,9 +60,10 @@ static func apply_flee(manager: Node, combatant_id: int) -> void:
         return
     var st: String = CombatantEntityAccess.state_str(c)
     if st in [CombatConstants.STATE_SWAP_RANK, CombatConstants.STATE_FALLING_BACK, CombatConstants.STATE_PLUG_FORWARD]:
-        var pid: int = c.get("formation_move_partner_id", -1)
+        var pid: int = c.get(DataKeys.FM_FORMATION_MOVE_PARTNER_ID, -1)
         var partner: Dictionary = CombatantEntityAccess.manager_get_combatant_optional(manager, pid)
-        CombatFormationFlow.abort_pair(manager, c, partner, CombatConstants.MOVE_ID_FLEE)
+        if not partner.is_empty():
+            CombatFormationFlow.abort_pair(manager, c, partner, CombatConstants.MOVE_ID_FLEE)
     CombatEventScheduler.cancel_pending_combat_events_for_combatant(manager, combatant_id)
     CombatFootwork.clear_on_exchange_end(c)
     var fid: String = CombatantEntityAccess.formation_id_str(c)
@@ -71,13 +72,13 @@ static func apply_flee(manager: Node, combatant_id: int) -> void:
         if not formation.is_empty():
             var slots: Dictionary = FormationSlots.formation_slots_dict(formation)
             FormationSlots.remove_combatant_from_slots(slots, combatant_id)
-    c["combat_absent"] = true
+    c[DataKeys.COMBATANT_COMBAT_ABSENT] = true
     c.state = CombatConstants.STATE_FLED
     CombatFootwork.reconcile_idle_offset(c)
     c.state_timer = 0.0
     c.state_duration = 0.0
     c.gauge = 0.0
-    c.erase("formation_move_partner_id")
+    c.erase(DataKeys.FM_FORMATION_MOVE_PARTNER_ID)
     CombatDoctrine.clear_combatant_doctrine_commitment(c)
     var ctx: Dictionary = CombatFormationRout.rout_context_snapshot(manager, c)
     if CombatDebug.flow_verbose_enabled():
@@ -90,10 +91,10 @@ static func apply_flee(manager: Node, combatant_id: int) -> void:
                         combatant_id,
                         CombatantEntityAccess.get_display_name(c, combatant_id),
                         fid,
-                        ctx.get("line_cohesion", 0.0),
-                        ctx.get("casualty_ratio", 0.0),
-                        str(ctx.get("formation_stressed", false)),
-                        str(ctx.get("side_holding_field", false)),
+                        ctx.get(DataKeys.FORMATION_LINE_COHESION, 0.0),
+                        ctx.get(DataKeys.FLEE_CTX_CASUALTY_RATIO, 0.0),
+                        str(ctx.get(DataKeys.FLEE_CTX_FORMATION_STRESSED, false)),
+                        str(ctx.get(DataKeys.FLEE_CTX_SIDE_HOLDING_FIELD, false)),
                     ]
                 )
             )
@@ -101,17 +102,16 @@ static func apply_flee(manager: Node, combatant_id: int) -> void:
     CombatF5SoakTrace.note_fled(
         combatant_id,
         CombatantEntityAccess.get_display_name(c, combatant_id),
-        ctx.get("line_cohesion", 0.0),
-        ctx.get("casualty_ratio", 0.0) * 100.0,
-        ctx.get("side_holding_field", false)
+        ctx.get(DataKeys.FORMATION_LINE_COHESION, 0.0),
+        ctx.get(DataKeys.FLEE_CTX_CASUALTY_RATIO, 0.0) * 100.0,
+        ctx.get(DataKeys.FLEE_CTX_SIDE_HOLDING_FIELD, false)
     )
     if not fid.is_empty():
         manager.notify_formation_changed(fid)
         manager.recompute_zoc_and_distance()
         CombatEventScheduler.reschedule_back_rank_turns(manager, fid)
     (
-        manager
-        . emit_signal(
+        manager.emit_signal(
             "action_resolved",
             combatant_id,
             combatant_id,
@@ -119,10 +119,10 @@ static func apply_flee(manager: Node, combatant_id: int) -> void:
                 "outcome": "fled",
                 "dmg": 0,
                 "died": false,
-                "line_cohesion": ctx.get("line_cohesion", -1.0),
-                "casualty_ratio": ctx.get("casualty_ratio", -1.0),
-                "formation_stressed": ctx.get("formation_stressed", false),
-                "side_holding_field": ctx.get("side_holding_field", false),
+                DataKeys.FORMATION_LINE_COHESION: ctx.get(DataKeys.FORMATION_LINE_COHESION, -1.0),
+                DataKeys.FLEE_CTX_CASUALTY_RATIO: ctx.get(DataKeys.FLEE_CTX_CASUALTY_RATIO, -1.0),
+                DataKeys.FLEE_CTX_FORMATION_STRESSED: ctx.get(DataKeys.FLEE_CTX_FORMATION_STRESSED, false),
+                DataKeys.FLEE_CTX_SIDE_HOLDING_FIELD: ctx.get(DataKeys.FLEE_CTX_SIDE_HOLDING_FIELD, false),
             }
         )
     )
@@ -130,3 +130,13 @@ static func apply_flee(manager: Node, combatant_id: int) -> void:
     var winner: String = manager._check_for_winner() if manager.has_method("_check_for_winner") else ""
     if not winner.is_empty() and manager.has_method("_end_combat_phase"):
         manager._end_combat_phase(winner, null)
+
+
+
+
+
+
+
+
+
+

@@ -140,7 +140,7 @@ static func count_desertion_risk_roster(world: Node) -> int:
             continue
         if (node_ref as Node).has_method("is_dead") and (node_ref as Node).is_dead():
             continue
-        if (node_ref as Node).get("is_party_leader") == true:
+        if (node_ref as Node).get(DataKeys.COMBATANT_IS_PARTY_LEADER) == true:
             continue
         if float(m.get("company_mood", MOOD_DEFAULT)) <= MOOD_ANGRY_THRESHOLD:
             at_risk += 1
@@ -181,3 +181,4 @@ static func format_settlement_low_mood_stance_hint(world: Node2D) -> String:
         )
         % low
     )
+

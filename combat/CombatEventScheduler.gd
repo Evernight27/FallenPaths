@@ -22,25 +22,25 @@ static func compare_events(manager: Node, a: Variant, b: Variant) -> bool:
         return true
     var ad: Dictionary = a
     var bd: Dictionary = b
-    var at_a: float = ad.get("resolve_at", 0.0)
-    var at_b: float = bd.get("resolve_at", 0.0)
+    var at_a: float = ad.get(DataKeys.EVENT_RESOLVE_AT, 0.0)
+    var at_b: float = bd.get(DataKeys.EVENT_RESOLVE_AT, 0.0)
     if at_a != at_b:
         return at_a < at_b
-    var ca: Dictionary = CombatantEntityAccess.manager_get_combatant(manager, int(ad.get("combatant_id", -1)))
-    var cb: Dictionary = CombatantEntityAccess.manager_get_combatant(manager, int(bd.get("combatant_id", -1)))
+    var ca: Dictionary = CombatantEntityAccess.manager_get_combatant(manager, int(ad.get(DataKeys.EVENT_COMBATANT_ID, -1)))
+    var cb: Dictionary = CombatantEntityAccess.manager_get_combatant(manager, int(bd.get(DataKeys.EVENT_COMBATANT_ID, -1)))
     var agi_a: int = (
-        int(CombatantEntityAccess.stats_dict(ca).get("agility", CombatConstants.DEFAULT_STAT_VALUE))
+        int(CombatantEntityAccess.stats_dict(ca).get(DataKeys.ENTITY_AGILITY, CombatConstants.DEFAULT_STAT_VALUE))
         if not ca.is_empty()
         else 0
     )
     var agi_b: int = (
-        int(CombatantEntityAccess.stats_dict(cb).get("agility", CombatConstants.DEFAULT_STAT_VALUE))
+        int(CombatantEntityAccess.stats_dict(cb).get(DataKeys.ENTITY_AGILITY, CombatConstants.DEFAULT_STAT_VALUE))
         if not cb.is_empty()
         else 0
     )
     if agi_a != agi_b:
         return agi_a > agi_b
-    return ad.get("combatant_id", 0) < bd.get("combatant_id", 0)
+    return ad.get(DataKeys.EVENT_COMBATANT_ID, -1) < bd.get(DataKeys.EVENT_COMBATANT_ID, -1)
 
 
 static func sort_event_queue(manager: Node) -> void:
@@ -60,8 +60,8 @@ static func get_next_action_ready_at(manager: Node, combatant_id: int) -> float:
         if ev is not Dictionary:
             continue
         var evd: Dictionary = ev as Dictionary
-        if evd.get("type", "") == CombatConstants.EVENT_ACTION_READY and evd.get("combatant_id", -1) == combatant_id:
-            var at: float = evd.get("resolve_at", 0.0)
+        if evd.get(DataKeys.EVENT_TYPE, "") == CombatConstants.EVENT_ACTION_READY and evd.get(DataKeys.EVENT_COMBATANT_ID, -1) == combatant_id:
+            var at: float = float(evd.get(DataKeys.EVENT_RESOLVE_AT, 0.0))
             if at > CombatantEntityAccess.combat_clock_float(manager) and (best < 0.0 or at < best):
                 best = at
     return best
@@ -78,12 +78,12 @@ static func build_next_action_ready_times(manager: Node) -> Dictionary:
         if ev is not Dictionary:
             continue
         var evb: Dictionary = ev as Dictionary
-        if evb.get("type", "") != CombatConstants.EVENT_ACTION_READY:
+        if evb.get(DataKeys.EVENT_TYPE, "") != CombatConstants.EVENT_ACTION_READY:
             continue
-        var cid: int = int(evb.get("combatant_id", -1))
+        var cid: int = int(evb.get(DataKeys.EVENT_COMBATANT_ID, -1))
         if cid < 0:
             continue
-        var at: float = evb.get("resolve_at", 0.0)
+        var at: float = float(evb.get(DataKeys.EVENT_RESOLVE_AT, 0.0))
         if at <= clk:
             continue
         if not best_by_id.has(cid) or at < float(best_by_id[cid]):
@@ -99,10 +99,10 @@ static func get_pending_melee_attack_resolve_at(manager: Node, combatant_id: int
             continue
         var evd: Dictionary = ev as Dictionary
         if (
-            evd.get("type", "") == CombatConstants.EVENT_MELEE_ATTACK
-            and int(evd.get("combatant_id", -1)) == combatant_id
+            evd.get(DataKeys.EVENT_TYPE, "") == CombatConstants.EVENT_MELEE_ATTACK
+            and int(evd.get(DataKeys.EVENT_COMBATANT_ID, -1)) == combatant_id
         ):
-            return evd.get("resolve_at", -1.0)
+            return float(evd.get(DataKeys.EVENT_RESOLVE_AT, -1.0))
     return -1.0
 
 
@@ -128,10 +128,10 @@ static func set_pending_melee_attack_resolve_at(manager: Node, combatant_id: int
             continue
         var evd: Dictionary = ev as Dictionary
         if (
-            evd.get("type", "") == CombatConstants.EVENT_MELEE_ATTACK
-            and int(evd.get("combatant_id", -1)) == combatant_id
+            evd.get(DataKeys.EVENT_TYPE, "") == CombatConstants.EVENT_MELEE_ATTACK
+            and int(evd.get(DataKeys.EVENT_COMBATANT_ID, -1)) == combatant_id
         ):
-            evd["resolve_at"] = resolve_at
+            evd[DataKeys.EVENT_RESOLVE_AT] = resolve_at
             sort_event_queue(manager)
             return true
     return false
@@ -146,21 +146,23 @@ static func cancel_pending_melee_attack(manager: Node, combatant_id: int) -> voi
                 return false
             var evd: Dictionary = ev as Dictionary
             return not (
-                evd.get("type", "") == CombatConstants.EVENT_MELEE_ATTACK
-                and int(evd.get("combatant_id", -1)) == combatant_id
+                evd.get(DataKeys.EVENT_TYPE, "") == CombatConstants.EVENT_MELEE_ATTACK
+                and int(evd.get(DataKeys.EVENT_COMBATANT_ID, -1)) == combatant_id
             )
     )
 
 
 static func cancel_pending_action_ready(manager: Node, combatant_id: int) -> void:
+    if manager == null or combatant_id < 0:
+        return
     manager.event_queue = manager.event_queue.filter(
         func(ev: Variant) -> bool:
             if ev is not Dictionary:
                 return false
             var evd: Dictionary = ev as Dictionary
             return not (
-                evd.get("type", "") == CombatConstants.EVENT_ACTION_READY
-                and evd.get("combatant_id", -1) == combatant_id
+                evd.get(DataKeys.EVENT_TYPE, "") == CombatConstants.EVENT_ACTION_READY
+                and evd.get(DataKeys.EVENT_COMBATANT_ID, -1) == combatant_id
             )
     )
 
@@ -174,8 +176,8 @@ static func cancel_pending_recovery_end(manager: Node, combatant_id: int) -> voi
                 return false
             var evd: Dictionary = ev as Dictionary
             return not (
-                evd.get("type", "") == CombatConstants.EVENT_RECOVERY_END
-                and int(evd.get("combatant_id", -1)) == combatant_id
+                evd.get(DataKeys.EVENT_TYPE, "") == CombatConstants.EVENT_RECOVERY_END
+                and int(evd.get(DataKeys.EVENT_COMBATANT_ID, -1)) == combatant_id
             )
     )
 
@@ -189,15 +191,15 @@ static func cancel_pending_formation_events_for_combatant(manager: Node, combata
             if ev is not Dictionary:
                 return false
             var evd: Dictionary = ev as Dictionary
-            var ev_type: String = str(evd.get("type", ""))
+            var ev_type: String = str(evd.get(DataKeys.EVENT_TYPE, ""))
             if ev_type == CombatConstants.EVENT_FALL_BACK_SOLO_RESOLVE:
-                return int(evd.get("combatant_id", -1)) != combatant_id
+                return int(evd.get(DataKeys.EVENT_COMBATANT_ID, -1)) != combatant_id
             if (
                 ev_type == CombatConstants.EVENT_SWAP_RANK_RESOLVE
                 or ev_type == CombatConstants.EVENT_ROTATE_FILE_RESOLVE
                 or ev_type == CombatConstants.EVENT_PLUG_FORWARD_RESOLVE
             ):
-                var cid: int = int(evd.get("combatant_id", -1))
+                var cid: int = int(evd.get(DataKeys.EVENT_COMBATANT_ID, -1))
                 return cid != combatant_id
             return true
     )
@@ -220,13 +222,13 @@ static func cancel_pending_swap_rank_pair_events(manager: Node, id_a: int, id_b:
             if ev is not Dictionary:
                 return true
             var evd: Dictionary = ev as Dictionary
-            if evd.get("type", "") != CombatConstants.EVENT_SWAP_RANK_RESOLVE:
+            if evd.get(DataKeys.EVENT_TYPE, "") != CombatConstants.EVENT_SWAP_RANK_RESOLVE:
                 return true
-            var cid: int = int(evd.get("combatant_id", -1))
+            var cid: int = int(evd.get(DataKeys.EVENT_COMBATANT_ID, -1))
             var pid: int = -1
-            var dr: Variant = evd.get("data", null)
+            var dr: Variant = evd.get(DataKeys.EVENT_DATA, null)
             if dr is Dictionary:
-                pid = int(dr.get("partner_id", -1))
+                pid = int(dr.get(DataKeys.EVENT_PARTNER_ID, -1))
             var touches: bool = cid == id_a or cid == id_b or pid == id_a or pid == id_b
             return not touches
     )
@@ -261,9 +263,9 @@ static func schedule_action_ready_for_combatant(manager: Node, c: Dictionary, de
 
 
 static func action_ready_cooldown(c: Dictionary) -> float:
-    var agi: float = float(CombatantEntityAccess.stats_dict(c).get("agility", CombatConstants.DEFAULT_STAT_VALUE))
-    var cooldown: float = CombatConstants.COOLDOWN_ACTION_READY_BASE * (100.0 / maxf(50.0, agi))
-    var off_until: float = c.get("off_balance_until", -1.0)
+    var agi: float = float(CombatantEntityAccess.stats_dict(c).get(DataKeys.ENTITY_AGILITY, CombatConstants.DEFAULT_STAT_VALUE))
+    var cooldown: float = CombatConstants.COOLDOWN_ACTION_READY_BASE * (100.0 / maxf(CombatConstantsMisc.COOLDOWN_MIN_AGI_FLOOR, agi))
+    var off_until: float = c.get(DataKeys.PA_OFF_BALANCE_UNTIL, -1.0)
     if off_until > CombatTiming.now_seconds():
         cooldown /= CombatConstants.OFF_BALANCE_GAUGE_FILL_MULT
     var perf_mod: float = CombatantEntityAccess.get_action_bar_performance_modifier(c)

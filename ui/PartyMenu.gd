@@ -85,9 +85,9 @@ func show_party(world: Node2D, members: Array) -> void:
     _world = world
     if _title_label != null and world != null:
         var renown: int = CompanyState.get_renown(world)
-        var renown_bit: String = " · renown %d" % renown if renown > 0 else ""
+        var renown_bit: String = " Â· renown %d" % renown if renown > 0 else ""
         _title_label.text = (
-            "Party — %d g · %d med · %d tools · %d food · day %d%s%s%s%s%s"
+            "Party â€” %d g Â· %d med Â· %d tools Â· %d food Â· day %d%s%s%s%s%s"
             % [
                 CompanyState.get_gold(world),
                 CompanyState.get_medical_supplies(world),
@@ -120,7 +120,7 @@ func show_party(world: Node2D, members: Array) -> void:
         content_vbox.add_child(notice_lbl)
 
     var triage_active: bool = world != null and CampaignEncounterBridge.party_has_untreated_wounds(world)
-    # One-shot when the last untreated part is dressed (med may still be 0 —" copy in complete_line).
+    # One-shot when the last untreated part is dressed (med may still be 0 â€”" copy in complete_line).
     var camp_unlock: bool = _triage_was_active and not triage_active and world != null
     _triage_was_active = triage_active
     if camp_unlock:
@@ -165,7 +165,7 @@ func show_party(world: Node2D, members: Array) -> void:
         if not healthy.is_empty():
             var healthy_hdr := Label.new()
             healthy_hdr.text = (
-                "%d unwounded — no field care needed (camp rest unlocks after everyone is dressed)." % healthy.size()
+                "%d unwounded â€” no field care needed (camp rest unlocks after everyone is dressed)." % healthy.size()
             )
             PartyRowFormatter.configure_wrapped_label(healthy_hdr)
             healthy_hdr.add_theme_color_override("font_color", Color(0.65, 0.7, 0.75))
@@ -174,7 +174,7 @@ func show_party(world: Node2D, members: Array) -> void:
                 _append_compact_member_row(content_vbox, h)
             if not wounded.is_empty():
                 var wounded_hdr := Label.new()
-                wounded_hdr.text = "Wounded — field care"
+                wounded_hdr.text = "Wounded â€” field care"
                 wounded_hdr.add_theme_font_size_override("font_size", 14)
                 PartyRowFormatter.configure_wrapped_label(wounded_hdr)
                 wounded_hdr.add_theme_color_override("font_color", Color(0.95, 0.72, 0.45))
@@ -262,7 +262,7 @@ func show_party(world: Node2D, members: Array) -> void:
         var untreated_parts: Variant = m.get("untreated_parts", [])
         if untreated_parts is PackedStringArray and (untreated_parts as PackedStringArray).size() > 0:
             var wound_lbl = Label.new()
-            wound_lbl.text = "Needs dressing: " + MapFieldCare.format_part_list(untreated_parts)
+            wound_lbl.text = "Needs dressing: %s" % MapFieldCare.format_part_list(untreated_parts)
             PartyRowFormatter.configure_wrapped_label(wound_lbl)
             wound_lbl.add_theme_color_override("font_color", Color(0.95, 0.65, 0.4))
             v.add_child(wound_lbl)
@@ -270,7 +270,7 @@ func show_party(world: Node2D, members: Array) -> void:
             var weapon_name: String = m.get("weapon_name", "")
             if weapon_name != "":
                 var weapon_lbl = Label.new()
-                weapon_lbl.text = "Weapon: " + weapon_name
+                weapon_lbl.text = "Weapon: %s" % weapon_name
                 v.add_child(weapon_lbl)
             var form_pref: String = str(m.get("stance_preference", "")).strip_edges()
             if not form_pref.is_empty():
@@ -337,7 +337,7 @@ func show_party(world: Node2D, members: Array) -> void:
             mood_lbl.text = "Mood: %d" % int(roundf(mood_val))
             if mood_val <= CompanyState.MOOD_ANGRY_THRESHOLD:
                 mood_lbl.add_theme_color_override("font_color", Color(0.95, 0.45, 0.4))
-                mood_lbl.text += " — desertion risk at day end"
+                mood_lbl.text += " â€” desertion risk at day end"
             v.add_child(mood_lbl)
         v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
         content_vbox.add_child(v)
@@ -410,7 +410,7 @@ func show_party(world: Node2D, members: Array) -> void:
 func _append_compact_member_row(parent: VBoxContainer, m: Dictionary) -> void:
     var row := HBoxContainer.new()
     var name_lbl := Label.new()
-    name_lbl.text = "%s%s — OK" % [str(m.get("name", "Unknown")), PartyRowFormatter.format_party_role_suffix(m)]
+    name_lbl.text = "%s%s â€” OK" % [str(m.get("name", "Unknown")), PartyRowFormatter.format_party_role_suffix(m)]
     name_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
     PartyRowFormatter.configure_wrapped_label(name_lbl)
     row.add_child(name_lbl)
@@ -447,7 +447,7 @@ func _on_treat_next_wound_pressed() -> void:
     if MapFieldCare.try_treat_next_wound(_world, _party_members()):
         _field_care_notice = ""
     else:
-        _field_care_notice = ("Field care step failed — retry. Treat next wound or use a brother's buttons below.")
+        _field_care_notice = ("Field care step failed â€” retry. Treat next wound or use a brother's buttons below.")
         if OperationalLog.is_play_session_active():
             OperationalLog.play_world(_field_care_notice)
     _refresh_party_view()
@@ -472,7 +472,7 @@ func _on_end_day_pressed() -> void:
         var block_hint: String = CompanyState.format_party_end_day_unavailable_hint(_world)
         if block_hint.is_empty():
             block_hint = "End day unavailable (check camp tile or day-tick mode)."
-        OperationalLog.play_world("End day blocked — " + str(block_hint))
+        OperationalLog.play_world("End day blocked â€” " + str(block_hint))
 
 
 func _on_camp_heal_pressed() -> void:
@@ -484,7 +484,7 @@ func _on_camp_heal_pressed() -> void:
     elif OperationalLog.is_play_session_active():
         OperationalLog.play_world(
             (
-                "Camp rest blocked — %s"
+                "Camp rest blocked â€” %s"
                 % CompanyState.format_camp_heal_block_reason(_world, true).trim_prefix("Camp rest ")
             )
         )
@@ -521,7 +521,7 @@ static func _append_weapon_form_specialty(v: VBoxContainer, form: String) -> voi
     var sig_lines: PackedStringArray = _get_weapon_form_signature_lines(form)
     var mod_lines: PackedStringArray = _get_weapon_form_strength_lines(form)
     var header := Label.new()
-    header.text = "Form — %s" % display
+    header.text = "Form â€” %s" % display
     if not pressure.is_empty():
         header.text += " (%s)" % pressure.capitalize()
     header.add_theme_font_size_override("font_size", 11)
@@ -597,7 +597,7 @@ static func _get_weapon_form_strength_lines(form: String) -> PackedStringArray:
     if not worst_effects.is_empty():
         var bits: PackedStringArray = PackedStringArray()
         for w in worst_effects:
-            bits.append("%s →%.0f%%" % [w["eff"], (1.0 - w["val"]) * 100.0])
+            bits.append("%s â†’%.0f%%" % [w["eff"], (1.0 - w["val"]) * 100.0])
         out.append("Weaker: " + ", ".join(bits))
     return out
 
@@ -665,3 +665,4 @@ func _build_field_care_buttons(world: Node2D, m: Dictionary) -> HBoxContainer:
         )
         care_btns.add_child(btn_s)
     return care_btns
+

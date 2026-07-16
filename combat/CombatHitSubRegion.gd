@@ -4,7 +4,7 @@ extends RefCounted
 ## Deterministic anatomy site on a hit part (S2). Path intercept + attack line bias; no combat RNG.
 ## IV-10: **`combat_damage_mult`** scales post-armor mechanical cut/blunt (delegates
 ## **`BleedingConstants.get_severity_modifier`**).
-## Footing: **`attack_line`** biases site pick; **`guard_line`** arg unused at resolve --" not L3 drift or PA geometry.
+## Footing: **`attack_line`** biases site pick; **`guard_line`** arg unused at resolve — not L3 drift or PA geometry.
 ## LIVE_PATHS **`#wf-layer-labels`**.
 
 
@@ -74,8 +74,8 @@ static func _intercept_norm(path_intercept_index: int) -> float:
 
 
 static func _height_bias_from_attack_line(attack_line: String, alignment_context: Dictionary) -> float:
-    if alignment_context.get("attack_angle_deg", null) is float:
-        var deg: float = float(alignment_context["attack_angle_deg"])
+    if alignment_context.get(DataKeys.ALIGNMENT_ATTACK_ANGLE_DEG, null) is float:
+        var deg: float = float(alignment_context[DataKeys.ALIGNMENT_ATTACK_ANGLE_DEG])
         deg = fmod(deg, 360.0)
         if deg < 0.0:
             deg += 360.0

@@ -23,7 +23,7 @@ static func _run_iv11_leader_doctrine_cycle_suite(failures: PackedStringArray) -
         CombatConstants.set_feature_leader_formation_command_load(saved)
         _free_manager(mgr)
         return
-    leader["is_party_leader"] = true
+    leader[DataKeys.COMBATANT_IS_PARTY_LEADER] = true
     var leader_id: int = EntityAccess.id_int(leader)
     mgr.set_formation_doctrine("player", CombatConstants.DOCTRINE_DEFAULT)
     var steps: Array = [
@@ -66,7 +66,7 @@ static func _run_iv11_leader_command_ai_weight_suite(failures: PackedStringArray
     mgr.register(_new_entity("SWORD"), "enemy")
     mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
     var leader: Dictionary = mgr.combatants[0]
-    leader["is_party_leader"] = true
+    leader[DataKeys.COMBATANT_IS_PARTY_LEADER] = true
     leader["state"] = CombatConstants.STATE_WAITING
     leader["gauge"] = 100.0
     var leader_id: int = EntityAccess.id_int(leader)
@@ -90,7 +90,7 @@ static func _run_iv11_leader_command_ai_weight_suite(failures: PackedStringArray
             failures,
             "iv11_ai_weight: want %.2f got %.4f" % [CombatConstants.AI_LEADER_FORMATION_COMMAND_PICK_WEIGHT, w]
         )
-    leader["is_party_leader"] = false
+    leader[DataKeys.COMBATANT_IS_PARTY_LEADER] = false
     var w_member: float = AIPicker._get_action_weight(hold_act, leader_id, mgr, true, {}, {}, acts)
     if w_member != 0.0:
         _fail(failures, "iv11_ai_weight: non-issuer want weight 0 got %.4f" % w_member)
@@ -135,7 +135,7 @@ static func _run_iv11_enemy_commander_ai_weight_suite(failures: PackedStringArra
             failures,
             "iv11_enemy_ai_weight: want %.2f got %.4f" % [CombatConstants.AI_LEADER_FORMATION_COMMAND_PICK_WEIGHT, w]
         )
-    commander["is_enemy_leader"] = false
+    commander[DataKeys.COMBATANT_IS_ENEMY_LEADER] = false
     var w_grunt: float = AIPicker._get_action_weight(hold_act, cmd_id, mgr, true, {}, {}, acts)
     if w_grunt != 0.0:
         _fail(failures, "iv11_enemy_ai_weight: non-issuer want weight 0 got %.4f" % w_grunt)
@@ -169,7 +169,7 @@ static func _run_iv11_pinch_outnumber_ai_weight_suite(failures: PackedStringArra
         CombatConstants.set_feature_leader_formation_command_load(saved)
         _free_manager(mgr)
         return
-    leader["is_party_leader"] = true
+    leader[DataKeys.COMBATANT_IS_PARTY_LEADER] = true
     leader["state"] = CombatConstants.STATE_WAITING
     leader["gauge"] = 100.0
     if not CombatDoctrine.numeric_superiority_for_pinch(mgr, "player"):
@@ -230,7 +230,7 @@ static func _run_iv11_enemy_pinch_outnumber_ai_weight_suite(failures: PackedStri
     for c in mgr.combatants:
         if not EntityAccess.is_living_on_side(c, "enemy"):
             continue
-        if c.get("is_enemy_leader", false) == true and EntityAccess.rank_int(c) == 0 and EntityAccess.file_int(c) == 0:
+        if c.get(DataKeys.COMBATANT_IS_ENEMY_LEADER, false) == true and EntityAccess.rank_int(c) == 0 and EntityAccess.file_int(c) == 0:
             commander = c
             break
     if commander.is_empty():
@@ -332,16 +332,16 @@ static func _run_iv11_encounter_spawn_enemy_leader_suite(failures: PackedStringA
         world.free()
         enc.free()
         return
-    if enemies[1].get("is_enemy_leader") != true:
+    if enemies[1].get(DataKeys.COMBATANT_IS_ENEMY_LEADER) != true:
         _fail(failures, "iv11_enc_spawn: index 1 want is_enemy_leader true")
-    if enemies[0].get("is_enemy_leader") == true or enemies[2].get("is_enemy_leader") == true:
+    if enemies[0].get(DataKeys.COMBATANT_IS_ENEMY_LEADER) == true or enemies[2].get(DataKeys.COMBATANT_IS_ENEMY_LEADER) == true:
         _fail(failures, "iv11_enc_spawn: only configured index may be commander")
     var mgr: Node = MgrScript.new()
     mgr.register(_new_entity("SWORD"), "player")
     var cmd_id: int = mgr.register(enemies[1], "enemy")
     mgr.register(enemies[0], "enemy")
     mgr.register(enemies[2], "enemy")
-    if not bool(mgr.combatants[cmd_id].get("is_enemy_leader", false)):
+    if not bool(mgr.combatants[cmd_id].get(DataKeys.COMBATANT_IS_ENEMY_LEADER, false)):
         _fail(failures, "iv11_enc_spawn: register want is_enemy_leader on commander")
     _free_manager(mgr)
     for n in enemies:
@@ -370,11 +370,11 @@ static func _run_iv11_register_enemy_leader_stamp_suite(failures: PackedStringAr
     mgr.register(_new_entity("SWORD"), "player")
     mgr.register(cmd_ent, "enemy")
     mgr.register(grunt_ent, "enemy")
-    if not bool(mgr.combatants[2].get("is_enemy_leader", false)):
+    if not bool(mgr.combatants[2].get(DataKeys.COMBATANT_IS_ENEMY_LEADER, false)):
         _fail(failures, "iv11_enemy_leader: commander want is_enemy_leader true")
-    if bool(mgr.combatants[3].get("is_enemy_leader", false)):
+    if bool(mgr.combatants[3].get(DataKeys.COMBATANT_IS_ENEMY_LEADER, false)):
         _fail(failures, "iv11_enemy_leader: grunt want is_enemy_leader false")
-    if bool(mgr.combatants[0].get("is_enemy_leader", false)):
+    if bool(mgr.combatants[0].get(DataKeys.COMBATANT_IS_ENEMY_LEADER, false)):
         _fail(failures, "iv11_enemy_leader: player must not stamp is_enemy_leader")
     _free_manager(mgr)
 
@@ -402,9 +402,9 @@ static func _run_iv11_enemy_leader_diagram_callout_suite(failures: PackedStringA
                 commander = c
             elif grunt.is_empty():
                 grunt = c
-    commander["is_enemy_leader"] = true
-    grunt["is_enemy_leader"] = false
-    player["is_party_leader"] = true
+    commander[DataKeys.COMBATANT_IS_ENEMY_LEADER] = true
+    grunt[DataKeys.COMBATANT_IS_ENEMY_LEADER] = false
+    player[DataKeys.COMBATANT_IS_PARTY_LEADER] = true
     if UiHints.enemy_leader_diagram_suffix(commander) != " [Cmd]":
         _fail(
             failures,
@@ -866,12 +866,12 @@ static func _run_iv11_leader_formation_ability_suite(failures: PackedStringArray
     mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
     var leader: Dictionary = mgr.combatants[0]
     var pid: int = EntityAccess.id_int(leader)
-    leader["is_party_leader"] = true
+    leader[DataKeys.COMBATANT_IS_PARTY_LEADER] = true
     leader[CombatConstants.COMBATANT_KEY_INCOMING_ATTACK_TELEGRAPH_PART] = "head"
     var w_leader: float = AIPicker._get_action_weight(
         {"move_id": CombatConstants.MOVE_ID_FOCUS_HIGH, "target_id": pid}, pid, mgr, true
     )
-    leader["is_party_leader"] = false
+    leader[DataKeys.COMBATANT_IS_PARTY_LEADER] = false
     var w_member: float = AIPicker._get_action_weight(
         {"move_id": CombatConstants.MOVE_ID_FOCUS_HIGH, "target_id": pid}, pid, mgr, true
     )

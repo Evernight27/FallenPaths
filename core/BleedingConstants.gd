@@ -15,6 +15,7 @@ extends RefCounted
 # Bruise: closed injury; pain without significant bleeding; resolves by severity (HealingConstants).
 # Fracture: bone damage from blunt (or high-energy impact); no bleed; pain resolves over bone-healing time (~6 weeks).
 const INJURY_TYPE_CUT: String = "cut"
+const INJURY_TYPE_STAB: String = "stab"
 const INJURY_TYPE_CRUSH: String = "crush"
 const INJURY_TYPE_BRUISE: String = "bruise"
 const INJURY_TYPE_FRACTURE: String = "fracture"
@@ -32,6 +33,7 @@ const SEVERITY_CRITICAL: String = "critical"
 # Relative scaling (cut>crush, head>limb, arterial mult) is medically ordered.
 const BLEEDING_RATES: Dictionary = {
     INJURY_TYPE_CUT: {SEVERITY_MINOR: 0.35, SEVERITY_MODERATE: 1.2, SEVERITY_SEVERE: 2.25, SEVERITY_CRITICAL: 4.5},
+    INJURY_TYPE_STAB: {SEVERITY_MINOR: 0.25, SEVERITY_MODERATE: 0.85, SEVERITY_SEVERE: 1.6, SEVERITY_CRITICAL: 3.2},
     INJURY_TYPE_CRUSH: {SEVERITY_MINOR: 0.25, SEVERITY_MODERATE: 0.65, SEVERITY_SEVERE: 1.2, SEVERITY_CRITICAL: 2.25},
     INJURY_TYPE_BRUISE: {SEVERITY_MINOR: 0.0, SEVERITY_MODERATE: 0.0, SEVERITY_SEVERE: 0.0, SEVERITY_CRITICAL: 0.0},
     INJURY_TYPE_FRACTURE: {SEVERITY_MINOR: 0.0, SEVERITY_MODERATE: 0.0, SEVERITY_SEVERE: 0.0, SEVERITY_CRITICAL: 0.0}

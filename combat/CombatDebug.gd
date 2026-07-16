@@ -78,7 +78,7 @@ static func combat_session(msg: String) -> void:
         print("[Combat] ", msg)
 
 
-## Hemostasis / pressure / dressings --" always `FP_COMBAT` in play session (grep `medical` or `FP_COMBAT`).
+## Hemostasis / pressure / dressings — always `FP_COMBAT` in play session (grep `medical` or `FP_COMBAT`).
 static func medical_session(msg: String) -> void:
     var line: String = "medical %s" % msg.strip_edges()
     if OperationalLog.is_play_session_active() and line == _last_medical_session_line:
@@ -145,11 +145,11 @@ static func formation_vacancy_log(msg: String) -> void:
 static func format_actions_compact(actions: Array) -> String:
     var parts: PackedStringArray = []
     for a in actions:
-        var mid: String = a.get("move_id", "")
-        var tid: int = a.get("target_id", -1)
-        var part: String = a.get("target_part", "")
+        var mid: String = a.get(DataKeys.ACTION_MOVE_ID, "")
+        var tid: int = a.get(DataKeys.ACTION_TARGET_ID, -1)
+        var part: String = a.get(DataKeys.ACTION_TARGET_PART, "")
         var dur_s: String = ""
-        var dur_hint: String = a.get("formation_move_duration_hint", "").strip_edges()
+        var dur_hint: String = a.get(DataKeys.FORMATION_MOVE_DURATION_HINT, "").strip_edges()
         if not dur_hint.is_empty():
             dur_s = " {%s}" % CombatFormationMoveDuration.duration_hint_for_turn_display(dur_hint)
         var close_hint: String = a.get(CombatConstants.ACTION_KEY_CLOSE_LIST_HINT, "").strip_edges()
@@ -167,17 +167,17 @@ static func _medical_turn_vitals_suffix(manager: Node, choice: Dictionary) -> St
         return ""
     if not manager.has_method("_is_medical_move"):
         return ""
-    var mid: String = choice.get("move_id", "")
+    var mid: String = choice.get(DataKeys.ACTION_MOVE_ID, "")
     if not CombatConstants.is_medical_move(mid):
         return ""
-    var tid: int = choice.get("target_id", -1)
+    var tid: int = choice.get(DataKeys.ACTION_TARGET_ID, -1)
     var tgt: Dictionary = CombatantEntityAccess.manager_get_combatant(manager, tid)
     if tgt.is_empty():
         return ""
     var ent: Node = CombatantEntityAccess.get_entity_from_manager(manager, tgt)
     if ent == null:
         return ""
-    var part: String = choice.get("target_part", "")
+    var part: String = choice.get(DataKeys.ACTION_TARGET_PART, "")
     var bleed: float = (
         CombatantEntityAccess.entity_bleeding_rate_for_part(manager, tgt, part)
         if not part.is_empty()
@@ -218,10 +218,10 @@ static func flow_log_turn(
 ) -> void:
     if not CombatConstants.combat_event_debug_active():
         return
-    var mid: String = choice.get("move_id", "")
-    var tid: int = choice.get("target_id", -1)
-    var part: String = choice.get("target_part", "")
-    var feint: String = choice.get("feint_part", "")
+    var mid: String = choice.get(DataKeys.ACTION_MOVE_ID, "")
+    var tid: int = choice.get(DataKeys.ACTION_TARGET_ID, -1)
+    var part: String = choice.get(DataKeys.ACTION_TARGET_PART, "")
+    var feint: String = choice.get(DataKeys.ACTION_FEINT_PART, "")
     var part_s: String = (" part=%s" % part) if not part.is_empty() else ""
     var feint_s: String = (" feint=%s" % feint) if not feint.is_empty() else ""
     var med_s: String = _medical_turn_vitals_suffix(manager, choice)
@@ -277,7 +277,7 @@ static func log_available_actions_build(
         return
     var medical_count: int = 0
     for a in result_actions:
-        var mid: String = a.get("move_id", "")
+        var mid: String = a.get(DataKeys.ACTION_MOVE_ID, "")
         if CombatConstants.is_medical_move(mid):
             medical_count += 1
     var polearm_extra: String = ""
@@ -351,7 +351,7 @@ static func _format_depth_polearm_melee_context_debug(
     var front: Dictionary = CombatDepthPolearm.same_file_living_rank0_ally(manager, c, fid_ctx)
     var front_id: int = CombatantEntityAccess.id_int(front) if not front.is_empty() else -1
     var fd_ctx: Dictionary = ZoneOfControl.zone_geometry_formation_from_pack(ctx_actor)
-    var dens: String = str(fd_ctx.get("density", "normal")) if not fd_ctx.is_empty() else "normal"
+    var dens: String = str(fd_ctx.get(DataKeys.FORMATION_DENSITY, "normal")) if not fd_ctx.is_empty() else "normal"
     var melee_range: float = float(wpn.melee_range)
     var opp_zone: Dictionary = ZoneOfControl.zone_geometry_line_context_by_combatant_id(manager)
     var bits: PackedStringArray = []

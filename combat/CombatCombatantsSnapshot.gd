@@ -21,16 +21,16 @@ static func _copy_live_ui_fields(item: Dictionary, c: Dictionary) -> void:
     if c.has(CombatConstants.COMBATANT_KEY_EXHAUSTION):
         item[CombatConstants.COMBATANT_KEY_EXHAUSTION] = c[CombatConstants.COMBATANT_KEY_EXHAUSTION]
     if CombatConstants.is_feature_hema_eight_guard_lines_enabled():
-        item["guard_line"] = c.get("guard_line", CombatConstants.GUARD_DEFAULT)
-    if c.get("combat_absent", false):
-        item["combat_absent"] = true
+        item[DataKeys.ATTACK_GUARD_LINE] = c.get(DataKeys.ATTACK_GUARD_LINE, CombatConstants.GUARD_DEFAULT)
+    if c.get(DataKeys.SNAPSHOT_COMBAT_ABSENT, false):
+        item[DataKeys.SNAPSHOT_COMBAT_ABSENT] = true
     var pa: Dictionary = CombatantEntityAccess.nested_dictionary_read(c, "pending_attack")
     if not pa.is_empty():
-        item["pending_attack"] = pa.duplicate(true)
+        item[DataKeys.PA_PENDING_ATTACK] = pa.duplicate(true)
     if CombatFootwork.enabled() and CombatFootwork.offset_visible_for_ui_state(c):
         var off_deg: float = CombatFootwork.get_defender_offset_deg(c)
         if absf(off_deg) >= 0.01:
-            item["position_angle_offset_deg"] = off_deg
+            item[DataKeys.PA_POSITION_ANGLE_OFFSET_DEG] = off_deg
     if CombatFlurryBind.enabled():
         for key in [CombatFlurryBind.KEY_UNTIL, CombatFlurryBind.KEY_AGAINST, CombatFlurryBind.KEY_EXCHANGES]:
             if c.has(key):
@@ -57,7 +57,7 @@ static func _status_override_text(manager: Node, c: Dictionary, combatant_id: in
     if _counter_tempo_ui_blocks_status_override(manager, c):
         return ""
     var close_left: float = CombatantEntityAccess.cooldown_remaining_s(
-        manager, c.get("action_cooldown_until", 0.0), 0.0
+        manager, c.get(DataKeys.ACTION_COOLDOWN_UNTIL, 0.0), 0.0
     )
     if close_left > 0.0:
         return "Closing %.1fs" % close_left
@@ -101,15 +101,15 @@ static func build(manager: Node) -> Array:
             "stamina": CombatantEntityAccess.stamina_float(c),
             "alive": CombatantEntityAccess.alive_bool(c),
             "state": CombatantEntityAccess.state_str(c, CombatConstants.STATE_WAITING),
-            "state_timer": c.get("state_timer", 0.0),
-            "state_duration": c.get("state_duration", 0.0),
-            "engagement_role": str(c.get("engagement_role", CombatConstants.ENGAGEMENT_ROLE_LINE)),
+            "state_timer": c.get(DataKeys.PA_STATE_TIMER, 0.0),
+            "state_duration": c.get(DataKeys.PA_STATE_DURATION, 0.0),
+            "engagement_role": str(c.get(DataKeys.ENGAGEMENT_ROLE, CombatConstants.ENGAGEMENT_ROLE_LINE)),
             "lane_offset": CombatantEntityAccess.lane_offset_float(c),
         }
         CombatUiHints.stamp_snapshot_hint_fields(item, c, manager)
         _copy_live_ui_fields(item, c)
         if CombatConstants.combat_debug_active():
-            item["guard_angle_deg"] = (
+            item[DataKeys.SNAPSHOT_GUARD_ANGLE_DEG] = (
                 CombatFootwork.guard_angle_deg(c, {})
                 if CombatFootwork.enabled()
                 else CombatConstants.get_guard_angle_deg(c)
@@ -117,14 +117,14 @@ static func build(manager: Node) -> Array:
         if CombatantEntityAccess.state_str(c) == CombatConstants.STATE_WIND_UP:
             var pa: Dictionary = CombatantEntityAccess.nested_dictionary_read(c, "pending_attack")
             if pa.get(CombatConstants.PA_KEY_COUNTER_TEMPO, false):
-                item["is_counter_tempo_wind_up"] = true
-        var pm_raw: Variant = c.get("pending_medical", null)
+                item[DataKeys.SNAPSHOT_IS_COUNTER_TEMPO_WIND_UP] = true
+        var pm_raw: Variant = c.get(DataKeys.SNAPSHOT_PENDING_MEDICAL, null)
         if pm_raw is Dictionary:
-            item["pending_medical"] = (pm_raw as Dictionary).duplicate(true)
+            item[DataKeys.SNAPSHOT_PENDING_MEDICAL] = (pm_raw as Dictionary).duplicate(true)
         else:
-            item["pending_medical"] = {}
+            item[DataKeys.SNAPSHOT_PENDING_MEDICAL] = {}
         var status_override: String = _status_override_text(manager, c, cid_snap, next_ready)
         if not status_override.is_empty():
-            item["status_override"] = status_override
+            item[DataKeys.SNAPSHOT_STATUS_OVERRIDE] = status_override
         out.append(item)
     return out

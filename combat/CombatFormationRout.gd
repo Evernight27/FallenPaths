@@ -5,10 +5,12 @@ extends RefCounted
 ## **casualty ratio**.
 ## **Read order:** standing baseline --'' stress/casualty queries --'' `abandonment_warranted` --'' AI/tooltip helpers.
 const FORMATION_FLEE_LEADER_BLOOD_MIN := 27.5
+const PERSONAL_CRISIS_COHESION_MULT: float = 0.55
+const LEADER_COHESION_EXEMPTION_MULT: float = 1.5
 
 
 static func is_party_leader_combatant(c: Dictionary) -> bool:
-    return bool(c.get("is_party_leader", false))
+    return bool(c.get(DataKeys.SNAPSHOT_IS_PARTY_LEADER, false))
 
 
 ## Canonical: **`CombatantEntityAccess.flee_abandonment_warranted`** delegates here.
@@ -132,7 +134,7 @@ static func line_cohesion_for_combatant(manager: Node, c: Dictionary) -> float:
     var form: Dictionary = formation_record_for_combatant(manager, c)
     if form.is_empty():
         return 1.0
-    return clampf(form.get("line_cohesion", 1.0), 0.0, 1.0)
+    return clampf(form.get(DataKeys.FORMATION_LINE_COHESION, 1.0), 0.0, 1.0)
 
 
 static func flee_line_cohesion_max(manager: Node, c: Dictionary) -> float:
@@ -237,7 +239,7 @@ static func abandonment_warranted(manager: Node, c: Dictionary) -> bool:
         if is_party_leader_combatant(c):
             if side_holding_field(manager, c):
                 return false
-            if line_cohesion_for_combatant(manager, c) > flee_line_cohesion_max(manager, c) * 1.5:
+            if line_cohesion_for_combatant(manager, c) > flee_line_cohesion_max(manager, c) * LEADER_COHESION_EXEMPTION_MULT:
                 return false
         if side_holding_field(manager, c):
             return false
@@ -259,7 +261,7 @@ static func flee_ai_pick_mult(manager: Node, c: Dictionary) -> float:
         mult *= CombatConstants.AI_FLEE_LOSING_SIDE_MULT
     # Personal crisis flee stays urgent even when the side still has numbers.
     if side_holding_field(manager, c) and formation_stress_abandonment_path(manager, c):
-        mult *= 0.55
+        mult *= PERSONAL_CRISIS_COHESION_MULT
     return mult
 
 
@@ -344,14 +346,8 @@ static func rout_hint_when_flee_listed(manager: Node, c: Dictionary, actions: Ar
     var cas_pct: int = int(round(casualty_ratio_for_combatant(manager, c) * 100.0))
     if formation_stressed_for_rout(manager, c):
         if side_holding_field(manager, c):
-            return (
-                "Flee leaves the field (cohesion %d%%, casualties %d%%) - your side still has numbers; fall back when l"
-                + "isted." % [coh_pct, cas_pct]
-            )
-        return (
-            "Flee leaves the field (cohesion %d%%, casualties %d%%) - fall back stays in formation when listed."
-            % [coh_pct, cas_pct]
-        )
+            return "Flee leaves the field (cohesion %d%%, casualties %d%%) - your side still has numbers; fall back when listed." % [coh_pct, cas_pct]
+        return "Flee leaves the field (cohesion %d%%, casualties %d%%) - fall back stays in formation when listed." % [coh_pct, cas_pct]
     return "Flee leaves the field - you are badly hurt or bleeding out."
 
 
@@ -364,6 +360,40 @@ static func rout_layer_blocked(manager: Node, c: Dictionary, actions: Array, com
 static func rout_cognition_pressure(manager: Node, c: Dictionary) -> bool:
     if c.is_empty() or manager == null:
         return false
+    var cid: int = CombatantEntityAccess.id_int(c)
+    ## Phase 3: morale check gates rout behavior when the side is still holding together.
+    if not CombatMoraleCohesion.morale_check_during_rout(cid, manager):
+        return false
+    ## Phase 3: guard break threshold — repeated failures with no ally support push toward rout.
+    var gb_count: int = int(c.get(CombatConstantsMentalStack.COMBATANT_KEY_GUARD_BREAK_COUNT, 0))
+    if gb_count >= CombatConstantsMentalStack.MENTAL_STACK_LOST_COHESION_ROUT_THRESHOLD:
+        var my_zg: Dictionary = ZoneOfControl.zone_geometry_line_context(manager, c)
+        var allies_nearby: bool = false
+        for other in manager.combatants:
+            if other is not Dictionary:
+                continue
+            var o: Dictionary = other
+            if CombatantEntityAccess.side_str(o) != CombatantEntityAccess.side_str(c):
+                continue
+            if CombatantEntityAccess.id_int(o) == cid:
+                continue
+            if not CombatantEntityAccess.alive_bool(o):
+                continue
+            var other_zg: Dictionary = ZoneOfControl.zone_geometry_line_context(manager, o)
+            var my_fid: String = ZoneOfControl.zone_geometry_fid_from_pack(my_zg)
+            var other_fid: String = ZoneOfControl.zone_geometry_fid_from_pack(other_zg)
+            if my_fid == other_fid and not my_zg.is_empty():
+                var my_slots: Dictionary = my_zg.get(DataKeys.ZONE_FORMATION, {})
+                var other_slots: Dictionary = other_zg.get(DataKeys.ZONE_FORMATION, {})
+                var self_key: Variant = FormationSlots.slot_key_for_combatant_id(manager, {"slots": my_slots}, cid)
+                var other_key: Variant = FormationSlots.slot_key_for_combatant_id(manager, {"slots": other_slots}, CombatantEntityAccess.id_int(o))
+                if self_key == null or other_key == null:
+                    continue
+                if self_key != other_key:
+                    allies_nearby = true
+                    break
+        if not allies_nearby:
+            return true
     if is_true_duel(manager):
         if _get_entity_access().get_attacking_arm(c).is_empty():
             return false
@@ -384,9 +414,9 @@ static func filter_rout_disengage_actions(manager: Node, c: Dictionary, combatan
         if raw is not Dictionary:
             continue
         var a: Dictionary = raw
-        if a.get("target_id", -1) != combatant_id:
+        if a.get(DataKeys.ACTION_TARGET_ID, -1) != combatant_id:
             continue
-        var mid: String = str(a.get("move_id", ""))
+        var mid: String = str(a.get(DataKeys.ACTION_MOVE_ID, ""))
         if not duel_flee_allowed_for_action(manager, c, mid):
             continue
         if mid == CombatConstants.MOVE_ID_FLEE and CombatFormationFlee.flee_action_legal(manager, c):

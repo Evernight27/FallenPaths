@@ -106,7 +106,7 @@ static func _get_process_tick() -> GDScript:
 
 
 static func _reset_fled_and_combat_absent(c: Dictionary) -> void:
-    c.erase("combat_absent")
+    c.erase(DataKeys.SNAPSHOT_COMBAT_ABSENT)
     if CombatantEntityAccess.state_str(c) == CombatConstants.STATE_FLED:
         CombatFootwork.return_to_waiting(c)
         c.state_timer = 0.0
@@ -169,14 +169,14 @@ static func _batch_complete_in_progress_windups(manager: Node) -> void:
             continue
         if CombatantEntityAccess.state_str(c) != CombatConstants.STATE_MEDICAL_WIND_UP:
             continue
-        var pm_raw: Variant = c.get("pending_medical", null)
+        var pm_raw: Variant = c.get(DataKeys.PA_PENDING_MEDICAL, null)
         if pm_raw is not Dictionary:
             continue
         var pm: Dictionary = pm_raw
         if pm.is_empty():
             continue
         MedicalWindUpHandler.complete(manager, c, pm)
-        c["pending_medical"] = {}
+        c[DataKeys.PA_PENDING_MEDICAL] = {}
 
 
 static func _batch_scrub_winner_busy_states_for_exit(manager: Node) -> void:
@@ -194,7 +194,7 @@ static func _batch_scrub_winner_busy_states_for_exit(manager: Node) -> void:
             CombatFootwork.return_to_waiting(c)
             c.gauge = 100.0
         elif st == CombatConstants.STATE_RECEIVING_MEDICAL_ATTENTION:
-            if c.get("receiving_medical_count", 0) <= 0:
+            if c.get(DataKeys.PA_RECEIVING_MEDICAL_COUNT, 0) <= 0:
                 CombatFootwork.return_to_waiting(c)
                 c.gauge = 100.0
 
@@ -213,7 +213,7 @@ static func _batch_best_effort_dress_winner_side(manager: Node) -> void:
         for entry in targets:
             if entry is not Dictionary:
                 continue
-            var target_id: int = entry.get("target_id", -1)
+            var target_id: int = entry.get(DataKeys.ACTION_TARGET_ID, -1)
             var part: String = entry.get("part", "")
             if target_id < 0 or part.is_empty():
                 continue
@@ -232,9 +232,9 @@ static func _batch_best_effort_dress_winner_side(manager: Node) -> void:
             if MedicalPhaseBatchResolve._batch_apply_medical_action(
                 manager,
                 performer_id,
-                int(choice.get("target_id", target_id)),
-                choice.get("move_id", ""),
-                str(choice.get("target_part", part))
+                int(choice.get(DataKeys.ACTION_TARGET_ID, target_id)),
+                choice.get(DataKeys.ACTION_MOVE_ID, ""),
+                str(choice.get(DataKeys.ACTION_TARGET_PART, part))
             ):
                 progressed = true
                 break
@@ -300,15 +300,12 @@ static func _batch_medical_actions_for_part(manager: Node, performer_id: int, ta
         if raw_act is not Dictionary:
             continue
         var act: Dictionary = raw_act
-        (
-            out
-            . append(
-                {
-                    "target_id": target_id,
-                    "move_id": act.get("move_id", ""),
-                    "target_part": str(act.get("target_part", part)),
-                }
-            )
+        out.append(
+            {
+                "target_id": target_id,
+                "move_id": act.get(DataKeys.ACTION_MOVE_ID, ""),
+                "target_part": str(act.get("target_part", part)),
+            }
         )
     return out
 

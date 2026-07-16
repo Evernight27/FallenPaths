@@ -101,7 +101,7 @@ static func are_both_alive(a: Dictionary, b: Dictionary) -> bool:
 
 ## Alive and not incapacitated (winner / standing counts).
 static func is_standing_combatant(combatant: Dictionary) -> bool:
-    if combatant.get("combat_absent", false):
+    if combatant.get(DataKeys.COMBATANT_COMBAT_ABSENT, false):
         return false
     return alive_bool(combatant) and not is_incapacitated(combatant)
 
@@ -130,11 +130,11 @@ static func leader_register_flags_from_node(node: Node, side: String) -> Diction
     var party_leader := false
     var enemy_leader := false
     if node != null:
-        if side == CombatConstantsMisc.SIDE_PLAYER and node.get("is_party_leader") == true:
+        if side == CombatConstantsMisc.SIDE_PLAYER and node.get(DataKeys.COMBATANT_IS_PARTY_LEADER) == true:
             party_leader = true
-        elif side == CombatConstantsMisc.SIDE_ENEMY and node.get("is_enemy_leader") == true:
+        elif side == CombatConstantsMisc.SIDE_ENEMY and node.get(DataKeys.COMBATANT_IS_ENEMY_LEADER) == true:
             enemy_leader = true
-    return {"is_party_leader": party_leader, "is_enemy_leader": enemy_leader}
+    return {DataKeys.COMBATANT_IS_PARTY_LEADER: party_leader, DataKeys.COMBATANT_IS_ENEMY_LEADER: enemy_leader}
 
 
 ## IV-11: player party leader or enemy commander  -  instant doctrine commands + telegraph focus.
@@ -144,9 +144,9 @@ static func leader_register_flags_from_node(node: Node, side: String) -> Diction
 static func is_formation_command_issuer(combatant: Dictionary) -> bool:
     if combatant.is_empty():
         return false
-    if is_player_side(combatant) and combatant.get("is_party_leader", false):
+    if is_player_side(combatant) and combatant.get(DataKeys.COMBATANT_IS_PARTY_LEADER, false):
         return true
-    if is_enemy_side(combatant) and combatant.get("is_enemy_leader", false):
+    if is_enemy_side(combatant) and combatant.get(DataKeys.COMBATANT_IS_ENEMY_LEADER, false):
         return true
     return false
 
@@ -158,7 +158,7 @@ static func is_formation_command_issuer(combatant: Dictionary) -> bool:
 static func is_formation_telegraph_leader(combatant: Dictionary) -> bool:
     if combatant.is_empty():
         return false
-    return combatant.get("is_party_leader", false) or combatant.get("is_enemy_leader", false)
+    return combatant.get(DataKeys.COMBATANT_IS_PARTY_LEADER, false) or combatant.get(DataKeys.COMBATANT_IS_ENEMY_LEADER, false)
 
 
 ## Opponent side label for **`actor`** (`player` ->''f''s'f''s' -> `enemy`, else `player`).
@@ -186,7 +186,7 @@ static func opponent_side_label(side: String) -> String:
 ## Resolves the health/wounds holder for a combat scene node (e.g. Character ->''f''s'f''s' -> CoreEntity). Prefers
 ## **`manager.get_health_entity(node)`** (see **`CombatManager`**).
 static func formation_id_str(combatant: Dictionary) -> String:
-    return combatant.get("formation_id", "")
+    return combatant.get(DataKeys.COMBATANT_FORMATION_ID, "")
 
 
 ## Battle `side` string (e.g. `player` / `enemy`); empty if unset.
@@ -194,7 +194,7 @@ static func formation_id_str(combatant: Dictionary) -> String:
 
 ## Battle `side` string (e.g. `player` / `enemy`); empty if unset.
 static func side_str(combatant: Dictionary) -> String:
-    return combatant.get("side", "")
+    return combatant.get(DataKeys.COMBATANT_SIDE, "")
 
 
 ## Formation `rank` index; uses `default_rank` when the key is missing.
@@ -202,7 +202,7 @@ static func side_str(combatant: Dictionary) -> String:
 
 ## Formation `rank` index; uses `default_rank` when the key is missing.
 static func rank_int(combatant: Dictionary, default_rank: int = 0) -> int:
-    return int(combatant.get("rank", default_rank))
+    return int(combatant.get(DataKeys.COMBATANT_RANK, default_rank))
 
 
 ## Formation `file` index; uses `default_file` when the key is missing.
@@ -210,7 +210,7 @@ static func rank_int(combatant: Dictionary, default_rank: int = 0) -> int:
 
 ## Formation `file` index; uses `default_file` when the key is missing.
 static func file_int(combatant: Dictionary, default_file: int = 0) -> int:
-    return int(combatant.get("file", default_file))
+    return int(combatant.get(DataKeys.COMBATANT_FILE, default_file))
 
 
 ## Lateral offset within the file column; clamped to **`CombatConstantsFormation.LANE_OFFSET_ABS_MAX`**.
@@ -219,7 +219,7 @@ static func file_int(combatant: Dictionary, default_file: int = 0) -> int:
 ## Lateral offset within the file column; clamped to **`CombatConstantsFormation.LANE_OFFSET_ABS_MAX`**.
 static func lane_offset_float(combatant: Dictionary) -> float:
     return clampf(
-        float(combatant.get("lane_offset", CombatConstantsFormation.LANE_OFFSET_DEFAULT)),
+        float(combatant.get(DataKeys.BIND_LANE_OFFSET, CombatConstantsFormation.LANE_OFFSET_DEFAULT)),
         -CombatConstantsFormation.LANE_OFFSET_ABS_MAX,
         CombatConstantsFormation.LANE_OFFSET_ABS_MAX
     )
@@ -232,7 +232,7 @@ static func lane_offset_float(combatant: Dictionary) -> float:
 static func distance_to_opponent_band(
     actor: Dictionary, opponent_id: int, default_band: String = CombatConstantsDistance.DISTANCE_LONG
 ) -> String:
-    return str(nested_dictionary_read(actor, "distance_to").get(opponent_id, default_band))
+    return str(nested_dictionary_read(actor, DataKeys.COMBATANT_DISTANCE_TO).get(opponent_id, default_band))
 
 
 ## Combatant `id`; uses `default_id` when missing (common default: -1).
@@ -240,7 +240,7 @@ static func distance_to_opponent_band(
 
 ## Combatant `id`; uses `default_id` when missing (common default: -1).
 static func id_int(combatant: Dictionary, default_id: int = -1) -> int:
-    return int(combatant.get("id", default_id))
+    return int(combatant.get(DataKeys.COMBATANT_ID, default_id))
 
 
 ## `alive` flag; uses `default_alive` when missing (`false` for combat rules; `true` when absent should count as
@@ -250,7 +250,7 @@ static func id_int(combatant: Dictionary, default_id: int = -1) -> int:
 ## `alive` flag; uses `default_alive` when missing (`false` for combat rules; `true` when absent should count as
 ## living).
 static func tactical_penetration_depth_int(combatant: Dictionary) -> int:
-    return combatant.get("tactical_penetration_depth", 0)
+    return combatant.get(DataKeys.COMBATANT_TACTICAL_PENETRATION_DEPTH, 0)
 
 
 ## `stats` sub-dictionary (strength, agility, ...). Empty if missing or wrong type.
@@ -260,7 +260,7 @@ static func tactical_penetration_depth_int(combatant: Dictionary) -> int:
 ## `stats` sub-dictionary (strength, agility, ...). Empty if missing or wrong type.
 ## May alias `combatant["stats"]`  -  do not replace the combatant's stats reference from call sites.
 static func stats_dict(combatant: Dictionary) -> Dictionary:
-    var s: Variant = combatant.get("stats", null)
+    var s: Variant = combatant.get(DataKeys.COMBATANT_STATS, null)
     if s is Dictionary:
         return s
     return {}
@@ -284,8 +284,8 @@ static func get_display_name(combatant: Variant, fallback_id: int = -1) -> Strin
 
 ## Returns true if combatant's node has a weapon.
 static func sync_close_distance_pair(atk: Dictionary, tgt: Dictionary, attacker_id: int, target_id: int) -> void:
-    nested_dictionary_for_mutation(atk, "distance_to")[target_id] = CombatConstantsDistance.DISTANCE_CLOSE
-    nested_dictionary_for_mutation(tgt, "distance_to")[attacker_id] = CombatConstantsDistance.DISTANCE_CLOSE
+    nested_dictionary_for_mutation(atk, DataKeys.COMBATANT_DISTANCE_TO)[target_id] = CombatConstantsDistance.DISTANCE_CLOSE
+    nested_dictionary_for_mutation(tgt, DataKeys.COMBATANT_DISTANCE_TO)[attacker_id] = CombatConstantsDistance.DISTANCE_CLOSE
 
 
 static func formation_morale_cohesion_factor(manager: Node, c: Dictionary) -> float:
@@ -295,7 +295,7 @@ static func formation_morale_cohesion_factor(manager: Node, c: Dictionary) -> fl
     if fid.is_empty():
         return 1.0
     var form: Dictionary = _get_formation_slots().formation_record_for_manager(manager, fid)
-    return clampf(form.get("morale_cohesion_factor", 1.0), CombatConstantsEngagement.MORALE_COHESION_FACTOR_MIN, 1.0)
+    return clampf(form.get(DataKeys.FORMATION_MORALE_COHESION_FACTOR, 1.0), CombatConstantsEngagement.MORALE_COHESION_FACTOR_MIN, 1.0)
 
 ## Returns leg functionality 0 - 1. Default 1.0 if unavailable.
 

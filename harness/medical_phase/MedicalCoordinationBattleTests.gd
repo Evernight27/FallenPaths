@@ -355,7 +355,7 @@ static func _run_wound_merge_same_subregion(failures: PackedStringArray) -> void
 static func _run_medical_phase_losing_side_stays_fled(failures: PackedStringArray) -> void:
     var mgr: Node = CombatRegressionHarness._harness_start_1v1()
     var enemy_c: Dictionary = mgr.combatants[1]
-    enemy_c["combat_absent"] = true
+    enemy_c[DataKeys.COMBATANT_COMBAT_ABSENT] = true
     enemy_c.state = CombatConstants.STATE_FLED
     mgr._end_combat_phase("player", null)
     if not bool(enemy_c.get("combat_absent", false)):
@@ -781,10 +781,10 @@ static func _run_medical_phase_tick_continues_after_locked_bleed_out(failures: P
             failures,
             (
                 "medical_phase_tick_continue: medic wind-up should advance (state=%s timer=%.2f)"
-                % [CombatantEntityAccess.state_str(medic), float(medic.get("state_timer", 0.0))]
+                % [CombatantEntityAccess.state_str(medic), float(medic.get(DataKeys.PA_STATE_TIMER, 0.0))]
             )
         )
-    elif float(medic.get("state_timer", 0.0)) < 0.01:
+    elif float(medic.get(DataKeys.PA_STATE_TIMER, 0.0)) < 0.01:
         CombatRegressionHarness._fail(
             failures, "medical_phase_tick_continue: medic state_timer should advance after tick"
         )

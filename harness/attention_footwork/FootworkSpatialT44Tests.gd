@@ -919,9 +919,9 @@ static func _run_footwork_formation_move_scrubs_leaked_offset(failures: PackedSt
     CombatConstants.set_feature_position_angle_footwork_load(true)
     if c.has(CombatConstants.COMBATANT_KEY_POSITION_ANGLE_OFFSET_DEG):
         CombatRegressionHarness._fail(failures, "footwork_formation_scrub: offset key should be erased")
-    if absf(float(c.get("state_timer", 0.0)) - 0.05) > 0.001:
+    if absf(float(c.get(DataKeys.PA_STATE_TIMER, 0.0)) - 0.05) > 0.001:
         CombatRegressionHarness._fail(
-            failures, "footwork_formation_scrub: timer should advance got %.4f" % float(c.get("state_timer", 0.0))
+            failures, "footwork_formation_scrub: timer should advance got %.4f" % float(c.get(DataKeys.PA_STATE_TIMER, 0.0))
         )
 
 ## Tier 4.4: medical wind-up tick scrubs leaked PA (**`process_medical_wind_up`**).

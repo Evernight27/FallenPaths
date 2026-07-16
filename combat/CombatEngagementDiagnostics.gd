@@ -22,8 +22,8 @@ static func log_fight_start_summary(manager: Node) -> void:
         return
     _fight_start_logged = true
     var forms: Dictionary = manager.get("formations") as Dictionary
-    var pf: int = int((forms.get("player", {}) as Dictionary).get("files", 1))
-    var ef: int = int((forms.get("enemy", {}) as Dictionary).get("files", 1))
+    var pf: int = int((forms.get("player", {}) as Dictionary).get(DataKeys.FORMATION_FILES, 1))
+    var ef: int = int((forms.get("enemy", {}) as Dictionary).get(DataKeys.FORMATION_FILES, 1))
     var off_p: int = EngagementOpposition.opposition_file_offset(manager, "player")
     var off_e: int = EngagementOpposition.opposition_file_offset(manager, "enemy")
     var line_gap_p: bool = CombatFormationFlow.formation_line_has_rank0_gap(manager, "player")
@@ -75,7 +75,7 @@ static func maybe_log_turn_pick(manager: Node, combatant_id: int, actions: Array
     var c: Dictionary = CombatantEntityAccess.manager_get_combatant(manager, combatant_id)
     if c.is_empty() or not CombatantEntityAccess.is_player_side(c):
         return
-    var mid: String = str(choice.get("move_id", "")).strip_edges()
+    var mid: String = str(choice.get(DataKeys.ACTION_MOVE_ID, "")).strip_edges()
     if mid.is_empty():
         return
     if not _should_log_pick(mid, actions, c, manager):
@@ -207,7 +207,7 @@ static func _action_menu_counts(actions: Array) -> String:
     for raw in actions:
         if raw is not Dictionary:
             continue
-        var mid: String = str((raw as Dictionary).get("move_id", ""))
+        var mid: String = str((raw as Dictionary).get(DataKeys.ACTION_MOVE_ID, ""))
         match mid:
             CombatConstants.MOVE_ID_WAIT:
                 wait_n += 1
@@ -228,7 +228,7 @@ static func _action_menu_counts(actions: Array) -> String:
 
 
 static func _distance_band_summary(c: Dictionary) -> String:
-    var d_to: Dictionary = CombatantEntityAccess.nested_dictionary_read(c, "distance_to")
+    var d_to: Dictionary = CombatantEntityAccess.nested_dictionary_read(c, DataKeys.COMBATANT_DISTANCE_TO)
     if d_to.is_empty():
         return "(none)"
     var parts: PackedStringArray = PackedStringArray()

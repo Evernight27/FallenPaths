@@ -20,12 +20,12 @@ static func get_parts_being_treated_on(manager: Node, combatant_id: int) -> Arra
     for other in manager.combatants:
         if CombatantEntityAccess.state_str(other) != CombatConstants.STATE_MEDICAL_WIND_UP:
             continue
-        var pm_raw: Variant = other.get("pending_medical", null)
+        var pm_raw: Variant = other.get(DataKeys.PA_PENDING_MEDICAL, null)
         if pm_raw is not Dictionary:
             continue
         var pm: Dictionary = pm_raw
-        if pm.get("target_combatant_id", -1) == combatant_id:
-            var part: String = pm.get("target_part", "")
+        if pm.get(DataKeys.MEDICAL_TARGET_COMBATANT_ID, -1) == combatant_id:
+            var part: String = pm.get(DataKeys.ACTION_TARGET_PART, "")
             if not part.is_empty() and part not in out:
                 out.append(part)
     return out
@@ -42,17 +42,17 @@ static func get_active_windup_treatment_by_other(
             continue
         if CombatantEntityAccess.state_str(other) != CombatConstants.STATE_MEDICAL_WIND_UP:
             continue
-        var pm_raw: Variant = other.get("pending_medical", null)
+        var pm_raw: Variant = other.get(DataKeys.PA_PENDING_MEDICAL, null)
         if pm_raw is not Dictionary:
             continue
         var pm: Dictionary = pm_raw
-        if pm.get("target_combatant_id", -1) != target_id:
+        if pm.get(DataKeys.MEDICAL_TARGET_COMBATANT_ID, -1) != target_id:
             continue
-        if pm.get("target_part", "") != part:
+        if pm.get(DataKeys.ACTION_TARGET_PART, "") != part:
             continue
         return {
             "performer_id": CombatantEntityAccess.id_int(other),
-            "medical_id": pm.get("medical_id", ""),
+            "medical_id": pm.get(DataKeys.MEDICAL_ID, ""),
         }
     return {}
 
@@ -122,17 +122,17 @@ static func filter_actions_for_pick(manager: Node, performer_id: int, actions: A
         if raw is not Dictionary:
             continue
         var act: Dictionary = raw
-        var part: String = act.get("target_part", "")
-        var mid: String = act.get("move_id", "")
+        var part: String = act.get(DataKeys.ACTION_TARGET_PART, "")
+        var mid: String = act.get(DataKeys.ACTION_MOVE_ID, "")
         if manager.medical_phase:
-            var tgt_id: int = act.get("target_id", -1)
+            var tgt_id: int = act.get(DataKeys.ACTION_TARGET_ID, -1)
             if medical_action_allowed(manager, performer_id, tgt_id, part, mid):
                 out.append(act)
             continue
         if not CombatConstants.is_medical_move(mid):
             out.append(act)
             continue
-        var tgt_id_mid: int = act.get("target_id", -1)
+        var tgt_id_mid: int = act.get(DataKeys.ACTION_TARGET_ID, -1)
         if medical_action_allowed(manager, performer_id, tgt_id_mid, part, mid):
             out.append(act)
     return out
@@ -148,8 +148,8 @@ static func filter_ally_medical_actions(
         if raw is not Dictionary:
             continue
         var act: Dictionary = raw
-        var part: String = act.get("target_part", "")
-        var mid: String = act.get("move_id", "")
+        var part: String = act.get(DataKeys.ACTION_TARGET_PART, "")
+        var mid: String = act.get(DataKeys.ACTION_MOVE_ID, "")
         if medical_action_allowed(manager, performer_id, ally_id, part, mid):
             out.append(act)
     return out

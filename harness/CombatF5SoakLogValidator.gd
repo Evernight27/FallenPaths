@@ -5,9 +5,9 @@ extends RefCounted
 ## Headless entry: **`validate_f5_soak_log.ps1`** / **`.sh`** -> **`run_all_combat_checks.gd`**
 ## (`FP_HARNESS_MODE=f5_validate`) -> **`.f5_soak_validation.txt`**.
 
-const REPORT_TAG_BEGIN := "--- FP_F5_SOAK_VALIDATION ---"
-const REPORT_TAG_END := "--- END FP_F5_SOAK_VALIDATION ---"
-const REPORT_FILENAME := ".f5_soak_validation.txt"
+const REPORT_TAG_BEGIN: String = "--- FP_F5_SOAK_VALIDATION —\n"
+const REPORT_TAG_END: String = "--- END FP_F5_SOAK_VALIDATION —\n"
+const REPORT_FILENAME: String = ".f5_soak_validation.txt"
 const DEFAULT_INPUT_FILENAME := ".f5_soak_in.txt"
 
 const PROFILE_ALWAYS := CombatD001TrackSpecs.PROFILE_ALWAYS
@@ -174,13 +174,13 @@ static func _skip_needle_count_line(line: String) -> bool:
     # Pasted validation report blocks must not re-count track needles.
     if line.begins_with("--- FP_F5_SOAK_VALIDATION"):
         return true
-    if line.begins_with("--- FP_HARNESS_REPORT ---"):
+    if line.begins_with("--- FP_HARNESS_REPORT —"):
         return true
-    if line.begins_with("--- FP_D001_SOAK_REPORT ---"):
+    if line.begins_with("--- FP_D001_SOAK_REPORT —"):
         return true
-    if line.begins_with("--- END FP_CALIBRATION_AUDIT ---"):
+    if line.begins_with("--- END FP_CALIBRATION_AUDIT —"):
         return true
-    if line.begins_with("--- END FP_F5_CAMP_SMOKES_BATCH ---"):
+    if line.begins_with("--- END FP_F5_CAMP_SMOKES_BATCH —"):
         return true
     if line.begins_with("[camp_") or line.begins_with("[wf_m3_"):
         return true

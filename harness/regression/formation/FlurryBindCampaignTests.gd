@@ -449,7 +449,7 @@ static func _run_flurry_bind_exchange_wind_up_reduced_vs_plain(failures: PackedS
     var e_id: int = EntityAccess.id_int(mgr_p.combatants[1])
     seed(90331)
     WindUpStarter.start(mgr_p, p_id, e_id, "oberhau")
-    var dur_plain: float = float(mgr_p.combatants[0].get("state_duration", 0.0))
+    var dur_plain: float = float(mgr_p.combatants[0].get(DataKeys.PA_STATE_DURATION, 0.0))
     var mgr_f: Node = MgrScript.new()
     mgr_f.register(_new_entity("SWORD"), "player")
     mgr_f.register(_new_entity("SWORD"), "enemy")
@@ -457,7 +457,7 @@ static func _run_flurry_bind_exchange_wind_up_reduced_vs_plain(failures: PackedS
     FlurryBind.open_window(mgr_f, p_id, e_id)
     seed(90331)
     WindUpStarter.start(mgr_f, p_id, e_id, "oberhau")
-    var dur_flurry: float = float(mgr_f.combatants[0].get("state_duration", 0.0))
+    var dur_flurry: float = float(mgr_f.combatants[0].get(DataKeys.PA_STATE_DURATION, 0.0))
     var want: float = dur_plain * CombatConstants.FLURRY_BIND_WIND_UP_MULT
     if absf(dur_flurry - want) > 0.0002:
         _fail(failures, "flurry_bind: duration want %.4f got %.4f plain=%.4f" % [want, dur_flurry, dur_plain])

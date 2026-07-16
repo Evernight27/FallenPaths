@@ -80,7 +80,8 @@ static func format_position_angle_ui_hint(c: Dictionary) -> String:
     var off: float = c.get(CombatConstants.COMBATANT_KEY_POSITION_ANGLE_OFFSET_DEG, 0.0)
     if absf(off) < 0.01:
         return ""
-    return "Step"
+    var dir: String = "+" if off > 0.0 else "-"
+    return "Step %s%d deg" % [dir, int(absf(off))]
 
 
 ## Prefer **`CombatUiHints.footwork_hint_text`** for UI/snapshot. Alias of **`get_ui_hint`**.
@@ -210,7 +211,7 @@ static func parry_eval_step_deg_for_defender(
         return 0.0
     var line: String = guard_line.strip_edges()
     if line.is_empty():
-        line = str(defender.get("guard_line", CombatConstants.GUARD_DEFAULT)).strip_edges()
+        line = defender.get(DataKeys.ATTACK_GUARD_LINE, CombatConstants.GUARD_DEFAULT)
     if line.is_empty():
         line = CombatConstants.GUARD_DEFAULT
     var base_off: float = CombatConstants.position_angle_defender_offset_deg_for_line(
@@ -294,7 +295,7 @@ static func _t44_file_dodge_wing_mult(defender: Dictionary, manager: Node) -> fl
     var formation: Dictionary = FormationSlots.formation_record_for_manager(manager, fid)
     if formation.is_empty():
         return 1.0
-    var files: int = maxi(1, int(formation.get("files", 1)))
+    var files: int = maxi(1, int(formation.get(DataKeys.FORMATION_FILES, 1)))
     return CombatConstants.t44_spatial_file_dodge_wing_mult(CombatantEntityAccess.file_int(defender), files)
 
 

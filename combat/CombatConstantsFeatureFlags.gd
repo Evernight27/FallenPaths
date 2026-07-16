@@ -67,7 +67,7 @@ const FEATURE_AUTOMATIC_DOCTRINE := true
 const FEATURE_JOULE_ARMOR_BUDGET := true
 ## Dev: re-equip back ranks with SPEAR after start for polearm debugging.
 const DEBUG_BACK_RANK_DEPTH_POLEARM_LOADOUT := false
-## Fight exhaustion index --" exhaustion_performance_mult gates (Stamina sub-module).
+## Fight exhaustion index — exhaustion_performance_mult gates (Stamina sub-module).
 const FEATURE_FIGHT_EXHAUSTION_INDEX := true
 
 ## Tier 4.3 combat attention (default on; harness may toggle).
@@ -252,7 +252,7 @@ static func is_feature_surround_arc_occupancy_enabled() -> bool:
     return FEATURE_SURROUND_ARC_OCCUPANCY
 
 
-## Tier 0 pilot: overlapping melee wind-ups on one defender --" parry only the highest-threat attacker.
+## Tier 0 pilot: overlapping melee wind-ups on one defender — parry only the highest-threat attacker.
 ## Tier 6.1: sustained high pain rolls for pain shock during combat ticks (see
 ## **`EntityPainConsciousness.try_ambient_pain_shock_tick`**).
 
@@ -319,8 +319,8 @@ static func initiative_score_for_combatant(combatant: Dictionary) -> float:
     if combatant.is_empty():
         return 0.0
     var stats: Dictionary = CombatantEntityAccess.stats_dict(combatant)
-    var agi: float = stats.get("agility", 100)
-    var perc: float = stats.get("perception", 100)
+    var agi: float = stats.get(DataKeys.ENTITY_AGILITY, 100)
+    var perc: float = stats.get(DataKeys.ENTITY_PERCEPTION, 100)
     var rank_factor: float = maxf(0.65, 1.2 - float(CombatantEntityAccess.rank_int(combatant)) * 0.18)
     var armor_factor: float = 1.0 / maxf(0.01, armor_burden_action_ready_mult(combatant))
     return CombatConstantsParry.stats_factor_agi_perc(agi, perc) * rank_factor * armor_factor
@@ -331,8 +331,8 @@ static func compare_combatants_for_initiative_order(a: Dictionary, b: Dictionary
     var sb: float = initiative_score_for_combatant(b)
     if sa != sb:
         return sa > sb
-    var agi_a: int = int(CombatantEntityAccess.stats_dict(a).get("agility", 100))
-    var agi_b: int = int(CombatantEntityAccess.stats_dict(b).get("agility", 100))
+    var agi_a: int = int(CombatantEntityAccess.stats_dict(a).get(DataKeys.ENTITY_AGILITY, 100))
+    var agi_b: int = int(CombatantEntityAccess.stats_dict(b).get(DataKeys.ENTITY_AGILITY, 100))
     if agi_a != agi_b:
         return agi_a > agi_b
     return CombatantEntityAccess.id_int(a) < CombatantEntityAccess.id_int(b)

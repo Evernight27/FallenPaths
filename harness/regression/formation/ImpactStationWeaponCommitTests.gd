@@ -68,7 +68,7 @@ static func _run_formation_hit_reaction_extends_pair_move_duration(failures: Pac
     var id0: int = EntityAccess.id_int(p0)
     var id1: int = EntityAccess.id_int(p1)
     FormationFlow.start_pair_move(mgr, id0, id1, "swap_rank")
-    var dur_before: float = float(p0.get("state_duration", -1.0))
+    var dur_before: float = float(p0.get(DataKeys.PA_STATE_DURATION, -1.0))
     var resolve_before: float = -1.0
     for ev in mgr.event_queue:
         if typeof(ev) != TYPE_DICTIONARY:
@@ -81,7 +81,7 @@ static func _run_formation_hit_reaction_extends_pair_move_duration(failures: Pac
             resolve_before = float(evd.get("resolve_at", -1.0))
             break
     FormationFlow.apply_hit_reaction_if_needed(mgr, id0, 0.35)
-    var dur_after: float = float(p0.get("state_duration", -1.0))
+    var dur_after: float = float(p0.get(DataKeys.PA_STATE_DURATION, -1.0))
     var resolve_after: float = resolve_before
     for ev in mgr.event_queue:
         if typeof(ev) != TYPE_DICTIONARY:
@@ -179,7 +179,7 @@ static func _run_incoming_parry_choice_blocks_non_chosen_attacker(failures: Pack
     EntityAccess.nested_dictionary_for_mutation(e0, "pending_attack")["intensity"] = 1.0
     WindUpStarter.start(mgr, e1_id, p_id, "oberhau")
     EntityAccess.nested_dictionary_for_mutation(e1, "pending_attack")["intensity"] = 0.95
-    var resolve_at: float = EntityAccess.combat_clock_plus(mgr, float(e0.get("state_duration", 0.5)))
+    var resolve_at: float = EntityAccess.combat_clock_plus(mgr, float(e0.get(DataKeys.PA_STATE_DURATION, 0.5)))
     for aid in [e0_id, e1_id]:
         (
             EntityAccess
@@ -272,7 +272,7 @@ static func _run_incoming_parry_can_parry_all_weak_pair(failures: PackedStringAr
     EntityAccess.nested_dictionary_for_mutation(e0, "pending_attack")["intensity"] = 0.40
     WindUpStarter.start(mgr, e1_id, p_id, "oberhau")
     EntityAccess.nested_dictionary_for_mutation(e1, "pending_attack")["intensity"] = 0.40
-    var resolve_at: float = EntityAccess.combat_clock_plus(mgr, float(e0.get("state_duration", 0.5)))
+    var resolve_at: float = EntityAccess.combat_clock_plus(mgr, float(e0.get(DataKeys.PA_STATE_DURATION, 0.5)))
     for aid in [e0_id, e1_id]:
         (
             EntityAccess
@@ -357,7 +357,7 @@ static func _run_iii1_incoming_parry_sector_tiebreak(failures: PackedStringArray
     var tie_strength := 100.0
     for atk in [e0, e1]:
         EntityAccess.stats_dict_for_mutation(atk)["strength"] = tie_strength
-    var resolve_at: float = EntityAccess.combat_clock_plus(mgr, float(e0.get("state_duration", 0.5)))
+    var resolve_at: float = EntityAccess.combat_clock_plus(mgr, float(e0.get(DataKeys.PA_STATE_DURATION, 0.5)))
     for aid in [e0_id, e1_id]:
         (
             EntityAccess
@@ -635,7 +635,7 @@ static func _run_weapon_committed_attack_dampens_defender_parry_c_d(failures: Pa
             failures,
             (
                 "weapon_pos_commit: past commit wind-up should be extended (frac=%.2f timer=%.2f)"
-                % [commit_frac, float(attacker.get("state_timer", 0.0))]
+                % [commit_frac, float(attacker.get(DataKeys.PA_STATE_TIMER, 0.0))]
             )
         )
     seed(92012)

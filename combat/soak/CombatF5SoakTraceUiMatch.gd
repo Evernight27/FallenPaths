@@ -141,7 +141,7 @@ static func _log_soak_coverage_camp_supplement() -> void:
         if not str(track_id).begins_with("camp_"):
             continue
         var track_result: Dictionary = tracks[track_id] as Dictionary
-        if bool(track_result.get("pass", false)):
+        if bool(track_result.get(DataKeys.SOAK_TRACE_PASS, false)):
             OperationalLog.play_combat(
                 "soak_coverage camp pass [%s] %s" % [track_id, str(track_result.get("detail", ""))]
             )
@@ -156,17 +156,15 @@ static func _log_soak_coverage_camp_supplement() -> void:
         if not str(track_id).begins_with("camp_"):
             continue
         var track_result: Dictionary = tracks[track_id] as Dictionary
-        if bool(track_result.get("pass", false)):
+        if bool(track_result.get(DataKeys.SOAK_TRACE_PASS, false)):
             continue
         if not bool(track_result.get("optional", false)):
             continue
         optional_missing.append(str(track_id))
     if not optional_missing.is_empty():
+        var missing_str := ", ".join(optional_missing)
         OperationalLog.play_combat(
-            (
-                "soak_coverage camp hint optional still missing: %s  -  separate F5 runs or docs/f5_soak_log.camp_f"
-                + "ull.example.txt" % ", ".join(optional_missing)
-            )
+            "soak_coverage camp hint optional still missing: %s  -  separate F5 runs or docs/f5_soak_log.camp_full.example.txt" % [missing_str]
         )
         for track_id in optional_missing:
             var hint: String = str(_CAMP_OPTIONAL_PLAY_HINTS.get(track_id, ""))
@@ -359,7 +357,7 @@ static func _actions_include_formation_menu(actions: Array) -> bool:
     for entry in actions:
         if not (entry is Dictionary):
             continue
-        var mid: String = str(entry.get("move_id", entry.get("id", ""))).strip_edges()
+        var mid: String = str(entry.get(DataKeys.ACTION_MOVE_ID, entry.get("id", ""))).strip_edges()
         if mid.is_empty() or mid == CombatConstants.MOVE_ID_WAIT:
             continue
         if mid.begins_with("focus_"):

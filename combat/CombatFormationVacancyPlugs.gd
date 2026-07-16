@@ -15,16 +15,11 @@ static func formation_has_rank0_hole(manager: Node, fid: String) -> bool:
     if formation.is_empty():
         return false
     var slots: Dictionary = FormationSlots.formation_slots_dict(formation)
-    var nfiles: int = maxi(1, int(formation.get("files", 1)))
+    var nfiles: int = maxi(1, int(formation.get(DataKeys.FORMATION_FILES, 1)))
     for file in range(nfiles):
         if not FormationSlots.slot_has_any_living_occupant(manager, slots, Vector2i(0, file)):
             return true
     return false
-
-
-## True when this formation currently has at least one legal plug move into rank 0.
-## Frontline-first policy: if true, keep line closure ahead of non-essential movement choices.
-## MS-L5: fight-finish / sparse-finish / mop-up offense defer plug to L4b or salience utility pick.
 
 
 ## True when this formation currently has at least one legal plug move into rank 0.
@@ -50,19 +45,11 @@ static func formation_plug_layer_blocked(manager: Node, c: Dictionary, actions: 
         return true
     return false
 
-
-## MS-L5: true when plug cognition should run (not blocked and at least one listed plug move).
-
-
 ## MS-L5: true when plug cognition should run (not blocked and at least one listed plug move).
 static func formation_plug_layer_eligible(manager: Node, c: Dictionary, combatant_id: int, actions: Array) -> bool:
     if formation_plug_layer_blocked(manager, c, actions, combatant_id):
         return false
     return not filter_formation_plug_actions(manager, c, combatant_id, actions).is_empty()
-
-
-## MS-L5: listed vacancy / plug-forward actions for **`MentalStackDecider`** (swap_rank relief, incap plug, Skirmish
-## rotate).
 
 
 ## MS-L5: listed vacancy / plug-forward actions for **`MentalStackDecider`** (swap_rank relief, incap plug, Skirmish
@@ -86,11 +73,11 @@ static func formation_has_frontline_fill_opportunity(manager: Node, fid: String)
     var formation: Dictionary = FormationSlots.formation_record_for_manager(manager, fid)
     if formation.is_empty():
         return false
-    var formation_ranks: int = int(formation.get("ranks", 1))
+    var formation_ranks: int = int(formation.get(DataKeys.FORMATION_RANKS, 1))
     if formation_ranks <= 1:
         return false
     var slots: Dictionary = FormationSlots.formation_slots_dict(formation)
-    var nfiles: int = maxi(1, int(formation.get("files", 1)))
+    var nfiles: int = maxi(1, int(formation.get(DataKeys.FORMATION_FILES, 1)))
     var side_wanted: String = FormationSlots.formation_side_str(formation)
     for file in range(nfiles):
         if FormationSlots.slot_has_any_living_occupant(manager, slots, Vector2i(0, file)):
@@ -106,21 +93,17 @@ static func formation_has_frontline_fill_opportunity(manager: Node, fid: String)
 
 ## Same as **`formation_has_frontline_fill_opportunity`**, but only for one **file** column (solo **`fall_back`** uses
 ## this so an empty front cell in another lane does not block retreat).
-
-
-## Same as **`formation_has_frontline_fill_opportunity`**, but only for one **file** column (solo **`fall_back`** uses
-## this so an empty front cell in another lane does not block retreat).
 static func formation_has_frontline_fill_opportunity_at_file(manager: Node, fid: String, file: int) -> bool:
     if manager == null or file < 0:
         return false
     var formation: Dictionary = FormationSlots.formation_record_for_manager(manager, fid)
     if formation.is_empty():
         return false
-    var formation_ranks: int = int(formation.get("ranks", 1))
+    var formation_ranks: int = int(formation.get(DataKeys.FORMATION_RANKS, 1))
     if formation_ranks <= 1:
         return false
     var slots: Dictionary = FormationSlots.formation_slots_dict(formation)
-    var nfiles: int = maxi(1, int(formation.get("files", 1)))
+    var nfiles: int = maxi(1, int(formation.get(DataKeys.FORMATION_FILES, 1)))
     if file >= nfiles:
         return false
     if FormationSlots.slot_has_any_living_occupant(manager, slots, Vector2i(0, file)):
@@ -145,12 +128,12 @@ static func apply_vacancy_plug_same_file(manager: Node, fid: String, file: int) 
     var formation: Dictionary = FormationSlots.formation_record_for_manager(manager, fid)
     if formation.is_empty():
         return false
-    var formation_ranks: int = formation.get("ranks", 1)
+    var formation_ranks: int = formation.get(DataKeys.FORMATION_RANKS, 1)
     if formation_ranks <= 1:
         return false
     var slots: Dictionary = FormationSlots.formation_slots_dict(formation)
     var side_wanted: String = FormationSlots.formation_side_str(formation)
-    var nfiles: int = int(formation.get("files", 1))
+    var nfiles: int = int(formation.get(DataKeys.FORMATION_FILES, 1))
     var any_promoted: bool = false
     var micro_max: int = CombatConstants.FORMATION_VACANCY_MICRO_STEPS_MAX
     for _micro in range(micro_max):
@@ -210,7 +193,7 @@ static func compact_native_line_files_if_thinned(manager: Node, fid: String) -> 
         return false
     var slots: Dictionary = FormationSlots.formation_slots_dict(formation)
     var side_wanted: String = FormationSlots.formation_side_str(formation)
-    var formation_ranks: int = maxi(1, int(formation.get("ranks", 1)))
+    var formation_ranks: int = maxi(1, int(formation.get(DataKeys.FORMATION_RANKS, 1)))
     var any: bool = false
     for rank in range(formation_ranks):
         var natives: Array = []
@@ -271,7 +254,7 @@ static func reconcile_vacancy_plugs_formation(manager: Node, fid: String) -> boo
     if FormationSlots.prune_dead_ids_from_formation_slots(manager, slots_prune):
         CombatDebug.formation_vacancy_log("pruned dead occupant ids from slots fid=%s" % fid)
     FormationVacancyDonorScoring._vacancy_lateral_begin_tracking(manager)
-    var nfiles: int = int(formation.get("files", 1))
+    var nfiles: int = int(formation.get(DataKeys.FORMATION_FILES, 1))
     var any: bool = false
     var max_rounds: int = CombatConstants.FORMATION_VACANCY_RECONCILE_MAX_ROUNDS
     var exhausted_unstable: bool = false
@@ -312,10 +295,6 @@ static func reconcile_vacancy_plugs_formation(manager: Node, fid: String) -> boo
         FormationSlots.refresh_gap_column_topology(formation)
     return any
 
-
-## Returns `formation_id` strings whose `reconcile_vacancy_plugs_formation` made a change this pass.
-
-
 ## Returns `formation_id` strings whose `reconcile_vacancy_plugs_formation` made a change this pass.
 static func reconcile_vacancy_plugs_track_changed_fids(manager: Node) -> Array:
     var changed_fids: Array = []
@@ -326,11 +305,6 @@ static func reconcile_vacancy_plugs_track_changed_fids(manager: Node) -> Array:
             changed_fids.append(str(fk))
     debug_verify_vacancy_invariants_after_reconcile(manager)
     return changed_fids
-
-
-## Entry point: full pass when `COMBAT_VACANCY_RECONCILE_DIRTY_ONLY` is false; otherwise only
-## `Combatmanager._get_vacancy_dirty_fids()` (cleared as processed).
-
 
 ## Entry point: full pass when `COMBAT_VACANCY_RECONCILE_DIRTY_ONLY` is false; otherwise only
 ## `Combatmanager._get_vacancy_dirty_fids()` (cleared as processed).
@@ -371,13 +345,6 @@ static func reconcile_vacancy_plugs_all_formations(manager: Node) -> bool:
         manager.mark_all_formations_vacancy_dirty()
     return not reconcile_vacancy_plugs(manager).is_empty()
 
-
-## Shared tail for vacancy reconcile: ZoC/distance, surgical back-rank `action_ready` bump, optional
-## `formation_changed`.
-## Call with `emit_formation_changed_signals=false` when the caller emits those signals separately (e.g.
-## `notify_formation_changed`).
-
-
 ## Shared tail for vacancy reconcile: ZoC/distance, surgical back-rank `action_ready` bump, optional
 ## `formation_changed`.
 ## Call with `emit_formation_changed_signals=false` when the caller emits those signals separately (e.g.
@@ -395,12 +362,7 @@ static func finish_vacancy_reconcile_follow_up(
     for fv in changed_fids:
         var fk: String = str(fv)
         if manager.formations is Dictionary and (manager.formations as Dictionary).has(fk):
-            manager.emit_signal("formation_changed", fk)
-
-
-## Debug-only: after a full reconcile pass, rank 0 in a column should not stay empty if a non-intruded ally
-## could step up (same rules as `apply_vacancy_plug_same_file`). Intruder-only deeper ranks are allowed.
-
+            manager.formation_changed.emit(fk)
 
 ## Debug-only: after a full reconcile pass, rank 0 in a column should not stay empty if a non-intruded ally
 ## could step up (same rules as `apply_vacancy_plug_same_file`). Intruder-only deeper ranks are allowed.
@@ -414,11 +376,11 @@ static func debug_verify_vacancy_invariants_after_reconcile(manager: Node) -> vo
         if formation.is_empty():
             continue
         var fid_str: String = str(fid_key)
-        var formation_ranks: int = int(formation.get("ranks", 1))
+        var formation_ranks: int = int(formation.get(DataKeys.FORMATION_RANKS, 1))
         if formation_ranks <= 1:
             continue
         var slots: Dictionary = FormationSlots.formation_slots_dict(formation)
-        var nfiles: int = int(formation.get("files", 1))
+        var nfiles: int = int(formation.get(DataKeys.FORMATION_FILES, 1))
         var side_wanted: String = FormationSlots.formation_side_str(formation)
         for file in range(nfiles):
             if FormationSlots.slot_has_any_living_occupant(manager, slots, Vector2i(0, file)):
@@ -442,18 +404,14 @@ static func debug_verify_vacancy_invariants_after_reconcile(manager: Node) -> vo
                     )
                 )
 
-
-## Death-triggered same-file micro-plug (bounded steps) after corpse is written to **`slot_obstacles`**.
-
-
 ## Death-triggered same-file micro-plug (bounded steps) after corpse is written to **`slot_obstacles`**.
 static func run_death_column_micro_plug(
     manager: Node, formation: Dictionary, fid_geom: String, slots: Dictionary, death_file: int
 ) -> void:
-    if formation.get("ranks", 1) <= 1:
+    if formation.get(DataKeys.FORMATION_RANKS, 1) <= 1:
         return
-    var formation_ranks: int = int(formation.get("ranks", 1))
-    var nfiles_death: int = int(formation.get("files", 1))
+    var formation_ranks: int = int(formation.get(DataKeys.FORMATION_RANKS, 1))
+    var nfiles_death: int = int(formation.get(DataKeys.FORMATION_FILES, 1))
     FormationVacancyDonorScoring._vacancy_lateral_begin_tracking(manager)
     var micro_max_d: int = CombatConstants.FORMATION_VACANCY_MICRO_STEPS_MAX
     for _micro_d in range(micro_max_d):
@@ -491,3 +449,9 @@ static func run_death_column_micro_plug(
         if not moved_step_d:
             break
     FormationVacancyDonorScoring._vacancy_lateral_end_tracking(manager)
+
+
+
+
+
+

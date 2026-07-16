@@ -494,7 +494,7 @@ static func can_enter_combat(world: Node2D) -> Dictionary:
         return out
     var leader_ok: bool = false
     for n in nodes:
-        if n != null and n.get("is_party_leader") == true:
+        if n != null and n.get(DataKeys.COMBATANT_IS_PARTY_LEADER) == true:
             leader_ok = true
             break
     if not leader_ok and nodes.size() > 0:
@@ -531,7 +531,7 @@ static func get_fightable_party_nodes(world: Node2D) -> Array:
             continue
         if node_ref.has_method("is_dead") and (node_ref as Node).is_dead():
             continue
-        if leader_only and node_ref.get("is_party_leader") != true:
+        if leader_only and node_ref.get(DataKeys.COMBATANT_IS_PARTY_LEADER) != true:
             continue
         players.append(node_ref)
     if world != null and world.has_meta(SoakEncounterPresets.WORLD_META_SOAK_PARTY_FIGHTER_CAP):
@@ -549,7 +549,7 @@ static func _cap_fightable_party_leader_first(nodes: Array, cap: int) -> Array:
     for n in nodes:
         if n == null:
             continue
-        if n.get("is_party_leader") == true:
+        if n.get(DataKeys.COMBATANT_IS_PARTY_LEADER) == true:
             leader = n
         else:
             rest.append(n)
@@ -850,3 +850,5 @@ static func _log_party_vitality(world: Node2D, prefix: String) -> void:
                     % [prefix, n.name, int(bv), bleed, wounded_n, str(untreated)]
                 )
             )
+
+

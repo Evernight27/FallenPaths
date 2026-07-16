@@ -20,8 +20,8 @@ const D001_SOAK_REPORT_FILENAME := ".d001_soak_out.txt"
 const F5_SOAK_CAPTURE_FILENAME := ".f5_soak_in.txt"
 const II2B_WORKSHEET_PREFILL_FILENAME := ".ii2b_worksheet_prefill.txt"
 const D001_HEADLESS_SIGNOFF_FILENAME := ".d001_headless_signoff.txt"
-const REPORT_BEGIN := "--- FP_HARNESS_REPORT ---"
-const REPORT_END := "--- END FP_HARNESS_REPORT ---"
+const REPORT_BEGIN: String = "--- FP_HARNESS_REPORT —\n"
+const REPORT_END: String = "--- END FP_HARNESS_REPORT —\n"
 
 const CAPTURE_MAX_LINES: int = 5000
 ## F5: suppress consecutive identical **`FP_COMBAT`** bodies (turn_ready double-fire, etc.).
@@ -376,7 +376,7 @@ static func _write_harness_report(harness_name: String, ok: bool, failures: Pack
 
 static func write_d001_soak_report(ok: bool, preset_results: Dictionary, failures: PackedStringArray) -> void:
     var lines: PackedStringArray = PackedStringArray()
-    lines.append("--- FP_D001_SOAK_REPORT ---")
+    lines.append("--- FP_D001_SOAK_REPORT —")
     lines.append("ok=%s" % str(ok).to_lower())
     for preset_id in preset_results.keys():
         var pr: Dictionary = preset_results[preset_id] as Dictionary
@@ -386,8 +386,8 @@ static func write_d001_soak_report(ok: bool, preset_results: Dictionary, failure
         for check_id in checks.keys():
             var cr: Dictionary = checks[check_id] as Dictionary
             var optional: bool = cr.get("optional", false)
-            var status: String = "PASS" if cr.get("pass", false) else "FAIL"
-            if optional and not cr.get("pass", false):
+            var status: String = "PASS" if cr.get(DataKeys.SOAK_TRACE_PASS, false) else "FAIL"
+            if optional and not cr.get(DataKeys.SOAK_TRACE_PASS, false):
                 status = "OPTIONAL_MISS"
             (
                 lines
@@ -397,7 +397,7 @@ static func write_d001_soak_report(ok: bool, preset_results: Dictionary, failure
                         % [
                             check_id,
                             status,
-                            cr.get("count", 0),
+                            cr.get(DataKeys.SCAN_COUNT, 0),
                             cr.get("min", 1),
                             " optional" if optional else "",
                         ]
@@ -464,7 +464,7 @@ static func write_d001_soak_report(ok: bool, preset_results: Dictionary, failure
         lines.append("  - %s" % failure_line)
     lines.append("")
     lines.append("f5_log_validator: see .f5_soak_validation.txt (headless aggregate  -  same rules as F5 paste)")
-    lines.append("--- END FP_D001_SOAK_REPORT ---")
+    lines.append("--- END FP_D001_SOAK_REPORT —")
     var path: String = _project_root().path_join(D001_SOAK_REPORT_FILENAME)
     _write_text_file(path, "\n".join(lines) + "\n", false)
     harness_summary("wrote %s" % path)
@@ -482,7 +482,7 @@ static func write_d001_headless_signoff(run_ok: bool, preset_results: Dictionary
     var mandatory: PackedStringArray = CombatD001TrackSpecs.headless_mandatory_signoff_failures(preset_results)
     var signoff_ok: bool = run_ok and validator_ok and mandatory.is_empty()
     var lines: PackedStringArray = PackedStringArray()
-    lines.append("--- FP_D001_HEADLESS_SIGNOFF ---")
+    lines.append("--- FP_D001_HEADLESS_SIGNOFF —")
     lines.append("ok=%s" % str(signoff_ok).to_lower())
     lines.append("policy=headless_only")
     lines.append("validator_ok=%s" % str(validator_ok).to_lower())
@@ -503,7 +503,7 @@ static func write_d001_headless_signoff(run_ok: bool, preset_results: Dictionary
         lines.append("mandatory_failures:")
         for msg in mandatory:
             lines.append("  - %s" % msg)
-    lines.append("--- END FP_D001_HEADLESS_SIGNOFF ---")
+    lines.append("--- END FP_D001_HEADLESS_SIGNOFF —")
     var path: String = _project_root().path_join(D001_HEADLESS_SIGNOFF_FILENAME)
     _write_text_file(path, "\n".join(lines) + "\n", false)
     harness_summary("wrote %s" % path)

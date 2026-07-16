@@ -27,8 +27,8 @@ static func stamp_attack_pair_geometry_on_dict(manager: Node, atk: Dictionary, t
     if manager == null:
         return
     var pair_geom: Dictionary = CombatPairGeometry.effective_pair_geometry(manager, atk, tgt)
-    pa["effective_pair_file_spacing_equivalent"] = pair_geom.get("file_spacing_equiv", 0.0)
-    pa["effective_pair_eff_dist"] = CombatPairGeometry.cached_eff_dist(pair_geom)
+    pa[DataKeys.EFFECTIVE_PAIR_FILE_SPACING_EQUIV] = pair_geom.get(DataKeys.PAIR_FILE_SPACING_EQUIV, 0.0)
+    pa[DataKeys.PA_EFFECTIVE_PAIR_EFF_DIST] = CombatPairGeometry.cached_eff_dist(pair_geom)
     CombatDepthPolearm.stamp_depth_flags_on_pa(manager, atk, pa)
 
 
@@ -36,13 +36,13 @@ static func stamp_strike_realism_on_pa(
     manager: Node, atk: Dictionary, tgt: Dictionary, pa: Dictionary, weapon: Variant, attack_type: String
 ) -> void:
     if weapon == null:
-        pa["strike_measure_ratio"] = 1.0
+        pa[DataKeys.PA_STRIKE_MEASURE_RATIO] = 1.0
         return
-    pa["strike_measure_ratio"] = strike_measure_ratio_for_attack_pair(
-        manager, atk, tgt, weapon, pa.get("effective_pair_eff_dist", -1.0)
+    pa[DataKeys.PA_STRIKE_MEASURE_RATIO] = strike_measure_ratio_for_attack_pair(
+        manager, atk, tgt, weapon, pa.get(DataKeys.PA_EFFECTIVE_PAIR_EFF_DIST, -1.0)
     )
-    if str(pa.get("move_contact_type", "")).is_empty():
-        pa["move_contact_type"] = WeaponConstants.contact_type_for_move_id(attack_type)
+    if str(pa.get(DataKeys.PA_MOVE_CONTACT_TYPE, "")).is_empty():
+        pa[DataKeys.PA_MOVE_CONTACT_TYPE] = WeaponConstants.contact_type_for_move_id(attack_type)
 
 
 static func stamp_attack_pair_and_strike_realism(

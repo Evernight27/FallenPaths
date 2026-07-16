@@ -12,7 +12,7 @@ const D001_PRESETS_NAME := "D001PresetsIi5Ii6"
 const F5_VALIDATOR_NAME := "CombatF5SoakLogValidator"
 const F5_CAMP_SMOKES_BATCH_NAME := "CampOptionalSmokesBatch"
 const F5_CAMP_SMOKES_BATCH_REPORT := ".f5_camp_smokes_batch.txt"
-const F5_CAMP_SMOKES_BATCH_TAG_END := "--- END FP_F5_CAMP_SMOKES_BATCH ---"
+const F5_CAMP_SMOKES_BATCH_TAG_END: String = "--- END FP_F5_CAMP_SMOKES_BATCH —\n"
 const CAMP_SMOKE_ROWS: Array = [
     {"file": "step3e_mopup.txt", "track": "camp_mopup_strike_finish"},
     {"file": "step4_field_care_action.txt", "track": "camp_field_care_action"},
@@ -24,9 +24,20 @@ const CAMP_SMOKE_ROWS: Array = [
     {"file": "medical_exit.txt", "track": "camp_medical_exit"},
 ]
 
+## Preloads to resolve direct class references (post-merge: incoming master removed preloads).
+const _CC := preload("res://combat/CombatConstants.gd")
+const _OpsLog := preload("res://core/OperationalLog.gd")
+const _D001Runner := preload("res://harness/d001/CombatD001SoakRunner.gd")
+const _CalibrationAudit := preload("res://harness/calibration/CombatCalibrationAudit.gd")
+const _SoakSanity := preload("res://harness/d001/CombatD001SoakSanity.gd")
+const _MedicalPhaseTail := preload("res://harness/medical_phase/MedicalPhaseTail.gd")
+const _F5Validator := preload("res://harness/CombatF5SoakLogValidator.gd")
+const _QTrackAudits := preload("res://harness/CombatQTrackAudits.gd")
+const _RegHarness := preload("res://harness/regression/CombatRegressionHarness.gd")
+const _SoakPresets := preload("res://world/SoakEncounterPresets.gd")
 
 func _init() -> void:
-    CombatConstants.set_headless_harness_quiet(true)
+    _CC.set_headless_harness_quiet(true)
     var mode: String = OS.get_environment("FP_HARNESS_MODE").strip_edges().to_lower()
     if mode.is_empty():
         mode = "all"
@@ -52,7 +63,7 @@ func _init() -> void:
         "all":
             _run_mode_all()
         _:
-            OperationalLog.harness_fail(HARNESS_NAME, PackedStringArray(["unknown FP_HARNESS_MODE=%s" % mode]))
+            _OpsLog.harness_fail(HARNESS_NAME, PackedStringArray(["unknown FP_HARNESS_MODE=%s" % mode]))
             quit(1)
     return
 
@@ -65,8 +76,8 @@ func _run_mode_regression() -> void:
 
 func _run_mode_d001() -> void:
     var failures: PackedStringArray = PackedStringArray()
-    _merge_failures(failures, CombatD001SoakRunner.RUNNER_NAME, _run_d001())
-    _quit_mode(CombatD001SoakRunner.RUNNER_NAME, failures, "d001")
+    _merge_failures(failures, _D001Runner.RUNNER_NAME, _run_d001())
+    _quit_mode(_D001Runner.RUNNER_NAME, failures, "d001")
 
 
 func _run_mode_calibration() -> void:
@@ -76,84 +87,84 @@ func _run_mode_calibration() -> void:
 
 
 func _run_mode_medical() -> void:
-    OperationalLog.harness_begin(MEDICAL_FAST_NAME)
+    _OpsLog.harness_begin(MEDICAL_FAST_NAME)
     var failures: PackedStringArray = PackedStringArray()
-    CombatRegressionHarnessMedicalPhaseTail.run_fast_phase_halt_checks(failures)
-    CombatRegressionHarness.flush_harness_live_nodes()
+    _MedicalPhaseTail.run_fast_phase_halt_checks(failures)
+    _RegHarness.flush_harness_live_nodes()
     if failures.is_empty():
-        quit(OperationalLog.harness_ok(MEDICAL_FAST_NAME, "(%d tests)" % MEDICAL_FAST_TEST_COUNT))
+        quit(_OpsLog.harness_ok(MEDICAL_FAST_NAME, "(%d tests)" % MEDICAL_FAST_TEST_COUNT))
         return
-    quit(OperationalLog.harness_fail(MEDICAL_FAST_NAME, failures, "(%d tests)" % MEDICAL_FAST_TEST_COUNT))
+    quit(_OpsLog.harness_fail(MEDICAL_FAST_NAME, failures, "(%d tests)" % MEDICAL_FAST_TEST_COUNT))
     return
 
 
 func _run_mode_sanity() -> void:
-    OperationalLog.harness_begin(CombatD001SoakSanity.RUNNER_NAME)
-    var r: Dictionary = CombatD001SoakSanity.run_all()
-    CombatRegressionHarness.flush_harness_live_nodes()
+    _OpsLog.harness_begin(_SoakSanity.RUNNER_NAME)
+    var r: Dictionary = _SoakSanity.run_all()
+    _RegHarness.flush_harness_live_nodes()
     if bool(r.get("ok", false)):
-        quit(OperationalLog.harness_ok(CombatD001SoakSanity.RUNNER_NAME))
+        quit(_OpsLog.harness_ok(_SoakSanity.RUNNER_NAME))
     else:
-        quit(OperationalLog.harness_fail(CombatD001SoakSanity.RUNNER_NAME, r.get("failures", PackedStringArray())))
+        quit(_OpsLog.harness_fail(_SoakSanity.RUNNER_NAME, r.get("failures", PackedStringArray())))
     return
 
 
 func _run_mode_all() -> void:
     var failures: PackedStringArray = PackedStringArray()
     _merge_failures(failures, "CombatRegressionHarness", _run_regression())
-    _merge_failures(failures, CombatD001SoakRunner.RUNNER_NAME, _run_d001())
+    _merge_failures(failures, _D001Runner.RUNNER_NAME, _run_d001())
     _merge_failures(failures, "CombatCalibrationAudit", _run_calibration_audit())
     _quit_mode(HARNESS_NAME, failures, "regression+d001")
 
 
 func _quit_mode(label: String, failures: PackedStringArray, detail: String) -> void:
-    CombatRegressionHarness.flush_harness_live_nodes()
+    _RegHarness.flush_harness_live_nodes()
     if failures.is_empty():
-        quit(OperationalLog.harness_ok(label, detail))
+        quit(_OpsLog.harness_ok(label, detail))
     else:
-        quit(OperationalLog.harness_fail(label, failures))
+        quit(_OpsLog.harness_fail(label, failures))
     return
 
 
 func _run_regression() -> Dictionary:
     print("=== CombatRegressionHarness ===")
-    OperationalLog.harness_begin("CombatRegressionHarness")
-    return CombatRegressionHarness.run_all()
+    _OpsLog.harness_begin("CombatRegressionHarness")
+    return _RegHarness.run_all()
 
 
 func _run_d001() -> Dictionary:
     print("=== CombatD001SoakRunner ===")
-    OperationalLog.harness_begin(CombatD001SoakRunner.RUNNER_NAME)
-    return CombatD001SoakRunner.run_all()
+    _OpsLog.harness_begin(_D001Runner.RUNNER_NAME)
+    return _D001Runner.run_all()
 
 
 func _run_calibration_audit() -> Dictionary:
     print("=== CombatCalibrationAudit ===")
-    OperationalLog.harness_begin("CombatCalibrationAudit")
-    return CombatCalibrationAudit.run_and_write_report()
+    _OpsLog.harness_begin("CombatCalibrationAudit")
+    return _CalibrationAudit.run_and_write_report()
 
 
 func _merge_failures(out: PackedStringArray, label: String, result: Dictionary) -> void:
     if bool(result.get("ok", false)):
         if not bool(result.get("harness_ok_emitted", false)):
-            OperationalLog.harness_ok(label)
+            _OpsLog.harness_ok(label)
         return
     for raw in result.get("failures", PackedStringArray()) as PackedStringArray:
         out.append("%s: %s" % [label, raw])
 
 
 func _run_mode_d001_presets() -> void:
-    CombatConstants.set_headless_harness_quiet(true)
+    _CC.set_headless_harness_quiet(true)
     var preset_ids: PackedStringArray = _resolve_d001_preset_ids()
-    OperationalLog.harness_begin(D001_PRESETS_NAME)
-    var r: Dictionary = CombatD001SoakRunner.run_preset_ids(preset_ids)
+    _OpsLog.harness_begin(D001_PRESETS_NAME)
+    var r: Dictionary = _D001Runner.run_preset_ids(preset_ids)
     _print_d001_preset_summary(r)
-    CombatRegressionHarness.flush_harness_live_nodes()
+    _RegHarness.flush_harness_live_nodes()
     if bool(r.get("ok", false)):
-        OperationalLog.harness_ok(D001_PRESETS_NAME, "presets=%s" % ", ".join(preset_ids))
+        _OpsLog.harness_ok(D001_PRESETS_NAME, "presets=%s" % ", ".join(preset_ids))
         quit(0)
         return
-    OperationalLog.harness_fail(D001_PRESETS_NAME, r.get("failures", PackedStringArray()))
+    _OpsLog.harness_fail(D001_PRESETS_NAME, r.get("failures", PackedStringArray()))
     quit(1)
 
 
@@ -162,8 +173,8 @@ func _resolve_d001_preset_ids() -> PackedStringArray:
     if raw.is_empty():
         return PackedStringArray(
             [
-                SoakEncounterPresets.PRESET_II5_COWERING,
-                SoakEncounterPresets.PRESET_II6_AMBIENT_SHOCK,
+                _SoakPresets.PRESET_II5_COWERING,
+                _SoakPresets.PRESET_II6_AMBIENT_SHOCK,
             ]
         )
     var out: PackedStringArray = PackedStringArray()
@@ -188,7 +199,7 @@ func _print_d001_preset_summary(r: Dictionary) -> void:
             (
                 OperationalLog
                 . tag_line(
-                    OperationalLog.TAG_HARNESS_SUMMARY,
+                    _OpsLog.TAG_HARNESS_SUMMARY,
                     (
                         "[%s] ok=%s %s | %s"
                         % [
@@ -204,44 +215,44 @@ func _print_d001_preset_summary(r: Dictionary) -> void:
 
 
 func _run_mode_f5_validate() -> void:
-    CombatConstants.set_headless_harness_quiet(true)
-    OperationalLog.harness_begin(F5_VALIDATOR_NAME)
+    _CC.set_headless_harness_quiet(true)
+    _OpsLog.harness_begin(F5_VALIDATOR_NAME)
     var path: String = _resolve_f5_input_path()
     if not FileAccess.file_exists(path):
         var msg: String = "Missing log file: %s  -  copy Godot Output after F5 soak, save as that path, re-run." % path
-        OperationalLog.harness_fail(F5_VALIDATOR_NAME, PackedStringArray([msg]))
-        CombatRegressionHarness.flush_harness_live_nodes()
+        _OpsLog.harness_fail(F5_VALIDATOR_NAME, PackedStringArray([msg]))
+        _RegHarness.flush_harness_live_nodes()
         quit(2)
         return
     var text: String = FileAccess.get_file_as_string(path)
-    var lines: PackedStringArray = CombatF5SoakLogValidator._decode_f5_log_text(text)
-    var result: Dictionary = CombatF5SoakLogValidator.validate(lines)
-    CombatF5SoakLogValidator.write_report(result)
+    var lines: PackedStringArray = _F5Validator._decode_f5_log_text(text)
+    var result: Dictionary = _F5Validator.validate(lines)
+    _F5Validator.write_report(result)
     if bool(result.get("ok", false)):
-        OperationalLog.harness_ok(
+        _OpsLog.harness_ok(
             F5_VALIDATOR_NAME,
             (
                 "profiles=%s lines=%d"
                 % [", ".join(result.get("profiles", PackedStringArray())), int(result.get("line_count", 0))]
             )
         )
-        CombatRegressionHarness.flush_harness_live_nodes()
+        _RegHarness.flush_harness_live_nodes()
         quit(0)
         return
-    OperationalLog.harness_fail(F5_VALIDATOR_NAME, result.get("failures", PackedStringArray()))
-    CombatRegressionHarness.flush_harness_live_nodes()
+    _OpsLog.harness_fail(F5_VALIDATOR_NAME, result.get("failures", PackedStringArray()))
+    _RegHarness.flush_harness_live_nodes()
     quit(1)
 
 
 func _run_mode_f5_validate_camp_smokes() -> void:
-    CombatConstants.set_headless_harness_quiet(true)
-    OperationalLog.harness_begin(F5_CAMP_SMOKES_BATCH_NAME)
+    _CC.set_headless_harness_quiet(true)
+    _OpsLog.harness_begin(F5_CAMP_SMOKES_BATCH_NAME)
     var root: String = ProjectSettings.globalize_path("res://")
     var smoke_dir: String = root.path_join("docs/camp_optional_step_smokes")
     var failures: PackedStringArray = PackedStringArray()
     var passed: int = 0
     var batch_lines: PackedStringArray = PackedStringArray()
-    batch_lines.append("--- FP_F5_CAMP_SMOKES_BATCH ---")
+    batch_lines.append("--- FP_F5_CAMP_SMOKES_BATCH —")
     for row in CAMP_SMOKE_ROWS:
         var file_name: String = str(row.get("file", ""))
         var track_id: String = str(row.get("track", ""))
@@ -251,8 +262,8 @@ func _run_mode_f5_validate_camp_smokes() -> void:
             batch_lines.append("[%s] %s MISSING" % [file_name, track_id])
             continue
         var text: String = FileAccess.get_file_as_string(path)
-        var lines: PackedStringArray = CombatF5SoakLogValidator._decode_f5_log_text(text)
-        var result: Dictionary = CombatF5SoakLogValidator.validate(lines)
+        var lines: PackedStringArray = _F5Validator._decode_f5_log_text(text)
+        var result: Dictionary = _F5Validator.validate(lines)
         var tracks: Dictionary = result.get("tracks", {}) as Dictionary
         var track_result: Dictionary = tracks.get(track_id, {}) as Dictionary
         var track_pass: bool = bool(track_result.get("pass", false))
@@ -274,25 +285,25 @@ func _run_mode_f5_validate_camp_smokes() -> void:
     batch_lines.append("passed=%d/%d" % [passed, CAMP_SMOKE_ROWS.size()])
     batch_lines.append(F5_CAMP_SMOKES_BATCH_TAG_END)
     _write_text_file(root.path_join(F5_CAMP_SMOKES_BATCH_REPORT), "\n".join(batch_lines) + "\n")
-    var human_path: String = root.path_join(CombatF5SoakLogValidator.DEFAULT_INPUT_FILENAME)
+    var human_path: String = root.path_join(_F5Validator.DEFAULT_INPUT_FILENAME)
     if FileAccess.file_exists(human_path):
         var human_text: String = FileAccess.get_file_as_string(human_path)
-        var human_lines: PackedStringArray = CombatF5SoakLogValidator._decode_f5_log_text(human_text)
-        var human_result: Dictionary = CombatF5SoakLogValidator.validate(human_lines)
-        CombatF5SoakLogValidator.write_report(human_result)
+        var human_lines: PackedStringArray = _F5Validator._decode_f5_log_text(human_text)
+        var human_result: Dictionary = _F5Validator.validate(human_lines)
+        _F5Validator.write_report(human_result)
     if failures.is_empty():
-        OperationalLog.harness_ok(F5_CAMP_SMOKES_BATCH_NAME, "passed=%d/%d" % [passed, CAMP_SMOKE_ROWS.size()])
-        CombatRegressionHarness.flush_harness_live_nodes()
+        _OpsLog.harness_ok(F5_CAMP_SMOKES_BATCH_NAME, "passed=%d/%d" % [passed, CAMP_SMOKE_ROWS.size()])
+        _RegHarness.flush_harness_live_nodes()
         quit(0)
         return
-    OperationalLog.harness_fail(F5_CAMP_SMOKES_BATCH_NAME, failures)
-    CombatRegressionHarness.flush_harness_live_nodes()
+    _OpsLog.harness_fail(F5_CAMP_SMOKES_BATCH_NAME, failures)
+    _RegHarness.flush_harness_live_nodes()
     quit(1)
 
 
 func _run_mode_q_track() -> void:
-    var code: int = CombatQTrackAudits.run_headless()
-    CombatRegressionHarness.flush_harness_live_nodes()
+    var code: int = _QTrackAudits.run_headless()
+    _RegHarness.flush_harness_live_nodes()
     quit(code)
 
 
@@ -317,4 +328,4 @@ static func _resolve_f5_input_path() -> String:
         if a.contains("/") or a.contains("\\") or a.ends_with(".txt") or a.ends_with(".log"):
             return a if a.is_absolute_path() else root.path_join(a)
         return root.path_join(a)
-    return root.path_join(CombatF5SoakLogValidator.DEFAULT_INPUT_FILENAME)
+    return root.path_join(_F5Validator.DEFAULT_INPUT_FILENAME)

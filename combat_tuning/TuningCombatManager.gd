@@ -48,7 +48,7 @@ func _end_combat_phase(winner: String, defeated_node: Node) -> void:
         var sd: String = CombatantEntityAccess.side_str(c)
         if CombatantEntityAccess.alive_bool(c):
             alive_by_side[sd] = alive_by_side.get(sd, 0) + 1
-        if bool(c.get("combat_absent", false)) or CombatantEntityAccess.state_str(c) == CombatConstants.STATE_FLED:
+        if bool(c.get(DataKeys.COMBATANT_COMBAT_ABSENT, false)) or CombatantEntityAccess.state_str(c) == CombatConstants.STATE_FLED:
             fled_by_side[sd] = fled_by_side.get(sd, 0) + 1
     var standing_by_side: Dictionary = CombatStandingHelper.get_standing_by_side(combatants)
     var def_node: String = str(defeated_node.name) if defeated_node != null else "null"
@@ -67,5 +67,6 @@ func _end_combat_phase(winner: String, defeated_node: Node) -> void:
     medical_phase_winner = winner
     combat_resolution_closed = true
     _halt_losing_side_combat()
-    emit_signal("combat_ended", winner, defeated_node)
+    combat_ended.emit(winner, defeated_node)
     stop()
+

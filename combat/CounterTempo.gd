@@ -51,8 +51,8 @@ static func incoming_attacker_id(manager: Node, defender_id: int) -> int:
             continue
         if CombatantEntityAccess.state_str(other) != CombatConstants.STATE_WIND_UP:
             continue
-        var pa: Dictionary = CombatantEntityAccess.nested_dictionary_read(other, "pending_attack")
-        if pa.get("target_id", -1) == defender_id:
+        var pa: Dictionary = CombatantEntityAccess.nested_dictionary_read(other, DataKeys.PA_PENDING_ATTACK)
+        if pa.get(DataKeys.ACTION_TARGET_ID, -1) == defender_id:
             return CombatantEntityAccess.id_int(other)
     return -1
 
@@ -63,10 +63,10 @@ static func incoming_wind_up_progress(manager: Node, attacker_id: int) -> float:
     var atk: Dictionary = CombatantEntityAccess.manager_get_combatant(manager, attacker_id)
     if atk.is_empty() or CombatantEntityAccess.state_str(atk) != CombatConstants.STATE_WIND_UP:
         return 0.0
-    var dur: float = atk.get("state_duration", 0.0)
+    var dur: float = atk.get(DataKeys.PA_STATE_DURATION, 0.0)
     if dur <= 0.0:
         return 1.0
-    return clampf(atk.get("state_timer", 0.0) / dur, 0.0, 1.0)
+    return clampf(atk.get(DataKeys.PA_STATE_TIMER, 0.0) / dur, 0.0, 1.0)
 
 
 static func incoming_wind_up_meets_progress_gate(manager: Node, defender_id: int) -> bool:
@@ -104,7 +104,7 @@ static func spend_gauge(c: Dictionary) -> void:
     if c == null:
         return
     var g: float = CombatantEntityAccess.gauge_float(c)
-    c["gauge"] = maxf(0.0, g - CombatConstants.COUNTER_TEMPO_GAUGE_COST)
+    c[DataKeys.COMBATANT_GAUGE] = maxf(0.0, g - CombatConstants.COUNTER_TEMPO_GAUGE_COST)
 
 
 static func is_counter_tempo_melee_action(move_id: String) -> bool:
@@ -131,7 +131,7 @@ static func filter_actions_for_counter_tempo(actions: Array, c: Dictionary = {})
         if raw is not Dictionary:
             continue
         var a: Dictionary = (raw as Dictionary).duplicate()
-        var mid: String = str(a.get("move_id", ""))
+        var mid: String = str(a.get(DataKeys.ACTION_MOVE_ID, ""))
         if not is_counter_tempo_melee_action(mid):
             continue
         a[CombatConstants.ACTION_KEY_COUNTER_TEMPO] = true
@@ -209,7 +209,7 @@ static func on_attacker_wind_up_started(
     defender[CombatConstants.COMBATANT_KEY_COUNTER_WINDOW_UNTIL] = until
     defender.erase(CombatConstants.COMBATANT_KEY_COUNTER_TEMPO_READY_SIGNALED)
     if CombatantEntityAccess.gauge_float(defender) < CombatConstants.COUNTER_TEMPO_GAUGE_THRESHOLD:
-        defender["gauge"] = CombatConstants.COUNTER_TEMPO_GAUGE_THRESHOLD
+        defender[DataKeys.COMBATANT_GAUGE] = CombatConstants.COUNTER_TEMPO_GAUGE_THRESHOLD
     try_schedule_counter_tempo_ready(manager, defender)
 
 
@@ -229,7 +229,7 @@ static func defer_incoming_melee_after_counter(manager: Node, counter_id: int, d
     var counter: Dictionary = CombatantEntityAccess.manager_get_combatant(manager, counter_id)
     if counter.is_empty():
         return
-    var counter_end: float = CombatantEntityAccess.combat_clock_float(manager) + counter.get("state_duration", 0.0)
+    var counter_end: float = CombatantEntityAccess.combat_clock_float(manager) + counter.get(DataKeys.PA_STATE_DURATION, 0.0)
     var defer_to: float = counter_end + CombatConstants.COUNTER_TEMPO_INCOMING_DEFER_AFTER_COUNTER_S
     var incoming_at: float = CombatEventScheduler.get_pending_melee_attack_resolve_at(manager, deferred_attacker_id)
     if incoming_at < 0.0:
@@ -245,8 +245,8 @@ static func abort_attacker_wind_up(manager: Node, attacker_id: int) -> void:
     if atk.is_empty():
         return
     CombatEventScheduler.cancel_pending_melee_attack(manager, attacker_id)
-    var pa: Dictionary = CombatantEntityAccess.nested_dictionary_read(atk, "pending_attack")
-    var defender_id: int = pa.get("target_id", -1)
+    var pa: Dictionary = CombatantEntityAccess.nested_dictionary_read(atk, DataKeys.PA_PENDING_ATTACK)
+    var defender_id: int = pa.get(DataKeys.ACTION_TARGET_ID, -1)
     if defender_id >= 0:
         var def: Dictionary = CombatantEntityAccess.manager_get_combatant(manager, defender_id)
         if not def.is_empty():
@@ -263,7 +263,7 @@ static func abort_attacker_wind_up(manager: Node, attacker_id: int) -> void:
         CombatEventScheduler.reschedule_same_file_depth_after_reserve_turn(manager, attacker_id)
     if was_wind_up:
         CombatStateHandlers.enter_short_recovery(atk, manager)
-        if atk.get("state_duration", 0.0) > 0.0:
+        if atk.get(DataKeys.PA_STATE_DURATION, 0.0) > 0.0:
             (
                 CombatEventScheduler
                 . schedule_event(
@@ -324,9 +324,14 @@ static func counter_tempo_listing_weight_mult(
         return 1.0
     var mult: float = CombatConstants.AI_COUNTER_TEMPO_LISTING_WEIGHT_MULT
     var incoming_id: int = incoming_attacker_id(manager, combatant_id)
-    var tid: int = action.get("target_id", -1)
+    var tid: int = action.get(DataKeys.ACTION_TARGET_ID, -1)
     if incoming_id >= 0 and tid == incoming_id:
         mult *= CombatConstants.AI_COUNTER_TEMPO_INCOMING_TARGET_MULT
     if WeaponConstants.is_feint_move(move_id):
         mult *= CombatConstants.AI_COUNTER_TEMPO_FEINT_DAMP_MULT
+    ## C3: Bonus when target is mid-form-switch (vulnerable transition).
+    if tid >= 0:
+        var tgt: Dictionary = CombatantEntityAccess.manager_get_combatant_optional(manager, tid)
+        if not tgt.is_empty() and CombatantEntityAccess.state_str(tgt) == CombatConstants.STATE_FORM_SWITCH:
+            mult *= CombatConstantsEncounter.FORM_SWITCH_COUNTER_TEMPO_BONUS_MULT
     return mult

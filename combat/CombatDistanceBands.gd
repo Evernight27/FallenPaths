@@ -31,7 +31,7 @@ static func update_distance_to_from_formations(manager: Node) -> void:
     var depth_lane_ok_by_id: Dictionary = depth_polearm_lane_open_by_combatant_id(manager)
     var zone_ctx_by_id: Dictionary = ZoneOfControl.zone_geometry_line_context_by_combatant_id(manager)
     for c in manager.combatants:
-        var d_to: Dictionary = CombatantEntityAccess.nested_dictionary_for_mutation(c, "distance_to")
+        var d_to: Dictionary = CombatantEntityAccess.nested_dictionary_for_mutation(c, DataKeys.COMBATANT_DISTANCE_TO)
         var our_rank: int = CombatantEntityAccess.rank_int(c)
         var cid: int = CombatantEntityAccess.id_int(c)
         var fc: Dictionary = ZoneOfControl.zone_geometry_formation_from_pack(zone_ctx_by_id.get(cid, {}) as Dictionary)
@@ -69,7 +69,7 @@ static func update_distance_to_from_formations(manager: Node) -> void:
             var reach_here: float = maxf(
                 CombatMeleeListing.melee_weapon_reach(c), CombatMeleeListing.melee_weapon_reach(opp)
             )
-            var eff_files: float = pair_geom.get("file_spacing_equiv", 0.0)
+            var eff_files: float = pair_geom.get(DataKeys.PAIR_FILE_SPACING_EQUIV, 0.0)
             var within_mid_files: bool = eff_files <= float(mid_reach) + CombatConstants.DIST_BAND_MID_FILE_EQUIV_SLACK
             if within_mid_files and CombatPairGeometry.melee_reach_covers_eff_dist(reach_here, eff_dist):
                 d_to[oid] = CombatConstants.DISTANCE_MID
@@ -90,7 +90,7 @@ static func update_distance_to_from_formations(manager: Node) -> void:
                 continue
             var oid2: int = CombatantEntityAccess.id_int(opp)
             if (
-                CombatantEntityAccess.nested_dictionary_for_mutation(c, "distance_to").get(oid2, "")
+                CombatantEntityAccess.nested_dictionary_for_mutation(c, DataKeys.COMBATANT_DISTANCE_TO).get(oid2, "")
                 == CombatConstants.DISTANCE_CLOSE
             ):
                 CombatantEntityAccess.sync_close_distance_pair(c, opp, cid2, oid2)
@@ -104,7 +104,7 @@ static func purge_stale_distance_to_entries(manager: Node) -> void:
     for c in manager.combatants:
         if not CombatantEntityAccess.alive_bool(c):
             continue
-        var d_to: Dictionary = CombatantEntityAccess.nested_dictionary_for_mutation(c, "distance_to")
+        var d_to: Dictionary = CombatantEntityAccess.nested_dictionary_for_mutation(c, DataKeys.COMBATANT_DISTANCE_TO)
         var stale: Array = []
         for oid in d_to.keys():
             var opp: Dictionary = CombatantEntityAccess.manager_get_combatant(manager, int(oid))

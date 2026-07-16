@@ -25,7 +25,7 @@ func _tile_coords(pos: Vector2) -> Vector2i:
 func _ready():
     # --tuning CLI flag loads the combat tuning scene instead of the campaign.
     if OS.get_cmdline_args().has("--tuning"):
-        get_tree().change_scene_to_file("res://combat_tuning/combat_tuning.tscn")
+        get_tree().change_scene_to_file(CombatConstantsMisc.PATH_TUNING_SCENE)
         return
 
     var soak_id: String = dev_soak_encounter.strip_edges().to_lower()

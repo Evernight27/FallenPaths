@@ -20,7 +20,7 @@ static func get_parry_config() -> Dictionary:
         "redirect_blunt_penalty": CombatConstants.PARRY_REDIRECT_BLUNT_PENALTY,
         "mass_disparity_bonus": CombatConstants.PARRY_MASS_DISPARITY_BONUS
     }
-    cfg["strong_contact_by_arch"] = CombatConstants.PARRY_STRONG_CONTACT_BY_ARCH
+    cfg[DataKeys.PARRY_STRONG_CONTACT_BY_ARCH] = CombatConstants.PARRY_STRONG_CONTACT_BY_ARCH
     return cfg
 
 
@@ -34,27 +34,33 @@ static func guard_readiness_float(c: Dictionary) -> float:
 
 ## Readiness multiplier for passive parry. WAITING = 1.0 - -  guard; RECOVERING = lerp(early, late) by progress.
 ## Uses READINESS_BY_CAUSE for cause-specific curves (attack_hit = more stunned, attack_miss = off-balance, etc.).
+## C3: FORM_SWITCH = lerped readiness scaling with transition progress.
 static func get_passive_parry_readiness(c: Dictionary) -> float:
     var base: float = 0.0
     if CombatantEntityAccess.state_str(c) == CombatConstants.STATE_WAITING:
         base = guard_readiness_float(c)
     elif CombatantEntityAccess.state_str(c) == CombatConstants.STATE_RECOVERING:
-        var dur: float = c.get("state_duration", 0.001)
-        var t: float = c.get("state_timer", 0.0)
+        var dur: float = c.get(DataKeys.PA_STATE_DURATION, 0.001)
+        var t: float = c.get(DataKeys.PA_STATE_TIMER, 0.0)
         var progress: float = clampf(t / dur, 0.0, 1.0)
-        var cause: String = CombatConstants.normalize_recovery_cause(str(c.get("recovery_cause", "skip")))
+        var cause: String = CombatConstants.normalize_recovery_cause(str(c.get(DataKeys.ATTACK_RECOVERY_CAUSE, "skip")))
         var curve: Array = CombatConstants.readiness_curve_for_cause(cause)
         var early: float = curve[0] if curve.size() >= 1 else 0.5
         var late: float = curve[1] if curve.size() >= 2 else 0.85
         base = lerpf(early, late, progress)
+    elif CombatantEntityAccess.state_str(c) == CombatConstants.STATE_FORM_SWITCH:
+        base = CombatFormSwitch.parry_readiness_during_switch(CombatFormSwitch.transition_progress(c))
     if base <= 0.0:
         return base
+    var overcommit_mult: Variant = c.get(DataKeys.PA_OVERCOMMIT_PARRY_MULT, null)
+    if overcommit_mult != null and float(overcommit_mult) < 1.0:
+        base *= float(overcommit_mult)
     return base * CombatConstants.armor_burden_passive_readiness_mult(c)
 
 
 ## True if combatant is still in "off balance" window (after miss or parry deflect).
 static func is_off_balance(c: Dictionary) -> bool:
-    var until: float = c.get("off_balance_until", -1.0)
+    var until: float = c.get(DataKeys.PA_OFF_BALANCE_UNTIL, -1.0)
     return until > 0.0 and CombatTiming.now_seconds() < until
 
 

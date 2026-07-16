@@ -3,11 +3,11 @@ extends RefCounted
 
 const FeatureFlags := preload("res://combat/CombatConstantsFeatureFlags.gd")
 
-const AI_ATTEMPT_CLOSE_BIND_CLOSE_MULT := 1.28  # Mapped wing out of reach --" close bind beats wait/shuffle
+const AI_ATTEMPT_CLOSE_BIND_CLOSE_MULT := 1.28  # Mapped wing out of reach — close bind beats wait/shuffle
 
-const AI_ATTEMPT_CLOSE_LONG_CLOSE_ONLY_MULT := 0.82  # Mapped rank-0 LONG close-only --" rotate can compete
+const AI_ATTEMPT_CLOSE_LONG_CLOSE_ONLY_MULT := 0.82  # Mapped rank-0 LONG close-only — rotate can compete
 
-const AI_ATTEMPT_CLOSE_SPARSE_LINE_MULT := 1.4  # Sparse post-flee front --" close to finish beats shuffle
+const AI_ATTEMPT_CLOSE_SPARSE_LINE_MULT := 1.4  # Sparse post-flee front — close to finish beats shuffle
 
 const AI_FIGHT_FINISH_TRUSTED_CLOSE_MIN_WEIGHT := 0.58
 
@@ -31,11 +31,11 @@ const AI_FOCUS_LINE_PARTY_LEADER_TELEGRAPH_MATCH_WEIGHT := (
 
 const AI_ROTATE_FILE_LINE_PLUG_MIN_WEIGHT := 0.62  # Skirmish shuffle when line has rank-0 holes (III-6 maintain)
 
-const AI_ROTATE_FILE_LONG_CLOSE_ONLY_MULT := 1.35  # LONG close-only (no melee) --" shuffle can find angle vs close spam
+const AI_ROTATE_FILE_LONG_CLOSE_ONLY_MULT := 1.35  # LONG close-only (no melee) — shuffle can find angle vs close spam
 
 const AI_ROTATE_FILE_WHEN_ENGAGEMENT_LISTED_MULT := 0.35  # Prefer strikes/close over shuffle when both are listed
 
-const AI_SPARSE_LINE_OFFENSE_MULT := 1.35  # Listed melee on sparse post-flee front --" fight over focus shuffle
+const AI_SPARSE_LINE_OFFENSE_MULT := 1.35  # Listed melee on sparse post-flee front — fight over focus shuffle
 
 const AI_STAMINA_DEEP_EXHAUST_MULT := 0.40
 
@@ -49,11 +49,11 @@ const AI_STAMINA_EXHAUSTION_DEEP_MULT := 0.40
 
 const AI_STAMINA_EXHAUSTION_DEEP_THRESHOLD := 0.05
 
-const AI_WAIT_MOP_UP_FINISH_MULT := 0.4  # Mop-up winner or last-enemy underdog --" finish fight, don't idle
+const AI_WAIT_MOP_UP_FINISH_MULT := 0.4  # Mop-up winner or last-enemy underdog — finish fight, don't idle
 
-const AI_WAIT_NO_STRIKE_MULT := 0.15  # No hostile strikes listed --" prefer flee over endless wait loop
+const AI_WAIT_NO_STRIKE_MULT := 0.15  # No hostile strikes listed — prefer flee over endless wait loop
 
-const AI_WAIT_SPARSE_ENGAGEMENT_LISTED_MULT := 0.45  # Post-flee sparse --" wait below close/strike finish
+const AI_WAIT_SPARSE_ENGAGEMENT_LISTED_MULT := 0.45  # Post-flee sparse — wait below close/strike finish
 
 const COWERING_FLEE_AI_WEIGHT := 1.55
 

@@ -13,11 +13,11 @@ static func combatant_dict_or_empty(v: Variant) -> Dictionary:
 
 
 static func stats_dict_for_mutation(combatant: Dictionary) -> Dictionary:
-    var s: Variant = combatant.get("stats", null)
+    var s: Variant = combatant.get(DataKeys.COMBATANT_STATS, null)
     if s is Dictionary:
         return s
     var d: Dictionary = {}
-    combatant["stats"] = d
+    combatant[DataKeys.COMBATANT_STATS] = d
     return d
 
 

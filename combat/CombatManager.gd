@@ -47,7 +47,7 @@ var _combat_tick_index: int = 0
 ## Player side became ready to act; UI / TurnReadyHandler listen on `turn_ready`. Subsystems call this instead of
 ## `emit_signal` on the manager node.
 func notify_turn_ready(combatant_id: int) -> void:
-    emit_signal("turn_ready", combatant_id)
+    turn_ready.emit(combatant_id)
 
 
 ## Formation slots/ranks changed for `formation_id` (plug, pair resolve, rotate, death). Subsystems call this instead of
@@ -67,14 +67,14 @@ func notify_formation_changed(formation_id: String) -> void:
     if CombatConstants.COMBAT_VACANCY_RECONCILE_DIRTY_ONLY:
         _mark_formation_vacancy_dirty(formation_id)
     var reconciled_fids: Array = _vacancy_reconcile_pass(false)
-    emit_signal("formation_changed", formation_id)
+    formation_changed.emit(formation_id)
     for rfid in reconciled_fids:
         if str(rfid) != formation_id:
-            emit_signal("formation_changed", rfid)
+            formation_changed.emit(rfid)
 
 
 func _notify_engagement_state_changed(formation_id: String, line_cohesion: float, engagement_posture: String) -> void:
-    emit_signal("engagement_state_changed", formation_id, line_cohesion, engagement_posture)
+    engagement_state_changed.emit(formation_id, line_cohesion, engagement_posture)
     if CombatDebug.flow_verbose_enabled():
         CombatDebug.flow_log(
             (
@@ -94,7 +94,7 @@ func notify_combat_ui_hint(message: String, echo_to_fp: bool = true) -> void:
     if has_meta(_META_LAST_COMBAT_UI_HINT) and str(get_meta(_META_LAST_COMBAT_UI_HINT, "")) == m:
         return
     set_meta(_META_LAST_COMBAT_UI_HINT, m)
-    emit_signal("combat_ui_hint", m)
+    combat_ui_hint.emit(m)
     if echo_to_fp and OperationalLog.is_play_session_active():
         OperationalLog.play_combat("ui_hint %s" % m)
 
@@ -212,8 +212,8 @@ func register(node: Node, side: String) -> int:
                 "rank": 0,
                 "file": 0,
                 "formation_id": "",
-                "distance_to": {},
-                "engaged_with_id": -1,
+                DataKeys.COMBATANT_DISTANCE_TO: {},
+                DataKeys.COMBATANT_ENGAGED_WITH_ID: -1,
                 "engagement_angle": "front",
                 "zone_id": "",
                 "occupied_zone_id": "",
@@ -221,12 +221,12 @@ func register(node: Node, side: String) -> int:
                 "stance_preference": stance_pref,
                 "engagement_role": CombatConstants.ENGAGEMENT_ROLE_LINE,
                 "lane_offset": CombatConstants.LANE_OFFSET_DEFAULT,
-                "doctrine_target_commit_id": -1,
-                "doctrine_commit_until": 0.0,
+                DataKeys.DOCTRINE_TARGET_COMMIT_ID: -1,
+                DataKeys.DOCTRINE_COMMIT_UNTIL: 0.0,
                 "close_block_until_by_target_id": {},
-                "is_party_leader": leader_flags.get("is_party_leader", false),
-                "is_enemy_leader": leader_flags.get("is_enemy_leader", false),
-                "morale_cohesion": morale_c,
+                "is_party_leader": leader_flags.get(DataKeys.COMBATANT_IS_PARTY_LEADER, false),
+                "is_enemy_leader": leader_flags.get(DataKeys.COMBATANT_IS_ENEMY_LEADER, false),
+                DataKeys.MORALE_COHESION_FACTOR_RAW: morale_c,
                 "campaign_stamina_mult": camp_stamina,
             }
         )
@@ -247,14 +247,14 @@ func register(node: Node, side: String) -> int:
 
 
 func _on_entity_health_changed(combatant_id: int) -> void:
-    emit_signal("combatant_health_changed", combatant_id)
+    combatant_health_changed.emit(combatant_id)
 
 
 ## Resets per-combatant engagement fields (combat end, new encounter, medical phase handoff).
 func _reset_tactical_engagement_state() -> void:
     for c in combatants:
-        c["engagement_role"] = CombatConstants.ENGAGEMENT_ROLE_LINE
-        c["lane_offset"] = CombatConstants.LANE_OFFSET_DEFAULT
+        c[DataKeys.ENGAGEMENT_ROLE] = CombatConstants.ENGAGEMENT_ROLE_LINE
+        c[DataKeys.BIND_LANE_OFFSET] = CombatConstants.LANE_OFFSET_DEFAULT
     if not formations.is_empty():
         CombatFormationEngagement.recompute_all(self)
 
@@ -321,24 +321,30 @@ func start(player_formation: Dictionary = {}, enemy_formation: Dictionary = {}):
     # Tier 4.2: drop stale incoming feint telegraph on encounter (re)start  -  same combatant dicts may persist across
     # `start()`.
     for c in combatants:
-        if c is Dictionary:
-            var cd: Dictionary = c as Dictionary
-            cd.erase(CombatConstants.COMBATANT_KEY_INCOMING_ATTACK_TELEGRAPH_PART)
-            cd.erase(CombatConstants.COMBATANT_KEY_AI_FEINT_OPP_LAST_PARRY_DEFLECT_TICK)
-            cd.erase(CombatConstants.COMBATANT_KEY_COUNTER_WINDOW_UNTIL)
-            cd.erase(CombatConstants.COMBATANT_KEY_COUNTER_TEMPO_READY_SIGNALED)
-            cd.erase(CombatConstants.COMBATANT_KEY_COUNTER_TEMPO_UI_HINT)
-            cd.erase(CombatConstants.COMBATANT_KEY_RIPOSTE_CHAIN_UNTIL)
-            cd.erase(CombatConstants.COMBATANT_KEY_RIPOSTE_CHAIN_TARGET_ID)
-            cd.erase(CombatConstants.COMBATANT_KEY_SUSPEND_BLEED_TICK)
-            CombatFlurryBind.clear(cd)
-            MedicalPhaseBatchResolve._reset_fled_and_combat_absent(cd)
-            CombatAttention.clear_focus_and_yomi(cd)
-            CombatFootwork.clear_on_exchange_end(cd)
-            cd.erase(CombatConstants.COMBATANT_KEY_FORM_SWITCH_COOLDOWN_UNTIL)
-            cd.erase(CombatConstants.COMBATANT_KEY_LAST_FORM_SWITCH_REASON)
-            cd.erase(CombatConstants.COMBATANT_KEY_INFERRED_OPP_FORM_BY_ID)
-            CombatWeaponForm.seed_combatant_form(self, cd)
+        c.erase(CombatConstants.COMBATANT_KEY_INCOMING_ATTACK_TELEGRAPH_PART)
+        c.erase(CombatConstants.COMBATANT_KEY_AI_FEINT_OPP_LAST_PARRY_DEFLECT_TICK)
+        c.erase(CombatConstants.COMBATANT_KEY_COUNTER_WINDOW_UNTIL)
+        c.erase(CombatConstants.COMBATANT_KEY_COUNTER_TEMPO_READY_SIGNALED)
+        c.erase(CombatConstants.COMBATANT_KEY_COUNTER_TEMPO_UI_HINT)
+        c.erase(CombatConstants.COMBATANT_KEY_RIPOSTE_CHAIN_UNTIL)
+        c.erase(CombatConstants.COMBATANT_KEY_RIPOSTE_CHAIN_TARGET_ID)
+        c.erase(CombatConstants.COMBATANT_KEY_SUSPEND_BLEED_TICK)
+        CombatFlurryBind.clear(c)
+        MedicalPhaseBatchResolve._reset_fled_and_combat_absent(c)
+        CombatAttention.clear_focus_and_yomi(c)
+        CombatFootwork.clear_on_exchange_end(c)
+        c.erase(CombatConstants.COMBATANT_KEY_FORM_SWITCH_COOLDOWN_UNTIL)
+        c.erase(CombatConstants.COMBATANT_KEY_LAST_FORM_SWITCH_REASON)
+        c.erase(CombatConstants.COMBATANT_KEY_FORM_SWITCH_OLD_FORM)
+        c.erase(CombatConstants.COMBATANT_KEY_FORM_SWITCH_OLD_GUARD)
+        c.erase(CombatConstants.COMBATANT_KEY_FORM_SWITCH_TARGET_FORM)
+        c.erase(CombatConstants.COMBATANT_KEY_FORM_SWITCH_TARGET_GUARD)
+        if c.get(DataKeys.COMBATANT_STATE, "").strip_edges() == CombatConstants.STATE_FORM_SWITCH:
+            c.state = CombatConstants.STATE_WAITING
+            c.state_timer = 0.0
+            c.state_duration = 0.0
+        c.erase(CombatConstants.COMBATANT_KEY_INFERRED_OPP_FORM_BY_ID)
+        CombatWeaponForm.seed_combatant_form(self, c)
     # III-4 PR2: one-shot reconcile + ZoC/bands before first action-ready (after opposition offset seed).
     _vacancy_reconcile_pass(false)
     recompute_zoc_and_distance()
@@ -365,8 +371,8 @@ func start(player_formation: Dictionary = {}, enemy_formation: Dictionary = {}):
         "engagement mode=%s player_front=%d enemy_front=%d"
         % [
             CombatEngagementMode.mode_display_name(eng_mode),
-            int(eng_snap.get("player_front", 0)),
-            int(eng_snap.get("enemy_front", 0)),
+            int(eng_snap.get(DataKeys.SNAPSHOT_PLAYER_FRONT, 0)),
+            int(eng_snap.get(DataKeys.SNAPSHOT_ENEMY_FRONT, 0)),
         ]
     )
     if OperationalLog.is_play_session_active():
@@ -378,8 +384,8 @@ func start(player_formation: Dictionary = {}, enemy_formation: Dictionary = {}):
         )
         CombatDebug.combat_session(eng_line)
     if has_meta(EngagementOpposition.META_OPPOSITION_FILE_OFFSET_BY_SIDE):
-        var pf: int = int((formations.get("player", {}) as Dictionary).get("files", 1))
-        var ef: int = int((formations.get("enemy", {}) as Dictionary).get("files", 1))
+        var pf: int = int((formations.get("player", {}) as Dictionary).get(DataKeys.FORMATION_FILES, 1))
+        var ef: int = int((formations.get("enemy", {}) as Dictionary).get(DataKeys.FORMATION_FILES, 1))
         var opp_line: String = (
             "opposition offset player=%d enemy=%d formation_files=%d/%d"
             % [
@@ -522,14 +528,14 @@ func _run_interactive_medical_fast_forward_pass(max_sim_seconds: float = -1.0) -
     var sim_state: Dictionary = MedicalPhaseController.fast_forward_prepare(self, max_sim_seconds)
     if sim_state.is_empty():
         return
-    var sim_cap: float = float(sim_state["sim_cap"])
+    var sim_cap: float = float(sim_state[DataKeys.SIM_CAP])
     var break_reason: String = "sim_cap"
     while true:
         var slice: Dictionary = MedicalPhaseController.fast_forward_advance_time_slice(
             self, sim_state, sim_cap, MedicalPhaseBatchResolve.INTERACTIVE_FAST_FORWARD_FRAME_BUDGET_US
         )
-        if not bool(slice.get("continue_loop", false)):
-            break_reason = str(slice.get("break_reason", "sim_cap"))
+        if not bool(slice.get(DataKeys.MEDICAL_CONTINUE_LOOP, false)):
+            break_reason = str(slice.get(DataKeys.MEDICAL_BREAK_REASON, "sim_cap"))
             break
         if is_inside_tree():
             await get_tree().process_frame
@@ -567,7 +573,7 @@ func _emit_finish_battle_and_stop(ran_fast_forward: bool) -> void:
         )
     if OperationalLog.is_play_session_active():
         CombatF5SoakTrace.flush_deferred_soak_coverage()
-    emit_signal("combat_ended", medical_phase_winner, null)
+    combat_ended.emit(medical_phase_winner, null)
     stop()
 
 
@@ -600,13 +606,12 @@ func skip_turn(combatant_id: int, log_outcome: String = "pass", flow_reason: Str
         "skip_turn id=%d outcome=%s rank=%d%s" % [combatant_id, log_outcome, CombatantEntityAccess.rank_int(c), extra],
         "skip_turn:%d" % combatant_id
     )
-    emit_signal(
-        "action_resolved",
+    action_resolved.emit(
         combatant_id,
         combatant_id,
         {"outcome": log_outcome, "dmg": 0, "died": false, "rank": CombatantEntityAccess.rank_int(c)}
     )
-    emit_signal("turn_resolved", combatant_id)
+    turn_resolved.emit(combatant_id)
     c.gauge = 0.0
     var delay: float = CombatConstants.READY_DELAY_SKIP_DEFAULT_S
     if CombatantEntityAccess.rank_int(c) > 0:
@@ -634,13 +639,13 @@ func _end_combat_phase(winner: String, defeated_node: Node) -> void:
         var sd: String = CombatantEntityAccess.side_str(c)
         if CombatantEntityAccess.alive_bool(c):
             alive_by_side[sd] = alive_by_side.get(sd, 0) + 1
-        if bool(c.get("combat_absent", false)) or CombatantEntityAccess.state_str(c) == CombatConstants.STATE_FLED:
+        if c.get(DataKeys.COMBATANT_COMBAT_ABSENT, false) or CombatantEntityAccess.state_str(c) == CombatConstants.STATE_FLED:
             fled_by_side[sd] = fled_by_side.get(sd, 0) + 1
     var standing_by_side: Dictionary = CombatStandingHelper.get_standing_by_side(combatants)
-    var def_node: String = str(defeated_node.name) if defeated_node != null else "null"
     var fresh_medical: bool = winner == "player" and not medical_phase
     if fresh_medical or winner == "enemy":
         if not OperationalLog.play_session_is_editor_f5():
+            var def_node: String = str(defeated_node.name) if defeated_node != null else "null"
             CombatDebug.combat_session(
                 (
                     "phase_end winner=%s defeated_node=%s alive_by_side=%s standing_by_side=%s fled_by_side=%s"
@@ -657,7 +662,7 @@ func _end_combat_phase(winner: String, defeated_node: Node) -> void:
         medical_phase = true
         medical_phase_winner = winner
         combat_resolution_closed = true
-        emit_signal("combat_ended", winner, defeated_node)
+        combat_ended.emit(winner, defeated_node)
         _halt_losing_side_combat()
         stop()
         # stop() clears medical flags; restore so halt_losing_side / UI still see enemy-win medical halt.
@@ -676,7 +681,7 @@ func _end_combat_phase(winner: String, defeated_node: Node) -> void:
         combat_resolution_closed = true
         _halt_losing_side_combat()
         if fresh_medical:
-            emit_signal("enemies_eliminated", winner)
+            enemies_eliminated.emit(winner)
 
 
 ## Player-win medical phase: cancel losing-side combat events and abort in-flight melee (no post-victory strikes).
@@ -754,8 +759,8 @@ func set_formation_doctrine(formation_id: String, doctrine: String) -> void:
     formation_doctrine[fid] = CombatDoctrine.normalize(doctrine)
     CombatDoctrine.clear_commitments_for_side(self, fid)
     var fd: Dictionary = FormationSlots.formation_record_for_manager(self, fid)
-    var coh: float = float(fd.get("line_cohesion", 1.0))
-    var pst: String = str(fd.get("engagement_posture", ""))
+    var coh: float = float(fd.get(DataKeys.FORMATION_LINE_COHESION, 1.0))
+    var pst: String = str(fd.get(DataKeys.FORMATION_ENGAGEMENT_POSTURE, ""))
     _notify_engagement_state_changed(fid, coh, pst)
 
 
@@ -806,7 +811,7 @@ func resolve_action(attacker_id: int, target_id: int, move_id: String = "", opti
         CombatMobilityRetreat.sync_cowering_state_if_no_functional_arm(c_resolve as Dictionary)
     var committed: bool = CombatResolveAction.resolve(self, attacker_id, target_id, move_id, options)
     if committed and c_resolve is Dictionary:
-        (c_resolve as Dictionary)["last_committed_move_id"] = move_id
+        (c_resolve as Dictionary)[CombatConstantsDictKeys.COMBATANT_KEY_LAST_COMMITTED_MOVE_ID] = move_id
     return committed
 
 
@@ -819,13 +824,13 @@ func _execute_attack(attacker_id: int) -> void:
     var result: Dictionary = AttackResolver.resolve_attack(self, attacker_id)
     AttackResultApplier.apply_result(self, attacker_id, result)
     # Phase 3: Plug on death  -  when target died, update formation (slot_obstacles, promote rank 1 if rank 0 died).
-    var tgt_id: int = result.get("target_id", -1)
+    var tgt_id: int = result.get(DataKeys.ACTION_TARGET_ID, -1)
     if tgt_id >= 0:
         var tgt = _get_by_id(tgt_id)
         if tgt != null and not CombatantEntityAccess.alive_bool(tgt):
             on_combatant_died(tgt)
     # Option D: CombatManager owns flow. After parry, defender gets EVENT_ACTION_READY.
-    var action: String = result.get("action", "")
+    var action: String = result.get(DataKeys.RESULT_ACTION, "")
     if action in ["parry_deflect", "parry_partial"] and tgt_id >= 0:
         var tgt = _get_by_id(tgt_id)
         if (
@@ -904,3 +909,6 @@ func _check_for_winner() -> String:
     if has_meta("_d001_suppress_winner_check"):
         return ""
     return CombatStandingHelper.get_winner(combatants)
+
+
+

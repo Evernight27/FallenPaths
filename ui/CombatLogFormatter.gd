@@ -388,10 +388,7 @@ static func format_action_line(
                         line_pd += " [size=10][color=gray](%s meas=%.2f bind=%.2f)[/color][/size]" % [kdel, sm, pc]
             return line_pd
         "parry_partial":
-            var line_pp: String = (
-                "[color=cyan]%s (%s) partially parried %s (%s)'s attack  -  follow-through may still land (see next hit"
-                + " line).[/color]" % [attacker_name, attacker_side, target_name, target_side]
-            )
+            var line_pp: String = "[color=cyan]%s (%s) partially parried %s (%s)'s attack  -  follow-through may still land (see next hit line).[/color]" % [attacker_name, attacker_side, target_name, target_side]
             var ctx_pp: Variant = result.get("parry_clash_context", null)
             if ctx_pp is Dictionary:
                 var dpp: Dictionary = ctx_pp

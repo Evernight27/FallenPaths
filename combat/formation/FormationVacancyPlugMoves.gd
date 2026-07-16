@@ -218,14 +218,14 @@ static func _apply_plug_move(
     CombatDoctrine.clear_combatant_doctrine_commitment(ally)
     FormationVacancyDonorScoring._repack_lane_offset_after_rank_file_change(ally)
     FormationSlots.slot_set_single(slots, Vector2i(fill_rank, file), CombatantEntityAccess.id_int(ally))
-    ally["formation_autofill_cooldown_until"] = (
+    ally[DataKeys.FM_AUTOFILL_COOLDOWN_UNTIL] = (
         CombatantEntityAccess.combat_clock_float(manager) + CombatConstants.FORMATION_AUTOFILL_REPOSITION_COOLDOWN_S
     )
-    ally["formation_autofill_last_move_clock"] = CombatantEntityAccess.combat_clock_float(manager)
+    ally[DataKeys.FM_AUTOFILL_LAST_MOVE_CLOCK] = CombatantEntityAccess.combat_clock_float(manager)
     if kind == "lateral" or kind == "rear_infill":
-        ally["formation_vacancy_lateral_last_from_file"] = from_f
-        ally["formation_vacancy_lateral_last_to_file"] = file
-        ally["formation_vacancy_lateral_reverse_lock_until"] = (
+        ally[DataKeys.FM_VACANCY_LATERAL_LAST_FROM_FILE] = from_f
+        ally[DataKeys.FM_VACANCY_LATERAL_LAST_TO_FILE] = file
+        ally[DataKeys.FM_VACANCY_LATERAL_REVERSE_LOCK_UNTIL] = (
             CombatantEntityAccess.combat_clock_float(manager) + CombatConstants.FORMATION_VACANCY_LATERAL_REVERSE_LOCK_S
         )
         if manager.has_meta(VACANCY_LATERAL_EDGE_META):
@@ -233,9 +233,9 @@ static func _apply_plug_move(
                 manager, CombatantEntityAccess.id_int(ally), from_f, file, fill_rank
             )
     else:
-        ally.erase("formation_vacancy_lateral_last_from_file")
-        ally.erase("formation_vacancy_lateral_last_to_file")
-        ally.erase("formation_vacancy_lateral_reverse_lock_until")
+        ally.erase(DataKeys.FM_VACANCY_LATERAL_LAST_FROM_FILE)
+        ally.erase(DataKeys.FM_VACANCY_LATERAL_LAST_TO_FILE)
+        ally.erase(DataKeys.FM_VACANCY_LATERAL_REVERSE_LOCK_UNTIL)
     if CombatConstants.COMBAT_FORMATION_PLUG_MOVE_DEBUG:
         var name_p: String = CombatantEntityAccess.get_display_name(ally, CombatantEntityAccess.id_int(ally))
         var plug_msg: String = ""
@@ -398,8 +398,8 @@ static func _skirmish_wide_line_skip_compact(manager: Node, fid: String) -> bool
     var forms: Variant = manager.get("formations")
     if forms == null or not forms is Dictionary or not (forms as Dictionary).has(opp_fid):
         return false
-    var our_files: int = maxi(1, int(formation.get("files", 1)))
-    var opp_files: int = maxi(1, int((forms as Dictionary)[opp_fid].get("files", 1)))
+    var our_files: int = maxi(1, int(formation.get(DataKeys.FORMATION_FILES, 1)))
+    var opp_files: int = maxi(1, int((forms as Dictionary)[opp_fid].get(DataKeys.FORMATION_FILES, 1)))
     return our_files > opp_files
 
 
@@ -426,10 +426,10 @@ static func _should_compact_native_line_files(manager: Node, fid: String) -> boo
             return false
         if not CombatFormationVacancyPlugs.formation_has_rank0_hole(manager, fid):
             return false
-        var formation_ranks: int = maxi(1, int(formation.get("ranks", 1)))
+        var formation_ranks: int = maxi(1, int(formation.get(DataKeys.FORMATION_RANKS, 1)))
         if formation_ranks <= 1:
             return true
-        var nfiles: int = maxi(1, int(formation.get("files", 1)))
+        var nfiles: int = maxi(1, int(formation.get(DataKeys.FORMATION_FILES, 1)))
         var slots: Dictionary = FormationSlots.formation_slots_dict(formation)
         var side_wanted: String = FormationSlots.formation_side_str(formation)
         return not FormationVacancyPlugMoves._formation_has_any_promotable_rear_donor(
@@ -479,16 +479,16 @@ static func _slot_place_native_preserving_other_occupants(
     if not merged.has(native_id):
         merged.append(native_id)
     slots[key] = merged
-    nat["rank"] = rank
-    nat["file"] = file_col
+    nat[DataKeys.COMBATANT_RANK] = rank
+    nat[DataKeys.COMBATANT_FILE] = file_col
     FormationVacancyDonorScoring._repack_lane_offset_after_rank_file_change(nat)
-    nat["formation_autofill_cooldown_until"] = (
+    nat[DataKeys.FM_AUTOFILL_COOLDOWN_UNTIL] = (
         CombatantEntityAccess.combat_clock_float(manager) + CombatConstants.FORMATION_AUTOFILL_REPOSITION_COOLDOWN_S
     )
-    nat["formation_autofill_last_move_clock"] = CombatantEntityAccess.combat_clock_float(manager)
-    nat.erase("formation_vacancy_lateral_last_from_file")
-    nat.erase("formation_vacancy_lateral_last_to_file")
-    nat.erase("formation_vacancy_lateral_reverse_lock_until")
+    nat[DataKeys.FM_AUTOFILL_LAST_MOVE_CLOCK] = CombatantEntityAccess.combat_clock_float(manager)
+    nat.erase(DataKeys.FM_VACANCY_LATERAL_LAST_FROM_FILE)
+    nat.erase(DataKeys.FM_VACANCY_LATERAL_LAST_TO_FILE)
+    nat.erase(DataKeys.FM_VACANCY_LATERAL_REVERSE_LOCK_UNTIL)
     CombatEventScheduler.schedule_action_ready(manager, native_id, CombatConstants.READY_DELAY_AFTER_PROMOTION_S)
 
 
@@ -504,11 +504,11 @@ static func _log_rank0_vacancy_gaps_if_debug(manager: Node, fid: String) -> void
     var formation: Dictionary = FormationSlots.formation_record_for_manager(manager, fid)
     if formation.is_empty():
         return
-    var formation_ranks: int = int(formation.get("ranks", 1))
+    var formation_ranks: int = int(formation.get(DataKeys.FORMATION_RANKS, 1))
     if formation_ranks <= 1:
         return
     var slots: Dictionary = FormationSlots.formation_slots_dict(formation)
-    var nfiles: int = int(formation.get("files", 1))
+    var nfiles: int = int(formation.get(DataKeys.FORMATION_FILES, 1))
     var side_wanted: String = FormationSlots.formation_side_str(formation)
     for file in range(nfiles):
         if FormationSlots.slot_has_any_living_occupant(manager, slots, Vector2i(0, file)):

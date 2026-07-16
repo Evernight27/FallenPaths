@@ -13,7 +13,7 @@ static func arc_center_deg_from_pa(pa: Dictionary) -> float:
     var end: float = CombatConstants.arc_end_deg_for_contact_geometry(pa)
     if end >= -900.0:
         return fmod(end + 360.0, 360.0)
-    var intended: float = pa.get("arc_intended_deg", pa.get("arc_start_deg", 0.0))
+    var intended: float = pa.get(DataKeys.PA_ARC_INTENDED_DEG, pa.get(DataKeys.ATTACK_ARC_START_DEG, 0.0))
     return fmod(intended + 360.0, 360.0)
 
 
@@ -31,19 +31,19 @@ static func surround_load_from_threat_entries(entries: Array) -> Dictionary:
     if not CombatConstants.is_feature_surround_arc_occupancy_enabled():
         var plain: float = 0.0
         for e in entries:
-            plain += (e as Dictionary).get("weight", 0.0)
-        out["weight_sum"] = plain
+            plain += (e as Dictionary).get(DataKeys.ACTION_WEIGHT, 0.0)
+        out[DataKeys.ARC_OCCUPANCY_WEIGHT_SUM] = plain
         return out
     var sorted: Array = entries.duplicate()
-    sorted.sort_custom(func(a, b): return a.get("weight", 0.0) > b.get("weight", 0.0))
+    sorted.sort_custom(func(a, b): return a.get(DataKeys.ACTION_WEIGHT, 0.0) > b.get(DataKeys.ACTION_WEIGHT, 0.0))
     var half_w: float = arc_half_width_deg()
     var claimed: Array = []
     var total: float = 0.0
     var blocked_n: int = 0
     for raw in sorted:
         var e: Dictionary = raw as Dictionary
-        var w: float = e.get("weight", 0.0)
-        var center: float = e.get("arc_center_deg", 0.0)
+        var w: float = e.get(DataKeys.ACTION_WEIGHT, 0.0)
+        var center: float = e.get(DataKeys.THREAT_ARC_CENTER_DEG, 0.0)
         var blocked: bool = false
         for c in claimed:
             if arcs_overlap(center, float(c), half_w):
@@ -55,11 +55,11 @@ static func surround_load_from_threat_entries(entries: Array) -> Dictionary:
         else:
             claimed.append(center)
             total += w
-    out["weight_sum"] = total
-    out["arc_occupancy_blocked"] = blocked_n
+    out[DataKeys.SURROUND_THREAT_WEIGHT_SUM] = total
+    out[DataKeys.ARC_OCCUPANCY_BLOCKED] = blocked_n
     return out
 
 
 ## Back-compat: adjusted sector weight sum only.
 static func adjusted_weight_sum_from_threat_entries(entries: Array) -> float:
-    return surround_load_from_threat_entries(entries).get("weight_sum", 0.0)
+    return surround_load_from_threat_entries(entries).get(DataKeys.ARC_OCCUPANCY_WEIGHT_SUM, 0.0)

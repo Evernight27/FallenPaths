@@ -36,7 +36,7 @@ static func tick(manager: Node, delta: float) -> void:
     for c in manager.combatants:
         if not CombatantEntityAccess.alive_bool(c):
             continue
-        if c.get("combat_absent", false):
+        if c.get(DataKeys.COMBATANT_COMBAT_ABSENT, false):
             continue
         if c.get(CombatConstants.COMBATANT_KEY_SUSPEND_BLEED_TICK, false):
             continue
@@ -109,3 +109,5 @@ static func tick(manager: Node, delta: float) -> void:
                     and MedicalPhaseController.is_losing_side(manager, c)
                 ):
                     CombatStateHandlers.process_formation_move_timer(c, delta)
+            CombatConstants.STATE_FORM_SWITCH:
+                CombatFormSwitch.process_tick(manager, c, delta)

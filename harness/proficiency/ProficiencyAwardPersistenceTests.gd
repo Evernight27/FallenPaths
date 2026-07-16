@@ -1,7 +1,7 @@
 class_name ProficiencyAwardPersistenceTests
 extends CombatRegressionHarnessCore
 ## XCamp-4: use-based stat proficiency system tests.
-## All tests are gated by CompanyState.read_stub_proficiency_enabled() --" stub is false by default.
+## All tests are gated by CompanyState.read_stub_proficiency_enabled() — stub is false by default.
 
 
 static func _new_entity_weapon_id() -> String:
@@ -157,7 +157,7 @@ static func _run_stub_gating_off(failures: PackedStringArray) -> void:
             )
         )
     if ent._proficiency_bonus.get("strength", 0) == 0 and stats.get("strength") == 120:
-        pass  # Stub effectively zeroed bonuses — expected when off or when entity has no bonus dict entries.
+        pass  # Stub effectively zeroed bonuses â€” expected when off or when entity has no bonus dict entries.
     elif not CompanyState.read_stub_proficiency_enabled():
         CombatRegressionHarness._fail(
             failures, "stub_off: bonus should be zero but got strength=%s" % str(stats.get("strength"))
@@ -305,16 +305,11 @@ static func _run_award_stat_gain_stance_modifier(failures: PackedStringArray) ->
     var old_stub: bool = CompanyState.read_stub_proficiency_enabled()
     CompanyState.proficiency_enabled = true
     var ent: CoreEntity = CombatRegressionHarness._new_entity("SWORD")
-    push_error("[HARNESS] prof_bonus before: %s" % str(ent.get("_proficiency_bonus")))
-    push_error("[HARNESS] stance_mods for wrath: %s" % str(EntityProficiency.stance_mods_for_form("wrath")))
-    push_error(
-        (
-            "[HARNESS] pressure_class_is(wrath, aggressive): %s"
-            % str(CombatWeaponForm.pressure_class_is("wrath", "aggressive"))
-        )
-    )
+    print("[HARNESS] prof_bonus before: ", ent.get("_proficiency_bonus"))
+    print("[HARNESS] stance_mods for wrath: ", EntityProficiency.stance_mods_for_form("wrath"))
+    print("[HARNESS] pressure_class_is(wrath, aggressive): ", CombatWeaponForm.pressure_class_is("wrath", "aggressive"))
     EntityProficiency.award_stat_gain(ent as CoreEntity, "strength", 1.0, "", "wrath")
-    push_error("[HARNESS] prof_bonus after: %s" % str(ent.get("_proficiency_bonus")))
+    print("[HARNESS] prof_bonus after: ", ent.get("_proficiency_bonus"))
     var wrath_str: float = ProficiencyAwardPersistenceTests._get_prof_bonus(ent, "strength")
     if absf(wrath_str - 1.25) > 0.001:
         CombatRegressionHarness._fail(failures, "stance_wrath: STR gain should be 1.25 (got %.2f)" % wrath_str)
@@ -394,7 +389,7 @@ static func _run_apply_decay_wounded_protection(failures: PackedStringArray) -> 
     var ent: CoreEntity = CombatRegressionHarness._new_entity("SWORD")
     ProficiencyAwardPersistenceTests._set_prof_bonus(ent, "strength", 15.0)
     ent.last_fought_day = -5
-    ent.blood_volume = 35.0  # Below 40% --" wounded protection.
+    ent.blood_volume = 35.0  # Below 40% — wounded protection.
     EntityProficiency.apply_decay(ent as CoreEntity, 0)
     var wounded_decay: float = ProficiencyAwardPersistenceTests._get_prof_bonus(ent, "strength")
 
@@ -928,3 +923,4 @@ static func _run_decay_rates_per_stat(failures: PackedStringArray) -> void:
     CombatRegressionHarness._free_harness_node(ent_agi)
 
 ## Parry deflect awards END gain for defender (absorbing recoil).
+

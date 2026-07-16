@@ -184,7 +184,7 @@ static func _run_daily_desertion_pass(world: Node2D) -> void:
             continue
         if (node_ref as Node).has_method("is_dead") and (node_ref as Node).is_dead():
             continue
-        if (node_ref as Node).get("is_party_leader") == true:
+        if (node_ref as Node).get(DataKeys.COMBATANT_IS_PARTY_LEADER) == true:
             continue
         var mood: float = float(m.get("company_mood", _get_mood().MOOD_DEFAULT))
         if mood > _get_mood().MOOD_ANGRY_THRESHOLD:
@@ -225,3 +225,4 @@ static func _trigger_company_collapsed(world: Node2D, reason: String) -> void:
     _get_state().set_bankrupt(world, true)
     if world.has_method("_company_run_end"):
         world.call_deferred("_company_run_end", reason)
+

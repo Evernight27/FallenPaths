@@ -40,7 +40,7 @@ static func cooldown_remaining_s(manager: Node, until: float, inactive_below: fl
 
 
 static func state_str(combatant: Dictionary, default_state: String = "") -> String:
-    return str(combatant.get("state", default_state))
+    return str(combatant.get(DataKeys.COMBATANT_STATE, default_state))
 
 
 ## `tactical_penetration_depth` (0 if unset).
@@ -48,7 +48,7 @@ static func state_str(combatant: Dictionary, default_state: String = "") -> Stri
 
 ## `tactical_penetration_depth` (0 if unset).
 static func gauge_float(combatant: Dictionary, default_gauge: float = 0.0) -> float:
-    return float(combatant.get("gauge", default_gauge))
+    return float(combatant.get(DataKeys.COMBATANT_GAUGE, default_gauge))
 
 
 ## Stamina (0 - `STAMINA_MAX` when key missing uses `default_if_missing`; use `0.0` when "missing = zero" for cost
@@ -60,7 +60,7 @@ static func gauge_float(combatant: Dictionary, default_gauge: float = 0.0) -> fl
 static func stamina_float(
     combatant: Dictionary, default_if_missing: float = CombatConstantsStamina.STAMINA_MAX
 ) -> float:
-    return float(combatant.get("stamina", default_if_missing))
+    return float(combatant.get(DataKeys.COMBATANT_STAMINA, default_if_missing))
 
 
 ## Breath (alternate/alias burst pool; canonical in new code per anti-patterns).
@@ -70,8 +70,8 @@ static func stamina_float(
 static func breath_float(
     combatant: Dictionary, default_if_missing: float = CombatConstantsStamina.STAMINA_MAX
 ) -> float:
-    if combatant.has("breath"):
-        return float(combatant["breath"])
+    if combatant.has(DataKeys.COMBATANT_BREATH):
+        return float(combatant[DataKeys.COMBATANT_BREATH])
     return stamina_float(combatant, default_if_missing)
 
 
@@ -116,7 +116,7 @@ static func set_exhaustion_float(combatant: Dictionary, value: float) -> void:
 static func stance_str(
     combatant: Dictionary, default_stance: String = CombatConstantsFormationMove.STANCE_BALANCED
 ) -> String:
-    return str(combatant.get("stance", default_stance))
+    return str(combatant.get(DataKeys.COMBATANT_STANCE, default_stance))
 
 
 ## Active weapon form id (Expand WF). Normalization at use sites via **`CombatWeaponForm`**.
@@ -249,9 +249,9 @@ static func finalize_dead_combatant_if_node_dead(manager: Node, c: Dictionary) -
         return false
     if not is_dead(c):
         return false
-    c["alive"] = false
+    c[DataKeys.COMBATANT_ALIVE] = false
     _get_footwork().clear_on_death(c)
-    c["state"] = CombatConstantsState.STATE_DEAD
+    c[DataKeys.COMBATANT_STATE] = CombatConstantsState.STATE_DEAD
     _get_state_handlers().cancel_events_for_dead_combatant(manager, c)
     return true
 

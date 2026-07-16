@@ -102,12 +102,12 @@ static func reset_combatants(
 
     if not atk_c.is_empty():
         _WeaponForm.assign_form(manager, atk_c, atk_cfg.form, "harness_baseline")
-        atk_c["guard_line"] = atk_cfg.guard_line
+        atk_c[DataKeys.COMBATANT_GUARD_LINE] = atk_cfg.guard_line
         _StatsSync.sync_from_entity(atk_ent, _get_entity_access().stats_dict_for_mutation(atk_c))
 
     if not def_c.is_empty():
         _WeaponForm.assign_form(manager, def_c, def_cfg.form, "harness_baseline")
-        def_c["guard_line"] = def_cfg.guard_line
+        def_c[DataKeys.COMBATANT_GUARD_LINE] = def_cfg.guard_line
         _StatsSync.sync_from_entity(def_ent, _get_entity_access().stats_dict_for_mutation(def_c))
 
 

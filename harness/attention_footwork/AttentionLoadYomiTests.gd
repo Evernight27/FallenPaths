@@ -369,7 +369,7 @@ static func _run_mental_stack_counter_over_plain_attack_when_window_open(failure
             {
                 "type": CombatConstants.EVENT_MELEE_ATTACK,
                 "combatant_id": atk_id,
-                "resolve_at": mgr.combat_clock + float(atk.get("state_duration", 0.0)),
+                "resolve_at": mgr.combat_clock + float(atk.get(DataKeys.PA_STATE_DURATION, 0.0)),
                 "data": {},
             }
         )

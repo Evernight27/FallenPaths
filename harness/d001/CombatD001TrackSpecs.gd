@@ -590,7 +590,7 @@ static func ii4d_plausibility_failures(stats: Dictionary, gauge_exh_ok: bool) ->
 
 static func ii2b_worksheet_prefill_text(stats: Dictionary, headless_signed: bool) -> String:
     var lines: PackedStringArray = PackedStringArray()
-    lines.append("--- II-2b worksheet prefill (headless) ---")
+    lines.append("--- II-2b worksheet prefill (headless) —")
     lines.append("headless_signed_off=%s" % str(headless_signed).to_lower())
     lines.append("Copy Sword row into .ii2b_worksheet_prefill.txt / calibration audit (III-3 baseline).")
     lines.append(parry_stats_summary_line(stats))
@@ -613,7 +613,7 @@ static func ii2b_worksheet_prefill_text(stats: Dictionary, headless_signed: bool
     if headless_signed:
         lines.append(CombatConstants.iii3_baseline_constants_line())
         lines.append(CombatConstants.p4d_parry_bind_doc_sync_line())
-    lines.append("--- END II-2b worksheet prefill ---")
+    lines.append("--- END II-2b worksheet prefill —")
     return "\n".join(lines) + "\n"
 
 

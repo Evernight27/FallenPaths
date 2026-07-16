@@ -83,5 +83,5 @@ static func defender_passive_readiness_exhaustion_mult(combatant: Dictionary) ->
 static func apply_parry_bind_riposte_gauge_bonus(defender: Dictionary) -> void:
     if defender.is_empty():
         return
-    var g: float = defender.get("gauge", 0.0)
-    defender["gauge"] = minf(100.0, g + PARRY_BIND_RIPOSTE_GAUGE_BONUS)
+    var g: float = defender.get(DataKeys.COMBATANT_GAUGE, 0.0)
+    defender[DataKeys.COMBATANT_GAUGE] = minf(100.0, g + PARRY_BIND_RIPOSTE_GAUGE_BONUS)

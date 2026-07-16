@@ -15,9 +15,9 @@ static func is_feature_ms_medical_escalation_enabled() -> bool:
 ## Compute triage weight for a single medical action. Returns **`MEDICAL_AI_WEIGHT_COORDINATION_BLOCKED`** when
 ## coordination gate fails.
 static func compute_weight(a: Dictionary, combatant_id: int, manager: Node) -> float:
-    var mid: String = a.get("move_id", "")
-    var tgt_id: int = a.get("target_id", -1)
-    var part: String = str(a.get("target_part", ""))
+    var mid: String = a.get(DataKeys.ACTION_MOVE_ID, "")
+    var tgt_id: int = a.get(DataKeys.ACTION_TARGET_ID, -1)
+    var part: String = str(a.get(DataKeys.ACTION_TARGET_PART, ""))
 
     # Coordination gate
     if not CombatMedicalCoordination.medical_action_allowed(manager, combatant_id, tgt_id, part, mid):
@@ -99,13 +99,13 @@ static func _compute_pending_retry_weight(
 ) -> float:
     var pending: Dictionary = {}
     if performer != null:
-        var pnd_raw: Variant = performer.get("pending_retry", null)
+        var pnd_raw: Variant = performer.get(DataKeys.COMBATANT_PENDING_RETRY, null)
         if pnd_raw is Dictionary:
             pending = pnd_raw as Dictionary
     if (
         not pending.is_empty()
-        and pending.get("target_id", -1) == a.get("target_id", -1)
-        and pending.get("part", "") == a.get("target_part", "")
+        and pending.get(DataKeys.ACTION_TARGET_ID, -1) == a.get(DataKeys.ACTION_TARGET_ID, -1)
+        and pending.get(DataKeys.ACTION_PART, "") == a.get(DataKeys.ACTION_TARGET_PART, "")
     ):
         if not tgt.is_empty() and CombatantEntityAccess.is_in_immediate_peril(manager, tgt):
             return w * MedicalPhaseBatchResolve.MEDICAL_AI_WEIGHT_PENDING_RETRY_PERIL
@@ -119,19 +119,19 @@ static func _compute_pending_retry_weight(
 static func _compute_failed_part_retry_weight(
     a: Dictionary, tgt: Dictionary, mid: String, w: float, performer_id: int = -1, manager: Node = null
 ) -> float:
-    var failed_raw: Variant = tgt.get("failed_medical_parts", null) if not tgt.is_empty() else null
+    var failed_raw: Variant = tgt.get(DataKeys.COMBATANT_FAILED_MEDICAL_PARTS, null) if not tgt.is_empty() else null
     if (
         failed_raw is Array
-        and part_in_array(failed_raw as Array, a.get("target_part", ""))
+        and part_in_array(failed_raw as Array, a.get(DataKeys.ACTION_TARGET_PART, ""))
         and CombatConstants.is_wind_up_medical_move(mid)
     ):
         # Escalation check: is a higher-tier action available on the TCCC ladder?
         if is_feature_ms_medical_escalation_enabled() and performer_id >= 0 and manager != null:
             var escalation_available: bool = _escalation_path_has_next_step(
-                tgt, a.get("target_part", ""), mid, manager, performer_id
+                tgt, a.get(DataKeys.ACTION_TARGET_PART, ""), mid, manager, performer_id
             )
             if escalation_available:
-                return w  # Suppress retry bonus --" escalate instead
+                return w  # Suppress retry bonus — escalate instead
         return w * MedicalPhaseBatchResolve.MEDICAL_AI_WEIGHT_FAILED_PART_RETRY
     return w
 
@@ -189,17 +189,17 @@ static func _compute_bleeding_interaction(
                     return 0.001
                 if mid == CombatConstants.MOVE_ID_PACK_WOUND:
                     # When escalation is active and this part has failed bandage,
-                    # pack IS the correct TCCC step --" don't dampen it.
+                    # pack IS the correct TCCC step — don't dampen it.
                     if is_feature_ms_medical_escalation_enabled():
-                        var failed_raw: Variant = tgt.get("failed_medical_parts", null)
+                        var failed_raw: Variant = tgt.get(DataKeys.COMBATANT_FAILED_MEDICAL_PARTS, null)
                         if failed_raw is Array and part_in_array(failed_raw as Array, part):
                             var esc_path: Array = MedicalPhaseController.escalation_path_for_part(
-                                int(tgt.get("id", -1)), combatant_id, part, manager
+                                int(tgt.get(DataKeys.COMBATANT_ID, -1)), combatant_id, part, manager
                             )
                             if not esc_path.is_empty():
                                 var cur_idx: int = esc_path.find(CombatConstants.MOVE_ID_PACK_WOUND)
                                 if cur_idx > 0:
-                                    return w  # Skip dampening --" pack is an escalation step
+                                    return w  # Skip dampening — pack is an escalation step
                     return w * MedicalPhaseBatchResolve.MEDICAL_AI_WEIGHT_PACK_BEFORE_PRESSURE
     return w
 
@@ -212,14 +212,14 @@ static func _escalation_path_has_next_step(
     if performer_id < 0 or manager == null:
         return false
     var path: Array = MedicalPhaseController.escalation_path_for_part(
-        int(tgt.get("id", -1)), performer_id, part, manager
+        int(tgt.get(DataKeys.COMBATANT_ID, -1)), performer_id, part, manager
     )
     if path.is_empty():
         return false
     var current_idx: int = path.find(current_move_id)
     if current_idx < 0 or current_idx >= path.size() - 1:
         return false
-    # Verify the next step is actually performable --" capability matters.
+    # Verify the next step is actually performable — capability matters.
     var perf: Dictionary = CombatantEntityAccess.manager_get_combatant(manager, performer_id)
     if not perf.is_empty():
         var entity: Node = CombatantEntityAccess.get_entity_from_manager(manager, perf)
@@ -243,7 +243,7 @@ static func _compute_escalation_bonus(
     if performer_id < 0 or manager == null:
         return 1.0
     var path: Array = MedicalPhaseController.escalation_path_for_part(
-        int(tgt.get("id", -1)), performer_id, part, manager
+        int(tgt.get(DataKeys.COMBATANT_ID, -1)), performer_id, part, manager
     )
     if path.is_empty():
         return 1.0
@@ -251,14 +251,14 @@ static func _compute_escalation_bonus(
     if current_idx < 0:
         return 1.0
     # Check if the part has failed medical parts.
-    var failed_raw: Variant = tgt.get("failed_medical_parts", null)
+    var failed_raw: Variant = tgt.get(DataKeys.COMBATANT_FAILED_MEDICAL_PARTS, null)
     if failed_raw is not Array:
         return 1.0
     var failed_list: Array = failed_raw
     if failed_list.is_empty():
         return 1.0
     # If the current step is NOT the first in the path, and the part has failed,
-    # this is an escalation --" apply bonus.
+    # this is an escalation — apply bonus.
     if current_idx > 0 and part_in_array(failed_list, part):
         return CombatConstants.MEDICAL_AI_WEIGHT_ESCALATION_BONUS
     return 1.0
