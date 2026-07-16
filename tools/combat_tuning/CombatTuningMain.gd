@@ -787,7 +787,7 @@ func _spawn_combatants() -> void:
 
     # Batch mode: cancel initial ACTION_READY cooldowns (2-4 s) and fire immediately so the
     # first cycle does not waste time waiting for timers.  Manual tuning still uses the delay.
-    if tuning_wait_for_player:
+    if manager.tuning_wait_for_player:
         var eac := _get_entity_access()
         for c in manager.combatants:
             if eac.alive_bool(c):
