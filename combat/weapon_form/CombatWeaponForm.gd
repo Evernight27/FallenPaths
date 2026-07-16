@@ -862,7 +862,7 @@ static func get_form_inference_confidence(observer: Dictionary, target_id: int) 
 ## When true, the fighter should resist auto-switching forms — the opponent is trying to draw them into
 ## a trap (Exploit phase with low resistance). Called from evaluate_automatic_form before counter-read
 ## auto-switch decisions. Returns false when opponent has no deception state or is not in Exploit phase.
-static func _should_bait_counter_read(manager: Node, c: Dictionary, opponent_id: int) -> bool:
+static func _should_bait_counter_read(manager: Node, _c: Dictionary, opponent_id: int) -> bool:
 	if manager == null or opponent_id < 0:
 		return false
 	var threat_c: Dictionary = CombatantEntityAccess.manager_get_combatant(manager, opponent_id)
