@@ -810,9 +810,9 @@ static func evaluate_automatic_form(manager: Node, c: Dictionary) -> bool:
         if not (not def_form.is_empty() and cur == def_form and ratio < min_r + offense_pad_fb):
             var inferred_opp: String = _inferred_opponent_form(manager, c, threat_id)
             var counter: String = _counter_form_vs_inferred(weapon, inferred_opp)
-			if _try_assign_auto_switch(manager, c, counter, "counter_read", clk):
-				return true
-	return false
+            if _try_assign_auto_switch(manager, c, counter, "counter_read", clk):
+                return true
+    return false
 
 
 ## Phase 2: counter-read commitment — true while the attacker's auto-switch stamp has not expired.
