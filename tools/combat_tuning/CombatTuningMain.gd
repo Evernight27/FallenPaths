@@ -289,8 +289,8 @@ func _on_action_resolved(attacker_id_sig: int, target_id_sig: int, result: Dicti
     var outcome: String = _Formatter.exchange_outcome(log_result)
     _record_exchange_outcome(outcome, log_result)
 
-    var gauge_atk: float = atk.get("gauge", 0.0) if not atk.is_empty() else 0.0
-    var gauge_def: float = tgt.get("gauge", 0.0) if not tgt.is_empty() else 0.0
+    var gauge_atk: float = float(log_result.get(DataKeys.PA_GAUGE_ATK_PRE, 0.0))
+    var gauge_def: float = float(log_result.get(DataKeys.PA_GAUGE_DEF_PRE, 0.0))
     if _batch_running and _batch_csv_lines.size() > 0:
         _batch_csv_lines.append(_Formatter.csv_row(_strike_count, "", log_result, gauge_atk, gauge_def))
     var exchange_line: String = _Formatter.format_exchange_line(
@@ -785,6 +785,17 @@ func _spawn_combatants() -> void:
     # Start the manager -- builds formations, assigns rank/file, seeds events
     manager.start(_player_preset, _enemy_preset)
 
+    # Batch mode: cancel initial ACTION_READY cooldowns (2-4 s) and fire immediately so the
+    # first cycle does not waste time waiting for timers.  Manual tuning still uses the delay.
+    if tuning_wait_for_player:
+        var eac := _get_entity_access()
+        for c in manager.combatants:
+            if eac.alive_bool(c):
+                _EventScheduler.cancel_pending_action_ready(manager, eac.id_int(c))
+        for c in manager.combatants:
+            if eac.alive_bool(c):
+                _EventScheduler.schedule_action_ready(manager, eac.id_int(c), 0.0)
+
     # Assign forms and guards after start so rank/file/etc are set
     var atk_c: Dictionary = _get_entity_access().manager_get_combatant(manager, attacker_id)
     var def_c: Dictionary = _get_entity_access().manager_get_combatant(manager, defender_id)
@@ -817,10 +828,15 @@ func _reset_cycle_exchange_stats() -> void:
 func _record_exchange_outcome(outcome: String, result: Dictionary) -> void:
     if outcome.is_empty() or outcome == "?":
         return
+    # Rejects are guard-line invalidations — never counted as strikes.
+    if outcome == "reject":
+        _cycle_outcome_counts[outcome] = int(_cycle_outcome_counts.get(outcome, 0)) + 1
+        return
     _strike_count += 1
     if manager != null:
         manager.set_meta("tuning_strike_count", _strike_count)
     _cycle_outcome_counts[outcome] = int(_cycle_outcome_counts.get(outcome, 0)) + 1
+    # Track bind as a subset annotation on its parent parry outcome.
     if outcome in ["parry_deflect", "parry_partial"] and bool(result.get("parry_bind", false)):
         _cycle_outcome_counts["parry_bind"] = int(_cycle_outcome_counts.get("parry_bind", 0)) + 1
     var sample: Dictionary = _Formatter.ke_sample_from_result(result)
@@ -1021,7 +1037,6 @@ func _batch_run_cycle_to_completion():
                         manager._end_combat_phase(early_victor, null)
                         break
 
-        logical_seconds += tick_delta * events_per_burst
         if logical_seconds >= 2.0:
             await get_tree().process_frame
             logical_seconds = 0.0

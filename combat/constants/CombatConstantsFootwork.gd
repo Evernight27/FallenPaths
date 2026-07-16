@@ -23,6 +23,11 @@ const PASSIVE_PARRY_READINESS_INCOMING_STAB_MULT := 0.88
 const PASSIVE_PARRY_READINESS_INCOMING_BLUNT_MULT := 1.0
 const FEINT_GUARD_ZONE_READINESS_SPACING_MULT_CLOSE := 0.98
 const FEINT_GUARD_ZONE_READINESS_SPACING_MULT_LONG := 1.04
+## Baseline parry readiness boost applied after guard-readiness, before stamina/exhaustion/focus/yomi scaling.
+## Compensates for the fact that real HEMA fighters maintain high defensive readiness even under stress —
+## the ATTENTION_LOAD_FOCUS_PENALTY (0.55) can drop focus_effective to 0.45× when all load sources are active,
+## which makes parry_readiness too low for bind-level control values in sustained exchanges.
+const PASSIVE_PARRY_READINESS_BASELINE_MULT := 1.18
 
 
 static func normalize_recovery_cause(cause: String) -> String:

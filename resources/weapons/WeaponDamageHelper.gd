@@ -132,6 +132,10 @@ static func _attack_float_or_default(attack_instance: RefCounted, prop: String, 
 
 
 ## Mass (kg) participating in impact speed for KE / momentum (striking part when known; aligns with parry p_a).
+## When weapon has no explicit striking-part mass data, fall back to a Williams/Edge-style effective strike-point
+## mass (~0.35 kg for edged/thrust weapons, ~0.40 kg for blunt/head impacts) rather than the full weapon mass.
+## Using full weapon mass inflates swing KE by 3-4× because the inertia cap at `m_strike r^2` collapses to
+## `KE = m_strike v^2`, and real HEMA swings transfer only a fraction of total weapon mass to the striking point.
 static func strike_mass_kg(weapon: RefCounted, attack_instance: RefCounted) -> float:
     if weapon == null:
         return 0.35
@@ -139,7 +143,10 @@ static func strike_mass_kg(weapon: RefCounted, attack_instance: RefCounted) -> f
     var ct: String = WeaponConstants.contact_type_for_move_id(move_id)
     if weapon.has_method("get_striking_part_mass_kg"):
         return maxf(0.02, float(weapon.get_striking_part_mass_kg(ct)))
-    return WeaponConstants.weapon_mass_kg(weapon)
+    # No explicit part data — use strike-point equivalent mass (Williams/Edge 2016).
+    # Cut/stab: ~0.35 kg; blunt head impacts are slightly heavier due to concentrated head mass.
+    var is_blunt: bool = ct == WeaponConstants.ATTACK_TYPE_BLUNT
+    return 0.40 if is_blunt else 0.35
 
 
 ## Thrust / swing / mixed from archetype; if missing, infer from move contact (stab â thrust).
