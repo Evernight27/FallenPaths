@@ -158,7 +158,7 @@ static func position_angle_offset_deg_for_attack_line(line: String) -> float:
 
 
 static func _get_entity_access() -> GDScript:
-    return load("res://combat/access/CombatantEntityAccess.gd") as GDScript
+	return load("res://combat/access/CombatantEntityAccess.gd") as GDScript
 
 
 static func parry_full_stop_reached(c_d: float, parry_p_a: float, is_block_parry: bool) -> bool:

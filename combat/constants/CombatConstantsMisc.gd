@@ -2,6 +2,7 @@ class_name CombatConstantsMisc
 extends RefCounted
 
 const DEFAULT_STAT_VALUE := 100
+const COOLDOWN_MIN_AGI_FLOOR: float = 50.0
 
 const MEDICAL_ITEM_TOURNIQUET := "tourniquet"
 const PATH_MAIN_SCENE := "res://scenes/campaign/main.tscn"

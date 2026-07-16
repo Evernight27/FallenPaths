@@ -7,12 +7,12 @@ const HarnessCore := preload("res://harness/regression/core/CombatRegressionHarn
 const CombatConstants := preload("res://combat/CombatConstants.gd")
 const CombatManager := preload("res://combat/CombatManager.gd")
 const HarnessFixtures := preload("res://harness/HarnessFixtures.gd")
-const CombatWeaponForm := preload("res://combat/CombatWeaponForm.gd")
-const CombatantEntityAccess := preload("res://combat/CombatantEntityAccess.gd")
+const CombatWeaponForm := preload("res://combat/weapon_form/CombatWeaponForm.gd")
+const CombatantEntityAccess := preload("res://combat/access/CombatantEntityAccess.gd")
 
 
 static func run_meisterhau_family_mapping(failures: PackedStringArray) -> void:
-    var wf := preload("res://combat/CombatWeaponForm.gd")
+    var wf := preload("res://combat/weapon_form/CombatWeaponForm.gd")
     # Meisterhau IDs get "meisterhau" family; oberhau gets "high_cut".
     _assert(
         wf._move_family_for_move_id("zornhau") == "meisterhau",
@@ -76,7 +76,7 @@ static func run_meisterhau_counter_mult_no_crash_with_inferred_form(failures: Pa
 
 static func run_oberhau_vs_meisterhau_family_distinction(failures: PackedStringArray) -> void:
     # Verify oberhau stays "high_cut" family while zornhau is "meisterhau".
-    var wf := preload("res://combat/CombatWeaponForm.gd")
+    var wf := preload("res://combat/weapon_form/CombatWeaponForm.gd")
     var oh_family = wf._move_family_for_move_id("oberhau")
     var zh_family = wf._move_family_for_move_id("zornhau")
     _assert(
@@ -117,7 +117,7 @@ static func run_oberhau_vs_meisterhau_family_distinction(failures: PackedStringA
 
 
 static func run_meisterhau_move_definitions_exist(failures: PackedStringArray) -> void:
-    var wc := preload("res://weapon/WeaponConstants.gd")
+    var wc := preload("res://resources/weapons/WeaponConstants.gd")
     for mid in ["zornhau", "scheitelhau", "krumphau", "schielhau"]:
         var md = wc.get_move(mid)
         _assert(
@@ -194,5 +194,5 @@ static func _make_1v1_sword() -> Node:
 
 
 static func _set_form(mgr: Node, c: Dictionary, form: String) -> void:
-    var WF := preload("res://combat/CombatWeaponForm.gd")
+    var WF := preload("res://combat/weapon_form/CombatWeaponForm.gd")
     WF.assign_form(mgr, c, form, "harness_baseline")
