@@ -343,7 +343,7 @@ static func _run_flee_ai_critical_stamina_beats_rotate_file(failures: PackedStri
     var c: Dictionary = mgr.combatants[0]
     var cid: int = CombatantEntityAccess.id_int(c)
     c[CombatConstants.COMBATANT_KEY_EXHAUSTION] = CombatConstants.MENTAL_STACK_EXHAUSTION_TUNNEL_THRESHOLD - 0.15
-    c["stamina"] = 0.05 * float(c.get(DataKeys.STAMINA_MAX, 100.0))
+    c["stamina"] = 0.05 * float(c.get(CombatConstants.STAMINA_MAX, 100.0))
     if CombatantEntityAccess.stamina_ratio(c) >= CombatConstants.AI_FLEE_CRITICAL_STAMINA_RATIO:
         CombatRegressionHarness._fail(failures, "flee_ai_critical: stamina setup should be below critical ratio")
     var flee_act: Dictionary = {"move_id": CombatConstants.MOVE_ID_FLEE, "target_id": cid}
@@ -368,7 +368,7 @@ static func _run_flee_ai_pick_critical_stamina_never_rotate(failures: PackedStri
     var c: Dictionary = mgr.combatants[0]
     var cid: int = CombatantEntityAccess.id_int(c)
     c[CombatConstants.COMBATANT_KEY_EXHAUSTION] = 0.0
-    c["stamina"] = 0.05 * float(c.get(DataKeys.STAMINA_MAX, 100.0))
+    c["stamina"] = 0.05 * float(c.get(CombatConstants.STAMINA_MAX, 100.0))
     var acts: Array = [
         {"move_id": CombatConstants.MOVE_ID_FLEE, "target_id": cid},
         {"move_id": CombatConstants.MOVE_ID_ROTATE_FILE, "target_id": cid},

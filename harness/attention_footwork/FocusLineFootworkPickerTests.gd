@@ -189,7 +189,7 @@ static func _run_mental_stack_critical_stamina_flee_beats_rotate_file(failures: 
     var fighter: Dictionary = mgr.combatants[0]
     var fighter_id: int = CombatantEntityAccess.id_int(fighter)
     fighter[CombatConstants.COMBATANT_KEY_EXHAUSTION] = CombatConstants.MENTAL_STACK_EXHAUSTION_TUNNEL_THRESHOLD - 0.15
-    fighter["stamina"] = 0.05 * float(fighter.get(DataKeys.STAMINA_MAX, 100.0))
+    fighter["stamina"] = 0.05 * float(fighter.get(CombatConstants.STAMINA_MAX, 100.0))
     var actions: Array = [
         {"move_id": CombatConstants.MOVE_ID_WAIT, "target_id": fighter_id},
         {"move_id": CombatConstants.MOVE_ID_FLEE, "target_id": fighter_id},

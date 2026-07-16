@@ -79,7 +79,7 @@ static func _run_exhaustion_rank0_strikes_blocks_rotate_file(failures: PackedStr
     var fighter: Dictionary = mgr.combatants[0]
     var fighter_id: int = CombatantEntityAccess.id_int(fighter)
     var enemy_id: int = CombatantEntityAccess.id_int(mgr.combatants[1])
-    fighter["stamina"] = 0.01 * float(fighter.get(DataKeys.STAMINA_MAX, 100.0))
+    fighter["stamina"] = 0.01 * float(fighter.get(CombatConstants.STAMINA_MAX, 100.0))
     if CombatantEntityAccess.stamina_ratio(fighter) >= CombatConstants.AI_FLEE_CRITICAL_STAMINA_RATIO:
         CombatRegressionHarness._fail(failures, "exhaustion_rank0_rotate: stamina should be critical")
         CombatRegressionHarness._free_manager(mgr)
@@ -242,7 +242,7 @@ static func _run_fight_finish_skips_exhaustion_with_listed_offense(failures: Pac
         CombatRegressionHarness._fail(failures, "fight_finish_skip_exhaustion: missing rank-0 player fixture")
         CombatRegressionHarness._free_manager(mgr)
         return
-    player["stamina"] = 0.01 * float(player.get(DataKeys.STAMINA_MAX, 100.0))
+    player["stamina"] = 0.01 * float(player.get(CombatConstants.STAMINA_MAX, 100.0))
     player["gauge"] = 100.0
     var player_id: int = CombatantEntityAccess.id_int(player)
     var acts: Array = AvailableActionsBuilder.build(mgr, player_id)
@@ -353,7 +353,7 @@ static func _run_exhaustion_rank0_strikes_blocks_focus_line(failures: PackedStri
     var fighter: Dictionary = mgr.combatants[0]
     var fighter_id: int = CombatantEntityAccess.id_int(fighter)
     var enemy_id: int = CombatantEntityAccess.id_int(mgr.combatants[1])
-    fighter["stamina"] = 0.01 * float(fighter.get(DataKeys.STAMINA_MAX, 100.0))
+    fighter["stamina"] = 0.01 * float(fighter.get(CombatConstants.STAMINA_MAX, 100.0))
     if CombatantEntityAccess.stamina_ratio(fighter) >= CombatConstants.AI_FLEE_CRITICAL_STAMINA_RATIO:
         CombatRegressionHarness._fail(failures, "exhaustion_rank0_focus: stamina should be critical")
         CombatRegressionHarness._free_manager(mgr)
@@ -399,7 +399,7 @@ static func _run_mop_up_rank0_exhaustion_prefers_fight_finish(failures: PackedSt
         CombatRegressionHarness._fail(failures, "mop_up_rank0_exhaustion: missing rank-0 player")
         CombatRegressionHarness._free_manager(mgr)
         return
-    player["stamina"] = 0.01 * float(player.get(DataKeys.STAMINA_MAX, 100.0))
+    player["stamina"] = 0.01 * float(player.get(CombatConstants.STAMINA_MAX, 100.0))
     player["gauge"] = 100.0
     var player_id: int = CombatantEntityAccess.id_int(player)
     var acts: Array = AvailableActionsBuilder.build(mgr, player_id)
