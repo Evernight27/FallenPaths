@@ -114,27 +114,6 @@ static func strip_redundant_attempt_close_for_finish(manager: Node, c: Dictionar
         return
     if not CombatListedActions.action_list_has_hostile_melee_strike(actions, cid):
         return
-    var weapon: Variant = CombatantEntityAccess.get_weapon(c)
-    var melee_types: Array = []
-    if CombatantEntityAccess.weapon_has_attack_types(weapon):
-        melee_types = CombatantEntityAccess.weapon_attack_types(weapon)
-    var has_melee: bool = false
-    for raw in actions:
-        if raw is not Dictionary:
-            continue
-        var a: Dictionary = raw
-        var mid: String = CombatListedActions.entry_move_id(a)
-        if mid.is_empty():
-            continue
-        if mid == CombatConstants.MOVE_ID_ATTEMPT_CLOSE or mid == CombatConstants.MOVE_ID_WAIT:
-            continue
-        if CombatConstants.is_focus_line_move(mid) or CombatConstants.is_formation_movement_move(mid) or CombatConstants.is_medical_move(mid):
-            continue
-        if melee_types.is_empty() or melee_types.has(mid):
-            has_melee = true
-            break
-    if not has_melee:
-        return
     var to_remove: Array = []
     for raw in actions:
         if raw is not Dictionary:

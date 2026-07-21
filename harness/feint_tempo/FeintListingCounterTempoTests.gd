@@ -86,7 +86,8 @@ static func _run_feint_move_listing_readiness_recovery_curve_when_defender_recov
     mgr.recompute_zoc_and_distance()
     var pr: float = PassiveParryContext.get_passive_parry_readiness(enemy)
     var curve: Array = CombatConstants.READINESS_BY_CAUSE["attack_hit"]
-    var want_pr: float = lerpf(curve[0], curve[1], 0.5)
+    var raw_pr: float = lerpf(curve[0], curve[1], 0.5)
+    var want_pr: float = raw_pr * CombatConstants.PASSIVE_PARRY_READINESS_BASELINE_MULT
     if not is_equal_approx(pr, want_pr):
         CombatRegressionHarness._fail(
             failures, "feint_list_recov: passive readiness want %.6f got %.6f" % [want_pr, pr]

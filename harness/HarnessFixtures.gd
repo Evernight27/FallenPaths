@@ -6,6 +6,45 @@ extends RefCounted
 ## All methods are static; called by CombatRegressionHarness.run_all() and tail files.
 ## No behavioral changes  -  zero-diff refactor.
 
+const _CombatWeaponForm := preload("res://combat/weapon_form/CombatWeaponForm.gd")
+
+# -- Weapon / armor cache --------------------------------------------------
+## Cached weapon and armor instances built once at first access.
+## create_from_definition is pure-data (static constants, no RNG/manager) so
+## the same instance can be shared across tests without side effects.
+
+static var _cached_weapons: Dictionary = {}
+static var _cached_armor: Dictionary = {}
+static var _cached_weapon_melee_ranges: Dictionary = {}
+static var _cached_weapon_move_counts: Dictionary = {}
+
+
+static func get_cached_weapon(weapon_id: String) -> Weapon:
+    if not _cached_weapons.has(weapon_id):
+        _cached_weapons[weapon_id] = Weapon.create_from_definition(weapon_id)
+    return _cached_weapons[weapon_id] as Weapon
+
+
+static func get_cached_weapon_melee_range(weapon_id: String) -> float:
+    if not _cached_weapon_melee_ranges.has(weapon_id):
+        var w := get_cached_weapon(weapon_id)
+        _cached_weapon_melee_ranges[weapon_id] = float(w.melee_range)
+    return _cached_weapon_melee_ranges[weapon_id]
+
+
+static func get_cached_weapon_move_count(weapon_id: String) -> int:
+    if not _cached_weapon_move_counts.has(weapon_id):
+        var w := get_cached_weapon(weapon_id)
+        _cached_weapon_move_counts[weapon_id] = w.attack_types.size()
+    return _cached_weapon_move_counts[weapon_id]
+
+
+static func get_cached_armor(piece_id: String) -> ArmorPiece:
+    if not _cached_armor.has(piece_id):
+        _cached_armor[piece_id] = ArmorPiece.create_from_definition(piece_id)
+    return _cached_armor[piece_id] as ArmorPiece
+
+
 # -- Node lifecycle --------------------------------------------------------
 
 static var _harness_live_nodes: Array = []
@@ -17,8 +56,11 @@ static func _track_harness_node(n: Node) -> void:
 
 
 static func flush_harness_live_nodes() -> void:
-    for n in _harness_live_nodes.duplicate():
-        if n != null and is_instance_valid(n):
+    for raw in _harness_live_nodes:
+        if typeof(raw) == TYPE_NIL:
+            continue
+        if is_instance_valid(raw):
+            var n: Node = raw as Node
             _free_harness_node(n)
     _harness_live_nodes.clear()
 
@@ -35,6 +77,8 @@ static func _free_harness_node(n: Node) -> void:
 static func _free_manager(mgr: Node) -> void:
     if mgr == null or not is_instance_valid(mgr):
         return
+    ## Remove combatant scene nodes from tracking list BEFORE freeing them,
+    ## so flush_harness_live_nodes() won't double-free.
     if mgr.get("combatants") is Array:
         var freed_ids: Dictionary = {}
         for c in mgr.combatants:
@@ -49,12 +93,18 @@ static func _free_manager(mgr: Node) -> void:
         mgr.combatants.clear()
     if mgr.is_inside_tree():
         mgr.get_parent().remove_child(mgr)
-    _free_harness_node(mgr)
+    ## Manager itself is never tracked in _harness_live_nodes — just free it.
+    if is_instance_valid(mgr):
+        mgr.free()
 
 
-## seed(_HARNESS_RESTORE_GLOBAL_SEED) then _free_manager  -  keeps run_all() order-stable.
+## _free_manager — run_all() restores the global seed after each test function.
 static func _free_manager_restore_global_rng(mgr: Node) -> void:
-    seed(CombatRegressionHarness._HARNESS_RESTORE_GLOBAL_SEED)
+    _free_manager(mgr)
+
+
+## In-place manager free without RNG restoration (for tests that manage their own seed).
+static func _free_manager_in_place(mgr: Node) -> void:
     _free_manager(mgr)
 
 
@@ -63,10 +113,8 @@ static func _free_manager_restore_global_rng(mgr: Node) -> void:
 
 static func _new_entity(weapon_id: String) -> CoreEntity:
     var e := CoreEntity.new()
-    e.apply_species()
-    e.dominant_hand = "right_arm"
-    e.offhand_functionality = 1.0
-    var w: Weapon = Weapon.create_from_definition(weapon_id)
+    e.apply_species_harness_deterministic()
+    var w: Weapon = get_cached_weapon(weapon_id)
     if w != null:
         e.equip_weapon(w)
     _track_harness_node(e)
@@ -75,9 +123,7 @@ static func _new_entity(weapon_id: String) -> CoreEntity:
 
 static func _new_entity_unarmed() -> CoreEntity:
     var e := CoreEntity.new()
-    e.apply_species()
-    e.dominant_hand = "right_arm"
-    e.offhand_functionality = 1.0
+    e.apply_species_harness_deterministic()
     _track_harness_node(e)
     return e
 
@@ -100,10 +146,9 @@ static func _harness_start_1v1(
 
 
 static func _harness_reset_combatants_form_balanced(mgr: Node) -> void:
-    var WF := preload("res://combat/weapon_form/CombatWeaponForm.gd")
     for c in mgr.combatants:
         if c is Dictionary:
-            WF.assign_form(mgr, c as Dictionary, WF.FORM_BALANCED, "harness_baseline")
+            _CombatWeaponForm.assign_form(mgr, c as Dictionary, _CombatWeaponForm.FORM_BALANCED, "harness_baseline")
 
 
 ## Player-only manager (tooltip / UI probes with no enemy row).
@@ -129,7 +174,7 @@ static func _harness_equip_heavy_plate_kit(e: CoreEntity) -> void:
         ["left_leg", "GREAVES_LEFT"],
     ]
     for row in kit:
-        var ap: Variant = ArmorPiece.create_from_definition(str(row[1]))
+        var ap: Variant = get_cached_armor(str(row[1]))
         if ap != null:
             e.equip_armor(str(row[0]), ap)
 
@@ -233,7 +278,7 @@ static func _windup_duration_for_bind_test(weapon_id: String, move_id: String, b
     if bind:
         p["parry_was_bind"] = true
         p["parry_against_id"] = e_id
-    seed(90210)
+    seed(CombatRegressionHarness._HARNESS_RESTORE_GLOBAL_SEED)
     AttackWindUpStarter.start(mgr, p_id, e_id, move_id)
     var dur: float = float(p.get(DataKeys.PA_STATE_DURATION, 0.0))
     _free_manager_restore_global_rng(mgr)

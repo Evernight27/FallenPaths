@@ -1,4 +1,4 @@
-class_name KinematicDeliveryPenetrationTests
+﻿class_name KinematicDeliveryPenetrationTests
 extends CombatRegressionHarnessCore
 
 
@@ -535,9 +535,9 @@ static func _run_kinematic_delivery_guard_deflect_blend_guard_angle_and_attack_o
 static func _run_kinematic_delivery_compute_penetration_return_keys_and_thrust_blunt_contact(
     failures: PackedStringArray
 ) -> void:
-    var sword: Weapon = Weapon.create_from_definition("SWORD")
-    var mace: Weapon = Weapon.create_from_definition("MACE")
-    var spear: Weapon = Weapon.create_from_definition("SPEAR")
+    var sword: Weapon = HarnessFixtures.get_cached_weapon("SWORD")
+    var mace: Weapon = HarnessFixtures.get_cached_weapon("MACE")
+    var spear: Weapon = HarnessFixtures.get_cached_weapon("SPEAR")
     if sword == null or mace == null or spear == null:
         _fail(failures, "kin_pen_keys: missing sword/mace/spear")
         return
@@ -711,7 +711,7 @@ static func _run_kinematic_delivery_compute_damage_velocity_and_entity_split(fai
     var intensity: float = 0.62
     var move_id: String = "oberhau"
     var arch: Dictionary = {"kinematic_delivery": WeaponConstants.KINEMATIC_DELIVERY_SWING}
-    var sword: Weapon = Weapon.create_from_definition("SWORD")
+    var sword: Weapon = HarnessFixtures.get_cached_weapon("SWORD")
     if sword == null:
         _fail(failures, "kin_dmg_v_entity: missing sword")
         return
@@ -830,7 +830,7 @@ static func _run_kinematic_delivery_alignment_context_guard_angle_only_uses_comb
 ## **`StrikeRealismProfile.velocity_intent_mult_from_pa`** (pinned station); damage **KE** uses effective **`v`**
 ## without intent mult.
 static func _run_kinematic_delivery_parry_v_intent_effective_velocity_base(failures: PackedStringArray) -> void:
-    var sword: Weapon = Weapon.create_from_definition("SWORD")
+    var sword: Weapon = HarnessFixtures.get_cached_weapon("SWORD")
     if sword == null:
         _fail(failures, "kin_parry_v: missing sword")
         return

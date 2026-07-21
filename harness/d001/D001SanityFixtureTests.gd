@@ -794,7 +794,7 @@ static func _ii6_probe_entity() -> CoreEntity:
     ent.apply_species()
     ent.dominant_hand = "right_arm"
     ent.offhand_functionality = 1.0
-    var w: Weapon = Weapon.create_from_definition("SWORD")
+    var w: Weapon = HarnessFixtures.get_cached_weapon("SWORD")
     if w != null:
         ent.equip_weapon(w)
     ent.take_damage_split(II6_PROBE_CUT, II6_PROBE_BLUNT, "chest")

@@ -1,4 +1,4 @@
-class_name KinematicDeliveryDepthTacticalTests
+﻿class_name KinematicDeliveryDepthTacticalTests
 extends CombatRegressionHarnessCore
 ## Tier 5.1 optional long-tail kinematic tests split from **`CombatRegressionHarness`** (Godot compile size).
 ## Footing: strike delivery / energy  -  may pass **`guard_line`** into path context; not L2 form or Tier 4.4 PA owner.
@@ -478,7 +478,7 @@ static func _run_kinematic_delivery_engagement_angle_unknown_matches_front(failu
 ## Tier 5.1 (optional long-tail): parry **`v_intent`** on **SPEAR** **`spear_thrust`** uses thrust
 ## **`get_effective_velocity_m_s`** (not swing curve).
 static func _run_kinematic_delivery_parry_v_intent_thrust_archetype(failures: PackedStringArray) -> void:
-    var spear: Weapon = Weapon.create_from_definition("SPEAR")
+    var spear: Weapon = HarnessFixtures.get_cached_weapon("SPEAR")
     if spear == null:
         CombatRegressionHarness._fail(failures, "kin_parry_v_thrust: missing spear")
         return
@@ -496,7 +496,7 @@ static func _run_kinematic_delivery_parry_v_intent_thrust_archetype(failures: Pa
         )
     if WeaponDamageHelper.kinematic_delivery(arch, move_id) != WeaponConstants.KINEMATIC_DELIVERY_THRUST:
         CombatRegressionHarness._fail(failures, "kin_parry_v_thrust: explicit thrust archetype want thrust delivery")
-    var sword: Weapon = Weapon.create_from_definition("SWORD")
+    var sword: Weapon = HarnessFixtures.get_cached_weapon("SWORD")
     if sword == null:
         CombatRegressionHarness._fail(failures, "kin_parry_v_thrust: missing sword")
         return

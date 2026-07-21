@@ -140,10 +140,10 @@ static func format_body_part_compact(
 ## IV-11 slice 7: roster name suffix for party leader (`PartyMenu`).
 static func format_party_role_suffix(member: Dictionary) -> String:
     if member.get(DataKeys.COMBATANT_IS_PARTY_LEADER, false):
-        return " . Leader"
+        return " · Leader"
     var node_ref: Variant = member.get("node_ref")
     if is_instance_valid(node_ref) and node_ref is Node and node_ref.get(DataKeys.COMBATANT_IS_PARTY_LEADER) == true:
-        return " . Leader"
+        return " · Leader"
     return ""
 
 

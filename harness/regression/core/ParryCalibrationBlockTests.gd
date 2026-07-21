@@ -770,21 +770,10 @@ static func _run_block_threshold_balance_test(failures: PackedStringArray) -> vo
             "block_threshold: PARRY_BLOCK_STR_THRESHOLD want 0.85 got %.2f" % CombatConstants.PARRY_BLOCK_STR_THRESHOLD
         )
     # Test balanced entity scenario: both SWORD (mass 1.2 each), strength equal at 50/50.
-    var mgr: Node = MgrScript.new()
-    mgr.register(_new_entity("SWORD"), "player")
-    mgr.register(_new_entity("SWORD"), "enemy")
-    mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
-    var def_c: Dictionary = mgr.combatants[0]
-    var atk_c: Dictionary = mgr.combatants[1]
-    var def_w: Variant = EntityAccess.get_weapon(def_c)
-    var atk_w: Variant = EntityAccess.get_weapon(atk_c)
-    if def_w == null or atk_w == null:
-        _free_manager_restore_global_rng(mgr)
-        return
-    var d_mass: float = float(def_w.mass)
-    var a_mass: float = float(atk_w.mass)
-    var d_str: float = float(EntityAccess.stats_dict(def_c).get("strength", 50))
-    var a_str: float = float(EntityAccess.stats_dict(atk_c).get("strength", 50))
+    var d_mass: float = HarnessFixtures.get_cached_weapon("SWORD").mass
+    var a_mass: float = HarnessFixtures.get_cached_weapon("SWORD").mass
+    var d_str: float = 50.0
+    var a_str: float = 50.0
     # Balanced: mass ratio = 1.0, str ratio = 1.0 — both should pass threshold.
     var mass_ok: bool = d_mass / maxf(a_mass, 0.01) >= CombatConstants.PARRY_BLOCK_MASS_THRESHOLD
     var str_ok: bool = d_str / maxf(a_str, 0.01) >= CombatConstants.PARRY_BLOCK_STR_THRESHOLD
@@ -796,7 +785,6 @@ static func _run_block_threshold_balance_test(failures: PackedStringArray) -> vo
                 % [d_mass, a_mass, d_str, a_str]
             )
         )
-    _free_manager_restore_global_rng(mgr)
 
 
 ## Tier 3.2 (combat tuning fix): follow-through gate integration — when **`parry_remaining_ratio <= 0.1`** on
@@ -822,19 +810,8 @@ static func _run_follow_through_integration_gate(failures: PackedStringArray) ->
 ## Tier 3.2 (combat tuning fix): asymmetric block threshold — DAGGER vs SPEAR should NOT qualify for block parry (mass
 ## ratio far below 0.75).
 static func _run_block_threshold_asymmetric_test(failures: PackedStringArray) -> void:
-    var mgr_a: Node = MgrScript.new()
-    mgr_a.register(_new_entity("DAGGER"), "player")
-    mgr_a.register(_new_entity("SPEAR"), "enemy")
-    mgr_a.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
-    var def_c: Dictionary = mgr_a.combatants[0]
-    var atk_c: Dictionary = mgr_a.combatants[1]
-    var def_w: Variant = EntityAccess.get_weapon(def_c)
-    var atk_w: Variant = EntityAccess.get_weapon(atk_c)
-    if def_w == null or atk_w == null:
-        _free_manager_restore_global_rng(mgr_a)
-        return
-    var d_mass: float = float(def_w.mass)
-    var a_mass: float = float(atk_w.mass)
+    var d_mass: float = HarnessFixtures.get_cached_weapon("DAGGER").mass
+    var a_mass: float = HarnessFixtures.get_cached_weapon("SPEAR").mass
     var mass_ratio: float = d_mass / maxf(a_mass, 0.01)
     if mass_ratio >= CombatConstants.PARRY_BLOCK_MASS_THRESHOLD:
         _fail(
@@ -845,26 +822,17 @@ static func _run_block_threshold_asymmetric_test(failures: PackedStringArray) ->
             )
         )
     # Borderline case: AXE (1.5 kg) vs MACE (1.7 kg), mass_ratio = 0.883 — should pass mass check.
-    _free_manager_restore_global_rng(mgr_a)
-    var mgr_b: Node = MgrScript.new()
-    mgr_b.register(_new_entity("AXE"), "player")
-    mgr_b.register(_new_entity("MACE"), "enemy")
-    mgr_b.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
-    var def_w2: Variant = EntityAccess.get_weapon(mgr_b.combatants[0])
-    var atk_w2: Variant = EntityAccess.get_weapon(mgr_b.combatants[1])
-    if def_w2 != null and atk_w2 != null:
-        var d_mass2: float = float(def_w2.mass)
-        var a_mass2: float = float(atk_w2.mass)
-        var mass_ratio2: float = d_mass2 / maxf(a_mass2, 0.01)
-        if mass_ratio2 < CombatConstants.PARRY_BLOCK_MASS_THRESHOLD:
-            _fail(
-                failures,
-                (
-                    "block_threshold_borderline: AXE(mass=%.2f) vs MACE(mass=%.2f) ratio=%.3f should pass threshold %.2"
-                    + "f" % [d_mass2, a_mass2, mass_ratio2, CombatConstants.PARRY_BLOCK_MASS_THRESHOLD]
-                )
+    var d_mass2: float = HarnessFixtures.get_cached_weapon("AXE").mass
+    var a_mass2: float = HarnessFixtures.get_cached_weapon("MACE").mass
+    var mass_ratio2: float = d_mass2 / maxf(a_mass2, 0.01)
+    if mass_ratio2 < CombatConstants.PARRY_BLOCK_MASS_THRESHOLD:
+        _fail(
+            failures,
+            (
+                "block_threshold_borderline: AXE(mass=%.2f) vs MACE(mass=%.2f) ratio=%.3f should pass threshold %.2f"
+                % [d_mass2, a_mass2, mass_ratio2, CombatConstants.PARRY_BLOCK_MASS_THRESHOLD]
             )
-    _free_manager_restore_global_rng(mgr_b)
+        )
 
 
 ## Tier 3.2 (weapon audit): melee_range ordering — DAGGER < MACE <= SWORD == AXE < SPEAR, reflecting total weapon
@@ -877,16 +845,7 @@ static func _run_weapon_melee_range_ordering(failures: PackedStringArray) -> voi
     var expected_order: Array[String] = ["DAGGER", "MACE", "SWORD", "AXE", "SPEAR"]
     var ranges: Dictionary = {}
     for wname in expected_order:
-        var mgr: Node = MgrScript.new()
-        mgr.register(_new_entity(wname), "player")
-        var ent: Variant = mgr.combatants[0]
-        var wep: Variant = EntityAccess.get_weapon(ent)
-        if wep == null:
-            _fail(failures, "weapon_audit: %s has no weapon definition" % wname)
-            _free_manager_restore_global_rng(mgr)
-            return
-        ranges[wname] = float(wep.melee_range)
-        _free_manager_restore_global_rng(mgr)
+        ranges[wname] = HarnessFixtures.get_cached_weapon_melee_range(wname)
     # DAGGER < MACE <= SWORD == AXE < SPEAR
     if ranges.has("DAGGER") and ranges.has("SPEAR"):
         if ranges["DAGGER"] >= ranges["SPEAR"]:

@@ -266,13 +266,14 @@ static func yomi_entry_for_attacker(defender: Dictionary, attacker_id: int) -> D
 static func yomi_observation_total(entry: Dictionary) -> int:
 	if entry.is_empty():
 		return 0
-	var total: int = 0
+	var line_total: int = 0
 	for raw in (entry.get(DataKeys.ATTENTION_ENTRY_LINE_COUNTS, {}) as Dictionary).values():
-		total += int(raw)
+		line_total += int(raw)
+	var move_total: int = 0
 	for raw in (entry.get(DataKeys.ATTENTION_ENTRY_MOVE_ID_COUNTS, {}) as Dictionary).values():
-		total += int(raw)
-	total += entry.get(DataKeys.ATTENTION_ENTRY_FEINT_RESOLVED, 0)
-	return total
+		move_total += int(raw)
+	var structural_total: int = max(line_total, move_total)
+	return structural_total + entry.get(DataKeys.ATTENTION_ENTRY_FEINT_RESOLVED, 0)
 
 
 static func yomi_weighted_total(entry: Dictionary, alpha: float = CombatConstants.YOMI_POWER_LAW_ALPHA) -> float:
@@ -511,6 +512,10 @@ static func record_attack_toward_defender(
 		var rlc: Dictionary = entry.get(DataKeys.ATTENTION_RECENT_LINE_COUNTS, {}) as Dictionary
 		rlc[line] = rlc.get(line, 0) + 1
 		entry[DataKeys.ATTENTION_RECENT_LINE_COUNTS] = rlc
+		## Per-line observation tick for staleness gate (read-only).
+		var line_ticks: Dictionary = entry.get(DataKeys.ATTENTION_LINE_OBS_TICKS, {}) as Dictionary
+		line_ticks[line] = tick
+		entry[DataKeys.ATTENTION_LINE_OBS_TICKS] = line_ticks
 	if not mid.is_empty():
 		## Raw count (existing behavior).
 		var move_counts: Dictionary = entry.get(DataKeys.ATTENTION_MOVE_ID_COUNTS, {}) as Dictionary
@@ -529,6 +534,10 @@ static func record_attack_toward_defender(
 		var rmc: Dictionary = entry.get(DataKeys.ATTENTION_RECENT_MOVE_ID_COUNTS, {}) as Dictionary
 		rmc[mid] = rmc.get(mid, 0) + 1
 		entry[DataKeys.ATTENTION_RECENT_MOVE_ID_COUNTS] = rmc
+		## Per-move observation tick for staleness gate (read-only).
+		var move_ticks: Dictionary = entry.get(DataKeys.ATTENTION_MOVE_OBS_TICKS, {}) as Dictionary
+		move_ticks[mid] = tick
+		entry[DataKeys.ATTENTION_MOVE_OBS_TICKS] = move_ticks
 	root[key] = entry
 	defender[CombatConstants.COMBATANT_KEY_YOMI_BY_ATTACKER] = root
 
@@ -536,6 +545,16 @@ static func record_attack_toward_defender(
 ## WF-2a: resolved strike move id only (line habit recorded separately at wind-up).
 static func record_resolved_strike_toward_defender(defender: Dictionary, attacker_id: int, move_id: String) -> void:
 	record_attack_toward_defender(null, attacker_id, defender, "", move_id)
+
+
+## WF-2a: return the last observed tick for a specific line from an attacker. Returns -1 if never observed.
+static func yomi_last_observed_line(entry: Dictionary, line: String) -> int:
+	return int(entry.get(DataKeys.ATTENTION_LINE_OBS_TICKS, {}).get(line, -1))
+
+
+## WF-2a: return the last observed tick for a specific move_id from an attacker. Returns -1 if never observed.
+static func yomi_last_observed_move(entry: Dictionary, move_id: String) -> int:
+	return int(entry.get(DataKeys.ATTENTION_MOVE_OBS_TICKS, {}).get(move_id, -1))
 
 
 static func record_feint_resolved_toward_defender(defender: Dictionary, attacker_id: int) -> void:

@@ -154,7 +154,7 @@ static func _finish_medical_procedure(
             )
         )
         if not _medical_procedure_succeeded(result):
-            manager._track_medical_failure_and_maybe_retry(c, tgt_c, part, tgt_cid)
+            manager.track_medical_failure_and_maybe_retry(c, tgt_c, part, tgt_cid)
         else:
             c.pending_retry = {}
             var failed: Array = _get_entity_access().nested_array_for_mutation(tgt_c, "failed_medical_parts")

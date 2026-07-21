@@ -26,7 +26,7 @@ static func _oberhau_swing_instance(intensity: float, commit_frac: float) -> Att
 
 ## S1: extension commit scales KE and pre_armor_cut; intensity ordering at fixed commit.
 static func _run_sim_delivery_commit_scales_ke_and_cut(failures: PackedStringArray) -> void:
-    var sword: Weapon = Weapon.create_from_definition("SWORD")
+    var sword: Weapon = HarnessFixtures.get_cached_weapon("SWORD")
     if sword == null:
         SimulationCombatTests._fail(failures, "sim_delivery: missing SWORD")
         return
@@ -73,7 +73,7 @@ static func _run_sim_delivery_commit_scales_ke_and_cut(failures: PackedStringArr
 
 ## S1: oberhau full wind-up with move commit lands nearer design arm KE than uncommitted i=1.0.
 static func _run_sim_calibration_audit_committed_ke_in_band(failures: PackedStringArray) -> void:
-    var sword: Weapon = Weapon.create_from_definition("SWORD")
+    var sword: Weapon = HarnessFixtures.get_cached_weapon("SWORD")
     if sword == null:
         SimulationCombatTests._fail(failures, "sim_audit_ke: missing SWORD")
         return
@@ -500,7 +500,7 @@ static func _run_sim_derived_pain_reference_matches_entity_body_max(failures: Pa
 
 ## S6: layer KE walk conserves strike_ke_j = absorbed + remaining.
 static func _run_sim_joule_armor_ke_conserved(failures: PackedStringArray) -> void:
-    var cuirass: ArmorPiece = ArmorPiece.create_from_definition("CUIRASS")
+    var cuirass: ArmorPiece = HarnessFixtures.get_cached_armor("CUIRASS")
     if cuirass == null:
         SimulationCombatTests._fail(failures, "sim_joule_ke: missing CUIRASS")
         return
@@ -517,8 +517,8 @@ static func _run_sim_joule_armor_ke_conserved(failures: PackedStringArray) -> vo
 
 ## S6: plate kit bleeds less KE through than gambeson at same pen (sharp deflect path).
 static func _run_sim_joule_armor_cuirass_absorbs_more_than_gambeson(failures: PackedStringArray) -> void:
-    var cuirass: ArmorPiece = ArmorPiece.create_from_definition("CUIRASS")
-    var gambeson: ArmorPiece = ArmorPiece.create_from_definition("GAMBESON")
+    var cuirass: ArmorPiece = HarnessFixtures.get_cached_armor("CUIRASS")
+    var gambeson: ArmorPiece = HarnessFixtures.get_cached_armor("GAMBESON")
     if cuirass == null or gambeson == null:
         SimulationCombatTests._fail(failures, "sim_joule_armor: missing CUIRASS or GAMBESON")
         return
@@ -539,7 +539,7 @@ static func _run_sim_joule_armor_authoritative_ke_frac(failures: PackedStringArr
     var ent: CoreEntity = SimulationCombatTests._sim_entity()
     ent.species = HumanSpecies
     ent.apply_species()
-    var armor: ArmorPiece = ArmorPiece.create_from_definition("CUIRASS")
+    var armor: ArmorPiece = HarnessFixtures.get_cached_armor("CUIRASS")
     if armor == null:
         SimulationCombatTests._fail(failures, "sim_joule_authoritative: missing CUIRASS")
         return
@@ -563,7 +563,7 @@ static func _run_sim_joule_armor_authoritative_ke_frac(failures: PackedStringArr
 
 ## S10: joule path must not double-absorb below ke_frac floor (regression guard).
 static func _run_sim_joule_armor_not_below_ke_frac_floor(failures: PackedStringArray) -> void:
-    var armor: ArmorPiece = ArmorPiece.create_from_definition("CUIRASS")
+    var armor: ArmorPiece = HarnessFixtures.get_cached_armor("CUIRASS")
     if armor == null:
         SimulationCombatTests._fail(failures, "sim_joule_floor: missing CUIRASS")
         return
@@ -786,7 +786,7 @@ static func _run_sim_layer_tissue_deep_pen_reaches_bone(failures: PackedStringAr
 
 ## S7: armor layer stack consumes RHA depth  -  shallow pen stopped before tissue.
 static func _run_sim_pen_trace_cuirass_stops_shallow(failures: PackedStringArray) -> void:
-    var cuirass: ArmorPiece = ArmorPiece.create_from_definition("CUIRASS")
+    var cuirass: ArmorPiece = HarnessFixtures.get_cached_armor("CUIRASS")
     if cuirass == null:
         SimulationCombatTests._fail(failures, "sim_pen_trace: missing CUIRASS")
         return
@@ -802,7 +802,7 @@ static func _run_sim_pen_trace_cuirass_stops_shallow(failures: PackedStringArray
 
 ## S7: pen beyond cloth+plate stack reaches tissue with remainder.
 static func _run_sim_pen_trace_cuirass_deep_reaches_tissue(failures: PackedStringArray) -> void:
-    var cuirass: ArmorPiece = ArmorPiece.create_from_definition("CUIRASS")
+    var cuirass: ArmorPiece = HarnessFixtures.get_cached_armor("CUIRASS")
     if cuirass == null:
         SimulationCombatTests._fail(failures, "sim_pen_trace_deep: missing CUIRASS")
         return
@@ -819,7 +819,7 @@ static func _run_sim_pen_trace_cuirass_deep_reaches_tissue(failures: PackedStrin
 
 ## S7: post-armor tissue pen gates sharp-dominant MFB bone (cuirass vs bare pen).
 static func _run_sim_pen_entity_damage_armor_reduces_bone(failures: PackedStringArray) -> void:
-    var armor: ArmorPiece = ArmorPiece.create_from_definition("CUIRASS")
+    var armor: ArmorPiece = HarnessFixtures.get_cached_armor("CUIRASS")
     if armor == null:
         SimulationCombatTests._fail(failures, "sim_pen_damage: missing CUIRASS")
         return

@@ -589,7 +589,7 @@ static func _run_feint_guard_zone_readthrough_spacing_long_boosts_vs_mid(failure
         )
         seed(CombatRegressionHarness._HARNESS_RESTORE_GLOBAL_SEED)
         return
-    var pr_spacing: float = 0.845
+    var pr_spacing: float = 0.81
     seed(bait_seed)
     var m_mid: float = DefenseChoiceResolver._guard_zone_modifier(
         pa_feint, tgt_mid, parts, "oberhau_feint", pr_spacing, atk_id
@@ -646,7 +646,7 @@ static func _run_feint_guard_zone_readthrough_spacing_close_dampens_vs_mid(failu
         )
         seed(CombatRegressionHarness._HARNESS_RESTORE_GLOBAL_SEED)
         return
-    var pr_spacing: float = 0.855
+    var pr_spacing: float = 0.835
     seed(bait_seed)
     var m_mid: float = DefenseChoiceResolver._guard_zone_modifier(
         pa_feint, tgt_mid, parts, "oberhau_feint", pr_spacing, atk_id

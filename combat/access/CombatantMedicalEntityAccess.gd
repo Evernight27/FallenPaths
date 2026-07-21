@@ -53,7 +53,10 @@ static func entity_has_wound_part(manager: Node, combatant: Dictionary, part: St
 	var entity: Node = get_entity_from_manager(manager, combatant)
 	if entity == null:
 		return false
-	var wounds = entity.get_wounds()
+	var wounds = entity.get("wounds") if entity != null else null
+	if wounds == null:
+		return false
+	return wounds is Dictionary and wounds.has(part)
 	return wounds != null and wounds.has(part)
 
 

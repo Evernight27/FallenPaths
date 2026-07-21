@@ -1,4 +1,4 @@
-class_name KinematicDeliveryPreArmorTests
+﻿class_name KinematicDeliveryPreArmorTests
 extends CombatRegressionHarnessCore
 
 
@@ -11,7 +11,7 @@ static func _run_kinematic_delivery_pre_armor_cut_sqrt_ke_ratio_and_blunt_rises_
 ) -> void:
     var strength: float = 100.0
     var arm_mod: float = 1.0
-    var sword: Weapon = Weapon.create_from_definition("SWORD")
+    var sword: Weapon = HarnessFixtures.get_cached_weapon("SWORD")
     if sword == null:
         _fail(failures, "kin_pre_armor: missing sword")
         return
@@ -77,7 +77,7 @@ static func _run_kinematic_delivery_pre_armor_cut_sqrt_ke_ratio_and_blunt_rises_
                     % [pfx_c, got_r_c, want_r_c, ke_lo_c, ke_hi_c]
                 )
             )
-    var mace: Weapon = Weapon.create_from_definition("MACE")
+    var mace: Weapon = HarnessFixtures.get_cached_weapon("MACE")
     if mace == null:
         _fail(failures, "kin_pre_armor: missing mace")
         return
@@ -105,7 +105,7 @@ static func _run_kinematic_delivery_pre_armor_cut_sqrt_ke_ratio_and_blunt_rises_
 static func _run_kinematic_delivery_penetration_sharp_ke_exponent_and_blunt_mpa_rises(
     failures: PackedStringArray
 ) -> void:
-    var sword: Weapon = Weapon.create_from_definition("SWORD")
+    var sword: Weapon = HarnessFixtures.get_cached_weapon("SWORD")
     if sword == null:
         _fail(failures, "kin_pen: missing sword")
         return
@@ -191,7 +191,7 @@ static func _run_kinematic_delivery_penetration_sharp_ke_exponent_and_blunt_mpa_
                     % [pfx_p, got_rp, want_rp, ke_lo_p, ke_hi_p, WeaponConstants.PENETRATION_EXPONENT]
                 )
             )
-    var mace: Weapon = Weapon.create_from_definition("MACE")
+    var mace: Weapon = HarnessFixtures.get_cached_weapon("MACE")
     if mace == null:
         _fail(failures, "kin_pen: missing mace")
         return
@@ -225,7 +225,7 @@ static func _run_kinematic_delivery_strike_energy_mult_scales_ke_and_pre_armor_c
 ) -> void:
     var strength: float = 100.0
     var arm_mod: float = 1.0
-    var sword: Weapon = Weapon.create_from_definition("SWORD")
+    var sword: Weapon = HarnessFixtures.get_cached_weapon("SWORD")
     if sword == null:
         _fail(failures, "kin_e_mult: missing sword")
         return
@@ -378,7 +378,7 @@ static func _run_kinematic_delivery_strike_momentum_mult_scales_blunt_damage_and
 ) -> void:
     var strength: float = 100.0
     var arm_mod: float = 1.0
-    var mace: Weapon = Weapon.create_from_definition("MACE")
+    var mace: Weapon = HarnessFixtures.get_cached_weapon("MACE")
     if mace == null:
         _fail(failures, "kin_p_mult: missing mace")
         return

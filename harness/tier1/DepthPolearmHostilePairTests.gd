@@ -697,8 +697,8 @@ static func _run_spear_lane_profile_preset_normalized(failures: PackedStringArra
 ## Tier 1.9: **`Weapon.depth_melee_eligible`** from **`WeaponConstants`** definitions  -  **SPEAR** **true**; **SWORD**
 ## default **false** ( **`CombatDepthPolearm.depth_polearm_lane_open`** gate).
 static func _run_weapon_depth_melee_eligible_fixture(failures: PackedStringArray) -> void:
-    var w_spear: Weapon = Weapon.create_from_definition("SPEAR")
-    var w_sword: Weapon = Weapon.create_from_definition("SWORD")
+    var w_spear: Weapon = HarnessFixtures.get_cached_weapon("SPEAR")
+    var w_sword: Weapon = HarnessFixtures.get_cached_weapon("SWORD")
     if w_spear == null or w_sword == null:
         CombatRegressionHarness._fail(failures, "depth_melee_elig: missing weapon fixtures")
         return

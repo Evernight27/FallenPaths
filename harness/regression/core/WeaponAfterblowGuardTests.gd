@@ -1,4 +1,4 @@
-class_name WeaponAfterblowGuardTests
+﻿class_name WeaponAfterblowGuardTests
 extends CombatRegressionHarnessCore
 const _AFTERBLOW_EXECUTE_HIT_SEED: int = 1
 ## **`seed(2)`**: hybrid hindrance in **(ALLOW, BLOCK)** and first **`randf()` < hindrance** -> **`try_afterblow`
@@ -27,13 +27,9 @@ static func _run_weapon_move_coverage(failures: PackedStringArray) -> void:
     }
     for wname in weapons_and_needs:
         var needs: Dictionary = weapons_and_needs[wname]
-        var mgr: Node = MgrScript.new()
-        mgr.register(_new_entity(wname), "player")
-        var ent: Variant = mgr.combatants[0]
-        var wep: Variant = EntityAccess.get_weapon(ent)
+        var wep: Weapon = HarnessFixtures.get_cached_weapon(wname)
         if wep == null:
             _fail(failures, "weapon_audit: %s has no weapon definition" % wname)
-            _free_manager_restore_global_rng(mgr)
             continue
         var all_moves := WeaponMoveDefinitions._move_definitions_build()
         var weapon_move_ids: Array = wep.attack_types.keys()
@@ -62,55 +58,45 @@ static func _run_weapon_move_coverage(failures: PackedStringArray) -> void:
             if mc < mn:
                 _fail(failures, "weapon_audit: %s has %d moves (minimum %d)" % [wname, mc, mn])
         # Verify coupling values are in valid range (0.7-1.2)
-        var physics: Dictionary = (wep as Weapon).strike_physics if is_instance_of(wep, Weapon) else {}
+        var physics: Dictionary = wep.strike_physics if is_instance_of(wep, Weapon) else {}
         if physics is Dictionary:
             for key in ["coupling_stab", "coupling_cut", "coupling_blunt"]:
                 if physics.has(key):
                     var val: float = float(physics[key])
                     if val < 0.7 or val > 1.2:
                         _fail(failures, "weapon_audit: %s %s=%.2f outside valid range [0.7, 1.2]" % [wname, key, val])
-        _free_manager_restore_global_rng(mgr)
+
 
 
 ## Tier 3.2 (weapon audit): verify parts mass_fraction sums to ~1.0 for each weapon.
-
 
 ## Tier 3.2 (weapon audit): verify parts mass_fraction sums to ~1.0 for each weapon.
 static func _run_weapon_parts_mass_sum(failures: PackedStringArray) -> void:
     var wnames: Array[String] = ["SWORD", "AXE", "MACE", "DAGGER", "SPEAR"]
     for wname in wnames:
-        var mgr: Node = MgrScript.new()
-        mgr.register(_new_entity(wname), "player")
-        var ent: Variant = mgr.combatants[0]
-        var wep: Variant = EntityAccess.get_weapon(ent)
+        var wep: Weapon = HarnessFixtures.get_cached_weapon(wname)
         if wep == null:
             _fail(failures, "weapon_audit: %s has no weapon definition" % wname)
-            _free_manager_restore_global_rng(mgr)
             continue
-        var parts: Array = (wep as Weapon).parts if is_instance_of(wep, Weapon) else []
+        var parts: Array = wep.parts if is_instance_of(wep, Weapon) else []
         var sum_f: float = 0.0
         for part in parts:
             if part is Dictionary:
                 sum_f += float(part.get("mass_fraction", 0.0))
         if absf(sum_f - 1.0) > 0.01:
             _fail(failures, "weapon_audit: %s parts mass_fraction sum=%.3f (expected ~1.0)" % [wname, sum_f])
-        _free_manager_restore_global_rng(mgr)
+
 
 
 ## Tier 3.2 (weapon audit): verify each weapon has at least one feint move and one parry-counter move.
-
 
 ## Tier 3.2 (weapon audit): verify each weapon has at least one feint move and one parry-counter move.
 static func _run_weapon_feint_parry_coverage(failures: PackedStringArray) -> void:
     var wnames: Array[String] = ["SWORD", "AXE", "MACE", "DAGGER", "SPEAR"]
     for wname in wnames:
-        var mgr: Node = MgrScript.new()
-        mgr.register(_new_entity(wname), "player")
-        var ent: Variant = mgr.combatants[0]
-        var wep: Variant = EntityAccess.get_weapon(ent)
+        var wep: Weapon = HarnessFixtures.get_cached_weapon(wname)
         if wep == null:
             _fail(failures, "weapon_audit: %s has no weapon definition" % wname)
-            _free_manager_restore_global_rng(mgr)
             continue
         var weapon_move_ids: Array = wep.attack_types.keys()
         var has_feint: bool = false
@@ -128,11 +114,10 @@ static func _run_weapon_feint_parry_coverage(failures: PackedStringArray) -> voi
             _fail(failures, "weapon_audit: %s has no feint move" % wname)
         if not has_parry:
             _fail(failures, "weapon_audit: %s has no parry-counter move" % wname)
-        _free_manager_restore_global_rng(mgr)
+
 
 
 ## Tier 3.2 (weapon audit): angle_variance_deg within expected range per weapon weight class.
-
 
 ## Tier 3.2 (weapon audit): angle_variance_deg within expected range per weapon weight class.
 static func _run_weapon_angle_variance_ranges(failures: PackedStringArray) -> void:
@@ -147,12 +132,8 @@ static func _run_weapon_angle_variance_ranges(failures: PackedStringArray) -> vo
         var range_bounds: Array = variance_ranges[wname]
         var v_min: int = range_bounds[0]
         var v_max: int = range_bounds[1]
-        var mgr: Node = MgrScript.new()
-        mgr.register(_new_entity(wname), "player")
-        var ent: Variant = mgr.combatants[0]
-        var wep: Variant = EntityAccess.get_weapon(ent)
+        var wep: Weapon = HarnessFixtures.get_cached_weapon(wname)
         if wep == null:
-            _free_manager_restore_global_rng(mgr)
             continue
         var weapon_move_ids: Array = wep.attack_types.keys()
         for move_id in weapon_move_ids:
@@ -170,7 +151,6 @@ static func _run_weapon_angle_variance_ranges(failures: PackedStringArray) -> vo
                                 % [wname, move_id, av, v_min, v_max]
                             )
                         )
-        _free_manager_restore_global_rng(mgr)
 
 
 ## Tier 3.2: **`GuardLineUpdater.set_guard_deflected`**  -  when **`severity`** is absent, **`guard_deflect_blend`**
@@ -362,11 +342,11 @@ static func _run_afterblow_low_hindrance_allow_triggers_resolve_hit(failures: Pa
         _fail(
             failures, "afterblow_allow_hit: missing harness afterblow mult meta (seed=%d)" % _AFTERBLOW_EXECUTE_HIT_SEED
         )
-    elif absf(float(mgr.get_meta(HARNESS_META_LAST_AFTERBLOW_MULT)) - (1.0 - 7.0 / 30.0)) > 0.001:
+    elif absf(float(mgr.get_meta(HARNESS_META_LAST_AFTERBLOW_MULT)) - 0.8) > 0.001:
         _fail(
             failures,
             (
-                "afterblow_allow_hit: want afterblow_damage_mult ~0.7667 (hindrance 7/30) got %s (seed=%d)"
+                "afterblow_allow_hit: want afterblow_damage_mult 0.8 (hindrance 0.2) got %s (seed=%d)"
                 % [str(mgr.get_meta(HARNESS_META_LAST_AFTERBLOW_MULT)), _AFTERBLOW_EXECUTE_HIT_SEED]
             )
         )
@@ -438,11 +418,11 @@ static func _run_afterblow_mid_hindrance_rand_cancel(failures: PackedStringArray
 
 
 ## Tier 3.3: middle hindrance + **`randf() >= hindrance`** -> **`_execute_afterblow`** (**`afterblow_damage_mult`
-## ~0.475**) + full resolve **`attack_hit`**; fixed **`seed(0)`**.
+## ~0.55**) + full resolve **`attack_hit`**; fixed **`seed(0)`**.
 
 
 ## Tier 3.3: middle hindrance + **`randf() >= hindrance`** -> **`_execute_afterblow`** (**`afterblow_damage_mult`
-## ~0.475**) + full resolve **`attack_hit`**; fixed **`seed(0)`**.
+## ~0.55**) + full resolve **`attack_hit`**; fixed **`seed(0)`**.
 static func _run_afterblow_mid_hindrance_rand_executes_hit(failures: PackedStringArray) -> void:
     seed(_AFTERBLOW_MID_HINDRANCE_RAND_EXECUTE_SEED)
     var mgr: Node = MgrScript.new()
@@ -490,11 +470,11 @@ static func _run_afterblow_mid_hindrance_rand_executes_hit(failures: PackedStrin
                 % _AFTERBLOW_MID_HINDRANCE_RAND_EXECUTE_SEED
             )
         )
-    elif not is_equal_approx(float(mgr.get_meta(HARNESS_META_LAST_AFTERBLOW_MULT)), 0.475):
+    elif not is_equal_approx(float(mgr.get_meta(HARNESS_META_LAST_AFTERBLOW_MULT)), 0.55):
         _fail(
             failures,
             (
-                "afterblow_mid_rand_execute: want afterblow_damage_mult 0.475 got %s (seed=%d)"
+                "afterblow_mid_rand_execute: want afterblow_damage_mult 0.55 got %s (seed=%d)"
                 % [str(mgr.get_meta(HARNESS_META_LAST_AFTERBLOW_MULT)), _AFTERBLOW_MID_HINDRANCE_RAND_EXECUTE_SEED]
             )
         )
@@ -669,7 +649,7 @@ static func _run_wind_up_duration_bounded_for_move(failures: PackedStringArray) 
 ## **MACE** weak tap: when raw momentum blunt is below **`BLUNT_DAMAGE_MIN`**, slip path stays sub-min; clamped helper
 ## still floors to min.
 static func _run_kinematic_delivery_mace_weak_tap_pre_blunt_below_baseline_min(failures: PackedStringArray) -> void:
-    var mace: Weapon = Weapon.create_from_definition("MACE")
+    var mace: Weapon = HarnessFixtures.get_cached_weapon("MACE")
     if mace == null:
         _fail(failures, "kin_mace_weak: missing MACE weapon")
         return

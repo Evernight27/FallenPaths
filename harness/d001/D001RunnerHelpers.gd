@@ -341,10 +341,8 @@ static func _enemy_4_wide() -> Dictionary:
 
 static func _new_entity(weapon_id: String) -> CoreEntity:
     var e := CoreEntity.new()
-    e.apply_species()
-    e.dominant_hand = "right_arm"
-    e.offhand_functionality = 1.0
-    var w: Weapon = Weapon.create_from_definition(weapon_id)
+    e.apply_species_harness_deterministic()
+    var w: Weapon = HarnessFixtures.get_cached_weapon(weapon_id)
     if w != null:
         e.equip_weapon(w)
     CombatRegressionHarness._track_harness_node(e)

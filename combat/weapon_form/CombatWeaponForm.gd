@@ -307,6 +307,8 @@ static func _move_family_for_move_id(move_id: String) -> String:
 		return "feint"
 	if WeaponConstants.is_parry_move(move_id):
 		return "parry"
+	if move_id in ["zornhau", "scheitelhau", "krumphau", "schielhau"]:
+		return "meisterhau"
 	var ct: String = WeaponConstants.contact_type_for_move_id(move_id)
 	if ct == WeaponConstants.ATTACK_TYPE_STAB:
 		return "thrust"
@@ -436,6 +438,38 @@ static func _signature_score_for_entry(form: String, entry: Dictionary, weapon: 
 	return score
 
 
+## Phase 2: count distinct signal types (line, move_id, contact_type, feint) that contribute
+## to the score for a given form. Used by MIN_SIGNAL_AGREEMENT gate.
+static func _signal_vote_count(form: String, entry: Dictionary, weapon: Variant = null) -> int:
+	var sig: Dictionary = _def(form, weapon).get("signature", {}) as Dictionary
+	if sig.is_empty() or entry.is_empty():
+		return 0
+	var votes: int = 0
+	var move_sig: Dictionary = sig.get("move_ids", {}) as Dictionary
+	var move_counts: Dictionary = entry.get("move_id_counts", {}) as Dictionary
+	for mid in move_counts.keys():
+		if move_sig.get(mid, 0.0) > 0.0 and int(move_counts[mid]) > 0:
+			votes += 1
+			break
+	var ct_sig: Dictionary = sig.get("contact_types", {}) as Dictionary
+	var ct_counts: Dictionary = entry.get("contact_type_counts", {}) as Dictionary
+	for ct in ct_counts.keys():
+		if ct_sig.get(ct, 0.0) > 0.0 and int(ct_counts[ct]) > 0:
+			votes += 1
+			break
+	var line_sig: Dictionary = sig.get("lines", {}) as Dictionary
+	var line_counts: Dictionary = entry.get("line_counts", {}) as Dictionary
+	for ln in line_counts.keys():
+		if line_sig.get(ln, 0.0) > 0.0 and int(line_counts[ln]) > 0:
+			votes += 1
+			break
+	var feint_bias: float = sig.get("feint_bias", 0.0)
+	var feint_n: int = entry.get("feint_resolved", 0)
+	if feint_bias > 0.0 and feint_n > 0:
+		votes += 1
+	return votes
+
+
 static func infer_opponent_form(manager: Node, observer: Dictionary, opponent_id: int) -> String:
 	if observer == null or observer.is_empty() or opponent_id < 0:
 		return ""
@@ -445,6 +479,7 @@ static func infer_opponent_form(manager: Node, observer: Dictionary, opponent_id
 	var total_obs: int = _get_attention().yomi_observation_total(entry)
 	if total_obs < CombatConstants.WF_YOMI_FORM_INFERENCE_MIN_OBS:
 		return ""
+	var observer_form: String = CombatantEntityAccess.form_str(observer)
 	var opp_c: Dictionary = CombatantEntityAccess.manager_get_combatant(manager, opponent_id)
 	var opp_weapon: Variant = CombatantEntityAccess.get_weapon(opp_c) if not opp_c.is_empty() else null
 	_ensure_defs()
@@ -465,6 +500,10 @@ static func infer_opponent_form(manager: Node, observer: Dictionary, opponent_id
 	if second_score < 0.0:
 		second_score = 0.0
 	if (best_score - second_score) < CombatConstants.WF_YOMI_FORM_INFERENCE_MARGIN:
+		return ""
+	if _signal_vote_count(best_form, entry, opp_weapon) < CombatConstants.WF_YOMI_FORM_INFERENCE_MIN_SIGNAL_AGREEMENT:
+		return ""
+	if _same_pressure_suppresses_inference(observer_form, best_form):
 		return ""
 	return normalize_form(best_form, opp_weapon)
 
@@ -787,7 +826,7 @@ static func evaluate_automatic_form(manager: Node, c: Dictionary) -> bool:
 	if not envelop:
 		if _surround_pressure_high(manager, c):
 			var sur_form: String = _surround_form_for_weapon(weapon)
-			if _try_assign_auto_switch(manager, c, sur_form, "surround_pressure", clk):
+			if not sur_form.is_empty() and _try_assign_auto_switch(manager, c, sur_form, "surround_pressure", clk):
 				return true
 	if CombatMobilityRetreat.cannot_commit_melee(c):
 		return false
@@ -795,6 +834,8 @@ static func evaluate_automatic_form(manager: Node, c: Dictionary) -> bool:
 		var duel_id: int = _primary_melee_threat_id(manager, c)
 		if duel_id >= 0:
 			var inferred: String = _inferred_opponent_form(manager, c, duel_id)
+			if inferred.is_empty():
+				return false
 			var offense_pad: float = CombatConstants.WF_AUTO_SWITCH_DUEL_OFFENSE_STAMINA_PAD
 			var can_offense: bool = not (not def_form.is_empty() and cur == def_form and ratio < min_r + offense_pad)
 			if can_offense:
@@ -886,3 +927,52 @@ static func _is_form_stale_for_opponent(_manager: Node, c: Dictionary, opponent_
 		if int(recent[line]) > 0:
 			return false
 	return true
+
+
+static func _is_entry_mixed_stale(entry: Dictionary, manager: Node) -> bool:
+	if entry.is_empty() or manager == null:
+		return false
+	var current_tick: int = -1
+	if manager.has_method("get_combat_tick_index"):
+		current_tick = manager.get_combat_tick_index()
+	elif "combat_tick_index" in manager:
+		current_tick = int(manager.combat_tick_index)
+	else:
+		return false
+	var stale_count: int = 0
+	var fresh_count: int = 0
+	var window: int = CombatConstants.WF_YOMI_STALENESS_RECENT_WINDOW
+	var line_ticks: Dictionary = entry.get(DataKeys.ATTENTION_LINE_OBS_TICKS, {}) as Dictionary
+	for line_key in line_ticks:
+		var lt: int = int(line_ticks[line_key])
+		if lt < 0:
+			continue
+		if current_tick - lt >= window:
+			stale_count += 1
+		else:
+			fresh_count += 1
+	var move_ticks: Dictionary = entry.get(DataKeys.ATTENTION_MOVE_OBS_TICKS, {}) as Dictionary
+	for move_key in move_ticks:
+		var lt: int = int(move_ticks[move_key])
+		if lt < 0:
+			continue
+		if current_tick - lt >= window:
+			stale_count += 1
+		else:
+			fresh_count += 1
+	var total_obs_for_entry: int = _get_attention().yomi_observation_total(entry)
+	return stale_count > 0 and fresh_count > 0 and fresh_count < total_obs_for_entry / 2
+
+
+static func _same_pressure_suppresses_inference(observer_form: String, best_form: String) -> bool:
+	if observer_form.is_empty() or best_form.is_empty():
+		return false
+	if observer_form == best_form:
+		return true
+	var obs_class: String = pressure_class(observer_form)
+	var best_class: String = pressure_class(best_form)
+	if obs_class == "aggressive" and best_class == "aggressive":
+		return true
+	if obs_class == "controlling" and best_class == "controlling":
+		return true
+	return false

@@ -176,7 +176,7 @@ static func _run_combat_ui_hints_attention_live_refresh_load_during_windup(failu
 
 
 static func _run_strike_stamping_weapon_eff_dist_sanity(failures: PackedStringArray) -> void:
-    var w: Weapon = Weapon.create_from_definition("SWORD")
+    var w: Weapon = HarnessFixtures.get_cached_weapon("SWORD")
     if w == null:
         CombatRegressionHarness._fail(failures, "strike_stamp: missing SWORD")
         return

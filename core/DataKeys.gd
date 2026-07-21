@@ -440,7 +440,7 @@ const ATK_STRIKE_MOMENTUM_MULT: String = "strike_momentum_mult"
 const ATK_BLUNT_DAMAGE_MULT: String = "blunt_damage_mult"
 const ATK_BLUNT_MOMENTUM_PA_MULT: String = "blunt_momentum_pa_mult"
 const ATK_PENETRATION_SHARP: String = "penetration_sharp"
-const ATK_PENETRATION_BLUNT_MPA: String = "penetration_blunt_mpa"
+const ATK_PENETRATION_BLUNT_MPA: String = "penetration_blunt_momentum_per_area"
 const ATK_BLUNT_CONTACT_CM: String = "blunt_contact_cm"
 
 # --- Combat attention dict keys ---
@@ -568,6 +568,8 @@ const ATTENTION_RECENT_WINDOW_AGE: String = "recent_window_age"
 const ATTENTION_LAST_TICK: String = "last_tick"
 const ATTENTION_RECENT_LINE_COUNTS: String = "recent_line_counts"
 const ATTENTION_RECENT_MOVE_ID_COUNTS: String = "recent_move_id_counts"
+const ATTENTION_LINE_OBS_TICKS: String = "line_obs_ticks"
+const ATTENTION_MOVE_OBS_TICKS: String = "move_obs_ticks"
 
 # --- Deception/Yomi entry dict keys (CombatAttention) ---
 const DECEPTION_PHASE: String = "phase"

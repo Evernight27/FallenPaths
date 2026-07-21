@@ -240,7 +240,7 @@ static func _append_penetration_pipeline_section(lines: PackedStringArray) -> vo
             % str(BleedingConstants.FEATURE_ATLS_STEPPED_BLOOD_CONSCIOUSNESS).to_lower()
         )
     )
-    var cuirass: ArmorPiece = ArmorPiece.create_from_definition("CUIRASS")
+    var cuirass: ArmorPiece = HarnessFixtures.get_cached_armor("CUIRASS")
     if cuirass != null:
         var shallow: Dictionary = ArmorPenetrationTrace.sharp_penetration_to_tissue_mm(cuirass, 3.0)
         var deep: Dictionary = ArmorPenetrationTrace.sharp_penetration_to_tissue_mm(cuirass, 6.0)
@@ -444,7 +444,7 @@ static func _append_material_failure_production_section(lines: PackedStringArray
     lines.append("audit_TTD_s=%.1f in_band_30-120=%s" % [ttd_s, str(ttd_ok).to_lower()])
     if not ttd_ok:
         failures.append("material_production: TTD %.1fs outside 30-120s" % ttd_s)
-    var sword: Weapon = Weapon.create_from_definition("SWORD")
+    var sword: Weapon = HarnessFixtures.get_cached_weapon("SWORD")
     if sword != null:
         var ai: AttackInstance = AttackInstance.new("oberhau", 1.0)
         ai.archetype = {"kinematic_delivery": WeaponConstants.KINEMATIC_DELIVERY_SWING}
@@ -627,7 +627,7 @@ static func _audit_new_entity(weapon_id: String) -> CoreEntity:
     ent.apply_species()
     ent.dominant_hand = "right_arm"
     ent.offhand_functionality = 1.0
-    var w: Weapon = Weapon.create_from_definition(weapon_id)
+    var w: Weapon = HarnessFixtures.get_cached_weapon(weapon_id)
     if w != null:
         ent.equip_weapon(w)
     CombatRegressionHarness._track_harness_node(ent)

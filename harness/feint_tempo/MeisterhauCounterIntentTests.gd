@@ -29,10 +29,11 @@ static func run_meisterhau_family_mapping(failures: PackedStringArray) -> void:
         failures,
         "meisterhau_family: krumphau -> meisterhau"
     )
+    ## Schielhau is a feint — its family is "feint" (caught by is_feint_move before meisterhau list).
     _assert(
-        wf._move_family_for_move_id("schielhau") == "meisterhau",
+        wf._move_family_for_move_id("schielhau") == "feint",
         failures,
-        "meisterhau_family: schielhau -> meisterhau"
+        "meisterhau_family: schielhau -> feint (not meisterhau)"
     )
     _assert(
         wf._move_family_for_move_id("oberhau") == "high_cut",

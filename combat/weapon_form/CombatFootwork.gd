@@ -80,8 +80,7 @@ static func format_position_angle_ui_hint(c: Dictionary) -> String:
     var off: float = c.get(CombatConstants.COMBATANT_KEY_POSITION_ANGLE_OFFSET_DEG, 0.0)
     if absf(off) < 0.01:
         return ""
-    var dir: String = "+" if off > 0.0 else "-"
-    return "Step %s%d deg" % [dir, int(absf(off))]
+    return "Step"
 
 
 ## Prefer **`CombatUiHints.footwork_hint_text`** for UI/snapshot. Alias of **`get_ui_hint`**.

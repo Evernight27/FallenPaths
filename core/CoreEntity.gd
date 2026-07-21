@@ -807,6 +807,13 @@ func _apply_common_seed_defaults():
     TissueEnergyCapacity.seed_entity_energy_pools(self, true)
 
 
+## Deterministic species application for harness tests that overwrite RNG-driven fields anyway.
+func apply_species_harness_deterministic():
+    _apply_species()
+    dominant_hand = BodyPartConstants.PART_RIGHT_ARM
+    offhand_functionality = 1.0
+
+
 func _seed_body_parts_from_species(species_resource: Resource) -> void:
     for p in _get_body_part_list():
         var m = species_resource.get_body_part_max(p) if species_resource.has_method("get_body_part_max") else 10

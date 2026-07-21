@@ -122,7 +122,7 @@ static func _append_impact_ke_section(lines: PackedStringArray, failures: Packed
             )
         )
     )
-    var sword: Weapon = Weapon.create_from_definition("SWORD")
+    var sword: Weapon = HarnessFixtures.get_cached_weapon("SWORD")
     if sword == null:
         failures.append("impact_ke: could not create SWORD")
         return

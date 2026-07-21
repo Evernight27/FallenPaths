@@ -137,7 +137,7 @@ static func try_pick(actions: Array, combatant_id: int, manager: Node) -> Dictio
         if CombatantEntityAccess.is_in_immediate_peril(manager, o):
             ally_in_peril_count += 1
     if not my_peril and ally_in_peril_count == 0:
-        fight_finish_tail = CombatDoctrine.fight_finish_tail_active(manager, c, actions, combatant_id) or esc_failures > 0
+        fight_finish_tail = CombatDoctrine.fight_finish_tail_active(manager, c, actions, combatant_id) or esc_failures >= CombatConstantsMentalStack.MENTAL_STACK_L1_TO_L2_FAILURE_THRESHOLD
     if fight_finish_tail:
         var fight_first: Array = _filter_sparse_fight_first_actions(actions, combatant_id, manager, c)
         if not fight_first.is_empty():

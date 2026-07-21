@@ -1,4 +1,4 @@
-class_name KinematicDeliveryStaminaFormationTests
+﻿class_name KinematicDeliveryStaminaFormationTests
 extends CombatRegressionHarnessCore
 ## Tier 5.1 (optional long-tail): **`strike_mods.strike_energy_mult`** in **`compute_and_apply_damage`**  -
 ## **`strike_ke_j`** * mult; **`pre_cut`** * **`sqrt(mult)`**; **`penetration_sharp`** * **`mult^PENETRATION_EXPONENT`**
@@ -222,9 +222,9 @@ static func _run_campaign_bridge_can_enter_combat_rejects_unconscious(failures: 
 
 
 static func _run_weapon_blade_strong_fraction(failures: PackedStringArray) -> void:
-    var sword: Weapon = Weapon.create_from_definition("SWORD")
-    var dagger: Weapon = Weapon.create_from_definition("DAGGER")
-    var spear: Weapon = Weapon.create_from_definition("SPEAR")
+    var sword: Weapon = HarnessFixtures.get_cached_weapon("SWORD")
+    var dagger: Weapon = HarnessFixtures.get_cached_weapon("DAGGER")
+    var spear: Weapon = HarnessFixtures.get_cached_weapon("SPEAR")
     if sword == null or dagger == null or spear == null:
         _fail(failures, "weapon_strong_fraction: missing sword/dagger/spear")
         return

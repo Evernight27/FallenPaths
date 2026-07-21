@@ -64,7 +64,7 @@ static func _free_proficiency_combat(data: Dictionary) -> void:
         return
     var mgr: Node = data.get("mgr")
     if is_instance_valid(mgr):
-        mgr.queue_free()
+        HarnessFixtures._free_manager_in_place(mgr)
 
 
 ## Helper: simulate a hit resolving on the player combatant, then check proficiency gains.

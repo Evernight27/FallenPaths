@@ -95,15 +95,13 @@ static func _free_1v1(data: Dictionary) -> void:
         return
     var mgr: Node = data.get("mgr")
     if is_instance_valid(mgr):
-        mgr.queue_free()
+        HarnessFixtures._free_manager_in_place(mgr)
 
 
 static func _new_entity(weapon_id: String) -> Node:
     var e := CoreEntity.new()
-    e.apply_species()
-    e.dominant_hand = "right_arm"
-    e.offhand_functionality = 1.0
-    var w: Variant = Weapon.create_from_definition(weapon_id)
+    e.apply_species_harness_deterministic()
+    var w: Variant = HarnessFixtures.get_cached_weapon(weapon_id)
     if w != null:
         e.equip_weapon(w)
     HarnessFixtures._track_harness_node(e)

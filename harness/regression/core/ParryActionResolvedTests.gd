@@ -1,4 +1,4 @@
-class_name ParryActionResolvedTests
+﻿class_name ParryActionResolvedTests
 extends CombatRegressionHarnessCore
 
 
@@ -420,7 +420,7 @@ static func _run_weapon_part_mass_model_normalized(failures: PackedStringArray) 
                 total_fraction += float((part as Dictionary).get("mass_fraction", 0.0))
         if absf(total_fraction - 1.0) > 0.001:
             _fail(failures, "weapon_parts: %s mass fractions sum %.3f, want 1.000" % [wid, total_fraction])
-    var spear: Weapon = Weapon.create_from_definition("SPEAR")
+    var spear: Weapon = HarnessFixtures.get_cached_weapon("SPEAR")
     if spear == null:
         _fail(failures, "weapon_parts: missing spear")
         return
@@ -470,9 +470,9 @@ static func _run_weapon_parry_part_selection_fallbacks(failures: PackedStringArr
 
 ## Tier 3.2: attack momentum / KE helpers use the intended striking part mass.
 static func _run_weapon_striking_part_mass_model(failures: PackedStringArray) -> void:
-    var spear: Weapon = Weapon.create_from_definition("SPEAR")
-    var mace: Weapon = Weapon.create_from_definition("MACE")
-    var axe: Weapon = Weapon.create_from_definition("AXE")
+    var spear: Weapon = HarnessFixtures.get_cached_weapon("SPEAR")
+    var mace: Weapon = HarnessFixtures.get_cached_weapon("MACE")
+    var axe: Weapon = HarnessFixtures.get_cached_weapon("AXE")
     if spear == null or mace == null or axe == null:
         _fail(failures, "weapon_striking_parts: missing spear/mace/axe")
         return
@@ -526,7 +526,7 @@ static func _run_kinematic_delivery_override_and_mixed_ke_blend_brackets_thrust_
         != WeaponConstants.KINEMATIC_DELIVERY_MIXED
     ):
         _fail(failures, "kin_del: mixed archetype should win over stab inference")
-    var sword: Weapon = Weapon.create_from_definition("SWORD")
+    var sword: Weapon = HarnessFixtures.get_cached_weapon("SWORD")
     if sword == null:
         _fail(failures, "kin_del_mixed: missing sword")
         return
@@ -589,7 +589,7 @@ static func _run_kinematic_delivery_override_and_mixed_ke_blend_brackets_thrust_
         _fail(failures, "kin_del_mixed: mixed blend 1 KE %.6f should match swing KE %.6f" % [ke_m1, ke_sw])
     ## Second weapon: AXE + diagonal_chop (cut)  -  same mixed brackets (Tier 5.1); avoids **`spear_slash`**
     ## thrust/swing KE degeneracy at some intensities.
-    var axe: Weapon = Weapon.create_from_definition("AXE")
+    var axe: Weapon = HarnessFixtures.get_cached_weapon("AXE")
     if axe == null:
         _fail(failures, "kin_del_axe: missing axe")
         return
@@ -648,7 +648,7 @@ static func _run_kinematic_delivery_override_and_mixed_ke_blend_brackets_thrust_
     if absf(ke_ax_m1 - ke_ax_sw) > 0.001:
         _fail(failures, "kin_del_axe: mixed blend 1 KE %.6f should match swing KE %.6f" % [ke_ax_m1, ke_ax_sw])
     ## Third weapon: DAGGER + quick_slash (cut)  -  same mixed brackets (Tier 5.1 light weapon coverage).
-    var dagger: Weapon = Weapon.create_from_definition("DAGGER")
+    var dagger: Weapon = HarnessFixtures.get_cached_weapon("DAGGER")
     if dagger == null:
         _fail(failures, "kin_del_dagger: missing dagger")
         return
@@ -723,7 +723,7 @@ static func _run_kinematic_delivery_override_and_mixed_ke_blend_brackets_thrust_
 static func _run_kinematic_delivery_velocity_from_intensity_bridges_get_effective_and_monotone(
     failures: PackedStringArray
 ) -> void:
-    var sword: Weapon = Weapon.create_from_definition("SWORD")
+    var sword: Weapon = HarnessFixtures.get_cached_weapon("SWORD")
     if sword == null:
         _fail(failures, "kin_vel_bridge: missing sword")
         return
@@ -797,7 +797,7 @@ static func _run_kinematic_delivery_velocity_from_intensity_bridges_get_effectiv
             failures, "kin_vel_mono: mixed blend expected spread v(0.95)-v(0.05) >= 0.01 got %.6f" % [v_mx_hi - v_mx_lo]
         )
     ## Stab-inferred thrust: SPEAR + spear_thrust (linear band).
-    var spear: Weapon = Weapon.create_from_definition("SPEAR")
+    var spear: Weapon = HarnessFixtures.get_cached_weapon("SPEAR")
     if spear == null:
         _fail(failures, "kin_vel_bridge: missing spear")
         return
@@ -825,7 +825,7 @@ static func _run_kinematic_delivery_velocity_from_intensity_bridges_get_effectiv
             "kin_vel_mono: spear thrust expected spread v(0.95)-v(0.05) >= 0.01 got %.6f" % [v_sp_hi - v_sp_lo]
         )
     ## Blunt contact -> swing kinematic path: MACE + direct_blow.
-    var mace: Weapon = Weapon.create_from_definition("MACE")
+    var mace: Weapon = HarnessFixtures.get_cached_weapon("MACE")
     if mace == null:
         _fail(failures, "kin_vel_bridge: missing mace")
         return

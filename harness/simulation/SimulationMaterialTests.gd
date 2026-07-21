@@ -289,7 +289,7 @@ static func _run_mat_entity_flag_off_matches_mfb_path(failures: PackedStringArra
 
 ## M2: cuirass reduces post-armor pen -> curve damage <= bare at pen 5.
 static func _run_mat_armored_pen_reduces_curve_damage(failures: PackedStringArray) -> void:
-    var cuirass: ArmorPiece = ArmorPiece.create_from_definition("CUIRASS")
+    var cuirass: ArmorPiece = HarnessFixtures.get_cached_armor("CUIRASS")
     if cuirass == null:
         SimulationCombatTests._fail(failures, "mat_armored_pen: missing CUIRASS")
         return
@@ -511,7 +511,7 @@ static func _run_mat_production_joule_authoritative_matches_forced(failures: Pac
         return
     var saved_sub: bool = CombatConstants.is_feature_subregion_combat_mult_enabled()
     CombatConstants.set_feature_subregion_combat_mult_load(false)
-    if ArmorPiece.create_from_definition("CUIRASS") == null:
+    if HarnessFixtures.get_cached_armor("CUIRASS") == null:
         SimulationCombatTests._fail(failures, "mat_joule_prod: missing CUIRASS")
         CombatConstants.set_feature_subregion_combat_mult_load(saved_sub)
         return
@@ -528,11 +528,11 @@ static func _run_mat_production_joule_authoritative_matches_forced(failures: Pac
     var ent_prod: CoreEntity = SimulationCombatTests._sim_entity()
     ent_prod.species = HumanSpecies
     ent_prod.apply_species()
-    ent_prod.equip_armor(part, ArmorPiece.create_from_definition("CUIRASS"))
+    ent_prod.equip_armor(part, HarnessFixtures.get_cached_armor("CUIRASS"))
     var ent_force: CoreEntity = SimulationCombatTests._sim_entity()
     ent_force.species = HumanSpecies
     ent_force.apply_species()
-    ent_force.equip_armor(part, ArmorPiece.create_from_definition("CUIRASS"))
+    ent_force.equip_armor(part, HarnessFixtures.get_cached_armor("CUIRASS"))
     var res_prod: Dictionary = EntityDamage.apply_damage_split(
         ent_prod, cut_pre, 0.0, part, 2.0, -1.0, -1.0, extras_prod
     )
@@ -562,7 +562,7 @@ static func _run_mat_production_joule_authoritative_matches_forced(failures: Pac
 static func _run_mat_production_joule_disable_restores_scalar_armor(failures: PackedStringArray) -> void:
     if not CombatConstants.FEATURE_JOULE_ARMOR_BUDGET:
         return
-    var armor: ArmorPiece = ArmorPiece.create_from_definition("CUIRASS")
+    var armor: ArmorPiece = HarnessFixtures.get_cached_armor("CUIRASS")
     if armor == null:
         SimulationCombatTests._fail(failures, "mat_joule_disable: missing CUIRASS")
         return
@@ -879,7 +879,7 @@ static func _run_mat_production_ttd_and_oberhau_unchanged(failures: PackedString
     )
     if ttd_s < 30.0 or ttd_s > 120.0:
         SimulationCombatTests._fail(failures, "mat_production: TTD %.1fs outside 30-120s" % ttd_s)
-    var sword: Weapon = Weapon.create_from_definition("SWORD")
+    var sword: Weapon = HarnessFixtures.get_cached_weapon("SWORD")
     if sword == null:
         SimulationCombatTests._fail(failures, "mat_production: missing SWORD for KE anchor")
         return

@@ -1,4 +1,4 @@
-class_name SoakFpOperationalLogDedupeTests
+﻿class_name SoakFpOperationalLogDedupeTests
 extends CombatRegressionHarnessCore
 
 
@@ -395,7 +395,7 @@ static func _assert_depth_lane_open_cache_matches_builder(mgr: Node, failures: P
 ## Tier 3.1: sector surround `1/(1+k.excess)` matches integer **`surround_defense_multiplier`** when total weight = 2
 ## (two full-width flank threats).
 static func _run_strike_measure_constants_sanity(failures: PackedStringArray) -> void:
-    var w: Weapon = Weapon.create_from_definition("SWORD")
+    var w: Weapon = HarnessFixtures.get_cached_weapon("SWORD")
     if w == null:
         _fail(failures, "strike_meas_const: missing SWORD weapon")
         return

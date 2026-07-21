@@ -163,7 +163,7 @@ static func _setup_1v1(
     p_ent.apply_species()
     p_ent.dominant_hand = "right_arm"
     p_ent.offhand_functionality = 1.0
-    var pw: Variant = Weapon.create_from_definition(player_weapon)
+    var pw: Variant = HarnessFixtures.get_cached_weapon(player_weapon)
     if pw != null:
         p_ent.equip_weapon(pw)
     HarnessFixtures._track_harness_node(p_ent)
@@ -202,7 +202,7 @@ static func _free_1v1(data: Dictionary) -> void:
         return
     var mgr: Node = data.get("mgr")
     if is_instance_valid(mgr):
-        mgr.queue_free()
+        HarnessFixtures._free_manager_in_place(mgr)
 
 
 ## Proficiency levels for targeting validation.

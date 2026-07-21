@@ -1,4 +1,4 @@
-class_name ImpactStationWeaponCommitTests
+﻿class_name ImpactStationWeaponCommitTests
 extends CombatRegressionHarnessCore
 
 
@@ -741,7 +741,7 @@ static func _run_weapon_commit_fraction_inferred_for_untagged_thrust_move(failur
 
 ## Tier 7.5 pilot: **`impact_station_spread` 0** -> roll equals move **`impact_station_mean`** (+ intensity focus only).
 static func _run_impact_station_mean_zero_spread_equals_move_mean(failures: PackedStringArray) -> void:
-    var spear: RefCounted = Weapon.create_from_definition("SPEAR")
+    var spear: RefCounted = HarnessFixtures.get_cached_weapon("SPEAR")
     if spear == null:
         _fail(failures, "impact_station: could not create SPEAR")
         return
@@ -766,7 +766,7 @@ static func _run_impact_station_mean_zero_spread_equals_move_mean(failures: Pack
 
 ## Tier 7.5 pilot: per-move mean overrides weapon **`strike_physics.station_mean`**.
 static func _run_impact_station_mean_move_overrides_weapon_default(failures: PackedStringArray) -> void:
-    var spear: RefCounted = Weapon.create_from_definition("SPEAR")
+    var spear: RefCounted = HarnessFixtures.get_cached_weapon("SPEAR")
     if spear == null:
         _fail(failures, "impact_station_override: could not create SPEAR")
         return
@@ -787,8 +787,8 @@ static func _run_impact_station_mean_move_overrides_weapon_default(failures: Pac
 
 ## Tier 7.5 pilot: tip thrust stations above mace head-weighted direct blow.
 static func _run_impact_station_mean_ordering_spear_thrust_above_mace_direct_blow(failures: PackedStringArray) -> void:
-    var spear: RefCounted = Weapon.create_from_definition("SPEAR")
-    var mace: RefCounted = Weapon.create_from_definition("MACE")
+    var spear: RefCounted = HarnessFixtures.get_cached_weapon("SPEAR")
+    var mace: RefCounted = HarnessFixtures.get_cached_weapon("MACE")
     if spear == null or mace == null:
         _fail(failures, "impact_station_order: could not create weapons")
         return
@@ -830,7 +830,7 @@ static func _run_impact_station_mean_windup_stamps_move_override(failures: Packe
     var hi: float = clampf(move_mean + 0.04, 0.06, 0.99)
     if station < lo or station > hi:
         _fail(failures, "impact_station_windup: spear_thrust station %.3f outside [%.3f, %.3f]" % [station, lo, hi])
-    var weapon_default: float = float(Weapon.create_from_definition("SPEAR").strike_physics.get("station_mean", 0.0))
+    var weapon_default: float = float(HarnessFixtures.get_cached_weapon("SPEAR").strike_physics.get("station_mean", 0.0))
     if station <= weapon_default + 0.12:
         _fail(
             failures,
@@ -859,7 +859,7 @@ static func _run_impact_station_mean_every_move_def_tagged(failures: PackedStrin
 
 ## Tier 7.5: feint wind-up station biased coiled vs honest cut at same intensity.
 static func _run_impact_station_mean_feint_coiled_below_honest_cut(failures: PackedStringArray) -> void:
-    var sword: RefCounted = Weapon.create_from_definition("SWORD")
+    var sword: RefCounted = HarnessFixtures.get_cached_weapon("SWORD")
     if sword == null:
         _fail(failures, "impact_station_feint: could not create SWORD")
         return
@@ -880,7 +880,7 @@ static func _run_impact_station_mean_feint_coiled_below_honest_cut(failures: Pac
 
 ## Tier 7.5: spear shaft swing sits mid-blade vs tip thrust.
 static func _run_impact_station_mean_pole_swing_below_spear_thrust(failures: PackedStringArray) -> void:
-    var spear: RefCounted = Weapon.create_from_definition("SPEAR")
+    var spear: RefCounted = HarnessFixtures.get_cached_weapon("SPEAR")
     if spear == null:
         _fail(failures, "impact_station_pole: could not create SPEAR")
         return

@@ -15,7 +15,7 @@ static func _run_feint_telegraph_dodge_readthrough_respects_guard_zone_spacing_l
     var attacker: Dictionary = mgr.combatants[1]
     var atk_id: int = CombatantEntityAccess.id_int(attacker)
     defender["stance"] = "defensive"
-    defender["guard"] = 0.83
+    defender["guard"] = 0.69
     defender["state"] = CombatConstants.STATE_WAITING
     defender["stamina"] = CombatConstants.STAMINA_MAX
     var dm: Dictionary = CombatantEntityAccess.nested_dictionary_for_mutation(defender, "distance_to")

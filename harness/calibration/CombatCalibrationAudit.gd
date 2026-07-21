@@ -136,7 +136,7 @@ static func f5_armored_chest_metrics() -> Dictionary:
     var bare: CoreEntity = CalibrationBleedingParryTests._audit_new_entity("SWORD")
     var res_bare: Dictionary = bare.take_damage_split(cut, 0.0, part, pen, -1.0, -1.0, extras)
     var armored: CoreEntity = CalibrationBleedingParryTests._audit_new_entity("SWORD")
-    var cuirass: ArmorPiece = ArmorPiece.create_from_definition("CUIRASS")
+    var cuirass: ArmorPiece = HarnessFixtures.get_cached_armor("CUIRASS")
     if cuirass != null:
         armored.equip_armor(part, cuirass)
     var res_arm: Dictionary = armored.take_damage_split(cut, 0.0, part, pen, -1.0, -1.0, extras)
