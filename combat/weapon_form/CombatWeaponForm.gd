@@ -961,7 +961,7 @@ static func _is_entry_mixed_stale(entry: Dictionary, manager: Node) -> bool:
 		else:
 			fresh_count += 1
 	var total_obs_for_entry: int = _get_attention().yomi_observation_total(entry)
-	return stale_count > 0 and fresh_count > 0 and fresh_count < total_obs_for_entry / 2
+	return stale_count > 0 and fresh_count > 0 and fresh_count * 2 < total_obs_for_entry
 
 
 static func _same_pressure_suppresses_inference(observer_form: String, best_form: String) -> bool:

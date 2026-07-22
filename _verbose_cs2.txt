@@ -1,0 +1,1155 @@
+﻿WorkerThreadPool: 16 threads, 4 max low-priority.
+Godot Engine v4.7.stable.official.5b4e0cb0f - https://godotengine.org
+TextServer: Added interface "Dummy"
+TextServer: Added interface "ICU / HarfBuzz / Graphite (Built-in)"
+Using "default" pen tablet driver...
+
+TextServer: Primary interface set to: "ICU / HarfBuzz / Graphite (Built-in)".
+CORE API HASH: 3472268009
+EDITOR API HASH: 2212757246
+Loading resource: res://tools/ci/run_company_state_checks.gd remapped: res://tools/ci/run_company_state_checks.gd
+Loading resource: res://scenes/actors/enemy.tscn remapped: res://scenes/actors/enemy.tscn
+Loading resource: res://core/CoreEntity.gd remapped: res://core/CoreEntity.gd
+Completed load for: 'res://core/CoreEntity.gd' remapped 'res://core/CoreEntity.gd' at thread -1
+Completed load for: 'res://scenes/actors/enemy.tscn' remapped 'res://scenes/actors/enemy.tscn' at thread -1
+Loading resource: res://scenes/battle/battle.tscn remapped: res://scenes/battle/battle.tscn
+Loading resource: res://ui/battle/BattleScene.gd remapped: res://ui/battle/BattleScene.gd
+Completed load for: 'res://ui/battle/BattleScene.gd' remapped 'res://ui/battle/BattleScene.gd' at thread -1
+Completed load for: 'res://scenes/battle/battle.tscn' remapped 'res://scenes/battle/battle.tscn' at thread -1
+Loading resource: res://scenes/campaign/main.tscn remapped: res://scenes/campaign/main.tscn
+Loading resource: res://scenes/campaign/main.gd remapped: res://scenes/campaign/main.gd
+Completed load for: 'res://scenes/campaign/main.gd' remapped 'res://scenes/campaign/main.gd' at thread -1
+Loading resource: res://scenes/actors/player.tscn remapped: res://scenes/actors/player.tscn
+Loading resource: res://scenes/actors/character.gd remapped: res://scenes/actors/character.gd
+Completed load for: 'res://scenes/actors/character.gd' remapped 'res://scenes/actors/character.gd' at thread -1
+Loading resource: res://resources/species/human.tres remapped: res://resources/species/human.tres
+Completed load for: 'res://resources/species/human.tres' remapped 'res://resources/species/human.tres' at thread -1
+Completed load for: 'res://scenes/actors/player.tscn' remapped 'res://scenes/actors/player.tscn' at thread -1
+Completed load for: 'res://scenes/campaign/main.tscn' remapped 'res://scenes/campaign/main.tscn' at thread -1
+Loading resource: res://resources/species/goblin.tres remapped: res://resources/species/goblin.tres
+Completed load for: 'res://resources/species/goblin.tres' remapped 'res://resources/species/goblin.tres' at thread -1
+Completed load for: 'res://tools/ci/run_company_state_checks.gd' remapped 'res://tools/ci/run_company_state_checks.gd' at thread -1
+SceneTreeFTI: traversal method DEFAULT
+Loaded system CA certificates
+Loading resource: res://combat/access/CombatantCombatStateAccess.gd remapped: res://combat/access/CombatantCombatStateAccess.gd
+Completed load for: 'res://combat/access/CombatantCombatStateAccess.gd' remapped 'res://combat/access/CombatantCombatStateAccess.gd' at thread -1
+Loading resource: res://tools/ci/_harness_dead_stub.gd remapped: res://tools/ci/_harness_dead_stub.gd
+Completed load for: 'res://tools/ci/_harness_dead_stub.gd' remapped 'res://tools/ci/_harness_dead_stub.gd' at thread -1
+FP_SESSION_BEGIN: headless://camp_wage_warn flow_logs=false hit_summary=false per_hit_debug=false research_feel=false dev_soak=(empty) dev_research_feel=false  -  walk red 7v7 tile OR set dev_soak_encounter; grep soak_guide  -  copy full Output; grep hit_resolve reason= strike_avoided reason= diagram_banner player: engagement_debug opposition offset engagement_transition encounter_context parry_partial rem= hit_outcome_stats parry_stats soak_fight_end hit_coverage_hint FP_COMBAT FP_ERROR SCRIPT_ERROR
+FP_WORLD: Wages short  -  paid what you could; mood fell (gold 10, bill 30).
+FP_WORLD: provisions fed=2 food_left=12
+FP_WORLD: company_wages: gold=-20 below next wage bill=30 (day 1)
+FP_WORLD: Company is in debt (-20g). Low-mood brothers may desert at the next day end.
+FP_WORLD: campaign_autosave path=user://fallen_paths_harness_14375850.json gold=-20 day=1 living=2
+FP_WORLD: company_day_advanced day=1 wages_paid=30 gold=-20 living=2 autosave=true
+FP_SESSION_END: headless://camp_wage_warn
+FP_SESSION_BEGIN: headless://camp_desertion_summary flow_logs=false hit_summary=false per_hit_debug=false research_feel=false dev_soak=(empty) dev_research_feel=false  -  walk red 7v7 tile OR set dev_soak_encounter; grep soak_guide  -  copy full Output; grep hit_resolve reason= strike_avoided reason= diagram_banner player: engagement_debug opposition offset engagement_transition encounter_context parry_partial rem= hit_outcome_stats parry_stats soak_fight_end hit_coverage_hint FP_COMBAT FP_ERROR SCRIPT_ERROR
+FP_WORLD: brother_deserted name=Brother0 mood=12.0
+FP_WORLD: desertion summary=Brother0(mood=12)
+FP_SESSION_END: headless://camp_desertion_summary
+Loading resource: res://combat/access/CombatantWeaponAccess.gd remapped: res://combat/access/CombatantWeaponAccess.gd
+Completed load for: 'res://combat/access/CombatantWeaponAccess.gd' remapped 'res://combat/access/CombatantWeaponAccess.gd' at thread -1
+FP_SESSION_BEGIN: res://scenes/campaign/main.tscn flow_logs=false hit_summary=false per_hit_debug=false research_feel=false dev_soak=(empty) dev_research_feel=false  -  walk red 7v7 tile OR set dev_soak_encounter; grep soak_guide  -  copy full Output; grep hit_resolve reason= strike_avoided reason= diagram_banner player: engagement_debug opposition offset engagement_transition encounter_context parry_partial rem= hit_outcome_stats parry_stats soak_fight_end hit_coverage_hint FP_COMBAT FP_ERROR SCRIPT_ERROR
+FP_COMBAT: soak_session_plan dev_soak_encounter=(empty) dev_research_feel=false
+FP_COMBAT: soak_session_plan fight=walk red 7v7 tile  -  covers formation gauge medical parry exhaustion flee (not ii5 cowering / ii6 shock / ii2b bind-only)
+FP_COMBAT: soak_session_plan Q1=off  -  enable main dev_research_feel for per-hit research_feel lines
+FP_COMBAT: soak_session_plan after fight grep hit_resolve reason= strike_avoided reason= diagram_banner player: engagement_transition hit_outcome_stats parry_stats soak_fight_end soak_coverage  -  paste full Output
+Loading resource: res://assets/tiles/tile_texture.png remapped: res://assets/tiles/tile_texture.png
+Loading resource: res://.godot/imported/tile_texture.png-4f7db1f24065fb1bdf92d819ec690312.ctex remapped: res://.godot/imported/tile_texture.png-4f7db1f24065fb1bdf92d819ec690312.ctex
+Completed load for: 'res://assets/tiles/tile_texture.png' remapped 'res://assets/tiles/tile_texture.png' at thread -1
+Tile texture exists and is valid
+FP_WORLD: campaign_autosave path=user://fallen_paths_harness_14375850.json gold=50 day=0 living=2
+FP_WORLD: hire_rookie name=Companion gold=50 living=2
+FP_SESSION_BEGIN: res://scenes/campaign/main.tscn flow_logs=false hit_summary=false per_hit_debug=false research_feel=false dev_soak=(empty) dev_research_feel=false  -  walk red 7v7 tile OR set dev_soak_encounter; grep soak_guide  -  copy full Output; grep hit_resolve reason= strike_avoided reason= diagram_banner player: engagement_debug opposition offset engagement_transition encounter_context parry_partial rem= hit_outcome_stats parry_stats soak_fight_end hit_coverage_hint FP_COMBAT FP_ERROR SCRIPT_ERROR
+FP_COMBAT: soak_session_plan dev_soak_encounter=(empty) dev_research_feel=false
+FP_COMBAT: soak_session_plan fight=walk red 7v7 tile  -  covers formation gauge medical parry exhaustion flee (not ii5 cowering / ii6 shock / ii2b bind-only)
+FP_COMBAT: soak_session_plan Q1=off  -  enable main dev_research_feel for per-hit research_feel lines
+FP_COMBAT: soak_session_plan after fight grep hit_resolve reason= strike_avoided reason= diagram_banner player: engagement_transition hit_outcome_stats parry_stats soak_fight_end soak_coverage  -  paste full Output
+Loading resource: res://assets/tiles/tile_texture.png remapped: res://assets/tiles/tile_texture.png
+Loading resource: res://.godot/imported/tile_texture.png-4f7db1f24065fb1bdf92d819ec690312.ctex remapped: res://.godot/imported/tile_texture.png-4f7db1f24065fb1bdf92d819ec690312.ctex
+Completed load for: 'res://assets/tiles/tile_texture.png' remapped 'res://assets/tiles/tile_texture.png' at thread -1
+Tile texture exists and is valid
+FP_SESSION_END: res://scenes/campaign/main.tscn
+FP_SESSION_BEGIN: res://scenes/campaign/main.tscn flow_logs=false hit_summary=false per_hit_debug=false research_feel=false dev_soak=(empty) dev_research_feel=false  -  walk red 7v7 tile OR set dev_soak_encounter; grep soak_guide  -  copy full Output; grep hit_resolve reason= strike_avoided reason= diagram_banner player: engagement_debug opposition offset engagement_transition encounter_context parry_partial rem= hit_outcome_stats parry_stats soak_fight_end hit_coverage_hint FP_COMBAT FP_ERROR SCRIPT_ERROR
+FP_COMBAT: soak_session_plan dev_soak_encounter=(empty) dev_research_feel=false
+FP_COMBAT: soak_session_plan fight=walk red 7v7 tile  -  covers formation gauge medical parry exhaustion flee (not ii5 cowering / ii6 shock / ii2b bind-only)
+FP_COMBAT: soak_session_plan Q1=off  -  enable main dev_research_feel for per-hit research_feel lines
+FP_COMBAT: soak_session_plan after fight grep hit_resolve reason= strike_avoided reason= diagram_banner player: engagement_transition hit_outcome_stats parry_stats soak_fight_end soak_coverage  -  paste full Output
+Loading resource: res://assets/tiles/tile_texture.png remapped: res://assets/tiles/tile_texture.png
+Loading resource: res://.godot/imported/tile_texture.png-4f7db1f24065fb1bdf92d819ec690312.ctex remapped: res://.godot/imported/tile_texture.png-4f7db1f24065fb1bdf92d819ec690312.ctex
+Completed load for: 'res://assets/tiles/tile_texture.png' remapped 'res://assets/tiles/tile_texture.png' at thread -1
+Tile texture exists and is valid
+FP_WORLD: campaign_autosave path=user://fallen_paths_harness_14375850.json gold=300 day=0 living=3
+FP_WORLD: hire_rookie name=Companion2 gold=300 living=3
+FP_WORLD: campaign_autosave path=user://fallen_paths_harness_14375850.json gold=300 day=0 living=3
+FP_SESSION_BEGIN: res://scenes/campaign/main.tscn flow_logs=false hit_summary=false per_hit_debug=false research_feel=false dev_soak=(empty) dev_research_feel=false  -  walk red 7v7 tile OR set dev_soak_encounter; grep soak_guide  -  copy full Output; grep hit_resolve reason= strike_avoided reason= diagram_banner player: engagement_debug opposition offset engagement_transition encounter_context parry_partial rem= hit_outcome_stats parry_stats soak_fight_end hit_coverage_hint FP_COMBAT FP_ERROR SCRIPT_ERROR
+FP_COMBAT: soak_session_plan dev_soak_encounter=(empty) dev_research_feel=false
+FP_COMBAT: soak_session_plan fight=walk red 7v7 tile  -  covers formation gauge medical parry exhaustion flee (not ii5 cowering / ii6 shock / ii2b bind-only)
+FP_COMBAT: soak_session_plan Q1=off  -  enable main dev_research_feel for per-hit research_feel lines
+FP_COMBAT: soak_session_plan after fight grep hit_resolve reason= strike_avoided reason= diagram_banner player: engagement_transition hit_outcome_stats parry_stats soak_fight_end soak_coverage  -  paste full Output
+Loading resource: res://assets/tiles/tile_texture.png remapped: res://assets/tiles/tile_texture.png
+Loading resource: res://.godot/imported/tile_texture.png-4f7db1f24065fb1bdf92d819ec690312.ctex remapped: res://.godot/imported/tile_texture.png-4f7db1f24065fb1bdf92d819ec690312.ctex
+Completed load for: 'res://assets/tiles/tile_texture.png' remapped 'res://assets/tiles/tile_texture.png' at thread -1
+Tile texture exists and is valid
+FP_SESSION_END: res://scenes/campaign/main.tscn
+Loading resource: res://combat/access/CombatantMedicalEntityAccess.gd remapped: res://combat/access/CombatantMedicalEntityAccess.gd
+Completed load for: 'res://combat/access/CombatantMedicalEntityAccess.gd' remapped 'res://combat/access/CombatantMedicalEntityAccess.gd' at thread -1
+[Combat] medical direct_pressure self part=chest (TCCC sustained compression; venous ~10% / arterial ~50% flow retained while held)
+[Combat] medical _apply_stabilize(chest) => success, 1 wound(s)
+[Combat] medical direct_pressure self part=chest (TCCC sustained compression; venous ~10% / arterial ~50% flow retained while held)
+[Combat] medical _apply_bandage(chest) => failed (3% reduction), 1 wound(s); can retry
+[Combat] medical direct_pressure self part=chest (TCCC sustained compression; venous ~10% / arterial ~50% flow retained while held)
+[Combat] medical _apply_packing(chest) => failed (4% reduction), 1 wound(s); can retry
+[Combat] medical Fielder direct_pressure self part=chest (TCCC sustained compression; venous ~10% / arterial ~50% flow retained while held)
+[Combat] medical Fielder _apply_stabilize(chest) => success, 1 wound(s)
+[Combat] medical Dresser direct_pressure self part=chest (TCCC sustained compression; venous ~10% / arterial ~50% flow retained while held)
+[Combat] medical Dresser clear_direct_pressure (was self-holding chest)
+[Combat] medical Dresser _apply_bandage(chest) => success, 1 wound(s) stabilized
+[Combat] medical @Node2D@162 direct_pressure_from_ally part=right_arm (TCCC sustained compression; venous ~10% / arterial ~50% flow retained while held)
+[Combat] medical BleedBro direct_pressure_from_ally part=chest (TCCC sustained compression; venous ~10% / arterial ~50% flow retained while held)
+[Combat] medical BleedBro clear_direct_pressure (ally was holding chest)
+[Combat] medical BleedBro _apply_bandage(chest) => success, 1 wound(s) stabilized
+[Combat] medical SplitDress direct_pressure_from_ally part=chest (TCCC sustained compression; venous ~10% / arterial ~50% flow retained while held)
+[Combat] medical RetryBand direct_pressure self part=chest (TCCC sustained compression; venous ~10% / arterial ~50% flow retained while held)
+[Combat] medical RetryBand clear_direct_pressure (was self-holding chest)
+[Combat] medical RetryBand _apply_bandage(chest) => success, 1 wound(s) stabilized
+[Combat] medical RetryBand direct_pressure self part=chest (TCCC sustained compression; venous ~10% / arterial ~50% flow retained while held)
+[Combat] medical RetryBand clear_direct_pressure (was self-holding chest)
+[Combat] medical RetryBand _apply_bandage(chest) => success, 1 wound(s) stabilized
+[Combat] medical RetryBand direct_pressure self part=chest (TCCC sustained compression; venous ~10% / arterial ~50% flow retained while held)
+[Combat] medical RetryBand _apply_bandage(chest) => failed (62% reduction), 1 wound(s); can retry
+FP_SESSION_BEGIN: headless://field_bandage_fail_log flow_logs=false hit_summary=false per_hit_debug=false research_feel=false dev_soak=(empty) dev_research_feel=false  -  walk red 7v7 tile OR set dev_soak_encounter; grep soak_guide  -  copy full Output; grep hit_resolve reason= strike_avoided reason= diagram_banner player: engagement_debug opposition offset engagement_transition encounter_context parry_partial rem= hit_outcome_stats parry_stats soak_fight_end hit_coverage_hint FP_COMBAT FP_ERROR SCRIPT_ERROR
+FP_COMBAT: medical RetryBand _apply_bandage(chest) => failed (19% reduction), 1 wound(s); can retry
+FP_WORLD: field_care bandage failed part=chest target=RetryBand parts_left=1  -  med refunded; pressure still held
+FP_SESSION_END: headless://field_bandage_fail_log
+[Combat] medical RetryBand clear_direct_pressure (was self-holding chest)
+[Combat] medical RetryBand _apply_bandage(chest) => success, 1 wound(s) stabilized
+[Combat] medical RetryBand _apply_bandage(chest) => failed (8% reduction), 1 wound(s); can retry
+[Combat] medical ClotDress _apply_bandage(chest) => failed (31% reduction), 1 wound(s); can retry
+[Combat] medical ClotDress _apply_bandage(chest) => failed (27% reduction), 1 wound(s); can retry
+[Combat] medical ClotDress _apply_bandage(chest) => success, 1 wound(s) stabilized
+[Combat] medical ZeroMedDress _apply_bandage(chest) => failed (26% reduction), 1 wound(s); can retry
+[Combat] medical ZeroMedDress _apply_bandage(chest) => success, 1 wound(s) stabilized
+[Combat] medical FieldPack direct_pressure self part=chest (TCCC sustained compression; venous ~10% / arterial ~50% flow retained while held)
+[Combat] medical FieldPack clear_direct_pressure (was self-holding chest)
+[Combat] medical FieldPack _apply_packing(chest) => success, 1 wound(s) packed
+[Combat] medical FieldTQ _apply_tourniquet(left_leg) => success eff=1.00 => 99% bleed reduction
+[Combat] medical BtnTint direct_pressure self part=chest (TCCC sustained compression; venous ~10% / arterial ~50% flow retained while held)
+[Combat] medical BtnTint _apply_bandage(chest) => failed (15% reduction), 1 wound(s); can retry
+[Combat] medical BtnTint _apply_bandage(chest) => failed (54% reduction), 1 wound(s); can retry
+[Combat] medical BtnTint clear_direct_pressure (was self-holding chest)
+[Combat] medical BtnTint _apply_bandage(chest) => success, 1 wound(s) stabilized
+[World] Bleeding on map  -  ClotStep: Bleeding controlled ΓÇö bandage/pack/TQ still required before camp rest.. 1 part(s) need dressing in Party (pressure (free) -- bandage/pack/TQ). 0-med bandages OK on map.
+[Combat] medical Persist direct_pressure self part=chest (TCCC sustained compression; venous ~10% / arterial ~50% flow retained while held)
+FP_SESSION_BEGIN: headless://camp_field_care_done flow_logs=false hit_summary=false per_hit_debug=false research_feel=false dev_soak=(empty) dev_research_feel=false  -  walk red 7v7 tile OR set dev_soak_encounter; grep soak_guide  -  copy full Output; grep hit_resolve reason= strike_avoided reason= diagram_banner player: engagement_debug opposition offset engagement_transition encounter_context parry_partial rem= hit_outcome_stats parry_stats soak_fight_end hit_coverage_hint FP_COMBAT FP_ERROR SCRIPT_ERROR
+FP_COMBAT: medical LogDress _apply_bandage(chest) => success, 1 wound(s) stabilized
+FP_WORLD: field_care bandage part=chest target=LogDress seconds=150 parts_left=0 med_left=1 eff=1.00 all_dressed=true camp_rest_ready
+FP_WORLD: provisions fed=2 food_left=12
+FP_WORLD: campaign_autosave path=user://fallen_paths_harness_14375850.json gold=470 day=1 living=2
+FP_WORLD: company_day_advanced day=1 wages_paid=30 gold=470 living=2 autosave=true
+FP_WORLD: camp_heal seconds=600 mult=3.0 med_left=0 day=0->1 all_dressed=true mood=+1
+FP_SESSION_END: headless://camp_field_care_done
+FP_SESSION_BEGIN: headless://camp_heal_blocked flow_logs=false hit_summary=false per_hit_debug=false research_feel=false dev_soak=(empty) dev_research_feel=false  -  walk red 7v7 tile OR set dev_soak_encounter; grep soak_guide  -  copy full Output; grep hit_resolve reason= strike_avoided reason= diagram_banner player: engagement_debug opposition offset engagement_transition encounter_context parry_partial rem= hit_outcome_stats parry_stats soak_fight_end hit_coverage_hint FP_COMBAT FP_ERROR SCRIPT_ERROR
+FP_WORLD: camp_heal blocked: Camp rest (1 part(s) need dressing -- Treat next wound or field care above, then retry) parts_need=1
+FP_SESSION_END: headless://camp_heal_blocked
+FP_SESSION_BEGIN: headless://field_care_hint_zero_med flow_logs=false hit_summary=false per_hit_debug=false research_feel=false dev_soak=(empty) dev_research_feel=false  -  walk red 7v7 tile OR set dev_soak_encounter; grep soak_guide  -  copy full Output; grep hit_resolve reason= strike_avoided reason= diagram_banner player: engagement_debug opposition offset engagement_transition encounter_context parry_partial rem= hit_outcome_stats parry_stats soak_fight_end hit_coverage_hint FP_COMBAT FP_ERROR SCRIPT_ERROR
+FP_WORLD: field_care: open Party -- pressure (free) -- bandage/pack/TQ; 1 part(s) need dressing; med_left=0; bandage_med_est=0; total_med_est=1; med_shortfall=1; 0-med bandages OK for map dressings; battle bandages free; then Camp rest (-1 med / +1 day / +1 mood)
+FP_SESSION_END: headless://field_care_hint_zero_med
+FP_SESSION_BEGIN: headless://contract_victory_triage flow_logs=false hit_summary=false per_hit_debug=false research_feel=false dev_soak=(empty) dev_research_feel=false  -  walk red 7v7 tile OR set dev_soak_encounter; grep soak_guide  -  copy full Output; grep hit_resolve reason= strike_avoided reason= diagram_banner player: engagement_debug opposition offset engagement_transition encounter_context parry_partial rem= hit_outcome_stats parry_stats soak_fight_end hit_coverage_hint FP_COMBAT FP_ERROR SCRIPT_ERROR
+FP_WORLD: contract_victory pay=100 gold=600 renown=1 med_resupply=4 med=19
+FP_WORLD: contract_victory triage parts_need=1 med_shortfall=0
+FP_SESSION_END: headless://contract_victory_triage
+[Combat] manager_started alive=1/1 doctrine={ "player": "default", "enemy": "default" }
+[Combat] engagement mode=Duel player_front=1 enemy_front=1
+[Combat] opposition offset player=0 enemy=0 formation_files=1/1
+[Combat] medical BleedSim direct_pressure self part=chest (TCCC sustained compression; venous ~10% / arterial ~50% flow retained while held)
+FP_SESSION_BEGIN: headless://camp_field_care_hint flow_logs=false hit_summary=false per_hit_debug=false research_feel=false dev_soak=(empty) dev_research_feel=false  -  walk red 7v7 tile OR set dev_soak_encounter; grep soak_guide  -  copy full Output; grep hit_resolve reason= strike_avoided reason= diagram_banner player: engagement_debug opposition offset engagement_transition encounter_context parry_partial rem= hit_outcome_stats parry_stats soak_fight_end hit_coverage_hint FP_COMBAT FP_ERROR SCRIPT_ERROR
+FP_WORLD: field_care: open Party -- pressure (free) -- bandage/pack/TQ; 1 part(s) need dressing; med_left=15; bandage_med_est=1; total_med_est=2; med_shortfall=0; battle bandages free; then Camp rest (-1 med / +1 day / +1 mood)
+FP_SESSION_END: headless://camp_field_care_hint
+FP_SESSION_BEGIN: headless://camp_debt_warn flow_logs=false hit_summary=false per_hit_debug=false research_feel=false dev_soak=(empty) dev_research_feel=false  -  walk red 7v7 tile OR set dev_soak_encounter; grep soak_guide  -  copy full Output; grep hit_resolve reason= strike_avoided reason= diagram_banner player: engagement_debug opposition offset engagement_transition encounter_context parry_partial rem= hit_outcome_stats parry_stats soak_fight_end hit_coverage_hint FP_COMBAT FP_ERROR SCRIPT_ERROR
+FP_WORLD: Wages short  -  paid what you could; mood fell (gold 5, bill 30).
+FP_WORLD: provisions fed=2 food_left=12
+FP_WORLD: company_wages: gold=-25 below next wage bill=30 (day 1)
+FP_WORLD: Company is in debt (-25g). Low-mood brothers may desert at the next day end.
+FP_WORLD: campaign_autosave path=user://fallen_paths_harness_14375850.json gold=-25 day=1 living=2
+FP_WORLD: company_day_advanced day=1 wages_paid=30 gold=-25 living=2 autosave=true
+FP_SESSION_END: headless://camp_debt_warn
+FP_SESSION_BEGIN: headless://camp_settlement_continue flow_logs=false hit_summary=false per_hit_debug=false research_feel=false dev_soak=(empty) dev_research_feel=false  -  walk red 7v7 tile OR set dev_soak_encounter; grep soak_guide  -  copy full Output; grep hit_resolve reason= strike_avoided reason= diagram_banner player: engagement_debug opposition offset engagement_transition encounter_context parry_partial rem= hit_outcome_stats parry_stats soak_fight_end hit_coverage_hint FP_COMBAT FP_ERROR SCRIPT_ERROR
+FP_WORLD: contract_victory pay=120 gold=620 renown=1 med_resupply=4 med=19
+FP_WORLD: settlement_continue pay=120 gold=620 renown=1 tutorial=false autosave=true
+FP_SESSION_END: headless://camp_settlement_continue
+FP_SESSION_BEGIN: headless://camp_tutorial_settlement flow_logs=false hit_summary=false per_hit_debug=false research_feel=false dev_soak=(empty) dev_research_feel=false  -  walk red 7v7 tile OR set dev_soak_encounter; grep soak_guide  -  copy full Output; grep hit_resolve reason= strike_avoided reason= diagram_banner player: engagement_debug opposition offset engagement_transition encounter_context parry_partial rem= hit_outcome_stats parry_stats soak_fight_end hit_coverage_hint FP_COMBAT FP_ERROR SCRIPT_ERROR
+FP_WORLD: contract_victory tutorial -- no pay (type=tutorial)
+FP_WORLD: settlement_continue pay=0 gold=500 renown=0 tutorial=true autosave=true
+FP_SESSION_END: headless://camp_tutorial_settlement
+FP_SESSION_BEGIN: headless://camp_field_care_pressure flow_logs=false hit_summary=false per_hit_debug=false research_feel=false dev_soak=(empty) dev_research_feel=false  -  walk red 7v7 tile OR set dev_soak_encounter; grep soak_guide  -  copy full Output; grep hit_resolve reason= strike_avoided reason= diagram_banner player: engagement_debug opposition offset engagement_transition encounter_context parry_partial rem= hit_outcome_stats parry_stats soak_fight_end hit_coverage_hint FP_COMBAT FP_ERROR SCRIPT_ERROR
+FP_WORLD: field_care pressure part=right_arm target=PressBro seconds=150 parts_left=0 all_dressed=true camp_rest_ready
+FP_SESSION_END: headless://camp_field_care_pressure
+FP_SESSION_BEGIN: headless://camp_field_care_hint flow_logs=false hit_summary=false per_hit_debug=false research_feel=false dev_soak=(empty) dev_research_feel=false  -  walk red 7v7 tile OR set dev_soak_encounter; grep soak_guide  -  copy full Output; grep hit_resolve reason= strike_avoided reason= diagram_banner player: engagement_debug opposition offset engagement_transition encounter_context parry_partial rem= hit_outcome_stats parry_stats soak_fight_end hit_coverage_hint FP_COMBAT FP_ERROR SCRIPT_ERROR
+FP_WORLD: field_care: open Party -- pressure (free) -- bandage/pack/TQ; 1 part(s) need dressing; med_left=15; bandage_med_est=1; total_med_est=2; med_shortfall=0; battle bandages free; then Camp rest (-1 med / +1 day / +1 mood)
+FP_SESSION_END: headless://camp_field_care_hint
+FP_SESSION_BEGIN: headless://camp_company_day flow_logs=false hit_summary=false per_hit_debug=false research_feel=false dev_soak=(empty) dev_research_feel=false  -  walk red 7v7 tile OR set dev_soak_encounter; grep soak_guide  -  copy full Output; grep hit_resolve reason= strike_avoided reason= diagram_banner player: engagement_debug opposition offset engagement_transition encounter_context parry_partial rem= hit_outcome_stats parry_stats soak_fight_end hit_coverage_hint FP_COMBAT FP_ERROR SCRIPT_ERROR
+FP_WORLD: provisions fed=2 food_left=12
+FP_WORLD: campaign_autosave path=user://fallen_paths_harness_14375850.json gold=470 day=1 living=2
+FP_WORLD: company_day_advanced day=1 wages_paid=30 gold=470 living=2 autosave=true
+FP_SESSION_END: headless://camp_company_day
+FP_SESSION_BEGIN: headless://camp_rest_day_advance flow_logs=false hit_summary=false per_hit_debug=false research_feel=false dev_soak=(empty) dev_research_feel=false  -  walk red 7v7 tile OR set dev_soak_encounter; grep soak_guide  -  copy full Output; grep hit_resolve reason= strike_avoided reason= diagram_banner player: engagement_debug opposition offset engagement_transition encounter_context parry_partial rem= hit_outcome_stats parry_stats soak_fight_end hit_coverage_hint FP_COMBAT FP_ERROR SCRIPT_ERROR
+FP_COMBAT: medical CampRest _apply_bandage(chest) => failed (52% reduction), 1 wound(s); can retry
+FP_WORLD: field_care bandage failed part=chest target=CampRest parts_left=1  -  med refunded; pressure still held
+FP_COMBAT: medical CampRest _apply_bandage(chest) => success, 1 wound(s) stabilized
+FP_WORLD: field_care bandage part=chest target=CampRest seconds=150 parts_left=0 med_left=2 eff=1.00 all_dressed=true camp_rest_ready
+FP_WORLD: provisions fed=2 food_left=12
+FP_WORLD: campaign_autosave path=user://fallen_paths_harness_14375850.json gold=470 day=1 living=2
+FP_WORLD: company_day_advanced day=1 wages_paid=30 gold=470 living=2 autosave=true
+FP_WORLD: camp_heal seconds=600 mult=3.0 med_left=1 day=0->1 all_dressed=true mood=+1
+FP_SESSION_END: headless://camp_rest_day_advance
+FP_SESSION_BEGIN: headless://camp_bankrupt_collapse flow_logs=false hit_summary=false per_hit_debug=false research_feel=false dev_soak=(empty) dev_research_feel=false  -  walk red 7v7 tile OR set dev_soak_encounter; grep soak_guide  -  copy full Output; grep hit_resolve reason= strike_avoided reason= diagram_banner player: engagement_debug opposition offset engagement_transition encounter_context parry_partial rem= hit_outcome_stats parry_stats soak_fight_end hit_coverage_hint FP_COMBAT FP_ERROR SCRIPT_ERROR
+FP_WORLD: brother_deserted name=Brother0 mood=10.0
+FP_WORLD: desertion summary=Brother0(mood=10)
+FP_WORLD: company_run_end reason=bankrupt reload=true clears_slot=false
+FP_SESSION_END: headless://camp_bankrupt_collapse
+FP_SESSION_BEGIN: headless://camp_run_end_logs flow_logs=false hit_summary=false per_hit_debug=false research_feel=false dev_soak=(empty) dev_research_feel=false  -  walk red 7v7 tile OR set dev_soak_encounter; grep soak_guide  -  copy full Output; grep hit_resolve reason= strike_avoided reason= diagram_banner player: engagement_debug opposition offset engagement_transition encounter_context parry_partial rem= hit_outcome_stats parry_stats soak_fight_end hit_coverage_hint FP_COMBAT FP_ERROR SCRIPT_ERROR
+FP_WORLD: company_run_end reason=contract_failed reload=true clears_slot=false
+FP_WORLD: company_run_end reason=tutorial_failed reload=false clears_slot=false
+FP_WORLD: company_run_end reason=soft_defeat_resume reload=false clears_slot=false
+FP_SESSION_END: headless://camp_run_end_logs
+FP_SESSION_BEGIN: headless://camp_party_triage flow_logs=false hit_summary=false per_hit_debug=false research_feel=false dev_soak=(empty) dev_research_feel=false  -  walk red 7v7 tile OR set dev_soak_encounter; grep soak_guide  -  copy full Output; grep hit_resolve reason= strike_avoided reason= diagram_banner player: engagement_debug opposition offset engagement_transition encounter_context parry_partial rem= hit_outcome_stats parry_stats soak_fight_end hit_coverage_hint FP_COMBAT FP_ERROR SCRIPT_ERROR
+FP_WORLD: party_triage_open living=3 untreated=1 bleeding=1 parts_need_dressing=1 med_left=15 bandage_med_est=1 camp_med=1 total_med_est=2 med_shortfall=0
+FP_SESSION_END: headless://camp_party_triage
+FP_SESSION_BEGIN: headless://p2_day_autosave_log flow_logs=false hit_summary=false per_hit_debug=false research_feel=false dev_soak=(empty) dev_research_feel=false  -  walk red 7v7 tile OR set dev_soak_encounter; grep soak_guide  -  copy full Output; grep hit_resolve reason= strike_avoided reason= diagram_banner player: engagement_debug opposition offset engagement_transition encounter_context parry_partial rem= hit_outcome_stats parry_stats soak_fight_end hit_coverage_hint FP_COMBAT FP_ERROR SCRIPT_ERROR
+FP_WORLD: provisions fed=2 food_left=12
+FP_WORLD: campaign_autosave path=user://fallen_paths_harness_14375850.json gold=470 day=1 living=2
+FP_WORLD: company_day_advanced day=1 wages_paid=30 gold=470 living=2 autosave=true
+FP_SESSION_END: headless://p2_day_autosave_log
+FP_HARNESS_OK: CompanyStateChecks (425 tests)
+FP_HARNESS_SUMMARY: CompanyStateChecks OK
+FP_HARNESS_SUMMARY: wrote E:/FallenPaths/fallen-paths/.harness_out.txt
+Godot_v4.7-stable_win64.exe : WARNING: 154 RIDs of type "CanvasItem" were leaked.
+At line:1 char:1
++ & 'E:\Godot_v4.7-stable_win64.exe' --headless --verbose --path 'E:\\F ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (WARNING: 154 RI...m" were leaked.:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+   at: _free_rids (servers/rendering/renderer_canvas_cull.cpp:2735)
+WARNING: 226 ObjectDB instances were leaked at exit (run with `--verbose` for details).
+   at: cleanup (core/object/object.cpp:2535)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+XR: Clearing primary interface
+XR: Removed interface "Native mobile"
+XR: Removed interface "OpenXR"
+ERROR: 2 RID allocations of type 'P11GodotBody2D' were leaked at exit.
+Leaked instance: GDScriptNativeClass:9223372043985093004 - Reference count: 1
+Leaked instance: GDScriptNativeClass:9223372049588683482 - Reference count: 1
+Leaked instance: GDScriptNativeClass:9223372049605460699 - Reference count: 3
+Leaked instance: Node2D:757625521603 - Node path: 
+Leaked instance: Node:757642298820 - Node path: 
+Leaked instance: Node2D:757659076037 - Node path: 
+Leaked instance: Node2D:759403906502 - Node path: 
+Leaked instance: GDScript:9223372081314399780 - Reference count: 4
+Leaked instance: GDScript:9223372262659327527 - Reference count: 64
+Leaked instance: GDScript:9223372262944540207 - Reference count: 64
+Leaked instance: GDScript:9223372274084611656 - Reference count: 2
+Leaked instance: Node:759420683870 - Node path: 
+Leaked instance: Node2D:759437461087 - Node path: 
+Leaked instance: Node2D:790978627269 - Node path: 
+Leaked instance: Node2D:759454238406 - Node path: 
+Leaked instance: Node2D:759588456168 - Node path: 
+Leaked instance: Node:759605233385 - Node path: 
+Leaked instance: Node2D:759622010603 - Node path: 
+Leaked instance: Node2D:759638787820 - Node path: 
+Leaked instance: Node2D:760578311917 - Node path: 
+Leaked instance: Node2D:760846747374 - Node path: 
+Leaked instance: Node2D:760494425843 - Node path: 
+Leaked instance: Node2D:760326653685 - Node path: 
+Leaked instance: Node2D:760544757494 - Node path: 
+Leaked instance: Node2D:760293099255 - Node path: 
+Leaked instance: Node:796800321272 - Node path: 
+Leaked instance: Node:760393762553 - Node path: 
+Leaked instance: GDScript:9223372796594226941 - Reference count: 5
+Leaked instance: Node:760309876478 - Node path: 
+Leaked instance: Node2D:760343430911 - Node path: 
+Leaked instance: Node2D:760376985344 - Node path: 
+Leaked instance: Node2D:760410539777 - Node path: 
+Leaked instance: Node2D:760427316994 - Node path: 
+Leaked instance: Node2D:760460871427 - Node path: 
+Leaked instance: Node:760477648644 - Node path: 
+Leaked instance: Node2D:760511203077 - Node path: 
+Leaked instance: Node:760561534726 - Node path: 
+Leaked instance: Node2D:760595089159 - Node path: 
+Leaked instance: Node2D:760628643592 - Node path: 
+Leaked instance: Node:760645420809 - Node path: 
+Leaked instance: Node2D:760662198028 - Node path: 
+Leaked instance: Node2D:760678975246 - Node path: 
+Leaked instance: Node2D:760712529684 - Node path: 
+Leaked instance: Node:760729306901 - Node path: 
+Leaked instance: Node2D:760746084118 - Node path: 
+Leaked instance: Node2D:760762861335 - Node path: 
+Leaked instance: Node2D:760796415777 - Node path: 
+Leaked instance: Node:760813192994 - Node path: 
+Leaked instance: Node2D:760829970212 - Node path: 
+Leaked instance: Node2D:761031296806 - Node path: 
+Leaked instance: Node:761048074023 - Node path: 
+Leaked instance: Node2D:761064851242 - Node path: 
+Leaked instance: Node2D:761081628459 - Node path: 
+Leaked instance: Node2D:761098405676 - Node path: 
+Leaked instance: Node:761115182894 - Node path: 
+Leaked instance: Node2D:761131960111 - Node path: 
+Leaked instance: Node2D:761148737328 - Node path: 
+Leaked instance: Node2D:796783544113 - Node path: 
+Leaked instance: Node:796934539058 - Node path: 
+Leaked instance: Node2D:796951316275 - Node path: 
+Leaked instance: Node2D:797286860600 - Node path: 
+Leaked instance: Node:797303637818 - Node path: 
+Leaked instance: Node2D:797320415035 - Node path: 
+Leaked instance: Node2D:797353969469 - Node path: 
+Leaked instance: Node:796112455486 - Node path: 
+Leaked instance: Node2D:797723068223 - Node path: 
+Leaked instance: Node2D:797756622656 - Node path: 
+Leaked instance: Node2D:797924394817 - Node path: 
+Leaked instance: Node2D:797957949250 - Node path: 
+Leaked instance: Node:797974726467 - Node path: 
+Leaked instance: Node2D:782321583945 - Node path: 
+Leaked instance: Node:797437855562 - Node path: 
+Leaked instance: Node2D:796817098571 - Node path: 
+Leaked instance: Node2D:797421078348 - Node path: 
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+Leaked instance: Node2D:797454632781 - Node path: 
+Leaked instance: Node2D:797622404942 - Node path: 
+Leaked instance: Node:797639182159 - Node path: 
+Leaked instance: Node:797504964432 - Node path: 
+Leaked instance: Node2D:797823731537 - Node path: 
+Leaked instance: Node:797840508754 - Node path: 
+Leaked instance: Node2D:796162787239 - Node path: 
+Leaked instance: Node2D:786935318440 - Node path: 
+Leaked instance: Node2D:795995015081 - Node path: 
+Leaked instance: Node2D:797689513898 - Node path: 
+Leaked instance: Node2D:796917761963 - Node path: 
+Leaked instance: Node:796179564460 - Node path: 
+Leaked instance: Node:797706291117 - Node path: 
+Leaked instance: Node2D:797655959471 - Node path: 
+Leaked instance: Node2D:796129232818 - Node path: 
+Leaked instance: Node2D:797991503800 - Node path: 
+Leaked instance: Node2D:797387524031 - Node path: 
+Leaked instance: Node2D:796095678401 - Node path: 
+Leaked instance: Node:797370746818 - Node path: 
+Leaked instance: Node2D:797521741763 - Node path: 
+Leaked instance: Node2D:797555296196 - Node path: 
+Leaked instance: Node:797572073413 - Node path: 
+Leaked instance: Node2D:797588850630 - Node path: 
+Leaked instance: Node2D:797488187335 - Node path: 
+Leaked instance: Node2D:797890840520 - Node path: 
+Leaked instance: Node:797907617737 - Node path: 
+Leaked instance: Node:797773400010 - Node path: 
+Leaked instance: Node:786952095691 - Node path: 
+Leaked instance: Node2D:797857286094 - Node path: 
+Leaked instance: Node:780694194184 - Node path: 
+Leaked instance: Node:780627085321 - Node path: 
+Leaked instance: Node2D:781080070154 - Node path: 
+Leaked instance: Node2D:796297005067 - Node path: 
+Leaked instance: Node:796045346828 - Node path: 
+Leaked instance: Node:796313782285 - Node path: 
+Leaked instance: Node2D:796330559502 - Node path: 
+Leaked instance: Node2D:796229896207 - Node path: 
+Leaked instance: Node:795978237968 - Node path: 
+Leaked instance: Node2D:796062124049 - Node path: 
+Leaked instance: Node:796246673428 - Node path: 
+Leaked instance: Node2D:796364113941 - Node path: 
+Leaked instance: Node:796380891158 - Node path: 
+Leaked instance: Node2D:796397668375 - Node path: 
+Leaked instance: Node2D:796431222808 - Node path: 
+Leaked instance: Node:796448000025 - Node path: 
+Leaked instance: Node2D:796464777242 - Node path: 
+Leaked instance: Node2D:796498331675 - Node path: 
+Leaked instance: Node:796515108892 - Node path: 
+Leaked instance: Node2D:796531886109 - Node path: 
+Leaked instance: Node2D:791045736478 - Node path: 
+Leaked instance: Node2D:796716435487 - Node path: 
+Leaked instance: Node:796733212704 - Node path: 
+Leaked instance: Node2D:796749989921 - Node path: 
+Leaked instance: Node:792337582116 - Node path: 
+Leaked instance: Node2D:792371136549 - Node path: 
+Leaked instance: Node2D:789586118707 - Node path: 
+Leaked instance: Node:789602895924 - Node path: 
+Leaked instance: Node2D:789619673141 - Node path: 
+Leaked instance: Node2D:789653227575 - Node path: 
+Leaked instance: Node2D:781029738553 - Node path: 
+Leaked instance: Node2D:781046515770 - Node path: 
+Leaked instance: Node:781063292988 - Node path: 
+Leaked instance: Node2D:781130401853 - Node path: 
+Leaked instance: CharacterBody2D:781147179070 - Node path: 
+Leaked instance: Node2D:780341872703 - Node path: 
+Leaked instance: Node2D:780358649920 - Node path: 
+Leaked instance: Node2D:781264619585 - Node path: 
+Leaked instance: Node2D:791733602370 - Node path: 
+Leaked instance: Node2D:791817488451 - Node path: 
+Leaked instance: Node2D:795961460804 - Node path: 
+Leaked instance: Node2D:791179954245 - Node path: 
+Leaked instance: Node2D:781365282886 - Node path: 
+Leaked instance: Node2D:780979406919 - Node path: 
+Leaked instance: Node2D:780308318280 - Node path: 
+Leaked instance: Node2D:780996184137 - Node path: 
+Leaked instance: Node:781012961354 - Node path: 
+Leaked instance: Node2D:780660639819 - Node path: 
+Leaked instance: Node2D:780710971468 - Node path: 
+Leaked instance: Node2D:792354359376 - Node path: 
+Leaked instance: Node2D:797790177369 - Node path: 
+Leaked instance: Node:789401569370 - Node path: 
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+Leaked instance: Node2D:791012182110 - Node path: 
+Leaked instance: Node2D:791230285919 - Node path: 
+Leaked instance: Node2D:791330949216 - Node path: 
+Leaked instance: Node:791347726433 - Node path: 
+Leaked instance: Node2D:791364503650 - Node path: 
+Leaked instance: Node:790995404899 - Node path: 
+Leaked instance: Node:782304807012 - Node path: 
+Leaked instance: Node2D:786968873062 - Node path: 
+Leaked instance: Node2D:789384792168 - Node path: 
+Leaked instance: Node:781113624681 - Node path: 
+Leaked instance: Node2D:780643862634 - Node path: 
+Leaked instance: Node:781298174059 - Node path: 
+Leaked instance: Node2D:781314951276 - Node path: 
+Leaked instance: Node2D:781331728493 - Node path: 
+Leaked instance: Node2D:791683270766 - Node path: 
+Leaked instance: Node2D:791716825199 - Node path: 
+Leaked instance: Node:791700047984 - Node path: 
+Leaked instance: Node2D:781281396849 - Node path: 
+Leaked instance: Node2D:789418346610 - Node path: 
+Leaked instance: Node:791129622643 - Node path: 
+Leaked instance: Node2D:791213508724 - Node path: 
+Leaked instance: Node2D:791398058101 - Node path: 
+Leaked instance: Node2D:791146399863 - Node path: 
+Leaked instance: Node:791196731512 - Node path: 
+Leaked instance: Node2D:780459313273 - Node path: 
+Leaked instance: Node2D:780727748730 - Node path: 
+Leaked instance: Node2D:780677417083 - Node path: 
+Leaked instance: Node2D:780945852540 - Node path: 
+Leaked instance: Node2D:782288029821 - Node path: 
+Leaked instance: Node:780962629759 - Node path: 
+Leaked instance: Node2D:781096847488 - Node path: 
+Leaked instance: Node:780325095553 - Node path: 
+Leaked instance: Node2D:781163956354 - Node path: 
+Leaked instance: Node:781180733571 - Node path: 
+Leaked instance: Node2D:781197510788 - Node path: 
+Leaked instance: CharacterBody2D:781214288005 - Node path: 
+Leaked instance: Node2D:781231065222 - Node path: 
+Leaked instance: Node:781247842439 - Node path: 
+Leaked instance: Node2D:780492867720 - Node path: 
+Leaked instance: Node:791414835337 - Node path: 
+Leaked instance: Node2D:791431612554 - Node path: 
+Leaked instance: Node2D:791515498635 - Node path: 
+Leaked instance: Node:791532275852 - Node path: 
+Leaked instance: Node2D:791549053069 - Node path: 
+Leaked instance: Node:781348505743 - Node path: 
+Leaked instance: Node2D:791851042960 - Node path: 
+Leaked instance: Node2D:791867820177 - Node path: 
+Leaked instance: Node2D:792270473362 - Node path: 
+Leaked instance: Node:792287250579 - Node path: 
+Leaked instance: Node2D:792304027796 - Node path: 
+Leaked instance: Node2D:792320805013 - Node path: 
+Leaked instance: Node:791834265750 - Node path: 
+Leaked instance: Node2D:792404691095 - Node path: 
+Leaked instance: Node:792421468312 - Node path: 
+Leaked instance: Node2D:792438245529 - Node path: 
+Leaked instance: Node2D:792455022746 - Node path: 
+Leaked instance: Node2D:792488577179 - Node path: 
+Leaked instance: Node:791062513820 - Node path: 
+Leaked instance: Node2D:791079291037 - Node path: 
+Leaked instance: Node2D:791096068254 - Node path: 
+Leaked instance: Node2D:792522131615 - Node path: 
+Leaked instance: Node:792538908832 - Node path: 
+Leaked instance: Node2D:792555686049 - Node path: 
+Leaked instance: Node2D:792572463266 - Node path: 
+Leaked instance: Node2D:796028569763 - Node path: 
+Leaked instance: Node2D:796196341924 - Node path: 
+Leaked instance: Node2D:796263450789 - Node path: 
+Leaked instance: Node:780476090534 - Node path: 
+Leaked instance: Node2D:780509644967 - Node path: 
+Leaked instance: Node2D:780610308264 - Node path: 
+Leaked instance: Node2D:791112845482 - Node path: 
+Hint: Leaked instances typically happen when nodes are removed from the scene tree (with `remove_child()`) but not freed (with `free()` or `queue_free()`).
+Resource still in use: res://core/CoreEntity.gd (GDScript)
+Resource still in use: res://scenes/actors/character.gd (GDScript)
+Resource still in use: res://tools/ci/_harness_campaign_world.gd (GDScript)
+Resource still in use: res://world/PartyManager.gd (GDScript)
+Resource still in use: res://tools/ci/_harness_dead_stub.gd (GDScript)
+Orphan StringName: take_damage_split (static: 0, total: 2)
+Orphan StringName: _get_tourniquet_application_time_seconds (static: 0, total: 2)
+Orphan StringName: _get_campaign_affliction_labels (static: 0, total: 1)
+Orphan StringName: _get_armor_for_part (static: 0, total: 2)
+Orphan StringName: self_direct_pressure_part (static: 0, total: 7)
+Orphan StringName: _is_tourniquet_indicated_for_part (static: 0, total: 1)
+Orphan StringName: health_changed (static: 0, total: 2)
+Orphan StringName: _last_hit_impact (static: 0, total: 7)
+Orphan StringName: _set_last_ambient_pain_shock_time (static: 0, total: 1)
+Orphan StringName: _get_bone_health (static: 0, total: 1)
+Orphan StringName: _get_blood_loss_critical_threshold (static: 0, total: 1)
+Orphan StringName: _is_bone_broken (static: 0, total: 1)
+Orphan StringName: is_unconscious (static: 0, total: 2)
+Orphan StringName: _ready (static: 1, total: 3)
+Orphan StringName: agility (static: 0, total: 11)
+Orphan StringName: restore_muscle_fatigue_at_camp (static: 0, total: 1)
+Orphan StringName: get_attacking_arm (static: 0, total: 2)
+Orphan StringName: campaign_med_battle (static: 0, total: 8)
+Orphan StringName: _can_apply_stabilize (static: 0, total: 1)
+Orphan StringName: direct_pressure_held_by (static: 0, total: 7)
+Orphan StringName: tissue_energy_capacity_j (static: 0, total: 6)
+Orphan StringName: last_fought_in_combat (static: 0, total: 7)
+Orphan StringName: _round_tissue (static: 0, total: 1)
+Orphan StringName: add_member (static: 0, total: 1)
+Orphan StringName: tissue_energy_remaining_j (static: 0, total: 6)
+Orphan StringName: _get_targetable_parts (static: 0, total: 2)
+Orphan StringName: linen_strips_remaining (static: 0, total: 7)
+Orphan StringName: last_fought_day (static: 0, total: 7)
+Orphan StringName: _get_effective_pain_for_thresholds (static: 0, total: 1)
+Orphan StringName: _get_campaign_supply_factor (static: 0, total: 1)
+Orphan StringName: _get_effective_speed (static: 0, total: 2)
+Orphan StringName: _get_intelligence (static: 0, total: 1)
+Orphan StringName: TILE_SIZE (static: 0, total: 1)
+Orphan StringName: blood_volume (static: 0, total: 10)
+Orphan StringName: _get_combat_blood_recovery_per_s (static: 0, total: 1)
+Orphan StringName: _can_apply_direct_pressure (static: 0, total: 2)
+Orphan StringName: _get_direct_pressure_part (static: 0, total: 2)
+Orphan StringName: _get_blood_loss_death_threshold (static: 0, total: 1)
+Orphan StringName: bone_max (static: 0, total: 10)
+Orphan StringName: _combat_body (static: 0, total: 4)
+Orphan StringName: _get_intelligence_contract_bonus_mult (static: 0, total: 1)
+Orphan StringName: metadata/active_contract (static: 0, total: 4)
+Orphan StringName: remove_member_by_name (static: 0, total: 1)
+Orphan StringName: _get_agility (static: 0, total: 1)
+Orphan StringName: _get_effective_consciousness (static: 0, total: 2)
+Orphan StringName: get_wounded_parts (static: 0, total: 2)
+Orphan StringName: metadata/combat_encounter (static: 0, total: 4)
+Orphan StringName: _is_part_severed (static: 0, total: 1)
+Orphan StringName: strength (static: 0, total: 11)
+Orphan StringName: get_performance_modifier (static: 0, total: 2)
+Orphan StringName: "tools/ci/_harness_campaign_world.gd" (static: 0, total: 1)
+Orphan StringName: _apply_stabilize (static: 0, total: 1)
+Orphan StringName: _set_combat_blood_loss_mult (static: 0, total: 1)
+Orphan StringName: moved (static: 0, total: 2)
+Orphan StringName: packed_parts (static: 0, total: 6)
+Orphan StringName: can_flee_or_fall_back (static: 0, total: 2)
+Orphan StringName: _get_weapon_proficiency (static: 0, total: 1)
+Orphan StringName: _get_attack_damage_modifier (static: 0, total: 2)
+Orphan StringName: training_pending (static: 0, total: 6)
+Orphan StringName: _get_action_bar_performance_modifier (static: 0, total: 2)
+Orphan StringName: creature_incapacitated (static: 0, total: 2)
+Orphan StringName: effective_consciousness (static: 0, total: 7)
+Orphan StringName: _get_endurance (static: 0, total: 1)
+Orphan StringName: _get_effective_pain_for_region (static: 0, total: 1)
+Orphan StringName: _is_arm_destroyed (static: 0, total: 1)
+Orphan StringName: _remove_tourniquet (static: 0, total: 2)
+Orphan StringName: is_incapacitated (static: 0, total: 2)
+Orphan StringName: _can_apply_bandage (static: 0, total: 2)
+Orphan StringName: _get_bone_functionality_factor (static: 0, total: 1)
+Orphan StringName: _input (static: 1, total: 2)
+Orphan StringName: PartyManagerHarness (static: 0, total: 66)
+Orphan StringName: _get_armor_slots (static: 0, total: 2)
+Orphan StringName: _get_endurance_blood_volume_mult (static: 0, total: 1)
+Orphan StringName: bone_health (static: 0, total: 10)
+Orphan StringName: _notify_creature_incapacitated (static: 0, total: 1)
+Orphan StringName: perception (static: 0, total: 11)
+Orphan StringName: campaign_afflictions (static: 0, total: 6)
+Orphan StringName: _can_apply_tourniquet (static: 0, total: 2)
+Orphan StringName: stance_preference (static: 0, total: 6)
+Orphan StringName: _set_tourniquet_failures (static: 0, total: 1)
+Orphan StringName: "world/PartyManager.gd" (static: 0, total: 1)
+Orphan StringName: _stack_assist_pressure_eligible (static: 0, total: 1)
+Orphan StringName: members (static: 0, total: 66)
+Orphan StringName: _get_total_bleeding_rate (static: 0, total: 2)
+Orphan StringName: direct_pressure_part (static: 0, total: 7)
+Orphan StringName: clear (static: 0, total: 1)
+Orphan StringName: total_bleeding_rate (static: 0, total: 3)
+Orphan StringName: _apply_bandage (static: 0, total: 2)
+Orphan StringName: _get_arm_functionality (static: 0, total: 1)
+Orphan StringName: _tile_coords (static: 0, total: 1)
+Orphan StringName: _notify_health_changed (static: 0, total: 1)
+Orphan StringName: species (static: 0, total: 14)
+Orphan StringName: _combat_blood_loss_mult (static: 0, total: 7)
+Orphan StringName: _get_body_cutting (static: 0, total: 1)
+Orphan StringName: _try_ambient_pain_shock_tick (static: 0, total: 1)
+Orphan StringName: is_dead (static: 0, total: 3)
+Orphan StringName: has_direct_pressure_on_part (static: 0, total: 1)
+Orphan StringName: MultiPart (static: 0, total: 1)
+Orphan StringName: process_bleeding (static: 0, total: 2)
+Orphan StringName: _get_body_part_list (static: 0, total: 1)
+Orphan StringName: _get_medical_effectiveness (static: 0, total: 2)
+Orphan StringName: _is_part_destroyed (static: 0, total: 1)
+Orphan StringName: get_bleeding_rate_for_part (static: 0, total: 1)
+Orphan StringName: is_moving (static: 0, total: 5)
+Orphan StringName: _consciousness_dirty (static: 0, total: 7)
+Orphan StringName: party_manager (static: 0, total: 64)
+Orphan StringName: _reset_combat_death_log (static: 0, total: 1)
+Orphan StringName: _is_tourniquet_applied (static: 0, total: 2)
+Orphan StringName: direct_pressure_on_ally (static: 0, total: 6)
+Orphan StringName: _ambient_pain_shock_accum (static: 0, total: 7)
+Orphan StringName: CoreEntity (static: 0, total: 3)
+Orphan StringName: get_weapon (static: 0, total: 2)
+Orphan StringName: intelligence (static: 0, total: 11)
+Orphan StringName: MoodFighter (static: 0, total: 1)
+Orphan StringName: _get_bandage_application_time_seconds (static: 0, total: 2)
+Orphan StringName: body_max (static: 0, total: 10)
+Orphan StringName: company_state (static: 0, total: 64)
+Orphan StringName: CharacterBody2D (static: 0, total: 1)
+Orphan StringName: apply_species (static: 0, total: 2)
+Orphan StringName: _get_body_blunt (static: 0, total: 1)
+Orphan StringName: apply_direct_pressure (static: 0, total: 2)
+Orphan StringName: _get_death_reason (static: 0, total: 2)
+Orphan StringName: _get_bone_max (static: 0, total: 1)
+Orphan StringName: _on_combat_body_died (static: 0, total: 1)
+Orphan StringName: Node2D (static: 0, total: 1)
+Orphan StringName: consciousness (static: 0, total: 7)
+Orphan StringName: _get_game_time_seconds (static: 0, total: 2)
+Orphan StringName: _set_campaign_supply_factor (static: 0, total: 1)
+Orphan StringName: wounds (static: 0, total: 6)
+Orphan StringName: _get_endurance_healing_speed_mult (static: 0, total: 1)
+Orphan StringName: _apply_species (static: 0, total: 1)
+Orphan StringName: "tools/ci/_harness_dead_stub.gd" (static: 0, total: 1)
+Orphan StringName: _get_hit_chance_performance_modifier (static: 0, total: 2)
+Orphan StringName: metadata/map_bleed_last_warn (static: 0, total: 1)
+Orphan StringName: _get_campaign_stamina_mult (static: 0, total: 1)
+Orphan StringName: _death_notified (static: 0, total: 7)
+Orphan StringName: is_enemy_leader (static: 0, total: 13)
+Orphan StringName: _update_consciousness (static: 0, total: 1)
+Orphan StringName: _process (static: 2, total: 3)
+Orphan StringName: _weapon_proficiency (static: 0, total: 6)
+Orphan StringName: _restore_muscle_fatigue_at_camp (static: 0, total: 1)
+Orphan StringName: _is_blood_critical (static: 0, total: 1)
+Orphan StringName: equip_armor (static: 0, total: 2)
+Orphan StringName: equip_weapon (static: 0, total: 2)
+Orphan StringName: offhand_functionality (static: 0, total: 7)
+Orphan StringName: "scenes/actors/character.gd" (static: 0, total: 1)
+Orphan StringName: MoodBiasFighter (static: 0, total: 2)
+Orphan StringName: _get_pain_contribution_for_wound (static: 0, total: 1)
+Orphan StringName: _get_strength (static: 0, total: 1)
+Orphan StringName: _get_leg_functionality (static: 0, total: 2)
+Orphan StringName: _get_last_ambient_pain_shock_time (static: 0, total: 1)
+Orphan StringName: _get_packing_application_time_seconds_for_part (static: 0, total: 2)
+Orphan StringName: _can_apply_direct_pressure_from_ally (static: 0, total: 2)
+Orphan StringName: _get_bandage_application_time_seconds_for_part (static: 0, total: 2)
+Orphan StringName: _apply_packing (static: 0, total: 2)
+Orphan StringName: direct_pressure_assist_held_by (static: 0, total: 7)
+Orphan StringName: weapon (static: 0, total: 7)
+Orphan StringName: bandaged_parts (static: 0, total: 6)
+Orphan StringName: metadata/last_battle_summary (static: 0, total: 7)
+Orphan StringName: tourniquet_applied (static: 0, total: 6)
+Orphan StringName: _campaign_supply_factor (static: 0, total: 7)
+Orphan StringName: _apply_party_boost (static: 0, total: 1)
+Orphan StringName: _get_form_proficiency (static: 0, total: 1)
+Orphan StringName: died (static: 0, total: 2)
+Orphan StringName: apply_species_harness_deterministic (static: 0, total: 1)
+Orphan StringName: _seed_body_parts_generic (static: 0, total: 1)
+Orphan StringName: _clear_direct_pressure (static: 0, total: 2)
+Orphan StringName: _get_armor_sharp_resistance_for_part (static: 0, total: 2)
+Orphan StringName: _seed_body_parts_from_species (static: 0, total: 1)
+Orphan StringName: _proficiency_bonus (static: 0, total: 6)
+Orphan StringName: Brother0 (static: 0, total: 130)
+Orphan StringName: Brother1 (static: 0, total: 39)
+Orphan StringName: Brother2 (static: 0, total: 2)
+Orphan StringName: Node (static: 3, total: 4)
+Orphan StringName: _get_passive_parry_reaction_time (static: 0, total: 2)
+Orphan StringName: _pain_shock_until_time (static: 0, total: 7)
+Orphan StringName: _get_stabilize_application_time_seconds_for_part (static: 0, total: 1)
+Orphan StringName: _mark_consciousness_dirty (static: 0, total: 1)
+Orphan StringName: dominant_hand (static: 0, total: 7)
+Orphan StringName: muscle_fatigue (static: 0, total: 6)
+Orphan StringName: metadata/campaign_med_battle (static: 0, total: 8)
+Orphan StringName: _is_applying_direct_pressure (static: 0, total: 2)
+Orphan StringName: metadata/party_manager (static: 0, total: 64)
+Orphan StringName: BleedSim (static: 0, total: 1)
+Orphan StringName: armor_slots (static: 0, total: 6)
+Orphan StringName: _get_wound_healing_progress (static: 0, total: 2)
+Orphan StringName: body_cutting (static: 0, total: 10)
+Orphan StringName: _snap_to_grid (static: 0, total: 1)
+Orphan StringName: is_cowering (static: 0, total: 2)
+Orphan StringName: ensure_consciousness_current (static: 0, total: 2)
+Orphan StringName: _get_offhand (static: 0, total: 1)
+Orphan StringName: metadata/company_state (static: 0, total: 64)
+Orphan StringName: _get_training_pending (static: 0, total: 1)
+Orphan StringName: _apply_tourniquet (static: 0, total: 2)
+Orphan StringName: _cancel_grid_move_to (static: 0, total: 1)
+Orphan StringName: active_contract (static: 0, total: 4)
+Orphan StringName: tissue_layer_state (static: 0, total: 6)
+Orphan StringName: blood_volume_ml (static: 0, total: 7)
+Orphan StringName: _combat_blood_recovery_per_s (static: 0, total: 7)
+Orphan StringName: _apply_common_seed_defaults (static: 0, total: 1)
+Orphan StringName: _get_blood_volume (static: 0, total: 1)
+Orphan StringName: _game_time_seconds (static: 0, total: 7)
+Orphan StringName: ClotStep (static: 0, total: 1)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: Cannot get path of node as it is not in a scene tree.
+   at: get_path (scene/main/node.cpp:2431)
+ERROR: 5 resources still in use at exit.
+   at: clear (core/io/resource.cpp:817)
+Orphan StringName: _combat_body_death_logged (static: 0, total: 5)
+Orphan StringName: _get_wounds_snapshot (static: 0, total: 2)
+Orphan StringName: _get_permanent_bleeding_rate (static: 0, total: 1)
+Orphan StringName: _try_enter_pain_shock_from_hit (static: 0, total: 1)
+Orphan StringName: _stack_assist_pressure_during_ally_treatment (static: 0, total: 1)
+Orphan StringName: is_party_leader (static: 0, total: 13)
+Orphan StringName: _is_bone_fractured (static: 0, total: 1)
+Orphan StringName: _get_campaign_pain_mult (static: 0, total: 1)
+Orphan StringName: endurance (static: 0, total: 11)
+Orphan StringName: _get_body_max (static: 0, total: 1)
+Orphan StringName: _notify_died (static: 0, total: 1)
+Orphan StringName: _apply_direct_pressure_from_ally (static: 0, total: 2)
+Orphan StringName: _set_training_pending_value (static: 0, total: 1)
+Orphan StringName: map_bleed_last_warn (static: 0, total: 1)
+Orphan StringName: _prepare_for_medical_windup (static: 0, total: 2)
+Orphan StringName: _add_campaign_affliction (static: 0, total: 1)
+Orphan StringName: _get_dodge_chance (static: 0, total: 2)
+Orphan StringName: _get_combat_blood_loss_mult (static: 0, total: 1)
+Orphan StringName: _get_vital_parts (static: 0, total: 1)
+Orphan StringName: _get_part_dodge_modifier (static: 0, total: 2)
+Orphan StringName: _set_combat_blood_recovery_per_s (static: 0, total: 1)
+Orphan StringName: LogDress (static: 0, total: 1)
+Orphan StringName: combat_encounter (static: 0, total: 4)
+Orphan StringName: _process_healing (static: 0, total: 2)
+Orphan StringName: process_blood_loss (static: 0, total: 2)
+Orphan StringName: _tile_center (static: 0, total: 1)
+Orphan StringName: target_position (static: 0, total: 4)
+Orphan StringName: _get_perception (static: 0, total: 1)
+Orphan StringName: _get_tourniquet_failures (static: 0, total: 1)
+Orphan StringName: _get_medical_entity (static: 0, total: 2)
+Orphan StringName: _form_proficiency (static: 0, total: 6)
+Orphan StringName: _is_part_crushed (static: 0, total: 1)
+Orphan StringName: tourniquet_failures (static: 0, total: 6)
+Orphan StringName: get_members (static: 0, total: 1)
+Orphan StringName: _last_ambient_pain_shock_time (static: 0, total: 7)
+Orphan StringName: body_blunt (static: 0, total: 10)
+Orphan StringName: blood_volume_ml_max (static: 0, total: 7)
+Orphan StringName: can_apply_packing (static: 0, total: 2)
+Orphan StringName: _get_total_pain (static: 0, total: 2)
+Orphan StringName: _get_severance_ease_factor (static: 0, total: 1)
+Orphan StringName: last_battle_summary (static: 0, total: 7)
+StringName: 244 unclaimed string names at exit.

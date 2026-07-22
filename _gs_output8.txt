@@ -1,0 +1,188 @@
+﻿Godot Engine v4.7.stable.official.5b4e0cb0f - https://godotengine.org
+
+FP_SESSION_BEGIN: headless://camp_wage_warn flow_logs=false hit_summary=false per_hit_debug=false research_feel=false dev_soak=(empty) dev_research_feel=false  -  walk red 7v7 tile OR set dev_soak_encounter; grep soak_guide  -  copy full Output; grep hit_resolve reason= strike_avoided reason= diagram_banner player: engagement_debug opposition offset engagement_transition encounter_context parry_partial rem= hit_outcome_stats parry_stats soak_fight_end hit_coverage_hint FP_COMBAT FP_ERROR SCRIPT_ERROR
+FP_WORLD: Wages short  -  paid what you could; mood fell (gold 10, bill 30).
+FP_WORLD: provisions fed=2 food_left=12
+FP_WORLD: company_wages: gold=-20 below next wage bill=30 (day 1)
+FP_WORLD: Company is in debt (-20g). Low-mood brothers may desert at the next day end.
+FP_WORLD: campaign_autosave path=user://fallen_paths_harness_14505874.json gold=-20 day=1 living=2
+FP_WORLD: company_day_advanced day=1 wages_paid=30 gold=-20 living=2 autosave=true
+FP_SESSION_END: headless://camp_wage_warn
+FP_SESSION_BEGIN: headless://camp_desertion_summary flow_logs=false hit_summary=false per_hit_debug=false research_feel=false dev_soak=(empty) dev_research_feel=false  -  walk red 7v7 tile OR set dev_soak_encounter; grep soak_guide  -  copy full Output; grep hit_resolve reason= strike_avoided reason= diagram_banner player: engagement_debug opposition offset engagement_transition encounter_context parry_partial rem= hit_outcome_stats parry_stats soak_fight_end hit_coverage_hint FP_COMBAT FP_ERROR SCRIPT_ERROR
+FP_WORLD: brother_deserted name=Brother0 mood=12.0
+FP_WORLD: desertion summary=Brother0(mood=12)
+FP_SESSION_END: headless://camp_desertion_summary
+FP_SESSION_BEGIN: res://scenes/campaign/main.tscn flow_logs=false hit_summary=false per_hit_debug=false research_feel=false dev_soak=(empty) dev_research_feel=false  -  walk red 7v7 tile OR set dev_soak_encounter; grep soak_guide  -  copy full Output; grep hit_resolve reason= strike_avoided reason= diagram_banner player: engagement_debug opposition offset engagement_transition encounter_context parry_partial rem= hit_outcome_stats parry_stats soak_fight_end hit_coverage_hint FP_COMBAT FP_ERROR SCRIPT_ERROR
+FP_COMBAT: soak_session_plan dev_soak_encounter=(empty) dev_research_feel=false
+FP_COMBAT: soak_session_plan fight=walk red 7v7 tile  -  covers formation gauge medical parry exhaustion flee (not ii5 cowering / ii6 shock / ii2b bind-only)
+FP_COMBAT: soak_session_plan Q1=off  -  enable main dev_research_feel for per-hit research_feel lines
+FP_COMBAT: soak_session_plan after fight grep hit_resolve reason= strike_avoided reason= diagram_banner player: engagement_transition hit_outcome_stats parry_stats soak_fight_end soak_coverage  -  paste full Output
+Tile texture exists and is valid
+FP_WORLD: campaign_autosave path=user://fallen_paths_harness_14505874.json gold=50 day=0 living=2
+FP_WORLD: hire_rookie name=Companion gold=50 living=2
+FP_SESSION_BEGIN: res://scenes/campaign/main.tscn flow_logs=false hit_summary=false per_hit_debug=false research_feel=false dev_soak=(empty) dev_research_feel=false  -  walk red 7v7 tile OR set dev_soak_encounter; grep soak_guide  -  copy full Output; grep hit_resolve reason= strike_avoided reason= diagram_banner player: engagement_debug opposition offset engagement_transition encounter_context parry_partial rem= hit_outcome_stats parry_stats soak_fight_end hit_coverage_hint FP_COMBAT FP_ERROR SCRIPT_ERROR
+FP_COMBAT: soak_session_plan dev_soak_encounter=(empty) dev_research_feel=false
+FP_COMBAT: soak_session_plan fight=walk red 7v7 tile  -  covers formation gauge medical parry exhaustion flee (not ii5 cowering / ii6 shock / ii2b bind-only)
+FP_COMBAT: soak_session_plan Q1=off  -  enable main dev_research_feel for per-hit research_feel lines
+FP_COMBAT: soak_session_plan after fight grep hit_resolve reason= strike_avoided reason= diagram_banner player: engagement_transition hit_outcome_stats parry_stats soak_fight_end soak_coverage  -  paste full Output
+Tile texture exists and is valid
+FP_SESSION_END: res://scenes/campaign/main.tscn
+FP_SESSION_BEGIN: res://scenes/campaign/main.tscn flow_logs=false hit_summary=false per_hit_debug=false research_feel=false dev_soak=(empty) dev_research_feel=false  -  walk red 7v7 tile OR set dev_soak_encounter; grep soak_guide  -  copy full Output; grep hit_resolve reason= strike_avoided reason= diagram_banner player: engagement_debug opposition offset engagement_transition encounter_context parry_partial rem= hit_outcome_stats parry_stats soak_fight_end hit_coverage_hint FP_COMBAT FP_ERROR SCRIPT_ERROR
+FP_COMBAT: soak_session_plan dev_soak_encounter=(empty) dev_research_feel=false
+FP_COMBAT: soak_session_plan fight=walk red 7v7 tile  -  covers formation gauge medical parry exhaustion flee (not ii5 cowering / ii6 shock / ii2b bind-only)
+FP_COMBAT: soak_session_plan Q1=off  -  enable main dev_research_feel for per-hit research_feel lines
+FP_COMBAT: soak_session_plan after fight grep hit_resolve reason= strike_avoided reason= diagram_banner player: engagement_transition hit_outcome_stats parry_stats soak_fight_end soak_coverage  -  paste full Output
+Tile texture exists and is valid
+FP_WORLD: campaign_autosave path=user://fallen_paths_harness_14505874.json gold=300 day=0 living=3
+FP_WORLD: hire_rookie name=Companion2 gold=300 living=3
+FP_WORLD: campaign_autosave path=user://fallen_paths_harness_14505874.json gold=300 day=0 living=3
+FP_SESSION_BEGIN: res://scenes/campaign/main.tscn flow_logs=false hit_summary=false per_hit_debug=false research_feel=false dev_soak=(empty) dev_research_feel=false  -  walk red 7v7 tile OR set dev_soak_encounter; grep soak_guide  -  copy full Output; grep hit_resolve reason= strike_avoided reason= diagram_banner player: engagement_debug opposition offset engagement_transition encounter_context parry_partial rem= hit_outcome_stats parry_stats soak_fight_end hit_coverage_hint FP_COMBAT FP_ERROR SCRIPT_ERROR
+FP_COMBAT: soak_session_plan dev_soak_encounter=(empty) dev_research_feel=false
+FP_COMBAT: soak_session_plan fight=walk red 7v7 tile  -  covers formation gauge medical parry exhaustion flee (not ii5 cowering / ii6 shock / ii2b bind-only)
+FP_COMBAT: soak_session_plan Q1=off  -  enable main dev_research_feel for per-hit research_feel lines
+FP_COMBAT: soak_session_plan after fight grep hit_resolve reason= strike_avoided reason= diagram_banner player: engagement_transition hit_outcome_stats parry_stats soak_fight_end soak_coverage  -  paste full Output
+Tile texture exists and is valid
+FP_SESSION_END: res://scenes/campaign/main.tscn
+[Combat] medical direct_pressure self part=chest (TCCC sustained compression; venous ~10% / arterial ~50% flow retained while held)
+[Combat] medical _apply_stabilize(chest) => success, 1 wound(s)
+[Combat] medical direct_pressure self part=chest (TCCC sustained compression; venous ~10% / arterial ~50% flow retained while held)
+[Combat] medical _apply_bandage(chest) => failed (3% reduction), 1 wound(s); can retry
+[Combat] medical direct_pressure self part=chest (TCCC sustained compression; venous ~10% / arterial ~50% flow retained while held)
+[Combat] medical _apply_packing(chest) => failed (4% reduction), 1 wound(s); can retry
+[Combat] medical Fielder direct_pressure self part=chest (TCCC sustained compression; venous ~10% / arterial ~50% flow retained while held)
+[Combat] medical Fielder _apply_stabilize(chest) => success, 1 wound(s)
+[Combat] medical Dresser direct_pressure self part=chest (TCCC sustained compression; venous ~10% / arterial ~50% flow retained while held)
+[Combat] medical Dresser clear_direct_pressure (was self-holding chest)
+[Combat] medical Dresser _apply_bandage(chest) => success, 1 wound(s) stabilized
+[Combat] medical @Node2D@162 direct_pressure_from_ally part=right_arm (TCCC sustained compression; venous ~10% / arterial ~50% flow retained while held)
+[Combat] medical BleedBro direct_pressure_from_ally part=chest (TCCC sustained compression; venous ~10% / arterial ~50% flow retained while held)
+[Combat] medical BleedBro clear_direct_pressure (ally was holding chest)
+[Combat] medical BleedBro _apply_bandage(chest) => success, 1 wound(s) stabilized
+[Combat] medical SplitDress direct_pressure_from_ally part=chest (TCCC sustained compression; venous ~10% / arterial ~50% flow retained while held)
+[Combat] medical RetryBand direct_pressure self part=chest (TCCC sustained compression; venous ~10% / arterial ~50% flow retained while held)
+[Combat] medical RetryBand clear_direct_pressure (was self-holding chest)
+[Combat] medical RetryBand _apply_bandage(chest) => success, 1 wound(s) stabilized
+[Combat] medical RetryBand direct_pressure self part=chest (TCCC sustained compression; venous ~10% / arterial ~50% flow retained while held)
+[Combat] medical RetryBand clear_direct_pressure (was self-holding chest)
+[Combat] medical RetryBand _apply_bandage(chest) => success, 1 wound(s) stabilized
+[Combat] medical RetryBand direct_pressure self part=chest (TCCC sustained compression; venous ~10% / arterial ~50% flow retained while held)
+[Combat] medical RetryBand _apply_bandage(chest) => failed (62% reduction), 1 wound(s); can retry
+FP_SESSION_BEGIN: headless://field_bandage_fail_log flow_logs=false hit_summary=false per_hit_debug=false research_feel=false dev_soak=(empty) dev_research_feel=false  -  walk red 7v7 tile OR set dev_soak_encounter; grep soak_guide  -  copy full Output; grep hit_resolve reason= strike_avoided reason= diagram_banner player: engagement_debug opposition offset engagement_transition encounter_context parry_partial rem= hit_outcome_stats parry_stats soak_fight_end hit_coverage_hint FP_COMBAT FP_ERROR SCRIPT_ERROR
+FP_COMBAT: medical RetryBand _apply_bandage(chest) => failed (19% reduction), 1 wound(s); can retry
+FP_WORLD: field_care bandage failed part=chest target=RetryBand parts_left=1  -  med refunded; pressure still held
+FP_SESSION_END: headless://field_bandage_fail_log
+[Combat] medical RetryBand clear_direct_pressure (was self-holding chest)
+[Combat] medical RetryBand _apply_bandage(chest) => success, 1 wound(s) stabilized
+[Combat] medical RetryBand _apply_bandage(chest) => failed (8% reduction), 1 wound(s); can retry
+[Combat] medical ClotDress _apply_bandage(chest) => failed (31% reduction), 1 wound(s); can retry
+[Combat] medical ClotDress _apply_bandage(chest) => failed (27% reduction), 1 wound(s); can retry
+[Combat] medical ClotDress _apply_bandage(chest) => success, 1 wound(s) stabilized
+[Combat] medical ZeroMedDress _apply_bandage(chest) => failed (26% reduction), 1 wound(s); can retry
+[Combat] medical ZeroMedDress _apply_bandage(chest) => success, 1 wound(s) stabilized
+[Combat] medical FieldPack direct_pressure self part=chest (TCCC sustained compression; venous ~10% / arterial ~50% flow retained while held)
+[Combat] medical FieldPack clear_direct_pressure (was self-holding chest)
+[Combat] medical FieldPack _apply_packing(chest) => success, 1 wound(s) packed
+[Combat] medical FieldTQ _apply_tourniquet(left_leg) => success eff=1.00 => 99% bleed reduction
+[Combat] medical BtnTint direct_pressure self part=chest (TCCC sustained compression; venous ~10% / arterial ~50% flow retained while held)
+[Combat] medical BtnTint _apply_bandage(chest) => failed (15% reduction), 1 wound(s); can retry
+[Combat] medical BtnTint _apply_bandage(chest) => failed (54% reduction), 1 wound(s); can retry
+[Combat] medical BtnTint clear_direct_pressure (was self-holding chest)
+[Combat] medical BtnTint _apply_bandage(chest) => success, 1 wound(s) stabilized
+[World] Bleeding on map  -  ClotStep: Bleeding controlled ΓÇö bandage/pack/TQ still required before camp rest.. 1 part(s) need dressing in Party (pressure (free) -- bandage/pack/TQ). 0-med bandages OK on map.
+[Combat] medical Persist direct_pressure self part=chest (TCCC sustained compression; venous ~10% / arterial ~50% flow retained while held)
+FP_SESSION_BEGIN: headless://camp_field_care_done flow_logs=false hit_summary=false per_hit_debug=false research_feel=false dev_soak=(empty) dev_research_feel=false  -  walk red 7v7 tile OR set dev_soak_encounter; grep soak_guide  -  copy full Output; grep hit_resolve reason= strike_avoided reason= diagram_banner player: engagement_debug opposition offset engagement_transition encounter_context parry_partial rem= hit_outcome_stats parry_stats soak_fight_end hit_coverage_hint FP_COMBAT FP_ERROR SCRIPT_ERROR
+FP_COMBAT: medical LogDress _apply_bandage(chest) => success, 1 wound(s) stabilized
+FP_WORLD: field_care bandage part=chest target=LogDress seconds=150 parts_left=0 med_left=1 eff=1.00 all_dressed=true camp_rest_ready
+FP_WORLD: provisions fed=2 food_left=12
+FP_WORLD: campaign_autosave path=user://fallen_paths_harness_14505874.json gold=470 day=1 living=2
+FP_WORLD: company_day_advanced day=1 wages_paid=30 gold=470 living=2 autosave=true
+FP_WORLD: camp_heal seconds=600 mult=3.0 med_left=0 day=0->1 all_dressed=true mood=+1
+FP_SESSION_END: headless://camp_field_care_done
+FP_SESSION_BEGIN: headless://camp_heal_blocked flow_logs=false hit_summary=false per_hit_debug=false research_feel=false dev_soak=(empty) dev_research_feel=false  -  walk red 7v7 tile OR set dev_soak_encounter; grep soak_guide  -  copy full Output; grep hit_resolve reason= strike_avoided reason= diagram_banner player: engagement_debug opposition offset engagement_transition encounter_context parry_partial rem= hit_outcome_stats parry_stats soak_fight_end hit_coverage_hint FP_COMBAT FP_ERROR SCRIPT_ERROR
+FP_WORLD: camp_heal blocked: Camp rest (1 part(s) need dressing -- Treat next wound or field care above, then retry) parts_need=1
+FP_SESSION_END: headless://camp_heal_blocked
+FP_SESSION_BEGIN: headless://field_care_hint_zero_med flow_logs=false hit_summary=false per_hit_debug=false research_feel=false dev_soak=(empty) dev_research_feel=false  -  walk red 7v7 tile OR set dev_soak_encounter; grep soak_guide  -  copy full Output; grep hit_resolve reason= strike_avoided reason= diagram_banner player: engagement_debug opposition offset engagement_transition encounter_context parry_partial rem= hit_outcome_stats parry_stats soak_fight_end hit_coverage_hint FP_COMBAT FP_ERROR SCRIPT_ERROR
+FP_WORLD: field_care: open Party -- pressure (free) -- bandage/pack/TQ; 1 part(s) need dressing; med_left=0; bandage_med_est=0; total_med_est=1; med_shortfall=1; 0-med bandages OK for map dressings; battle bandages free; then Camp rest (-1 med / +1 day / +1 mood)
+FP_SESSION_END: headless://field_care_hint_zero_med
+FP_SESSION_BEGIN: headless://contract_victory_triage flow_logs=false hit_summary=false per_hit_debug=false research_feel=false dev_soak=(empty) dev_research_feel=false  -  walk red 7v7 tile OR set dev_soak_encounter; grep soak_guide  -  copy full Output; grep hit_resolve reason= strike_avoided reason= diagram_banner player: engagement_debug opposition offset engagement_transition encounter_context parry_partial rem= hit_outcome_stats parry_stats soak_fight_end hit_coverage_hint FP_COMBAT FP_ERROR SCRIPT_ERROR
+FP_WORLD: contract_victory pay=100 gold=600 renown=1 med_resupply=4 med=19
+FP_WORLD: contract_victory triage parts_need=1 med_shortfall=0
+FP_SESSION_END: headless://contract_victory_triage
+[Combat] manager_started alive=1/1 doctrine={ "player": "default", "enemy": "default" }
+[Combat] engagement mode=Duel player_front=1 enemy_front=1
+[Combat] opposition offset player=0 enemy=0 formation_files=1/1
+[Combat] medical BleedSim direct_pressure self part=chest (TCCC sustained compression; venous ~10% / arterial ~50% flow retained while held)
+FP_SESSION_BEGIN: headless://camp_field_care_hint flow_logs=false hit_summary=false per_hit_debug=false research_feel=false dev_soak=(empty) dev_research_feel=false  -  walk red 7v7 tile OR set dev_soak_encounter; grep soak_guide  -  copy full Output; grep hit_resolve reason= strike_avoided reason= diagram_banner player: engagement_debug opposition offset engagement_transition encounter_context parry_partial rem= hit_outcome_stats parry_stats soak_fight_end hit_coverage_hint FP_COMBAT FP_ERROR SCRIPT_ERROR
+FP_WORLD: field_care: open Party -- pressure (free) -- bandage/pack/TQ; 1 part(s) need dressing; med_left=15; bandage_med_est=1; total_med_est=2; med_shortfall=0; battle bandages free; then Camp rest (-1 med / +1 day / +1 mood)
+FP_SESSION_END: headless://camp_field_care_hint
+FP_SESSION_BEGIN: headless://camp_debt_warn flow_logs=false hit_summary=false per_hit_debug=false research_feel=false dev_soak=(empty) dev_research_feel=false  -  walk red 7v7 tile OR set dev_soak_encounter; grep soak_guide  -  copy full Output; grep hit_resolve reason= strike_avoided reason= diagram_banner player: engagement_debug opposition offset engagement_transition encounter_context parry_partial rem= hit_outcome_stats parry_stats soak_fight_end hit_coverage_hint FP_COMBAT FP_ERROR SCRIPT_ERROR
+FP_WORLD: Wages short  -  paid what you could; mood fell (gold 5, bill 30).
+FP_WORLD: provisions fed=2 food_left=12
+FP_WORLD: company_wages: gold=-25 below next wage bill=30 (day 1)
+FP_WORLD: Company is in debt (-25g). Low-mood brothers may desert at the next day end.
+FP_WORLD: campaign_autosave path=user://fallen_paths_harness_14505874.json gold=-25 day=1 living=2
+FP_WORLD: company_day_advanced day=1 wages_paid=30 gold=-25 living=2 autosave=true
+FP_SESSION_END: headless://camp_debt_warn
+FP_SESSION_BEGIN: headless://camp_settlement_continue flow_logs=false hit_summary=false per_hit_debug=false research_feel=false dev_soak=(empty) dev_research_feel=false  -  walk red 7v7 tile OR set dev_soak_encounter; grep soak_guide  -  copy full Output; grep hit_resolve reason= strike_avoided reason= diagram_banner player: engagement_debug opposition offset engagement_transition encounter_context parry_partial rem= hit_outcome_stats parry_stats soak_fight_end hit_coverage_hint FP_COMBAT FP_ERROR SCRIPT_ERROR
+FP_WORLD: contract_victory pay=120 gold=620 renown=1 med_resupply=4 med=19
+FP_WORLD: settlement_continue pay=120 gold=620 renown=1 tutorial=false autosave=true
+FP_SESSION_END: headless://camp_settlement_continue
+FP_SESSION_BEGIN: headless://camp_tutorial_settlement flow_logs=false hit_summary=false per_hit_debug=false research_feel=false dev_soak=(empty) dev_research_feel=false  -  walk red 7v7 tile OR set dev_soak_encounter; grep soak_guide  -  copy full Output; grep hit_resolve reason= strike_avoided reason= diagram_banner player: engagement_debug opposition offset engagement_transition encounter_context parry_partial rem= hit_outcome_stats parry_stats soak_fight_end hit_coverage_hint FP_COMBAT FP_ERROR SCRIPT_ERROR
+FP_WORLD: contract_victory tutorial -- no pay (type=tutorial)
+FP_WORLD: settlement_continue pay=0 gold=500 renown=0 tutorial=true autosave=true
+FP_SESSION_END: headless://camp_tutorial_settlement
+FP_SESSION_BEGIN: headless://camp_field_care_pressure flow_logs=false hit_summary=false per_hit_debug=false research_feel=false dev_soak=(empty) dev_research_feel=false  -  walk red 7v7 tile OR set dev_soak_encounter; grep soak_guide  -  copy full Output; grep hit_resolve reason= strike_avoided reason= diagram_banner player: engagement_debug opposition offset engagement_transition encounter_context parry_partial rem= hit_outcome_stats parry_stats soak_fight_end hit_coverage_hint FP_COMBAT FP_ERROR SCRIPT_ERROR
+FP_WORLD: field_care pressure part=right_arm target=PressBro seconds=150 parts_left=0 all_dressed=true camp_rest_ready
+FP_SESSION_END: headless://camp_field_care_pressure
+FP_SESSION_BEGIN: headless://camp_field_care_hint flow_logs=false hit_summary=false per_hit_debug=false research_feel=false dev_soak=(empty) dev_research_feel=false  -  walk red 7v7 tile OR set dev_soak_encounter; grep soak_guide  -  copy full Output; grep hit_resolve reason= strike_avoided reason= diagram_banner player: engagement_debug opposition offset engagement_transition encounter_context parry_partial rem= hit_outcome_stats parry_stats soak_fight_end hit_coverage_hint FP_COMBAT FP_ERROR SCRIPT_ERROR
+FP_WORLD: field_care: open Party -- pressure (free) -- bandage/pack/TQ; 1 part(s) need dressing; med_left=15; bandage_med_est=1; total_med_est=2; med_shortfall=0; battle bandages free; then Camp rest (-1 med / +1 day / +1 mood)
+FP_SESSION_END: headless://camp_field_care_hint
+FP_SESSION_BEGIN: headless://camp_company_day flow_logs=false hit_summary=false per_hit_debug=false research_feel=false dev_soak=(empty) dev_research_feel=false  -  walk red 7v7 tile OR set dev_soak_encounter; grep soak_guide  -  copy full Output; grep hit_resolve reason= strike_avoided reason= diagram_banner player: engagement_debug opposition offset engagement_transition encounter_context parry_partial rem= hit_outcome_stats parry_stats soak_fight_end hit_coverage_hint FP_COMBAT FP_ERROR SCRIPT_ERROR
+FP_WORLD: provisions fed=2 food_left=12
+FP_WORLD: campaign_autosave path=user://fallen_paths_harness_14505874.json gold=470 day=1 living=2
+FP_WORLD: company_day_advanced day=1 wages_paid=30 gold=470 living=2 autosave=true
+FP_SESSION_END: headless://camp_company_day
+FP_SESSION_BEGIN: headless://camp_rest_day_advance flow_logs=false hit_summary=false per_hit_debug=false research_feel=false dev_soak=(empty) dev_research_feel=false  -  walk red 7v7 tile OR set dev_soak_encounter; grep soak_guide  -  copy full Output; grep hit_resolve reason= strike_avoided reason= diagram_banner player: engagement_debug opposition offset engagement_transition encounter_context parry_partial rem= hit_outcome_stats parry_stats soak_fight_end hit_coverage_hint FP_COMBAT FP_ERROR SCRIPT_ERROR
+FP_COMBAT: medical CampRest _apply_bandage(chest) => failed (52% reduction), 1 wound(s); can retry
+FP_WORLD: field_care bandage failed part=chest target=CampRest parts_left=1  -  med refunded; pressure still held
+FP_COMBAT: medical CampRest _apply_bandage(chest) => success, 1 wound(s) stabilized
+FP_WORLD: field_care bandage part=chest target=CampRest seconds=150 parts_left=0 med_left=2 eff=1.00 all_dressed=true camp_rest_ready
+FP_WORLD: provisions fed=2 food_left=12
+FP_WORLD: campaign_autosave path=user://fallen_paths_harness_14505874.json gold=470 day=1 living=2
+FP_WORLD: company_day_advanced day=1 wages_paid=30 gold=470 living=2 autosave=true
+FP_WORLD: camp_heal seconds=600 mult=3.0 med_left=1 day=0->1 all_dressed=true mood=+1
+FP_SESSION_END: headless://camp_rest_day_advance
+FP_SESSION_BEGIN: headless://camp_bankrupt_collapse flow_logs=false hit_summary=false per_hit_debug=false research_feel=false dev_soak=(empty) dev_research_feel=false  -  walk red 7v7 tile OR set dev_soak_encounter; grep soak_guide  -  copy full Output; grep hit_resolve reason= strike_avoided reason= diagram_banner player: engagement_debug opposition offset engagement_transition encounter_context parry_partial rem= hit_outcome_stats parry_stats soak_fight_end hit_coverage_hint FP_COMBAT FP_ERROR SCRIPT_ERROR
+FP_WORLD: brother_deserted name=Brother0 mood=10.0
+FP_WORLD: desertion summary=Brother0(mood=10)
+FP_WORLD: company_run_end reason=bankrupt reload=true clears_slot=false
+FP_SESSION_END: headless://camp_bankrupt_collapse
+FP_SESSION_BEGIN: headless://camp_run_end_logs flow_logs=false hit_summary=false per_hit_debug=false research_feel=false dev_soak=(empty) dev_research_feel=false  -  walk red 7v7 tile OR set dev_soak_encounter; grep soak_guide  -  copy full Output; grep hit_resolve reason= strike_avoided reason= diagram_banner player: engagement_debug opposition offset engagement_transition encounter_context parry_partial rem= hit_outcome_stats parry_stats soak_fight_end hit_coverage_hint FP_COMBAT FP_ERROR SCRIPT_ERROR
+FP_WORLD: company_run_end reason=contract_failed reload=true clears_slot=false
+FP_WORLD: company_run_end reason=tutorial_failed reload=false clears_slot=false
+FP_WORLD: company_run_end reason=soft_defeat_resume reload=false clears_slot=false
+FP_SESSION_END: headless://camp_run_end_logs
+FP_SESSION_BEGIN: headless://camp_party_triage flow_logs=false hit_summary=false per_hit_debug=false research_feel=false dev_soak=(empty) dev_research_feel=false  -  walk red 7v7 tile OR set dev_soak_encounter; grep soak_guide  -  copy full Output; grep hit_resolve reason= strike_avoided reason= diagram_banner player: engagement_debug opposition offset engagement_transition encounter_context parry_partial rem= hit_outcome_stats parry_stats soak_fight_end hit_coverage_hint FP_COMBAT FP_ERROR SCRIPT_ERROR
+FP_WORLD: party_triage_open living=3 untreated=1 bleeding=1 parts_need_dressing=1 med_left=15 bandage_med_est=1 camp_med=1 total_med_est=2 med_shortfall=0
+FP_SESSION_END: headless://camp_party_triage
+FP_SESSION_BEGIN: headless://p2_day_autosave_log flow_logs=false hit_summary=false per_hit_debug=false research_feel=false dev_soak=(empty) dev_research_feel=false  -  walk red 7v7 tile OR set dev_soak_encounter; grep soak_guide  -  copy full Output; grep hit_resolve reason= strike_avoided reason= diagram_banner player: engagement_debug opposition offset engagement_transition encounter_context parry_partial rem= hit_outcome_stats parry_stats soak_fight_end hit_coverage_hint FP_COMBAT FP_ERROR SCRIPT_ERROR
+FP_WORLD: provisions fed=2 food_left=12
+FP_WORLD: campaign_autosave path=user://fallen_paths_harness_14505874.json gold=470 day=1 living=2
+FP_WORLD: company_day_advanced day=1 wages_paid=30 gold=470 living=2 autosave=true
+FP_SESSION_END: headless://p2_day_autosave_log
+FP_HARNESS_OK: CompanyStateChecks (425 tests)
+FP_HARNESS_SUMMARY: CompanyStateChecks OK
+FP_HARNESS_SUMMARY: wrote E:/FallenPaths/fallen-paths/.harness_out.txt
+ERROR: 1 RID allocations of type 'P11GodotBody2D' were leaked at exit.
+Godot_v4.7-stable_win64.exe : WARNING: 6 RIDs of type "CanvasItem" were leaked.
+At line:1 char:1
++ & 'E:\Godot_v4.7-stable_win64.exe' --headless --path 'E:\\FallenPaths ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (WARNING: 6 RIDs...m" were leaked.:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+   at: _free_rids (servers/rendering/renderer_canvas_cull.cpp:2735)
+WARNING: 14 ObjectDB instances were leaked at exit (run with `--verbose` for details).
+   at: cleanup (core/object/object.cpp:2535)
+ERROR: 3 resources still in use at exit (run with --verbose for details).
+   at: clear (core/io/resource.cpp:822)

@@ -6,6 +6,7 @@ extends RefCounted
 const CampaignWorldScript := preload("res://tools/ci/_harness_campaign_world.gd")
 const PARTY_MANAGER_SCRIPT := preload("res://world/PartyManager.gd")
 const PARTY_MENU_SCRIPT := preload("res://ui/company/PartyMenu.gd")
+const MAIN_SCENE_PACKED := preload("res://scenes/campaign/main.tscn")
 
 static var _test_count: int = 0
 
@@ -78,12 +79,44 @@ static func _free_harness_world(world: Node) -> void:
                 continue
             for gc in layer.get_children().duplicate():
                 if gc is Button and gc.name == "PartyButton":
+                    _disconnect_all_signals(gc)
                     layer.remove_child(gc)
                     gc.free()
     var parent: Node = world.get_parent()
     if parent != null:
         parent.remove_child(world)
     world.free()
+
+
+static func _disconnect_all_signals(node: Node) -> void:
+    if node == null or not is_instance_valid(node):
+        return
+    var signal_list := node.get_signal_list()
+    for sig_def in signal_list:
+        if sig_def is not Dictionary:
+            continue
+        var name = sig_def.get("name")
+        if typeof(name) != TYPE_STRING:
+            continue
+        ## Use the Signal object directly via the node's member access.
+        var signal_obj: Variant = node.get(name)
+        if typeof(signal_obj) == TYPE_SIGNAL:
+            var connections := (signal_obj as Signal).get_connections()
+            for conn in connections:
+                if conn is not Dictionary:
+                    continue
+                var callable_val = conn.get("callable")
+                if callable_val == null:
+                    continue
+                var valid := false
+                if callable_val is Callable:
+                    valid = callable_val.is_valid()
+                elif typeof(callable_val) == TYPE_CALLABLE:
+                    valid = callable_val.is_valid()
+                else:
+                    valid = true
+                if valid:
+                    (signal_obj as Signal).disconnect(callable_val)
 
 
 static func _cleanup_harness_ui_overlay() -> void:
@@ -93,7 +126,9 @@ static func _cleanup_harness_ui_overlay() -> void:
     for child in root.get_children():
         if child.name != "UIOverlayLayer":
             continue
-        for gc in child.get_children():
+        ## Disconnect all signals on children before freeing to prevent CanvasItem RID leaks.
+        for gc in child.get_children().duplicate():
+            _disconnect_all_signals(gc)
             child.remove_child(gc)
             gc.free()
         root.remove_child(child)
@@ -171,8 +206,7 @@ static func _free_harness_core_entity(ent: Node) -> void:
 
 
 static func _instantiate_main_hire_world(in_tree: bool = false) -> Node2D:
-    var packed: PackedScene = load("res://scenes/campaign/main.tscn") as PackedScene
-    var world: Node2D = packed.instantiate() as Node2D
+    var world: Node2D = MAIN_SCENE_PACKED.instantiate() as Node2D
     if in_tree:
         var root: Node = _harness_root()
         if root != null:

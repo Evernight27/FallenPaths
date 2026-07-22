@@ -361,7 +361,11 @@ static func _apply_entity(entity: Node, data: Dictionary) -> void:
     if data.has("tourniquet_applied"):
         entity.tourniquet_applied = _deep_dup(data.get("tourniquet_applied", {}))
     if data.has("campaign_afflictions"):
-        entity.campaign_afflictions = _deep_dup(data.get("campaign_afflictions", []))
+        var aff: Array[Dictionary] = []
+        for entry in (data.get("campaign_afflictions", []) as Array):
+            if entry is Dictionary:
+                aff.append(entry.duplicate(true))
+        entity.set("campaign_afflictions", aff)
     if data.has("body_cutting"):
         entity.body_cutting = _deep_dup(data.get("body_cutting", {}))
     if data.has("body_blunt"):

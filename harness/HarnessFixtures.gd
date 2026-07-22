@@ -19,6 +19,14 @@ static var _cached_weapon_melee_ranges: Dictionary = {}
 static var _cached_weapon_move_counts: Dictionary = {}
 
 
+## Flush all static caches to release resource instances at harness exit.
+static func flush_static_caches() -> void:
+    _cached_weapons.clear()
+    _cached_armor.clear()
+    _cached_weapon_melee_ranges.clear()
+    _cached_weapon_move_counts.clear()
+
+
 static func get_cached_weapon(weapon_id: String) -> Weapon:
     if not _cached_weapons.has(weapon_id):
         _cached_weapons[weapon_id] = Weapon.create_from_definition(weapon_id)
@@ -63,20 +71,66 @@ static func flush_harness_live_nodes() -> void:
             var n: Node = raw as Node
             _free_harness_node(n)
     _harness_live_nodes.clear()
+    flush_static_caches()
 
 
 static func _free_harness_node(n: Node) -> void:
     if n == null or not is_instance_valid(n):
         return
+    ## Disconnect all signal listeners on the node before freeing to prevent ObjectDB leaks.
+    _disconnect_all_signals_on_node(n)
     var idx: int = _harness_live_nodes.find(n)
     if idx >= 0:
         _harness_live_nodes.remove_at(idx)
     n.free()
 
 
+static func _disconnect_all_signals_on_node(node: Node) -> void:
+    if node == null or not is_instance_valid(node):
+        return
+    var signal_list := node.get_signal_list()
+    for sig_def in signal_list:
+        if sig_def is not Dictionary:
+            continue
+        var name = sig_def.get("name")
+        if typeof(name) != TYPE_STRING:
+            continue
+        var signal_obj: Variant = node.get(name)
+        if typeof(signal_obj) == TYPE_SIGNAL:
+            var connections := (signal_obj as Signal).get_connections()
+            for conn in connections:
+                if conn is not Dictionary:
+                    continue
+                var callable_val = conn.get("callable")
+                if callable_val == null:
+                    continue
+                var valid := false
+                if callable_val is Callable:
+                    valid = callable_val.is_valid()
+                elif typeof(callable_val) == TYPE_CALLABLE:
+                    valid = callable_val.is_valid()
+                else:
+                    valid = true
+                if valid:
+                    (signal_obj as Signal).disconnect(callable_val)
+
+
 static func _free_manager(mgr: Node) -> void:
     if mgr == null or not is_instance_valid(mgr):
         return
+    ## Disconnect all signal listeners before freeing to prevent ObjectDB leaks.
+    _disconnect_signal_connections(mgr, "turn_ready", mgr.turn_ready)
+    _disconnect_signal_connections(mgr, "action_resolved", mgr.action_resolved)
+    _disconnect_signal_connections(mgr, "combat_ended", mgr.combat_ended)
+    _disconnect_signal_connections(mgr, "enemies_eliminated", mgr.enemies_eliminated)
+    _disconnect_signal_connections(mgr, "combatant_health_changed", mgr.combatant_health_changed)
+    _disconnect_signal_connections(mgr, "formation_changed", mgr.formation_changed)
+    _disconnect_signal_connections(mgr, "engagement_state_changed", mgr.engagement_state_changed)
+    _disconnect_signal_connections(mgr, "turn_resolved", mgr.turn_resolved)
+    _disconnect_signal_connections(mgr, "combat_ui_hint", mgr.combat_ui_hint)
+    ## Call stop() to disconnect entity-side signals (health_changed, etc.).
+    if mgr.has_method("stop"):
+        mgr.call("stop")
     ## Remove combatant scene nodes from tracking list BEFORE freeing them,
     ## so flush_harness_live_nodes() won't double-free.
     if mgr.get("combatants") is Array:
@@ -96,6 +150,23 @@ static func _free_manager(mgr: Node) -> void:
     ## Manager itself is never tracked in _harness_live_nodes — just free it.
     if is_instance_valid(mgr):
         mgr.free()
+
+
+static func _disconnect_signal_connections(node: Node, signal_name: StringName, signal_obj: Signal) -> void:
+    var connections := signal_obj.get_connections()
+    for conn in connections:
+        if conn is not Dictionary:
+            continue
+        var callable_val = conn.get("callable")
+        if callable_val == null:
+            continue
+        var valid := false
+        if callable_val is Callable:
+            valid = callable_val.is_valid()
+        else:
+            valid = true
+        if valid:
+            signal_obj.disconnect(callable_val)
 
 
 ## _free_manager — run_all() restores the global seed after each test function.

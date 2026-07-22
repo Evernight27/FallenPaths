@@ -717,6 +717,7 @@ static func _run_xcamp_39_mood_bias_to_ms(failures: PackedStringArray) -> void:
         _fail(failures, "XCamp-3.9: enemy mood bias should clamp at 100 (got %.1f)" % enemy_clamped)
     else:
         _pass()
+    _release_harness_world(world)
     _release_harness_world(world2)
     _release_harness_world(world3)
     _release_harness_world(world4)
