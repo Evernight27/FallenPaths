@@ -30,6 +30,7 @@ static func compute_weight(
     var counter_tempo_m: float = _factor_counter_tempo(manager, combatant_id, a, move_id)
     var attrition_m: float = _factor_attrition(manager, c)
     var exh_offense_m: float = _factor_exhaustion(c)
+    var decision_q_m: float = CombatExhaustion.decision_quality_mult(c)
 
     # Feint listing (only for feint moves)
     var feint_list_m: float = 1.0
@@ -47,6 +48,7 @@ static func compute_weight(
         * counter_tempo_m
         * attrition_m
         * exh_offense_m
+        * decision_q_m
     )
 
     # Post-compose: attempt_close specific modifiers

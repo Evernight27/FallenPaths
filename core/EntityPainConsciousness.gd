@@ -246,6 +246,8 @@ static func update_consciousness(entity: Node) -> void:
 	var base_consciousness: float = 100.0
 	if head_max_total > 0.0:
 		base_consciousness = 100.0 * (head_total / head_max_total)
+	if entity.has_method("is_vital_part_critically_damaged") and entity.is_vital_part_critically_damaged():
+		base_consciousness = minf(base_consciousness, 15.0)
 	var true_consciousness: float = base_consciousness * get_blood_consciousness_modifier(entity)
 	var old_consciousness: float = entity.consciousness
 	var old_effective: float = entity.effective_consciousness

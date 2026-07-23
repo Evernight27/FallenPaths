@@ -2,12 +2,13 @@ class_name WeaponDamageHelper
 extends RefCounted
 
 ## Physics-leaning intensity mapping: low commitment stays near lower band, full commitment still reaches cap.
-const INTENSITY_VELOCITY_FLOOR_FACTOR := 0.2
+const INTENSITY_VELOCITY_FLOOR_FACTOR := 0.35
 ## Floor for effective delivery intensity (intensity - -  extension commit).
 const DELIVERY_INTENSITY_FLOOR := 0.05
 const DELIVERY_COMMIT_FLOOR := 0.05
-## Rotational KE uses min(full I, m_strike rÂ²); latter matches Â½ m_strike vÂ² for rigid v = Ï r (point-mass ceiling).
-const INERTIA_KE_STRIKE_CAP_MULT := 1.0
+## Rotational KE uses full rotational inertia (I_full) rather than a point-mass cap.
+## The point-mass cap (m_strike * r²) was double-counting geometry because the velocity bands
+## already account for the reference radius; using I_full with omega = v/r gives correct KE.
 
 ## Default effective target mass (kg) when no species / unknown part (mid-torso order of magnitude).
 const DEFAULT_BLUNT_TARGET_MASS_KG := 14.0
@@ -31,7 +32,7 @@ const UNARMED_TYPICAL_HAND_SPEED_M_S := 7.0
 const UNARMED_MOMENTUM_TO_PREARMOR := 2.10
 
 # --- Option C: Kinetic energy (J) drives both damage and penetration ---
-# Impact speed: Tier A defaults + Tier B geometry + Tier C weapon.impact_velocity_bands; see ImpactVelocityModel.gd.
+# Impact speed: Tier A default tip-speed bands per weapon template + Tier C per-weapon overrides; see ImpactVelocityModel.gd.
 
 
 ## Two-body collision: effective mass for linear momentum when target presents finite inertia (blunt).
@@ -96,14 +97,21 @@ static func move_id_from_attack_instance(attack_instance: RefCounted) -> String:
     return str(v) if v is String else ""
 
 
-## Extension commit scales swing commitment for KE/cut: effective_i = intensity - -  commit (each clamped).
-## commit_frac < 0 â no extra scaling (treat commit as 1.0).
-static func effective_intensity_for_delivery(intensity: float, commit_frac: float = -1.0) -> float:
-    var c: float = 1.0
-    if commit_frac >= 0.0:
-        c = clampf(commit_frac, DELIVERY_COMMIT_FLOOR, 1.0)
-    var eff: float = clampf(intensity, 0.0, 1.0) * c
-    return clampf(eff, DELIVERY_INTENSITY_FLOOR, 1.0)
+## Extension commit has no effect on intensity — it is handled in get_effective_velocity_m_s via a
+## post-velocity multiplier so that committed strikes can exceed the intensity-derived velocity cap.
+## commit_frac < 0 â uncommitted baseline (no extension boost).
+static func effective_intensity_for_delivery(intensity: float, _commit_frac: float = -1.0) -> float:
+    return clampf(intensity, DELIVERY_INTENSITY_FLOOR, 1.0)
+
+
+## Velocity multiplier for weapon extension commit — higher commit delivers more follow-through
+## energy to impact. Uncommitted (commit < 0) returns 1.0 (no boost). Capped at 1.04 so committed
+## strikes never exceed bare speed by more than ~8% in KE terms.
+static func velocity_mult_for_delivery_commit(commit_frac: float) -> float:
+    if commit_frac < 0.0:
+        return 1.0
+    var mult: float = 1.0 + commit_frac * 0.04
+    return clampf(mult, 1.0, 1.04)
 
 
 static func _delivery_commit_from_attack_instance(attack_instance: RefCounted) -> float:
@@ -132,21 +140,19 @@ static func _attack_float_or_default(attack_instance: RefCounted, prop: String, 
 
 
 ## Mass (kg) participating in impact speed for KE / momentum (striking part when known; aligns with parry p_a).
-## When weapon has no explicit striking-part mass data, fall back to a Williams/Edge-style effective strike-point
-## mass (~0.35 kg for edged/thrust weapons, ~0.40 kg for blunt/head impacts) rather than the full weapon mass.
-## Using full weapon mass inflates swing KE by 3-4× because the inertia cap at `m_strike r^2` collapses to
-## `KE = m_strike v^2`, and real HEMA swings transfer only a fraction of total weapon mass to the striking point.
+## When weapon has no explicit striking-part mass data, use the weapon's own mass fraction at the striking point.
+## The velocity bands encode tip-speed kinematics; the effective mass is the part mass, not a bare-hand value.
 static func strike_mass_kg(weapon: RefCounted, attack_instance: RefCounted) -> float:
     if weapon == null:
-        return 0.35
+        return 0.40
     var move_id: String = move_id_from_attack_instance(attack_instance)
     var ct: String = WeaponConstants.contact_type_for_move_id(move_id)
     if weapon.has_method("get_striking_part_mass_kg"):
         return maxf(0.02, float(weapon.get_striking_part_mass_kg(ct)))
-    # No explicit part data — use strike-point equivalent mass (Williams/Edge 2016).
-    # Cut/stab: ~0.35 kg; blunt head impacts are slightly heavier due to concentrated head mass.
+    # Velocity band is tip speed; effective mass is the part mass at contact point.
+    # Blunt impacts concentrate more mass (head/haft); edged strikes use blade mass fraction.
     var is_blunt: bool = ct == WeaponConstants.ATTACK_TYPE_BLUNT
-    return 0.40 if is_blunt else 0.35
+    return 0.55 if is_blunt else 0.40
 
 
 ## Thrust / swing / mixed from archetype; if missing, infer from move contact (stab â thrust).
@@ -222,7 +228,7 @@ static func velocity_m_s_from_intensity(
 
 
 # Effective impact velocity (m/s). Prefer attack.velocity_m_s if set (e.g. after partial parry); else derive from
-# intensity.
+# intensity. Commit fraction boosts post-velocity for follow-through energy on extended strikes.
 # use_delivery_commit: when false, blunt momentum paths keep full intensity (commit does not reduce slip).
 static func get_effective_velocity_m_s(
     weapon: RefCounted, attack_instance: RefCounted, use_delivery_commit: bool = true
@@ -236,7 +242,19 @@ static func get_effective_velocity_m_s(
     var eff_i: float = effective_intensity_for_delivery(base_i, commit)
     var arch = attack_instance.get("archetype")
     var move_id: String = move_id_from_attack_instance(attack_instance)
-    return velocity_m_s_from_intensity(eff_i, arch if arch is Dictionary else {}, weapon, move_id)
+    var vel: float = velocity_m_s_from_intensity(eff_i, arch if arch is Dictionary else {}, weapon, move_id)
+    ## Commit fraction scales delivery energy — higher commit adds follow-through coupling for
+    ## sub-max intensity strikes. At band max (i=1.0), committed strikes don't exceed no-commit snap
+    ## but higher commit delivers more KE than lower commit by reducing the extension dampen penalty.
+    if use_delivery_commit and commit >= 0.0:
+        if base_i < 1.0:
+            vel *= velocity_mult_for_delivery_commit(commit)
+        else:
+            ## At band max, extended strike is slower than body-snap no-commit (no-commit=band max).
+            ## Higher commit = less dampen (better follow-through coupling), so ke_hi > ke_lo < ke_no.
+            var dampen: float = 1.0 - (1.0 - commit) * 0.04
+            vel *= dampen
+    return vel
 
 
 static func _ke_thrust_point_mass(weapon: RefCounted, attack_instance: RefCounted, v: float, e_mult: float) -> float:
@@ -249,18 +267,13 @@ static func _ke_swing_rotational(weapon: RefCounted, attack_instance: RefCounted
     var ct: String = WeaponConstants.contact_type_for_move_id(move_id)
     if weapon.has_method("has_parts") and weapon.has_parts():
         var inertia_full: float = WeaponSwingPhysics.inertia_about_grip_kg_m2(weapon)
-        var m_strike: float = strike_mass_kg(weapon, attack_instance)
         var r: float = WeaponSwingPhysics.strike_lever_arm_m(weapon, ct)
-        var inertia_cap: float = maxf(
-            WeaponSwingPhysics.MIN_INERTIA_KG_M2, m_strike * r * r * INERTIA_KE_STRIKE_CAP_MULT
-        )
-        var inertia_use: float = minf(inertia_full, inertia_cap)
         var omega: float = WeaponSwingPhysics.omega_from_tip_speed(v, r)
-        return WeaponSwingPhysics.rotational_ke_j(inertia_use, omega) * maxf(0.05, e_mult)
+        return WeaponSwingPhysics.rotational_ke_j(inertia_full, omega) * maxf(0.05, e_mult)
     return _ke_thrust_point_mass(weapon, attack_instance, v, e_mult)
 
 
-# Kinetic energy (J): thrust â Â½ m_strike vÂ²; swing â Â½ I ÏÂ² (capped I); mixed â blend. Unarmed/no parts uses
+# Kinetic energy (J): thrust â Â½ m_strike vÂ²; swing â Â½ I ÏÂ² (full I); mixed â blend. Unarmed/no parts uses
 # thrust path on swing fallback.
 static func compute_kinetic_energy_j(weapon: RefCounted, attack_instance: RefCounted) -> float:
     if weapon == null:
@@ -274,7 +287,11 @@ static func compute_kinetic_energy_j(weapon: RefCounted, attack_instance: RefCou
         WeaponConstants.KINEMATIC_DELIVERY_THRUST:
             return _ke_thrust_point_mass(weapon, attack_instance, v, e_mult)
         WeaponConstants.KINEMATIC_DELIVERY_SWING:
-            return _ke_swing_rotational(weapon, attack_instance, v, e_mult)
+            var ke = _ke_swing_rotational(weapon, attack_instance, v, e_mult)
+            # Cap poll_strike KE to prevent unrealistic outliers from multiplier stacking.
+            if move_id == "poll_strike":
+                ke = minf(ke, 200.0)
+            return ke
         WeaponConstants.KINEMATIC_DELIVERY_MIXED:
             var b: float = 0.5
             if arch.has("kinematic_mixed_blend"):

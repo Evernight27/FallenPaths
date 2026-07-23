@@ -119,6 +119,9 @@ static func compute_strike_modifiers(
         manager, atk, tgt, weapon, eff_ov
     )
     var meas: float = float(pa.get("strike_measure_ratio", meas_default))
+    var commit_frac: float = pa.get("weapon_extension_commit_fraction", -1.0)
+    if commit_frac < 0.0:
+        commit_frac = 1.0
     var vel_m: float = _station_velocity_mult(contact, station, phys) * _measure_velocity_mult(contact, meas)
     var coup: float = _coupling(contact, phys)
     var obliq: float = _obliquity_factor(hit_alignment, parry_remaining_ratio)
@@ -147,6 +150,6 @@ static func compute_strike_modifiers(
         "blunt_damage_mult": blunt_m,
         "sharp_penetration_mult": pen_station,
         "blunt_momentum_pa_mult": obliq * _blunt_pressure_mult(weapon, phys),
-        "strike_energy_mult": vel_m * vel_m * coup,
+        "strike_energy_mult": vel_m * vel_m * coup * clampf(commit_frac, 0.3, 1.0),
         "strike_momentum_mult": vel_m * coup
     }

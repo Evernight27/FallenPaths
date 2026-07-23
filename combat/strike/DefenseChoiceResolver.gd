@@ -251,7 +251,7 @@ static func choose_defense(
                 parry_c_d *= lerpf(
                     CombatConstants.STAMINA_AT_ZERO_PARRY_MULT, 1.0, CombatConstants.stamina_factor(st_ratio)
                 )
-                parry_c_d *= CombatExhaustion.performance_mult_for_combatant(tgt)
+                parry_c_d *= CombatExhaustion.timing_mult_for_combatant(tgt)
                 parry_c_d *= TacticalCombat.surround_defense_multiplier_from_pa(tgt, pa)
                 parry_c_d *= pa.get(DataKeys.PA_TACTICAL_AMBUSH_MULT, 1.0)
                 if CombatConstants.combat_debug_active():
@@ -394,7 +394,7 @@ static func choose_defense(
                 parry_c_d *= lerpf(
                     CombatConstants.STAMINA_AT_ZERO_PARRY_MULT, 1.0, CombatConstants.stamina_factor(st_ratio_late)
                 )
-                parry_c_d *= CombatExhaustion.performance_mult_for_combatant(tgt)
+                parry_c_d *= CombatExhaustion.timing_mult_for_combatant(tgt)
                 parry_c_d *= TacticalCombat.surround_defense_multiplier_from_pa(tgt, pa)
                 parry_c_d *= pa.get(DataKeys.PA_TACTICAL_AMBUSH_MULT, 1.0)
                 if CombatConstants.combat_debug_active():
@@ -527,15 +527,6 @@ static func choose_defense(
     )
     var preview_align: float = float(result.get(DataKeys.RESULT_PARRY_PREVIEW_ALIGNMENT, 1.0))
     var interpose_active: bool = float(result.get(DataKeys.RESULT_ARM_INTERPOSE_BOOST, 0.0)) > 0.0
-    if (
-        can_parry_in_time
-        and preview_align < CombatConstants.PARRY_PARTIAL_GUARD_ALIGNMENT_THRESHOLD
-        and not late_parry
-        and not desperate_parry
-        and not interpose_active
-    ):
-        block_viable = false
-        redirect_viable = false
     var def_has_weapon: bool = CombatantEntityAccess.has_weapon(tgt)
 
     var choose_parry: bool = false
@@ -592,6 +583,7 @@ static func choose_defense(
         var well_aligned: bool = preview_align >= CombatConstants.PARRY_PARTIAL_GUARD_ALIGNMENT_THRESHOLD
         choose_parry = (
             late_parry
+            and (block_viable or redirect_viable)
             or (
                 (block_viable or redirect_viable)
                 and (well_aligned or interpose_active or (not dodge_better and not clean_dodge_likely))
@@ -654,12 +646,14 @@ static func _compute_parry_c_d(def_weapon, tgt: Dictionary, contact_type: String
     return c_d_full
 
 
-## Unified contact geometry: alignment  -  leverage. Blade gets alignment only (leverage=1); shaft/haft get alignment  -
+## Unified contact geometry: alignment × leverage. Blade gets alignment only (leverage=1); shaft/haft get alignment ×
 ## leverage factor.
 ## Merges angular (attack vs guard) and linear (where along shaft contact happens) into one multiplier.
+## Micro-floor at 0.001 prevents degenerate zero-capacity from exactly-zero alignment while keeping the
+## continuous cosine model intact — a blade in motion can accidentally intercept even at poor angles.
 static func _get_contact_geometry(alignment: float, def_weapon) -> float:
     var leverage: float = _get_leverage_factor(def_weapon, alignment)
-    return alignment * leverage
+    return maxf(0.001, alignment) * leverage
 
 
 ## Leverage factor: where along shaft/haft the blow lands. Good alignment = defender controlled contact = strong (near

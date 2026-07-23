@@ -92,7 +92,27 @@ static func _stamina_attack_cost_for_attacker(manager: Node, atk: Dictionary, ta
     if manager != null and target_id >= 0:
         var clk: float = CombatantEntityAccess.combat_clock_float(manager)
         cost *= CombatFlurryBind.stamina_attack_cost_mult(atk, target_id, clk)
+    cost *= _consecutive_action_stamina_mult_for_combatant(atk)
     return cost
+
+
+static func _consecutive_action_stamina_mult_for_combatant(c: Dictionary) -> float:
+    var count: int = c.get(CombatConstantsStamina.COMBATANT_KEY_CONSECUTIVE_ACTIONS, 0)
+    if count <= 1:
+        return 1.0
+    var t: float = float(count - 1)
+    return lerpf(1.0, 2.5, clampf(t / 4.0, 0.0, 1.0))
+
+
+static func _track_consecutive_action_start(c: Dictionary) -> void:
+    if c.is_empty():
+        return
+    var state: String = c.get(DataKeys.COMBATANT_STATE, "")
+    if state == CombatConstants.STATE_RECOVERING:
+        c[CombatConstantsStamina.COMBATANT_KEY_CONSECUTIVE_ACTIONS] = 1
+        return
+    var count: int = c.get(CombatConstantsStamina.COMBATANT_KEY_CONSECUTIVE_ACTIONS, 0) + 1
+    c[CombatConstantsStamina.COMBATANT_KEY_CONSECUTIVE_ACTIONS] = count
 
 
 static func _pending_attack_read(atk: Dictionary) -> Dictionary:
@@ -240,6 +260,7 @@ static func apply_result(manager: Node, attacker_id: int, result: Dictionary) ->
     var atk: Dictionary = CombatantEntityAccess.manager_get_combatant(manager, attacker_id)
     if MedicalPhaseController.combat_resolution_blocked(manager):
         return
+    _track_consecutive_action_start(atk)
     var tgt: Dictionary = CombatantEntityAccess.manager_get_combatant_optional(manager, target_id)
     var tgt_scene: Node = CombatantEntityAccess.scene_node(tgt)
     var empty_result: Dictionary = {
@@ -273,6 +294,7 @@ static func apply_result(manager: Node, attacker_id: int, result: Dictionary) ->
             else:
                 CombatFootwork.return_to_waiting(atk)
                 atk.gauge = 0.0
+                atk.erase(CombatConstantsStamina.COMBATANT_KEY_CONSECUTIVE_ACTIONS)
                 _clear_attacker_pending_attack(atk, manager)
                 _react_attacking_arm_loss_after_wound(manager, atk)
         return
@@ -284,7 +306,8 @@ static func apply_result(manager: Node, attacker_id: int, result: Dictionary) ->
             CombatStateHandlers.cancel_events_for_dead_combatant(manager, tgt)
         if not atk.is_empty():
             # Resolver abort (e.g. no targetable parts): do not leave attacker stuck in WIND_UP with stale
-            # `pending_attack`.
+            # `pending_attack`. Clear consecutive counter since we never enter RECOVERING.
+            atk.erase(CombatConstantsStamina.COMBATANT_KEY_CONSECUTIVE_ACTIONS)
             _clear_attacker_pending_attack(atk, manager)
             CombatFootwork.return_to_waiting(atk)
             atk.gauge = 0.0

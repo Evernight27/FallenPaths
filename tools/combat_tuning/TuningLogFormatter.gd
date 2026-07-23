@@ -133,6 +133,11 @@ static func ke_sample_from_result(result: Dictionary) -> Dictionary:
         var move_id: String = str(sample.get("move_id", ""))
         if not move_id.is_empty():
             sample["kinematic_delivery"] = _WeaponDamageHelper.kinematic_delivery({}, move_id)
+    # Ensure the delivered kinematic_delivery is used for band annotation.
+    if sample.has("kinematic_delivery") and str(sample["kinematic_delivery"]).is_empty():
+        var move_id: String = str(sample.get("move_id", ""))
+        if not move_id.is_empty():
+            sample["kinematic_delivery"] = _WeaponDamageHelper.kinematic_delivery({}, move_id)
     return sample
 
 
@@ -193,7 +198,10 @@ static func format_ke_tag_for_sample(sample: Variant) -> String:
     var band: Vector2 = _DesignAnchors.ke_band_min_max_for_weapon(weapon_id, delivery)
     var band_label: String = ke_band_tag_for_weapon(ke_j, weapon_id, delivery)
     band_label = "in_band" if band_label == "in_band" else band_label.to_upper()
-    return "KE=%.0fJ [%s, ref %.0f-%.0fJ]" % [ke_j, band_label, band.x, band.y]
+    # Dual-band: weapon-specific reference + combat-realistic reference band.
+    var combat_min: float = _DesignAnchors.COMBAT_REALISTIC_KE_J_MIN
+    var combat_max: float = _DesignAnchors.COMBAT_REALISTIC_KE_J_MAX
+    return "KE=%.0fJ [%s, weapon %.0f-%.0fJ, combat %.0f-%.0fJ]" % [ke_j, band_label, band.x, band.y, combat_min, combat_max]
 
 
 static func format_hema_ke_tag(ke_j: float) -> String:
@@ -457,23 +465,30 @@ static func format_cycle_hema_summary(
     cycle_index: int,
     winner_name: String,
     end_cause: String,
-    strikes: int,
-    outcome_counts: Dictionary,
-    ke_samples: Array,
-    atk_dmg: float,
-    def_dmg: float,
-    aggregate_line: String,
+    contact_strikes: int,
+    total_strikes: int = -1,
+    outcome_counts: Dictionary = {},
+    ke_samples: Array = [],
+    atk_dmg: float = 0.0,
+    def_dmg: float = 0.0,
+    aggregate_line: String = "",
     scenario_key: String = "",
     atk_cfg: Variant = null,
     def_cfg: Variant = null
 ) -> String:
     var total_exchanges: int = 0
     for k in outcome_counts:
-        total_exchanges += int(outcome_counts[k])
+        if k != "reject":
+            total_exchanges += int(outcome_counts[k])
     var lines := PackedStringArray()
+    # Backward compat: if only one strike arg was passed, use it for both.
+    var effective_contacts: int = contact_strikes
+    var effective_total: int = total_strikes
+    if effective_total < 0:
+        effective_total = contact_strikes
     lines.push_back(
-        "--- Cycle %d: %s (%s) | exchanges=%d strikes_logged=%d —"
-        % [cycle_index, winner_name, end_cause, total_exchanges, strikes]
+        "--- Cycle %d: %s (%s) | exchanges=%d strikes=%d contacts=%d —"
+        % [cycle_index, winner_name, end_cause, total_exchanges, effective_total, effective_contacts]
     )
     if not scenario_key.is_empty():
         lines.push_back("  scenario: %s" % scenario_key)

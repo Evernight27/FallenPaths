@@ -25,6 +25,11 @@ static func apply_exertion_from_stamina_spend(manager: Node, combatant: Dictiona
     var next: float = clampf(cur + exertion, 0.0, CombatConstants.EXHAUSTION_MAX)
     CombatantEntityAccess.set_exhaustion_float(combatant, next)
     _maybe_log_exhaustion_band_crossing(combatant, prev, next)
+    ## Accumulate metabolic stress (lactate-like) alongside exertion — clears much slower.
+    var ms_gain: float = CombatConstantsStamina.metabolic_stress_gain_from_stamina_spend(stamina_spent, end_stat)
+    ms_gain *= _medical_exertion_gain_mult(manager, combatant)
+    var cur_ms: float = combatant.get(CombatConstantsStamina.COMBATANT_KEY_METABOLIC_STRESS, 0.0)
+    combatant[CombatConstantsStamina.COMBATANT_KEY_METABOLIC_STRESS] = clampf(cur_ms + ms_gain, 0.0, CombatConstantsStamina.METABOLIC_STRESS_MAX)
     clamp_stamina_to_effective_max(combatant)
 
 
@@ -123,12 +128,36 @@ static func performance_mult_for_combatant(combatant: Dictionary) -> float:
     return CombatConstants.exhaustion_performance_mult(CombatantEntityAccess.exhaustion_float(combatant))
 
 
-## Longer wind-up when exhausted (divide duration by performance mult).
+## Timing/precision mult (parry readiness, wind-up speed) — degrades immediately with exhaustion.
+static func timing_mult_for_combatant(combatant: Dictionary) -> float:
+    if not CombatConstants.is_feature_fight_exhaustion_enabled():
+        return 1.0
+    return CombatConstants.exhaustion_timing_mult(CombatantEntityAccess.exhaustion_float(combatant))
+
+
+## Power mult (damage output) — delayed onset so gross strength holds out longer than precision.
+static func power_mult_for_combatant(combatant: Dictionary) -> float:
+    if not CombatConstants.is_feature_fight_exhaustion_enabled():
+        return 1.0
+    return CombatConstants.exhaustion_power_mult(CombatantEntityAccess.exhaustion_float(combatant))
+
+
+## Longer wind-up when exhausted (divide duration by timing mult for speed-before-power).
 static func apply_attacker_wind_up_exhaustion_mult(duration_s: float, attacker: Dictionary) -> float:
-    var perf: float = performance_mult_for_combatant(attacker)
-    if perf >= 0.999:
+    var timing: float = timing_mult_for_combatant(attacker)
+    if timing >= 0.999:
         return duration_s
-    return duration_s / maxf(perf, CombatConstants.EXHAUSTION_FLOOR_MULT)
+    return duration_s / maxf(timing, CombatConstants.EXHAUSTION_FLOOR_MULT)
+
+
+## Decision-quality degradation from metabolic stress (lactate-like accumulation).
+## At 0.3+ stress: AI makes measurably worse reads and commits to wrong actions more often.
+## Models Rae et al. findings on cognitive decline at blood lactate >4-6 mM.
+static func decision_quality_mult(combatant: Dictionary) -> float:
+    if not CombatConstants.is_feature_fight_exhaustion_enabled() or combatant.is_empty():
+        return 1.0
+    var ms: float = combatant.get(CombatConstantsStamina.COMBATANT_KEY_METABOLIC_STRESS, 0.0)
+    return CombatConstantsStamina.metabolic_stress_decision_mult(ms)
 
 
 static func process_waiting_recovery(combatant: Dictionary, delta: float) -> void:
@@ -142,6 +171,12 @@ static func process_waiting_recovery(combatant: Dictionary, delta: float) -> voi
     CombatantEntityAccess.set_exhaustion_float(
         combatant, maxf(0.0, cur - CombatConstants.EXHAUSTION_RECOVERY_RATE * delta)
     )
+    ## Metabolic stress decay during WAITING (very slow — lactate half-life ~20 min in real physiology).
+    var cur_ms: float = combatant.get(CombatConstantsStamina.COMBATANT_KEY_METABOLIC_STRESS, 0.0)
+    if cur_ms > 0.0:
+        combatant[CombatConstantsStamina.COMBATANT_KEY_METABOLIC_STRESS] = maxf(
+            0.0, cur_ms - CombatConstantsStamina.METABOLIC_STRESS_DECAY_RATE_WAITING * delta
+        )
 
 
 ## UI gauge suffix text (empty when below **`EXHAUSTION_UI_SHOW_THRESHOLD`** or feature off).

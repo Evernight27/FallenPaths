@@ -255,6 +255,9 @@ static func process_receiving_medical(manager: Node, c: Dictionary, delta: float
 static func process_waiting(_manager: Node, c: Dictionary, delta: float) -> void:
     # Option A: Event-driven. No gauge fill or turn_ready  -  events handle readiness. Only guard + stamina.
     var g: float = PassiveParryContext.guard_readiness_float(c)
+    # Low consciousness degrades guard — fighter with severe head damage can barely maintain defense
+    if entity_has_effective_consciousness_below_threshold(c, 25.0):
+        g = minf(g, 0.3)
     c[DataKeys.COMBATANT_GUARD] = minf(1.0, g + CombatConstants.GUARD_RISE_RATE * delta)
     CombatExhaustion.process_waiting_recovery(c, delta)
     var s: float = CombatantEntityAccess.stamina_float(c)
@@ -310,6 +313,17 @@ static func process_cowering_idle(_manager: Node, c: Dictionary, delta: float) -
     _get_muscle_fatigue().process_waiting_recovery(c, delta)
     var g: float = CombatantEntityAccess.gauge_float(c)
     c.gauge = minf(100.0, g + 0.5 * delta)
+
+
+## Check if a combatant's effective consciousness is below a threshold (via entity lookup).
+static func entity_has_effective_consciousness_below_threshold(c: Dictionary, threshold: float) -> bool:
+    var entity_node = CombatantEntityAccess.scene_node(c)
+    if entity_node == null:
+        return false
+    if not entity_node.has_method("_get_effective_consciousness"):
+        return false
+    var eff_consciousness: float = entity_node._get_effective_consciousness()
+    return eff_consciousness < threshold
 
 
 

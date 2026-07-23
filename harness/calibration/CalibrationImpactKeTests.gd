@@ -150,10 +150,8 @@ static func _append_impact_ke_section(lines: PackedStringArray, failures: Packed
     var pre_cut_commit: float = WeaponDamageHelper.compute_pre_armor_cut(sword, ai_commit, 100.0, 1.0)
     var commit_ke_ratio: float = ke_commit / ke_hi if ke_hi > 0.01 else 0.0
     lines.append(
-        (
-            "delivery_commit_formula=effective_intensity=intensity*commit_frac (floor %.2f); KE from v(eff_i); blunt slip uses full intensity"
-            % [WeaponDamageHelper.DELIVERY_INTENSITY_FLOOR]
-        )
+        "delivery_commit_formula=effective_intensity=intensity (commit no longer reduces velocity; affects KE coupling via strike_energy_mult); floor=%.2f"
+        % [WeaponDamageHelper.DELIVERY_INTENSITY_FLOOR]
     )
     lines.append(
         (
@@ -162,9 +160,10 @@ static func _append_impact_ke_section(lines: PackedStringArray, failures: Packed
         )
     )
     var arm_strict_commit: bool = CombatDesignAnchors.committed_strike_ke_in_strict_band(ke_commit)
-    lines.append("audit_KE_at_i1.0_committed_J=%.0f strict_70-140J=%s" % [ke_commit, str(arm_strict_commit).to_lower()])
+    lines.append("audit_KE_at_i1.0_committed_J=%.0f strict_65-145J=%s (headless path; real combat uses strike_energy_mult commit coupling)" % [ke_commit, str(arm_strict_commit).to_lower()])
     var arm_strict: bool = CombatDesignAnchors.committed_strike_ke_in_strict_band(ke_hi)
     var arm_loose: bool = ke_hi >= 40.0 and ke_hi <= 250.0
+    var combat_realistic: bool = ke_hi >= CombatDesignAnchors.COMBAT_REALISTIC_KE_J_MIN and ke_hi <= CombatDesignAnchors.COMBAT_REALISTIC_KE_J_MAX
     var vs_design: float = ke_hi / CombatDesignAnchors.DESIGN_KE_ARM_J if ke_hi >= 0.0 else 0.0
     lines.append(
         (
@@ -172,7 +171,8 @@ static func _append_impact_ke_section(lines: PackedStringArray, failures: Packed
             % [ke_hi, vs_design, CombatDesignAnchors.DESIGN_KE_ARM_J]
         )
     )
-    lines.append("audit_KE_arm_strict_70-140J=%s (full commit may exceed nominal)" % str(arm_strict).to_lower())
+    lines.append("audit_KE_arm_strict_65-145J=%s (headless audit; committed strikes in real combat routed through compute_strike_modifiers with commit coupling)" % str(arm_strict).to_lower())
+    lines.append("audit_KE_arm_combat_realistic_%d-%dJ=%s" % [CombatDesignAnchors.COMBAT_REALISTIC_KE_J_MIN, CombatDesignAnchors.COMBAT_REALISTIC_KE_J_MAX, str(combat_realistic).to_lower()])
     lines.append("audit_KE_arm_loose_40-250J=%s" % str(arm_loose).to_lower())
     if ke_hi < 0.0:
         failures.append("impact_ke: no intensity 1.0 sample")

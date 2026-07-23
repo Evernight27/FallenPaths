@@ -131,6 +131,26 @@ static func _execute_afterblow(manager: Node, tgt: Dictionary, hindrance: float)
     var pa: Dictionary = CombatantEntityAccess.nested_dictionary_for_mutation(tgt, "pending_attack")
     var damage_mult: float = 1.0 - hindrance
     pa[DataKeys.PA_AFTERBLOW_DAMAGE_MULT] = maxf(0.2, damage_mult)
+
+    # Cap afterblow velocity to weapon committed-band range. The target's PA has no velocity_m_s set
+    # (wind-up never sets it), so AttackResolver derives velocity fresh from stored intensity at line 87.
+    # Without a cap, high-intensity wind-ups produce KE far above the weapon band (e.g., AXE 422J vs
+    # committed max 155J). We store only v_base (no sqrt scaling here) — AttackResolver already applies
+    # sqrt(damage_mult) at line 96-97 when afterblow_damage_mult < 1.0, so setting the raw base velocity
+    # lets its existing sqrt scaling handle it without double-application. Since KE ~ v^2, the resulting
+    # KE scales linearly with damage_mult, which is physically consistent with momentum transfer.
+    var stored_intensity: float = pa.get(CombatConstants.PA_KEY_INTENSITY, 0.5)
+    var archetype: Dictionary = CombatantEntityAccess.nested_dictionary_read(pa, "archetype")
+    var weapon_ctx: Variant = CombatantEntityAccess.get_weapon_from_node(
+        CombatantEntityAccess.scene_node(tgt)
+    )
+    if not archetype.is_empty() and weapon_ctx != null:
+        var move_id: String = pa.get(DataKeys.ATTACK_ATTACK_TYPE, "")
+        var v_base: float = WeaponDamageHelper.velocity_m_s_from_intensity(
+            stored_intensity, archetype, weapon_ctx, move_id
+        )
+        pa[DataKeys.PA_VELOCITY_M_S] = v_base
+
     # Headless regression only: `CombatRegressionHarness` sets **`_harness_record_afterblow_damage_mult`** on the
     # manager.
     if manager != null and manager.has_meta("_harness_record_afterblow_damage_mult"):

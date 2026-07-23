@@ -493,6 +493,10 @@ static func process_bleeding(entity: Node, delta: float) -> void:
                     0.9 + EntityWounds.effective_endurance_for_clotting(entity) / 1000.0, 0.9, 1.1
                 )
                 clotting *= end_factor
+                # Active combat reduces clotting effectiveness (lethal triad: movement,
+                # adrenaline, physical trauma reopen clots and impair coagulation)
+                if entity.exertion_active:
+                    clotting *= 0.6
             rate = rate * exp(-clotting * delta)
             rate = maxf(0.0, rate)
             if rate <= BleedingConstants.BLEEDING_RATE_EPSILON:
@@ -548,6 +552,11 @@ static func process_blood_loss(entity: Node, delta: float) -> void:
     var recovery_per_s: float = 0.0
     if entity.has_method("_get_combat_blood_loss_mult"):
         loss_mult = entity._get_combat_blood_loss_mult()
+    # Active combat increases blood loss: movement prevents clotting, adrenaline
+    # increases heart rate, wounds reopen with exertion (~50% faster bleeding)
+    var exertion_active: bool = entity.exertion_active
+    if exertion_active:
+        loss_mult *= 1.5
     if entity.has_method("_get_combat_blood_recovery_per_s"):
         recovery_per_s = entity._get_combat_blood_recovery_per_s()
     if BloodVolumeMl.entity_uses_ml(entity):

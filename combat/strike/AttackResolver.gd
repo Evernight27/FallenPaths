@@ -92,7 +92,8 @@ static func compute_and_apply_damage(
 		var stamina_vel_scale: float = sqrt(
 			lerpf(CombatConstants.STAMINA_AT_ZERO_DAMAGE_MULT, 1.0, CombatConstants.stamina_factor(atk_st_ratio_w))
 		)
-		attack_instance.velocity_m_s *= stamina_vel_scale
+		var power_m: float = CombatExhaustion.power_mult_for_combatant(atk)
+		attack_instance.velocity_m_s *= stamina_vel_scale * power_m
 		if afterblow_damage_mult < 1.0:
 			attack_instance.velocity_m_s *= sqrt(maxf(0.04, afterblow_damage_mult))
 		attack_instance.velocity_m_s = ImpactVelocityModel.clamp_velocity_m_s(attack_instance.velocity_m_s)
@@ -156,9 +157,10 @@ static func compute_and_apply_damage(
 		var stamina_u: float = sqrt(
 			lerpf(CombatConstants.STAMINA_AT_ZERO_DAMAGE_MULT, 1.0, CombatConstants.stamina_factor(atk_st_ratio_u))
 		)
+		var power_m: float = CombatExhaustion.power_mult_for_combatant(atk)
 		var afterblow_u: float = sqrt(maxf(0.04, afterblow_damage_mult))
 		pre_armor *= (
-			StrikePhysics.closing_speed_multiplier(manager, atk, tgt, strike_physics_ctx) * stamina_u * afterblow_u
+			StrikePhysics.closing_speed_multiplier(manager, atk, tgt, strike_physics_ctx) * stamina_u * power_m * afterblow_u
 		)
 		pre_blunt = pre_armor
 		pre_cut = 0.0
@@ -193,22 +195,24 @@ static func compute_and_apply_damage(
 	var final_bone: float = take_result.get(DataKeys.RESULT_FINAL_BONE, 0.0)
 	# total_physical: authoritative chip for UI/logs. dmg: int rounded for compact compat.
 	var total_physical: float = final_cut + final_blunt + final_bone
+	# Minimum physical damage floor: ensure at least 1.0 before rounding, preventing
+	# contact hits from being rounded to zero HP when tissue_mod / armor absorption reduces the value.
+	const PHYSICAL_DAMAGE_MIN_FLOOR := 1.0
 	var actual_dmg: int = int(roundf(total_physical))
 	var tissue_dmg: float = final_cut + final_blunt
 	var outcome: String = "hit"
 	var glancing_severity: float = -1.0
-	var mech_post_armor: float = take_result.get(DataKeys.RESULT_MECHANICAL_POST_ARMOR, -1.0)
-	var glance_denom: float = pre_armor
-	if mech_post_armor > 0.0:
-		glance_denom = mech_post_armor
-	if pre_armor > 0:
-		if total_physical <= CombatConstants.PHYSICAL_DAMAGE_ZERO_EPS:
-			outcome = "deflected"
-		elif tissue_dmg < maxf(glance_denom * CombatConstants.GLANCING_DAMAGE_RATIO, CombatConstants.GLANCING_DAMAGE_ABSOLUTE_FLOOR):
+	if total_physical > CombatConstants.PHYSICAL_DAMAGE_ZERO_EPS:
+		if tissue_dmg < maxf(total_physical * CombatConstants.GLANCING_DAMAGE_RATIO, CombatConstants.GLANCING_DAMAGE_ABSOLUTE_FLOOR):
 			outcome = "glancing"
-			var ratio_denom: float = maxf(glance_denom * CombatConstants.GLANCING_DAMAGE_RATIO, CombatConstants.GLANCING_DAMAGE_ABSOLUTE_FLOOR)
+			var ratio_denom: float = maxf(total_physical * CombatConstants.GLANCING_DAMAGE_RATIO, CombatConstants.GLANCING_DAMAGE_ABSOLUTE_FLOOR)
 			glancing_severity = clampf(tissue_dmg / maxf(ratio_denom, 0.001), 0.0, 1.0)
 
+	# Minimum physical damage floor for contact hits: prevents rounding to zero.
+	var _floor_threshold: float = PHYSICAL_DAMAGE_MIN_FLOOR if outcome == "hit" else 0.0
+	if total_physical < _floor_threshold and outcome in ["hit", "glancing"]:
+		total_physical = _floor_threshold
+		actual_dmg = int(roundf(total_physical))
 	var rounded_zero_chip: bool = actual_dmg == 0 and total_physical > CombatConstants.PHYSICAL_DAMAGE_ZERO_EPS
 	if rounded_zero_chip and outcome == "hit":
 		outcome = "negligible"
@@ -226,12 +230,12 @@ static func compute_and_apply_damage(
 		outcome_note = "deflected (all damage avoided)"
 	elif outcome == "glancing":
 		outcome_note = (
-            "glancing (tissue_dmg %.2f < post_armor_mech*%.2f=%.2f; pre_armor=%.1f)"
+            "glancing (tissue_dmg %.2f < total_phys*%.2f=%.2f; total_phys=%.1f)"
 			% [
 				tissue_dmg,
 				CombatConstants.GLANCING_DAMAGE_RATIO,
-				glance_denom * CombatConstants.GLANCING_DAMAGE_RATIO,
-				pre_armor
+				total_physical * CombatConstants.GLANCING_DAMAGE_RATIO,
+				total_physical
 			]
 		)
 	elif outcome == "negligible":
@@ -298,7 +302,7 @@ static func compute_and_apply_damage(
 		"was_deflected": take_result.get(DataKeys.ATTACK_WAS_DEFLECTED, false),
 		"was_glancing": outcome == "glancing",
 		"was_negligible": outcome == "negligible",
-		"mechanical_post_armor": mech_post_armor,
+		"mechanical_post_armor": take_result.get(DataKeys.RESULT_MECHANICAL_POST_ARMOR, 0.0),
 		"rounded_zero_chip": rounded_zero_chip,
 		"tissue_dmg": tissue_dmg,
 		"pre_armor": pre_armor,

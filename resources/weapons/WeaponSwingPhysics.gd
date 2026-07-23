@@ -4,8 +4,7 @@ extends RefCounted
 ## Discrete rigid-body swing model: parts[] ordered **tip â grip** (index 0 furthest from hands).
 ## Inertia about grip: inertia_kg_m2 = Î£ m_i d_iÂ². Strike lever r = max(gripâstriking COM, ImpactVelocityModel
 ## strike radius)
-## so Ï = v_band / r stays aligned with band calibration. WeaponDamageHelper caps KE inertia to m_strike rÂ².
-
+## so Ï = v_band / r stays aligned with band calibration. WeaponDamageHelper uses full rotational inertia for KE.
 const MIN_LEVER_M := 0.12
 const MIN_INERTIA_KG_M2 := 0.001
 
@@ -120,11 +119,3 @@ static func omega_from_tip_speed(v_m_s: float, lever_m: float) -> float:
     return v_m_s / r
 
 
-## Effective mass (kg) so Â½ m_eff vÂ² = Â½ inertia_kg_m2 ÏÂ² with v = Ï r â m_eff = inertia_kg_m2 / rÂ².
-static func effective_rotational_mass_kg(weapon: Object, contact_type: String) -> float:
-    var inertia_kg_m2: float = inertia_about_grip_kg_m2(weapon)
-    var r: float = strike_lever_arm_m(weapon, contact_type)
-    var r2: float = r * r
-    if r2 <= 1e-6:
-        return maxf(0.02, float(weapon.mass) * 0.5) if weapon != null else 0.35
-    return maxf(0.02, inertia_kg_m2 / r2)

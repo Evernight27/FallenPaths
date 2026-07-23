@@ -389,10 +389,11 @@ static func _run_iii1_incoming_parry_sector_tiebreak(failures: PackedStringArray
 ## III-3: deflect/bind calibration loop  -  canonical thresholds, helper gates, ii2b plausibility band.
 static func _run_iii3_deflect_bind_calibration_suite(failures: PackedStringArray) -> void:
     var TrackSpecs := preload("res://harness/d001/CombatD001TrackSpecs.gd")
-    if not is_equal_approx(CombatConstants.PARRY_DEFLECT_THRESHOLD, 1.08):
+    ## Phase 2D: deflect threshold lowered to 1.02 (well-timed parry with equal force still deflects).
+    if not is_equal_approx(CombatConstants.PARRY_DEFLECT_THRESHOLD, 1.02):
         _fail(
             failures,
-            "iii3_calibration: PARRY_DEFLECT_THRESHOLD want 1.08 got %.3f" % CombatConstants.PARRY_DEFLECT_THRESHOLD
+            "iii3_calibration: PARRY_DEFLECT_THRESHOLD want 1.02 got %.3f" % CombatConstants.PARRY_DEFLECT_THRESHOLD
         )
     if not is_equal_approx(CombatConstants.PARRY_BIND_CONTROL_THRESHOLD, 0.65):
         _fail(

@@ -103,13 +103,9 @@ static func damage_resolve_note(result: Dictionary) -> String:
             return "armor stopped the strike (no tissue damage)"
         "glancing":
             var tissue: float = result.get("final_cut", 0.0) + result.get("final_blunt", 0.0)
-            var mech: float = result.get("mechanical_post_armor", -1.0)
-            var thresh: float = (
-                mech * CombatConstants.GLANCING_DAMAGE_RATIO
-                if mech > 0.0
-                else result.get("pre_armor", 0.0) * CombatConstants.GLANCING_DAMAGE_RATIO
-            )
-            return "glancing  -  tissue %.2f below %.2f threshold (not counted as HP loss)" % [tissue, thresh]
+            var total_phys: float = result.get("total_physical", 0.0)
+            var thresh: float = maxf(total_phys * CombatConstants.GLANCING_DAMAGE_RATIO, CombatConstants.GLANCING_DAMAGE_ABSOLUTE_FLOOR)
+            return "glancing  -  tissue %.2f below %.2f threshold (reduced recovery, minor wound)" % [tissue, thresh]
         "negligible":
             var phys: float = result.get("total_physical", 0.0)
             if result.get("rounded_zero_chip", false) or phys > CombatConstants.PHYSICAL_DAMAGE_ZERO_EPS:

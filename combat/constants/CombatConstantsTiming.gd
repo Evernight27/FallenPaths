@@ -21,7 +21,8 @@ const RECOVERY_MISS_COMMITMENT_SCALE_S: float = 0.9
 const RECOVERY_EXTRA_FULL_STOP_BASE_S: float = 0.5
 const RECOVERY_FULL_STOP_COMMITMENT_SCALE_S: float = 0.35
 const WINDUP_LEG_MIN: float = 0.2
-const WIND_UP_DURATION_MAX_S: float = 2.4
+const WIND_UP_DURATION_MAX_S: float = 2.0
+const WIND_UP_SOFT_CAP_S: float = 1.5
 const RECOVERY_AFTER_MEDICAL_S: float = 0.5
 
 # Power and follow_through (0.2-1.0 each); intensity drives velocity, wind-up, recovery.

@@ -1,8 +1,9 @@
 class_name ImpactVelocityModel
 extends RefCounted
 
-## Tier A: default tip-speed bands (m/s) per weapon template - -  contact_type (stab/cut/blunt).
-## Tier B: geometry multiplier from strike lever vs reference (~longsword cut arc).
+## Tier A: default tip-speed bands (m/s) per weapon template for contact_type (stab/cut/blunt).
+## Bands represent achievable tip speed (m/s) at _REFERENCE_STRIKE_RADIUS_M = 0.52m for each weapon type.
+## No geometry multiplier is applied — the rotational KE path converts v -> omega via actual lever arm.
 ## Tier C: optional per-weapon overrides in Weapon.impact_velocity_bands[contact] = Vector2 or {min,max}.
 ## Move ids map to contact via WeaponConstants.contact_type_for_move_id(move_id).
 
@@ -15,12 +16,19 @@ const UNARMED_VELOCITY_MAX_M_S := 10.0
 
 const _REFERENCE_STRIKE_RADIUS_M := 0.52
 
+## Calibrated bands: max produces realistic KE at committed intensity with full rotational inertia.
+## Band values represent achievable tip speed (m/s) at _REFERENCE_STRIKE_RADIUS_M for each weapon type.
+## No geometry multiplier is applied — the rotational KE path converts v -> omega via actual lever arm.
+## SWORD: I≈0.42, r=0.75, band_max=22.0 → KE≈133J at committed
+## AXE:   I≈1.07, r=1.11, band_max=20.0 → KE≈133J at committed
+## MACE:  I≈0.50, r=0.63, band_max=14.0 → KE≈105J at committed (reduced from old 20.5 which overshoots)
+## DAGGER: I≈0.008, r=0.29, band_max=20.0 → KE≈16J at committed (hand-speed limited)
+## SPEAR: I≈2.75, r=2.13, band_max=17.5 → KE≈72J at committed
 static var _default_bands: Dictionary = {
-    "SWORD": {"stab": Vector2(4.5, 17.0), "cut": Vector2(6.0, 22.0), "blunt": Vector2(5.0, 18.0)},
+    "SWORD": {"stab": Vector2(4.5, 17.0), "cut": Vector2(6.0, 19.0), "blunt": Vector2(5.0, 18.0)},
     "AXE": {"stab": Vector2(4.0, 15.0), "cut": Vector2(5.5, 20.0), "blunt": Vector2(5.5, 19.0)},
-    "MACE": {"stab": Vector2(6.0, 18.0), "cut": Vector2(7.0, 20.0), "blunt": Vector2(7.0, 20.5)},
+    "MACE": {"stab": Vector2(6.0, 18.0), "cut": Vector2(7.0, 14.0), "blunt": Vector2(7.0, 14.0)},
     "DAGGER": {"stab": Vector2(4.0, 18.0), "cut": Vector2(5.5, 20.0), "blunt": Vector2(4.0, 14.0)},
-    # vmax reduced from 17.5 (Tuning T3.2): shaft mass distribution limits tip speed on off-axis pole_swing.
     "SPEAR": {"stab": Vector2(5.0, 20.0), "cut": Vector2(5.5, 17.5), "blunt": Vector2(5.5, 12.0)}
 }
 
@@ -63,7 +71,7 @@ static func _tier_c_override(weapon: RefCounted, contact_type: String) -> Vector
     return Vector2(-1.0, -1.0)
 
 
-## Approximate strike radius (m) for scaling Tier B: longer lever -> slightly higher v_cap at same effort.
+## Approximate strike radius (m) used by WeaponSwingPhysics for lever arm and omega calculation.
 static func strike_radius_m(weapon: RefCounted, contact_type: String) -> float:
     if weapon == null:
         return _REFERENCE_STRIKE_RADIUS_M
@@ -101,15 +109,10 @@ static func strike_radius_m(weapon: RefCounted, contact_type: String) -> float:
     return clampf(melee_r * 0.36, 0.28, 0.92)
 
 
-static func geometry_velocity_multiplier(weapon: RefCounted, contact_type: String) -> float:
-    var r: float = strike_radius_m(weapon, contact_type)
-    if r <= 0.001:
-        return 1.0
-    var t: float = sqrt(clampf(r / _REFERENCE_STRIKE_RADIUS_M, 0.62, 1.38))
-    return clampf(t, 0.88, 1.15)
-
-
 ## Resolved (min,max) impact speed (m/s) for this weapon and contact stream.
+## Bands are calibrated at _REFERENCE_STRIKE_RADIUS_M; geometry scaling is NOT applied here because
+## the rotational KE path already converts band velocity -> omega via r, and the band values account
+## for the reference radius. Applying geometry would double-count the lever advantage.
 static func resolve_band_m_s(weapon: RefCounted, contact_type: String) -> Vector2:
     var ct: String = contact_type.to_lower()
     if weapon == null:
@@ -129,7 +132,7 @@ static func resolve_band_m_s(weapon: RefCounted, contact_type: String) -> Vector
         var base: Vector2 = _tier_a_default_band(wtype, ct)
         vmin = base.x
         vmax = base.y
-    var mult: float = geometry_velocity_multiplier(weapon, ct)
-    vmin = clampf(vmin * lerpf(1.0, mult, 0.38), ABS_VELOCITY_MIN_M_S, ABS_VELOCITY_MAX_M_S)
-    vmax = clampf(vmax * mult, vmin + 0.55, ABS_VELOCITY_MAX_M_S)
-    return Vector2(vmin, vmax)
+    return Vector2(
+        clampf(vmin, ABS_VELOCITY_MIN_M_S, ABS_VELOCITY_MAX_M_S),
+        clampf(vmax, vmin + 0.55, ABS_VELOCITY_MAX_M_S)
+    )

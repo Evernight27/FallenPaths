@@ -503,6 +503,11 @@ static func seconds_to_exsanguination(
 static func get_bleeding_rate(injury_type: String, severity: String, part: String, sub_region: String = "") -> float:
     var type_rates: Dictionary = BLEEDING_RATES.get(injury_type, {})
     var base_rate: float = type_rates.get(severity, 0.0)
+    # Critical wounds bleed disproportionately faster due to vessel damage and wound cavity formation
+    if severity == SEVERITY_CRITICAL:
+        base_rate *= 1.4
+    elif severity == SEVERITY_SEVERE:
+        base_rate *= 1.15
     var mult: float = BODY_PART_BLEEDING_MULTIPLIERS.get(part, 1.0)
     if not sub_region.is_empty():
         mult *= SUB_REGION_BLEEDING_MULTIPLIERS.get(part, {}).get(sub_region, 1.0)

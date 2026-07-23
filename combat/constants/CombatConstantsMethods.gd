@@ -531,6 +531,14 @@ static func exhaustion_performance_mult(exhaustion: float) -> float:
 	return Stamina.exhaustion_performance_mult(exhaustion)
 
 
+static func exhaustion_timing_mult(exhaustion: float) -> float:
+	return Stamina.exhaustion_timing_mult(exhaustion)
+
+
+static func exhaustion_power_mult(exhaustion: float) -> float:
+	return Stamina.exhaustion_power_mult(exhaustion)
+
+
 static func defender_passive_readiness_exhaustion_mult(combatant: Dictionary) -> float:
 	return Stamina.defender_passive_readiness_exhaustion_mult(combatant)
 

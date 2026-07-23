@@ -4,7 +4,7 @@ extends RefCounted
 ## Attack path tables and geometry functions extracted from CombatConstants.gd.
 ## Canonical source for body-part paths, angles, alignment, deflection logic.
 
-const PARRY_ALIGNMENT_FLOOR := 0.15
+const PARRY_ALIGNMENT_FLOOR := 0.0
 const GEOMETRIC_LEAK_MAX := 0.35
 const PARRY_GEOMETRY_VARIANCE_BASE := 0.08
 
@@ -135,7 +135,7 @@ const GUARD_WOBBLE_MASS_SCALE: float = 0.08
 const ARC_SPAN_LATE_PARRY_THRESHOLD_DEG: float = 50.0
 const ARC_SPAN_LATE_PARRY_PENALTY_MAX: float = 0.25
 
-const DODGE_FULL_THRESHOLD := 0.4
+const DODGE_FULL_THRESHOLD := 0.55
 const DODGE_PARTIAL_RATIO_MIN := 0.4
 const PARRY_FOLLOW_THROUGH_DODGE_EFFICIENCY := 0.67
 const PARRY_FOLLOW_THROUGH_PARTIAL_MIN := 0.5

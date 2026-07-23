@@ -77,6 +77,7 @@ var _cycle_start_strikes: int = 0
 var _cycle_outcome_counts: Dictionary = {}
 var _cycle_ke_samples: Array = []
 var _last_end_cause: String = ""
+var _cycle_contact_strikes: int = 0
 
 # Override state: maps combatant_id -> {move_id, target_id, intensity}
 var _tuning_override: Dictionary = {}
@@ -823,6 +824,7 @@ func _reset_cycle_exchange_stats() -> void:
 	_last_end_cause = ""
 	if manager != null:
 		manager.set_meta("tuning_strike_count", 0)
+	_cycle_contact_strikes = 0
 
 
 func _record_exchange_outcome(outcome: String, result: Dictionary) -> void:
@@ -835,6 +837,9 @@ func _record_exchange_outcome(outcome: String, result: Dictionary) -> void:
 	_strike_count += 1
 	if manager != null:
 		manager.set_meta("tuning_strike_count", _strike_count)
+	# Count only contact hits (not misses/dodges/parries) for meaningful strike stats.
+	if outcome in ["hit", "glancing", "negligible"]:
+		_cycle_contact_strikes += 1
 	_cycle_outcome_counts[outcome] = int(_cycle_outcome_counts.get(outcome, 0)) + 1
 	# Track bind as a subset annotation on its parent parry outcome.
 	if outcome in ["parry_deflect", "parry_partial"] and bool(result.get("parry_bind", false)):
@@ -1004,6 +1009,9 @@ func _batch_run_cycle_to_completion():
 	var logical_seconds: float = 0.0
 	var tick_delta: float = 0.1
 	var events_per_burst: int = 20
+	# Stalemate detection: if strike count hasn't changed for this many bursts, abort.
+	var stalemate_strike_checkpoint: int = -1
+	var stalemate_tolerance: int = 6
 
 	for _cycle in range(max_cycles):
 		if manager == null or not is_instance_valid(manager):
@@ -1017,6 +1025,19 @@ func _batch_run_cycle_to_completion():
 			break
 		if not eac.alive_bool(atk_c) or not eac.alive_bool(def_c):
 			break
+
+		# Stalemate check: no strikes logged for N consecutive bursts means combat is stuck.
+		var current_strikes: int = _strike_count
+		if stalemate_strike_checkpoint < 0:
+			stalemate_strike_checkpoint = current_strikes
+			stalemate_tolerance = 6
+		elif current_strikes == stalemate_strike_checkpoint:
+			stalemate_tolerance -= 1
+			if stalemate_tolerance <= 0:
+				_log_line("[Batch] stalemate detected (no strikes for %d bursts), ending cycle." % (6 - stalemate_tolerance))
+				break
+		else:
+			stalemate_strike_checkpoint = current_strikes
 
 		for _b in range(events_per_burst):
 			if manager == null or not is_instance_valid(manager):
@@ -1273,6 +1294,7 @@ func _resolve_tuning_matchup_winner(atk_c: Dictionary, def_c: Dictionary) -> Str
 func _log_cycle_summary() -> void:
 	_cycle_count += 1
 	var strikes_this_cycle: int = _strike_count - _cycle_start_strikes
+	var contacts_this_cycle: int = _cycle_contact_strikes
 	_cycle_total_strikes += strikes_this_cycle
 
 	var atk_c = _get_entity_access().manager_get_combatant(manager, attacker_id) if manager != null else {}
@@ -1322,6 +1344,7 @@ func _log_cycle_summary() -> void:
 		_cycle_count,
 		winner_name,
 		end_cause,
+		contacts_this_cycle,
 		strikes_this_cycle,
 		_cycle_outcome_counts,
 		_cycle_ke_samples,
@@ -1356,6 +1379,7 @@ func _log_batch_cycle_summary(
 	start_strikes: int
 ) -> void:
 	var strikes_this_cycle: int = _strike_count - start_strikes
+	var contacts_this_cycle: int = 0 # batch mode doesn't track per-cycle contact delta separately
 	var atk_c = _get_entity_access().manager_get_combatant(manager, attacker_id) if manager != null else {}
 	var def_c = _get_entity_access().manager_get_combatant(manager, defender_id) if manager != null else {}
 	var winner_side: String = _resolve_tuning_matchup_winner(atk_c, def_c)
@@ -1392,6 +1416,7 @@ func _log_batch_cycle_summary(
 		cycle_index,
 		winner_name,
 		end_cause,
+		contacts_this_cycle,
 		strikes_this_cycle,
 		_cycle_outcome_counts.duplicate(),
 		_cycle_ke_samples.duplicate(true),
@@ -1745,7 +1770,7 @@ func _open_batch_window() -> void:
 	var cycle_spin := SpinBox.new()
 	cycle_spin.min_value = 1
 	cycle_spin.max_value = 10000
-	cycle_spin.value = 3
+	cycle_spin.value = 5
 	cycle_spin.step = 1
 	cycle_spin.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	cycle_row.add_child(cycle_spin)

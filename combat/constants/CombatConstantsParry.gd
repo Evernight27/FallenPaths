@@ -3,7 +3,7 @@ extends RefCounted
 
 const PARRY_V_FRACTION_OF_MAX_STRIKE := 0.5
 const PARRY_STRENGTH_NORM := 100.0
-const PARRY_DEFLECT_THRESHOLD := 1.08
+const PARRY_DEFLECT_THRESHOLD := 1.02
 const PARRY_TECHNIQUE_VARIANCE := 0.15
 const PARRY_V_MIN_FRACTION := 0.2
 const PARRY_V_MIN_NEAR_DEFLECT := 0.1
@@ -37,8 +37,13 @@ const PARRY_PENETRATION_ANGLE_MIN := 0.72
 # Legacy: replaced by cosine obliquity model (AttackResolver.penetration_oblique_angle_factor). Kept for harness
 # regression tests.
 const PARRY_PENETRATION_ALIGNMENT_SCALE := 0.5
-const PARRY_PARTIAL_GUARD_ALIGNMENT_THRESHOLD := 0.6
+## Minimum alignment for "well-aligned" parry preference (cos(81°) ≈ 0.156). Below this, the guard is too misaligned
+## to reliably intercept — continuous scaling in _get_contact_geometry() still permits low-quality parries, but the
+## decision logic prefers dodge when alignment drops below this floor. Replaces the old 0.6 hard gate with a physically
+## grounded threshold that matches the minimum cosine alignment used by get_alignment_from_angles().
+const PARRY_PARTIAL_GUARD_ALIGNMENT_THRESHOLD := 0.15
 const PARRY_BIND_CONTROL_THRESHOLD := 0.65
+const PARRY_CONTROL_ALIGNMENT_FLOOR := 0.15
 const ARCHETYPES_NEVER_BIND: Array[String] = ["pommel_strike", "heavy_blunt"]
 const PARRY_BIND_RIPOSTE_BY_PART_CONTACT: Dictionary = {
     "blade": {"stab": 0.55, "cut": 0.78},
@@ -53,7 +58,7 @@ const PARRY_THRUST_CONTROL_MULT := 0.85
 const PARRY_DESPERATE_DODGE_THRESHOLD := 0.06
 const PARRY_PREFER_DODGE_FULL_THRESHOLD := 0.04
 const PARRY_MASS_DISPARITY_BONUS := 0.18
-const PARRY_LATE_CAPACITY_FLOOR := 0.22
+const PARRY_LATE_CAPACITY_FLOOR := 0.40
 const PARRY_CONTACT_MODIFIERS: Dictionary = {"blade": 1.0, "shaft": 0.88, "haft": 0.92}
 const PARRY_DEF_VS_ATK_MOD: Dictionary = {"DAGGER": {"stab": 0.9}, "MACE": {"blunt": 1.05}, "SPEAR": {"cut": 0.95}}
 const PARRY_INERTIA_BLEND: float = 0.5
@@ -92,6 +97,8 @@ static func parry_full_stop_reached(c_d: float, parry_p_a: float, is_block_parry
 static func parry_edge_deflect_reached(c_d: float, parry_p_a: float, alignment: float, is_block_parry: bool) -> bool:
     if is_block_parry:
         return false
+    # Edge deflect requires reasonable alignment (cos(81°) ≈ 0.15) and sufficient capacity surplus.
+    # Alignment below PARRY_PARTIAL_GUARD_ALIGNMENT_THRESHOLD means near-perpendicular contact — glancing only, no clean deflect.
     return alignment >= PARRY_PARTIAL_GUARD_ALIGNMENT_THRESHOLD and c_d >= parry_p_a * PARRY_DEFLECT_THRESHOLD
 
 
@@ -171,11 +178,40 @@ static func parry_control_for_bind_deflect(
     contact_type: String
 ) -> float:
     var margin_ratio: float = parry_deflect_margin_ratio(c_d_final, parry_p_a)
-    var margin_factor: float = clampf(margin_ratio, 0.5, 2.0)
-    var readiness_factor: float = parry_readiness * (PARRY_OFF_BALANCE_CONTROL_FACTOR if parry_off_balance else 1.0)
-    var timing_factor: float = PARRY_LATE_CONTROL_FACTOR if late_parry else 1.0
-    var p: float = clampf(margin_factor * alignment * readiness_factor * timing_factor, 0.0, 1.0)
+
+    # Alignment is the dominant factor — blade contact quality determines bind potential.
+    # Uses a power curve so that high alignment (>0.7) strongly favors binding,
+    # while low alignment (<0.4) still provides meaningful control (HEMA: any blade contact disrupts structure).
+    # PARRY_CONTROL_ALIGNMENT_FLOOR prevents absolute zero — even a "miracle" deflect via arm interpose
+    # grants minimal positional advantage because the attacker's momentum was wasted and the defender feel
+    # the impact point (Waffenfühlen), per Liechtenauer: every parry is the first half of a counterattack.
+    var alignment_weight: float = pow(clampf(maxf(alignment, PARRY_CONTROL_ALIGNMENT_FLOOR), 0.0, 1.0), 1.0)
+
+    # Readiness contributes additively to the margin factor (capacity bonus), not multiplicatively.
+    # This prevents readiness from acting as a "brake" — instead it helps achieve bind when
+    # alignment is decent but capacity is marginal.
+    var effective_margin: float
+
+    if margin_ratio >= 1.0:
+        # Deflect or better: margin_factor scales with actual capacity surplus.
+        effective_margin = clampf(margin_ratio, 0.5, 2.0) + parry_readiness * 0.4
+    else:
+        # Partial parry regime (below deflect threshold):
+        # HEMA realism — even overwhelmed defenders create blade friction and structural disruption.
+        # A parry absorbing 80% of momentum should grant ~2x the control of one absorbing 40%.
+        # The contact floor ensures ANY blade contact produces non-zero control (HEMA: Waffenfühlen).
+        var contact_floor: float = margin_ratio * 0.7 + 0.15  # [0.15, 0.85] when margin_ratio in [0, 1]
+        effective_margin = contact_floor + parry_readiness * 0.2
+
+    var p: float = alignment_weight * (effective_margin / 2.0)
+
+    if late_parry:
+        p *= PARRY_LATE_CONTROL_FACTOR
+    if parry_off_balance:
+        p *= PARRY_OFF_BALANCE_CONTROL_FACTOR
+
     var ct: String = contact_type.to_lower().strip_edges()
     if ct == "stab":
         p *= PARRY_THRUST_CONTROL_MULT
-    return p
+
+    return clampf(p, 0.0, 1.0)

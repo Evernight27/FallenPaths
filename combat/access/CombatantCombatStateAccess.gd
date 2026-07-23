@@ -157,11 +157,14 @@ static func get_hit_chance_performance_modifier(combatant: Dictionary) -> float:
     var node = node_variant(combatant)
     if node == null:
         return 1.0
+    var base_mod: float = 1.0
     if node.has_method("_get_hit_chance_performance_modifier"):
-        return node._get_hit_chance_performance_modifier()
-    if node.has_method("get_performance_modifier"):
-        return node.get_performance_modifier()
-    return 1.0
+        base_mod = node._get_hit_chance_performance_modifier()
+    elif node.has_method("get_performance_modifier"):
+        base_mod = node.get_performance_modifier()
+    return base_mod * CombatConstantsStamina.exhaustion_performance_mult(
+        combatant.get(CombatConstantsStamina.COMBATANT_KEY_EXHAUSTION, 0.0)
+    )
 
 
 ## Action-bar / gauge fill performance. Falls back to get_performance_modifier when unavailable.
@@ -172,11 +175,14 @@ static func get_action_bar_performance_modifier(combatant: Dictionary) -> float:
     var node = node_variant(combatant)
     if node == null:
         return 1.0
+    var base_mod: float = 1.0
     if node.has_method("_get_action_bar_performance_modifier"):
-        return node._get_action_bar_performance_modifier()
-    if node.has_method("get_performance_modifier"):
-        return node.get_performance_modifier()
-    return 1.0
+        base_mod = node._get_action_bar_performance_modifier()
+    elif node.has_method("get_performance_modifier"):
+        base_mod = node.get_performance_modifier()
+    return base_mod * CombatConstantsStamina.exhaustion_performance_mult(
+        combatant.get(CombatConstantsStamina.COMBATANT_KEY_EXHAUSTION, 0.0)
+    )
 
 
 ## True when the scene node reports dead (bleed-out, fatal wound, etc.).

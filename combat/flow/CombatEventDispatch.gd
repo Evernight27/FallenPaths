@@ -156,6 +156,7 @@ static func handle_recovery_end(manager: Node, c: Dictionary) -> void:
         return
     var cid: int = CombatantEntityAccess.id_int(c)
     CombatEventScheduler.cancel_pending_action_ready(manager, cid)
+    c.erase(CombatConstantsStamina.COMBATANT_KEY_CONSECUTIVE_ACTIONS)
     CombatStateHandlers.complete_recovery(manager, c)
     if CombatantEntityAccess.state_str(c) in [CombatConstants.STATE_WAITING, CombatConstants.STATE_COWERING]:
         if (

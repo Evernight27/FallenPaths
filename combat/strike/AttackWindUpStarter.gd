@@ -176,7 +176,11 @@ static func start(
         CombatFlurryBind.consume_exchange_on_wind_up_start(atk_d)
     wind_up_s = CombatExhaustion.apply_attacker_wind_up_exhaustion_mult(wind_up_s, atk_d)
     wind_up_s = CombatMuscleFatigue.apply_attacker_wind_up_mult(wind_up_s, atk_d, attack_type, manager)
-    wind_up_s = minf(wind_up_s, CombatConstants.WIND_UP_DURATION_MAX_S)
+    if wind_up_s > CombatConstantsTiming.WIND_UP_SOFT_CAP_S:
+        # Soft cap: each additional 0.1s above soft cap costs only 0.2s of real time
+        var excess: float = wind_up_s - CombatConstantsTiming.WIND_UP_SOFT_CAP_S
+        wind_up_s = CombatConstantsTiming.WIND_UP_SOFT_CAP_S + excess * 0.5
+    wind_up_s = minf(wind_up_s, CombatConstantsTiming.WIND_UP_DURATION_MAX_S)
     var gauge_atk_pre: float = float(atk_d.get(DataKeys.COMBATANT_GAUGE, 0.0))
     var gauge_def_pre: float = float(tgt_d.get(DataKeys.COMBATANT_GAUGE, 0.0))
     atk_d.gauge = 0.0

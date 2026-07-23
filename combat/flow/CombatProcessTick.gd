@@ -36,13 +36,19 @@ static func tick(manager: Node, delta: float) -> void:
     for c in manager.combatants:
         if not CombatantEntityAccess.alive_bool(c):
             continue
-        if c.get(DataKeys.COMBATANT_COMBAT_ABSENT, false):
-            continue
-        if c.get(CombatConstants.COMBATANT_KEY_SUSPEND_BLEED_TICK, false):
-            continue
         var adv_node: Node = CombatantEntityAccess.scene_node(c)
         if adv_node == null:
             continue
+        if c.get(DataKeys.COMBATANT_COMBAT_ABSENT, false) or c.get(CombatConstants.COMBATANT_KEY_SUSPEND_BLEED_TICK, false):
+            adv_node.exertion_active = false
+            continue
+        # Sync exertion flag: active combat states (wind-up, recovering) increase blood loss
+        # and reduce clotting effectiveness (lethal triad: movement, adrenaline, trauma).
+        var st: String = CombatantEntityAccess.state_str(c)
+        adv_node.exertion_active = (
+            st == CombatConstants.STATE_WIND_UP
+            or st == CombatConstants.STATE_RECOVERING
+        )
         # Advance bleeding/blood_loss tick, no healing
         if adv_node.has_method("process_bleeding"):
             adv_node.process_bleeding(delta)

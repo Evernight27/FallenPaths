@@ -27,6 +27,10 @@ const REFERENCE_HUMAN_LEG_TISSUE_DISPLAY := 16
 const COMMITTED_STRIKE_KE_J_MIN := 65.0
 const COMMITTED_STRIKE_KE_J_MAX := 145.0
 
+## Combat-realistic KE band: what a typical exchange produces (i≈0.55–0.75, commit≈0.7–0.9).
+const COMBAT_REALISTIC_KE_J_MIN := 35.0
+const COMBAT_REALISTIC_KE_J_MAX := 95.0
+
 ## Reference committed arm KE (oberhau i=1 + extension commit; M1/M2 curve anchors).
 const REFERENCE_COMMITTED_OBERHAU_KE_J := 137.0
 

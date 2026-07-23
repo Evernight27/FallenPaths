@@ -102,6 +102,7 @@ static func start(manager: Node, c: Dictionary, new_form: String, reason: String
 	var dur: float = CombatExhaustion.apply_attacker_wind_up_exhaustion_mult(base_dur, c)
 	var cost: float = stamina_cost(old_guard, new_guard)
 	c[DataKeys.COMBATANT_STAMINA] = maxf(0.0, CombatantEntityAccess.stamina_float(c) - cost)
+	CombatExhaustion.apply_exertion_from_stamina_spend(manager, c, cost)
 	c.state = CombatConstants.STATE_FORM_SWITCH
 	c.state_timer = 0.0
 	c.state_duration = dur

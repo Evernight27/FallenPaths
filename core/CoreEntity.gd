@@ -102,6 +102,10 @@ var effective_consciousness: float = 100.0  # for combat (after pain shock)
 # Optional bleed pacing overrides (default full ATLS drain; future explicit fluid resuscitation may raise recovery).
 var _combat_blood_loss_mult: float = 1.0
 var _combat_blood_recovery_per_s: float = 0.0
+## Active combat exertion flag: movement prevents clotting, adrenaline increases heart rate,
+## wounds reopen with exertion. Set by CombatProcessTick from combatant state; read by EntityWounds
+## for ~50% faster bleeding and ~40% reduced clotting during active combat.
+var exertion_active: bool = false
 ## Camp-2.4 permanent injuries; each entry `{ id, label, stamina_mult, pain_mult }`.
 var _campaign_supply_factor: float = 1.0
 
@@ -436,7 +440,17 @@ func is_dead() -> bool:
     for part in _get_vital_parts():
         if _is_part_destroyed(part):
             return true
-        if body_cutting.get(part, 0.0) <= 0.0 or body_blunt.get(part, 0.0) <= 0.0:
+        if body_cutting.get(part, 0.0) <= 0.0 and body_blunt.get(part, 0.0) <= 0.0:
+            return true
+    return false
+
+
+## True when a vital part has one health pool depleted but the other still carries damage.
+func is_vital_part_critically_damaged() -> bool:
+    for part in _get_vital_parts():
+        var cutting: float = body_cutting.get(part, 0.0)
+        var blunt: float = body_blunt.get(part, 0.0)
+        if (cutting <= 0.0 and blunt > 0.0) or (blunt <= 0.0 and cutting > 0.0):
             return true
     return false
 
@@ -452,7 +466,7 @@ func _get_death_reason() -> String:
             return "vital_part_destroyed (%s severed/crushed)" % part
         var cut: float = body_cutting.get(part, 0.0)
         var blunt: float = body_blunt.get(part, 0.0)
-        if cut <= 0.0 or blunt <= 0.0:
+        if cut <= 0.0 and blunt <= 0.0:
             return "vital_part_zero (%s cut=%.2f blunt=%.2f)" % [part, cut, blunt]
     return "unknown"
 

@@ -473,6 +473,7 @@ static func _compute_attack_weight_components(
     var counter_tempo_m: float = CounterTempo.counter_tempo_listing_weight_mult(manager, combatant_id, a, move_id)
     var attrition_m: float = CombatAIActionWeights._attrition_offense_weight_mult(manager, c)
     var exh_offense_m: float = CombatExhaustion.exhaustion_offense_weight_mult(c)
+    var decision_q_m: float = CombatExhaustion.decision_quality_mult(c)
     var mood_offense_m: float = CombatCampaignMoodBias.offense_action_weight_mult(
         CombatCampaignMoodBias.mood_bias_for_combatant(manager, c)
     )
@@ -493,6 +494,7 @@ static func _compute_attack_weight_components(
         * counter_tempo_m
         * attrition_m
         * exh_offense_m
+        * decision_q_m
         * mood_offense_m
     )
     if (

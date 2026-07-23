@@ -172,7 +172,7 @@ static func _surround_awareness_factor(defender: Dictionary) -> float:
         1.0
     )
     var base: float = lerpf(CombatConstants.SURROUND_AWARENESS_AT_LOW_PERCEPTION, 1.0, perc_norm)
-    return base * CombatExhaustion.performance_mult_for_combatant(defender)
+    return base * CombatExhaustion.timing_mult_for_combatant(defender)
 
 
 ## Sum of sector weights for each enemy that `can_melee_threaten` the defender (Tier 3.1 — uses
