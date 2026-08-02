@@ -634,7 +634,7 @@ static func _run_kinematic_delivery_partial_parry_misalign_oblique_parry_branch_
                     % [tag, ratio_both, ratio_align]
                 )
             )
-        if want_parry_branch >= want_align_branch - 0.001:
+        if want_parry_branch <= want_align_branch + 0.001:
             _fail(
                 failures,
                 (

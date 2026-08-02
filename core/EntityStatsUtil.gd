@@ -19,4 +19,8 @@ static func get_effective_stat(entity: Node, stat_name: String) -> float:
     var eff: float = float(entity.get(stat_name))
     if "_proficiency_bonus" in entity:
         eff += float(entity._proficiency_bonus.get(stat_name, 0))
+    # Apply permanent stat reduction from SIS catastrophic outcomes (Second Impact Syndrome).
+    if entity.has_method("get_meta") and EntityPainConsciousness.was_sis_catastrophic(entity):
+        var sis_reduction: float = EntityPainConsciousness.get_sis_perm_stat_reduction(entity)
+        eff *= (1.0 - sis_reduction)
     return eff

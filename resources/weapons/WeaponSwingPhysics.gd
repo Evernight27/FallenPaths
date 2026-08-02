@@ -9,6 +9,14 @@ const MIN_LEVER_M := 0.12
 const MIN_INERTIA_KG_M2 := 0.001
 
 
+## Maximum distance from grip to the weapon tip (m). Used by KE formula to compute angular velocity
+## from tip speed: ω = v / tip_radius, independent of which part strikes.
+static func tip_radius_m(weapon: Object) -> float:
+    if weapon == null or not weapon.has_method("has_parts") or not weapon.has_parts():
+        return MIN_LEVER_M
+    return com_distance_from_grip_m(weapon.parts, 0)
+
+
 static func _total_length_m_from_parts(parts: Array) -> float:
     var s: float = 0.0
     for p in parts:

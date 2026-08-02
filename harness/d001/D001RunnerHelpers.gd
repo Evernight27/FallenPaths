@@ -1,5 +1,6 @@
 class_name D001RunnerHelpers
 extends RefCounted
+
 ## Headless **D-001** preset fights: simulates F5 cyan soaks, captures **`FP_COMBAT`**, parses runbook grep targets.
 ## Mandatory **II-2b / II-5a - c** sign-off is headless-only via plausibility + **`BattleUIUpdater`** probes (see
 ## **`.d001_headless_signoff.txt`**).
@@ -67,6 +68,7 @@ static func _infer_soak_fight_winner(mgr: Node) -> String:
 
 
 static func _simulate_fight(mgr: Node, max_sec: float, preset_id: String) -> void:
+    mgr.set_meta("_fp_harness_diag", true)
     if not preset_id.is_empty():
         CombatF5SoakTrace.set_fight_profile(preset_id)
     else:

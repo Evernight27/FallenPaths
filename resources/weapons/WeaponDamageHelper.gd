@@ -2,7 +2,8 @@ class_name WeaponDamageHelper
 extends RefCounted
 
 ## Physics-leaning intensity mapping: low commitment stays near lower band, full commitment still reaches cap.
-const INTENSITY_VELOCITY_FLOOR_FACTOR := 0.35
+## Floor 0.50 keeps polearm thrusts above the 25 J thrust KE floor at realistic exchange intensity (i≈0.6).
+const INTENSITY_VELOCITY_FLOOR_FACTOR := 0.50
 ## Floor for effective delivery intensity (intensity - -  extension commit).
 const DELIVERY_INTENSITY_FLOOR := 0.05
 const DELIVERY_COMMIT_FLOOR := 0.05
@@ -151,7 +152,10 @@ static func strike_mass_kg(weapon: RefCounted, attack_instance: RefCounted) -> f
         return maxf(0.02, float(weapon.get_striking_part_mass_kg(ct)))
     # Velocity band is tip speed; effective mass is the part mass at contact point.
     # Blunt impacts concentrate more mass (head/haft); edged strikes use blade mass fraction.
+    var is_thrust: bool = ct == WeaponConstants.ATTACK_TYPE_STAB
     var is_blunt: bool = ct == WeaponConstants.ATTACK_TYPE_BLUNT
+    if is_thrust:
+        return 3.5
     return 0.55 if is_blunt else 0.40
 
 
@@ -268,7 +272,9 @@ static func _ke_swing_rotational(weapon: RefCounted, attack_instance: RefCounted
     if weapon.has_method("has_parts") and weapon.has_parts():
         var inertia_full: float = WeaponSwingPhysics.inertia_about_grip_kg_m2(weapon)
         var r: float = WeaponSwingPhysics.strike_lever_arm_m(weapon, ct)
-        var omega: float = WeaponSwingPhysics.omega_from_tip_speed(v, r)
+        var r_tip: float = WeaponSwingPhysics.tip_radius_m(weapon)
+        var v_impact: float = v * (r / maxf(r_tip, 0.01))
+        var omega: float = WeaponSwingPhysics.omega_from_tip_speed(v_impact, r)
         return WeaponSwingPhysics.rotational_ke_j(inertia_full, omega) * maxf(0.05, e_mult)
     return _ke_thrust_point_mass(weapon, attack_instance, v, e_mult)
 
@@ -287,11 +293,7 @@ static func compute_kinetic_energy_j(weapon: RefCounted, attack_instance: RefCou
         WeaponConstants.KINEMATIC_DELIVERY_THRUST:
             return _ke_thrust_point_mass(weapon, attack_instance, v, e_mult)
         WeaponConstants.KINEMATIC_DELIVERY_SWING:
-            var ke = _ke_swing_rotational(weapon, attack_instance, v, e_mult)
-            # Cap poll_strike KE to prevent unrealistic outliers from multiplier stacking.
-            if move_id == "poll_strike":
-                ke = minf(ke, 200.0)
-            return ke
+            return _ke_swing_rotational(weapon, attack_instance, v, e_mult)
         WeaponConstants.KINEMATIC_DELIVERY_MIXED:
             var b: float = 0.5
             if arch.has("kinematic_mixed_blend"):
@@ -416,6 +418,9 @@ static func compute_penetration(
         var pen_mm_rha: float = (
             pow(ke_j / WeaponConstants.J_PER_MM_BASE, WeaponConstants.PENETRATION_EXPONENT) * area_factor
         )
+        var contact_ct: String = WeaponConstants.contact_type_for_move_id(attack_type)
+        if contact_ct == WeaponConstants.ATTACK_TYPE_STAB:
+            pen_mm_rha *= WeaponConstants.STAB_PENETRATION_MULT
         pen_mm_rha = minf(pen_mm_rha, WeaponConstants.PENETRATION_KE_CAP_MM_RHA)
         return {"penetration_sharp": pen_mm_rha}
     # Blunt: transmission-only. Returns momentum_per_area and contact_cm for area coupling.
@@ -581,7 +586,7 @@ static func _get_contact_width_for_damage(weapon: RefCounted, attack_instance: R
     return WeaponConstants.BASELINE_CONTACT_CM
 
 
-# Cut ratio 0.0 - 1.0 for this move (rest blunt). From archetype or weapon blade_cut_ratio.
+# Cut ratio 0.0 - 1.0 for this move (rest blunt). From archetype or weapon blade_cut_ratio / stab_cut_ratio.
 # No weapon has 0% cutting: even maces can break skin (flanges/ridges); floor is MIN_CUT_RATIO.
 static func get_cut_ratio(weapon: RefCounted, attack_type: String, archetype_dict: Dictionary) -> float:
     var cr: float = 0.75
@@ -590,8 +595,17 @@ static func get_cut_ratio(weapon: RefCounted, attack_type: String, archetype_dic
     elif weapon is Object and weapon.has_method("get_damage_type"):
         if weapon.get_damage_type(attack_type) == WeaponConstants.DAMAGE_TYPE_BLUNT:
             cr = 0.0
-        elif "blade_cut_ratio" in weapon:
-            cr = clampf(float(weapon.blade_cut_ratio), 0.0, 1.0)
-    elif weapon != null and "blade_cut_ratio" in weapon:
-        cr = clampf(float(weapon.blade_cut_ratio), 0.0, 1.0)
+        else:
+            cr = _weapon_cut_ratio_for_attack(weapon, attack_type)
+    elif weapon != null:
+        cr = _weapon_cut_ratio_for_attack(weapon, attack_type)
     return maxf(cr, WeaponConstants.MIN_CUT_RATIO)
+
+
+static func _weapon_cut_ratio_for_attack(weapon: Variant, attack_type: String) -> float:
+    var move_def: Dictionary = WeaponConstants.get_move(attack_type)
+    if move_def.get("contact_type", "") == WeaponConstants.ATTACK_TYPE_STAB and "stab_cut_ratio" in weapon:
+        return clampf(float(weapon.stab_cut_ratio), 0.0, 1.0)
+    if "blade_cut_ratio" in weapon:
+        return clampf(float(weapon.blade_cut_ratio), 0.0, 1.0)
+    return 0.75

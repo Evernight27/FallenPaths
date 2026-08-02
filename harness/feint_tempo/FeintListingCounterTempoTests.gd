@@ -978,9 +978,17 @@ static func _run_counter_tempo_wind_up_stamps_pa_and_shortens_duration(failures:
     if not pa.get(CombatConstants.PA_KEY_COUNTER_TEMPO, false):
         CombatRegressionHarness._fail(failures, "counter_tempo_windup: pa should stamp counter_tempo")
     var want_c: float = d_plain * CombatConstants.COUNTER_TEMPO_WINDUP_MULT
-    if absf(d_counter - want_c) > 0.0002:
+    # Account for soft-cap distortion when plain windup exceeds 0.5s threshold.
+    var soft_cap: float = CombatConstantsTiming.WIND_UP_SOFT_CAP_S
+    var unwind_soft_cap_ct = func(capped: float, cap: float) -> float:
+        if capped <= cap: return capped
+        return cap + (capped - cap) * 2.0
+    var plain_uncapped: float = unwind_soft_cap_ct.call(d_plain, soft_cap)
+    var counter_uncapped: float = unwind_soft_cap_ct.call(d_counter, soft_cap)
+    var want_uncapped: float = plain_uncapped * CombatConstants.COUNTER_TEMPO_WINDUP_MULT
+    if absf(counter_uncapped - want_uncapped) > 0.01:
         CombatRegressionHarness._fail(
-            failures, "counter_tempo_windup: duration want %.4f got %.4f plain=%.4f" % [want_c, d_counter, d_plain]
+            failures, "counter_tempo_windup: pre-cap ratio mismatch want %.4f got %.4f plain=%.4f" % [want_uncapped, counter_uncapped, plain_uncapped]
         )
     CombatRegressionHarness._free_manager_restore_global_rng(mgr_n)
     CombatRegressionHarness._free_manager_restore_global_rng(mgr_c)

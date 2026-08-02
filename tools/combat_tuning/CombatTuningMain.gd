@@ -290,6 +290,14 @@ func _on_action_resolved(attacker_id_sig: int, target_id_sig: int, result: Dicti
 	var outcome: String = _Formatter.exchange_outcome(log_result)
 	_record_exchange_outcome(outcome, log_result)
 
+	if outcome == "reject":
+		var mid: String = str(log_result.get("move_id", "")).strip_edges()
+		if atk_name == "?" and tgt_name == "?" and mid in ["", "?"]:
+			return
+		var reject_line: String = "[HEMA] %s %s | outcome=reject" % [atk_name, mid if not mid.is_empty() else "?"]
+		_log_line(reject_line)
+		return
+
 	var gauge_atk: float = float(log_result.get(DataKeys.PA_GAUGE_ATK_PRE, 0.0))
 	var gauge_def: float = float(log_result.get(DataKeys.PA_GAUGE_DEF_PRE, 0.0))
 	if _batch_running and _batch_csv_lines.size() > 0:
@@ -846,7 +854,7 @@ func _record_exchange_outcome(outcome: String, result: Dictionary) -> void:
 		_cycle_outcome_counts["parry_bind"] = int(_cycle_outcome_counts.get("parry_bind", 0)) + 1
 	var sample: Dictionary = _Formatter.ke_sample_from_result(result)
 	var ke_j: float = float(sample.get("ke_j", 0.0))
-	if ke_j > 0.0 or outcome in ["parry_deflect", "parry_partial"]:
+	if ke_j > 0.0:
 		_cycle_ke_samples.append(sample)
 
 
@@ -1011,7 +1019,7 @@ func _batch_run_cycle_to_completion():
 	var events_per_burst: int = 20
 	# Stalemate detection: if strike count hasn't changed for this many bursts, abort.
 	var stalemate_strike_checkpoint: int = -1
-	var stalemate_tolerance: int = 6
+	var stalemate_tolerance: int = 10
 
 	for _cycle in range(max_cycles):
 		if manager == null or not is_instance_valid(manager):
@@ -1030,7 +1038,7 @@ func _batch_run_cycle_to_completion():
 		var current_strikes: int = _strike_count
 		if stalemate_strike_checkpoint < 0:
 			stalemate_strike_checkpoint = current_strikes
-			stalemate_tolerance = 6
+			stalemate_tolerance = 10
 		elif current_strikes == stalemate_strike_checkpoint:
 			stalemate_tolerance -= 1
 			if stalemate_tolerance <= 0:
@@ -1770,7 +1778,7 @@ func _open_batch_window() -> void:
 	var cycle_spin := SpinBox.new()
 	cycle_spin.min_value = 1
 	cycle_spin.max_value = 10000
-	cycle_spin.value = 5
+	cycle_spin.value = 3
 	cycle_spin.step = 1
 	cycle_spin.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	cycle_row.add_child(cycle_spin)

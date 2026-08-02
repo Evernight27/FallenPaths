@@ -157,7 +157,12 @@ static func decision_quality_mult(combatant: Dictionary) -> float:
     if not CombatConstants.is_feature_fight_exhaustion_enabled() or combatant.is_empty():
         return 1.0
     var ms: float = combatant.get(CombatConstantsStamina.COMBATANT_KEY_METABOLIC_STRESS, 0.0)
-    return CombatConstantsStamina.metabolic_stress_decision_mult(ms)
+    var metabolic_m: float = CombatConstantsStamina.metabolic_stress_decision_mult(ms)
+    # Concussion overrides decision quality — head trauma degrades cognition regardless of metabolic state.
+    var entity_node = CombatantEntityAccess.scene_node(combatant)
+    if entity_node != null and entity_node.has_method("get_decision_quality_mult"):
+        return minf(metabolic_m, EntityPainConsciousness.get_decision_quality_mult(entity_node))
+    return metabolic_m
 
 
 static func process_waiting_recovery(combatant: Dictionary, delta: float) -> void:

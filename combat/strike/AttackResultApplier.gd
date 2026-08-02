@@ -74,13 +74,25 @@ static func _consume_stamina(manager: Node, c: Dictionary, amount: float) -> voi
     CombatExhaustion.apply_exertion_from_stamina_spend(manager, c, amount)
 
 
-static func _stamina_parry_cost_for_defender(atk: Dictionary, incoming_intensity: float = -1.0) -> float:
+static func _stamina_parry_cost_for_defender(atk: Dictionary, incoming_intensity: float = -1.0, consecutive_parry_count: int = 1) -> float:
     var i: float = incoming_intensity
     if i < 0.0:
         i = 0.5
         if not atk.is_empty():
             i = _pending_attack_read(atk).get(DataKeys.ATTACK_INTENSITY, 0.5)
-    return CombatConstants.stamina_parry_cost_from_intensity(i)
+    var base_cost: float = CombatConstants.stamina_parry_cost_from_intensity(i)
+    # Consecutive parry fatigue: repeated parrying without full recovery compounds stamina drain.
+    if consecutive_parry_count > 1:
+        base_cost *= CombatConstants.consecutive_parry_stamina_mult(consecutive_parry_count)
+    return base_cost
+
+static func _stamina_dodge_cost_for_defender(atk: Dictionary, intensity: float = -1.0) -> float:
+    var i: float = intensity
+    if i < 0.0:
+        i = 0.5
+        if not atk.is_empty():
+            i = _pending_attack_read(atk).get(DataKeys.ATTACK_INTENSITY, 0.5)
+    return CombatConstants.stamina_dodge_cost_from_intensity(i)
 
 
 static func _stamina_attack_cost_for_attacker(manager: Node, atk: Dictionary, target_id: int) -> float:
@@ -113,6 +125,19 @@ static func _track_consecutive_action_start(c: Dictionary) -> void:
         return
     var count: int = c.get(CombatConstantsStamina.COMBATANT_KEY_CONSECUTIVE_ACTIONS, 0) + 1
     c[CombatConstantsStamina.COMBATANT_KEY_CONSECUTIVE_ACTIONS] = count
+
+
+static func _track_consecutive_parry_for_defender(tgt: Dictionary) -> int:
+    if tgt.is_empty():
+        return 1
+    var state: String = tgt.get(DataKeys.COMBATANT_STATE, "")
+    # If defender is in recovery, parry streak resets.
+    if state == CombatConstants.STATE_RECOVERING:
+        tgt[CombatConstantsStamina.COMBATANT_KEY_CONSECUTIVE_PARRIES] = 1
+        return 1
+    var count: int = tgt.get(CombatConstantsStamina.COMBATANT_KEY_CONSECUTIVE_PARRIES, 0) + 1
+    tgt[CombatConstantsStamina.COMBATANT_KEY_CONSECUTIVE_PARRIES] = count
+    return count
 
 
 static func _pending_attack_read(atk: Dictionary) -> Dictionary:
@@ -381,6 +406,8 @@ static func apply_result(manager: Node, attacker_id: int, result: Dictionary) ->
             atk.state_timer = 0.0
             atk.state_duration = result.get(DataKeys.ATTACK_RECOVERY_DURATION, 0.5)
         if not tgt.is_empty():
+            var dodge_intensity: float = _pending_attack_read(atk).get(DataKeys.ATTACK_INTENSITY, 0.5) if not atk.is_empty() else 0.5
+            _consume_stamina(manager, tgt, _stamina_dodge_cost_for_defender(atk, dodge_intensity))
             # Defender moved to avoid; blade/body ends in dodge position (e.g. duck high attack -> low guard).
             # Use effective_attack_line for diagonal moves (actual trajectory).
             var pa: Dictionary = _pending_attack_read(atk) if not atk.is_empty() else {}
@@ -434,7 +461,8 @@ static func apply_result(manager: Node, attacker_id: int, result: Dictionary) ->
             atk.state_duration = result.get(DataKeys.ATTACK_RECOVERY_DURATION, 0.5)
             atk[DataKeys.PA_OFF_BALANCE_UNTIL] = CombatTiming.now_seconds() + CombatConstants.OFF_BALANCE_DURATION_S
         if not tgt.is_empty():
-            _consume_stamina(manager, tgt, _stamina_parry_cost_for_defender(atk, incoming_parry_intensity))
+            var consec_parries: int = _track_consecutive_parry_for_defender(tgt)
+            _consume_stamina(manager, tgt, _stamina_parry_cost_for_defender(atk, incoming_parry_intensity, consec_parries))
             # Weapon position: defender's blade met attacker's; blade ends in attack line.
             # Use effective_attack_line for diagonal moves (actual contact line).
             var move_id: String = atk.get(DataKeys.PA_LAST_MOVE_ID, atk.get(DataKeys.ATTACK_LAST_MOVE_ID, "")) if not atk.is_empty() else ""
@@ -499,7 +527,8 @@ static func apply_result(manager: Node, attacker_id: int, result: Dictionary) ->
                 atk[DataKeys.PA_DEFENDER_GUARD_LINE_AT_PARRY] = tgt.get(DataKeys.ATTACK_GUARD_LINE, CombatConstants.GUARD_DEFAULT)
                 atk[DataKeys.PA_DEFENDER_FORM_AT_PARRY] = CombatantEntityAccess.form_str(tgt)
         if not tgt.is_empty():
-            _consume_stamina(manager, tgt, _stamina_parry_cost_for_defender(atk, incoming_partial_intensity))
+            var consec_parries_partial: int = _track_consecutive_parry_for_defender(tgt)
+            _consume_stamina(manager, tgt, _stamina_parry_cost_for_defender(atk, incoming_partial_intensity, consec_parries_partial))
             var pa_partial: Dictionary = _pending_attack_read(atk) if not atk.is_empty() else {}
             if not pa_partial.is_empty():
                 _record_resolved_exchange_yomi(tgt, attacker_id, pa_partial, true)
@@ -599,6 +628,19 @@ static func apply_result(manager: Node, attacker_id: int, result: Dictionary) ->
         var rd_raw: Variant = result.get(DataKeys.RESULT_RESULT_DICT, null)
         var result_dict: Dictionary = rd_raw if rd_raw is Dictionary else {}
         var intensity: float = result.get(DataKeys.ATTACK_INTENSITY, 0.5)
+        # Harness diagnostic: log every hit outcome so we can trace damage accumulation vs lethality.
+        if manager != null and manager.has_meta("_fp_harness_diag") and bool(manager.get_meta("_fp_harness_diag")):
+            var atk_name: String = CombatantEntityAccess.get_display_name(atk, attacker_id)
+            var tgt_name: String = CombatantEntityAccess.get_display_name(tgt, target_id) if not tgt.is_empty() else "?"
+            var died_flag: bool = result_dict.get(CombatConstants.RESULT_KEY_DIED, false)
+            var final_cut: float = result_dict.get("final_cut", 0.0)
+            var final_blunt: float = result_dict.get("final_blunt", 0.0)
+            var dmg: int = result_dict.get("dmg", 0)
+            var part: String = result_dict.get("part", "")
+            CombatDebug.harness_diag(
+                "hit_resolve atk=%s tgt=%s id=%d->%d part=%s cut=%.1f blunt=%.1f dmg=%d died=%s"
+                % [atk_name, tgt_name, attacker_id, target_id, part, final_cut, final_blunt, dmg, str(died_flag)]
+            )
         var winner: String = ""
         if result_dict.get(CombatConstants.RESULT_KEY_DIED, false):
             _abort_incoming_wind_up_if_target_died(manager, target_id)

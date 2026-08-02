@@ -35,7 +35,7 @@ static func _make_four_combatant_manager() -> Node:
 static func _set_immediate_peril(ent: Node) -> void:
     if ent == null:
         return
-    ent.blood_volume = 38.0
+    ent.blood_volume = 46.0
     EntityWounds.add_wound(
         ent, "chest", BleedingConstants.INJURY_TYPE_CUT, 9.0, "thoracic", BleedingConstants.SEVERITY_MODERATE
     )

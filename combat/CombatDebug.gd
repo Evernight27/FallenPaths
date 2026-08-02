@@ -55,6 +55,13 @@ static func resolve_action_rejected(
     )
     if operational:
         operational_warn("resolve_rejected id=%d move=%s -- %s" % [attacker_id, mid, reason])
+    # Log focus_line outcomes explicitly so the candidate move is visible.
+    if not move_id.is_empty() and move_id.begins_with("focus_"):
+        var target_line: String = CombatConstants.guard_line_for_focus_move_id(move_id)
+        flow_log_event(
+            "focus_line_candidate id=%d move=%s line=%s -- %s" % [attacker_id, move_id, target_line, reason],
+            "focus_line:%d:%s" % [attacker_id, target_line]
+        )
     if manager != null and manager.has_method("skip_turn"):
         manager.skip_turn(attacker_id, CombatConstants.SKIP_TURN_LOG_REJECT, reason)
 
@@ -135,6 +142,12 @@ static func flow_log(msg: String, dedupe_key: String = "") -> void:
     print("[Combat.Flow] ", msg)
 
 
+## Unconditional harness diagnostic log — always prints regardless of quiet mode or debug flags.
+## Use for critical path diagnostics in headless harness runs (winner checks, hit outcomes, AI commits).
+static func harness_diag(msg: String) -> void:
+    print("[Combat.Harness] ", msg)
+
+
 ## Vacancy plug / rank-0 reconcile. Toggle `CombatConstants.COMBAT_FORMATION_VACANCY_DEBUG`.
 static func formation_vacancy_log(msg: String) -> void:
     if CombatConstants.COMBAT_FORMATION_VACANCY_DEBUG:
@@ -193,7 +206,7 @@ static func _medical_turn_vitals_suffix(manager: Node, choice: Dictionary) -> St
 static func _is_non_damage_turn_pick(move_id: String) -> bool:
     if move_id.is_empty():
         return false
-    if move_id == CombatConstants.MOVE_ID_WAIT or move_id == "pass":
+    if move_id == CombatConstants.MOVE_ID_WAIT:
         return true
     if move_id.begins_with("focus_"):
         return true
@@ -206,7 +219,7 @@ static func _is_non_damage_turn_pick(move_id: String) -> bool:
 static func turn_pick_kind_suffix(move_id: String) -> String:
     if move_id.begins_with("focus_"):
         return " . Focus"
-    if move_id == CombatConstants.MOVE_ID_WAIT or move_id == "pass":
+    if move_id == CombatConstants.MOVE_ID_WAIT:
         return " . Hold"
     if move_id.begins_with(CombatConstants.MOVE_ID_ATTEMPT_CLOSE):
         return " . Close"
@@ -384,3 +397,11 @@ static func _format_depth_polearm_melee_context_debug(
             " ; ".join(bits)
         ]
     )
+
+
+## Harness diagnostic: log every resolve() call with its outcome.
+static func harness_resolve_result(manager: Node, attacker_id: int, move_id: String, committed: bool) -> void:
+    if not (manager != null and manager.has_meta("_fp_harness_diag") and bool(manager.get_meta("_fp_harness_diag"))):
+        return
+    var atk_name: String = CombatantEntityAccess.get_display_name(CombatantEntityAccess.manager_get_combatant(manager, attacker_id), attacker_id)
+    harness_diag("ai_resolve id=%d name=%s move=%s committed=%s" % [attacker_id, atk_name, move_id, str(committed)])

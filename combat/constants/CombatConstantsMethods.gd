@@ -161,12 +161,12 @@ static func _get_entity_access() -> GDScript:
 	return load("res://combat/access/CombatantEntityAccess.gd") as GDScript
 
 
-static func parry_full_stop_reached(c_d: float, parry_p_a: float, is_block_parry: bool) -> bool:
-	return Parry.parry_full_stop_reached(c_d, parry_p_a, is_block_parry)
+static func parry_full_stop_reached(c_d: float, parry_p_a: float, is_block_parry: bool, contact_type: String = "") -> bool:
+	return Parry.parry_full_stop_reached(c_d, parry_p_a, is_block_parry, contact_type)
 
 
-static func parry_edge_deflect_reached(c_d: float, parry_p_a: float, alignment: float, is_block_parry: bool) -> bool:
-	return Parry.parry_edge_deflect_reached(c_d, parry_p_a, alignment, is_block_parry)
+static func parry_edge_deflect_reached(c_d: float, parry_p_a: float, alignment: float, is_block_parry: bool, contact_type: String = "") -> bool:
+	return Parry.parry_edge_deflect_reached(c_d, parry_p_a, alignment, is_block_parry, contact_type)
 
 
 static func parry_bind_control_reached(parry_control: float) -> bool:
@@ -176,9 +176,33 @@ static func parry_bind_control_reached(parry_control: float) -> bool:
 static func iii3_baseline_constants_line() -> String:
 	return Parry.iii3_baseline_constants_line()
 
-
 static func p4d_parry_bind_doc_sync_line() -> String:
 	return Parry.p4d_parry_bind_doc_sync_line()
+
+
+static func classify_parry_timing(parried_at_windup_frac: float, proactive_threshold: float = Parry.PARRY_PROACTIVE_WINDOW_FRAC) -> String:
+	return Parry.classify_parry_timing(parried_at_windup_frac, proactive_threshold)
+
+
+static func parry_timing_capacity_mult(timing_class: String) -> float:
+	return Parry.parry_timing_capacity_mult(timing_class)
+
+
+static func parry_timing_control_bonus(timing_class: String) -> float:
+	return Parry.parry_timing_control_bonus(timing_class)
+
+
+static func parry_thrust_recovery_mult(intensity: float) -> float:
+	return Parry.parry_thrust_recovery_mult(intensity)
+
+
+static func consecutive_parry_stamina_mult(consecutive: int) -> float:
+	return Stamina.consecutive_parry_stamina_mult(consecutive)
+
+
+static func parry_thrust_commitment_penalty() -> float:
+	return Parry.PARRY_THRUST_LINEAR_COMMITMENT_PENALTY
+
 
 
 static func is_feature_combat_attention_enabled() -> bool:
@@ -513,6 +537,9 @@ static func stamina_attack_cost_from_intensity(intensity: float) -> float:
 
 static func stamina_parry_cost_from_intensity(intensity: float) -> float:
 	return Stamina.stamina_parry_cost_from_intensity(intensity)
+
+static func stamina_dodge_cost_from_intensity(intensity: float) -> float:
+	return Stamina.stamina_dodge_cost_from_intensity(intensity)
 
 
 static func action_ready_stamina_delay_mult(stamina_ratio: float) -> float:

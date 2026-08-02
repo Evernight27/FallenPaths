@@ -30,7 +30,7 @@ static func _copy_core_stats(entity: Node, stats: Dictionary) -> void:
         stats.bone_max = entity.bone_max.duplicate()
     if "body_max" in entity:
         stats.body_max = entity.body_max.duplicate()
-    # Core stats '"" apply proficiency bonuses when system is enabled.
+    # Core stats — apply proficiency bonuses and SIS permanent stat reduction when system is enabled.
     var prof_active: bool = _get_company_state().read_stub_proficiency_enabled()
     if "strength" in entity:
         stats.strength = _apply_prof_bonus(entity, "strength", entity.strength, prof_active)
@@ -44,6 +44,12 @@ static func _copy_core_stats(entity: Node, stats: Dictionary) -> void:
         stats.endurance = _apply_prof_bonus(entity, "endurance", entity.endurance, prof_active)
     if "perception" in entity:
         stats.perception = _apply_prof_bonus(entity, "perception", entity.perception, prof_active)
+    # Apply SIS permanent stat reduction to combatant-level stats (Issue 1 — Second Impact Syndrome).
+    if entity.has_method("get_meta") and EntityPainConsciousness.was_sis_catastrophic(entity):
+        var sis_reduction: float = EntityPainConsciousness.get_sis_perm_stat_reduction(entity)
+        for key in ["strength", "agility", "intelligence", "endurance", "perception"]:
+            if key in stats:
+                stats[key] = int(stats[key] * (1.0 - sis_reduction))
 
 
 ## Applies proficiency bonus to a single stat value. Returns raw value when stub is off or entity lacks proficiency

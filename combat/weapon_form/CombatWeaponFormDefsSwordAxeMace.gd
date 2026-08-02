@@ -19,6 +19,18 @@ static func _neutral_mod() -> Dictionary:
     }
 
 
+static func _stamina_cost_for_pressure(pressure_class: String) -> float:
+    match pressure_class:
+        "aggressive":
+            return 1.25
+        "controlling":
+            return 1.12
+        "defensive":
+            return 0.88
+        _:
+            return 1.0
+
+
 static func _sword_forms() -> Dictionary:
     return {
         "wall":
@@ -29,6 +41,8 @@ static func _sword_forms() -> Dictionary:
             "pressure_class": "defensive",
             "min_stamina_ratio": 0.18,
             "wait_weight_mult": 1.35,
+            "stamina_cost_mult": CombatWeaponFormDefsSwordAxeMace._stamina_cost_for_pressure("defensive"),
+            "cooldown_modifiers": {"windup": 1.10, "recovery": 1.08},
             "mod":
             {
                 "parry": 1.2,
@@ -75,6 +89,8 @@ static func _sword_forms() -> Dictionary:
             "pressure_class": "neutral",
             "min_stamina_ratio": 0.22,
             "wait_weight_mult": 1.0,
+            "stamina_cost_mult": CombatWeaponFormDefsSwordAxeMace._stamina_cost_for_pressure("neutral"),
+            "cooldown_modifiers": {"windup": 1.0, "recovery": 1.0},
             "mod": CombatWeaponFormDefsSwordAxeMace._neutral_mod(),
             "move_family_mult": {},
             "move_id_mult": {},
@@ -92,6 +108,8 @@ static func _sword_forms() -> Dictionary:
             "pressure_class": "aggressive",
             "min_stamina_ratio": 0.28,
             "wait_weight_mult": 0.85,
+            "stamina_cost_mult": CombatWeaponFormDefsSwordAxeMace._stamina_cost_for_pressure("aggressive"),
+            "cooldown_modifiers": {"windup": 0.88, "recovery": 1.18},
             "mod":
             {
                 "parry": 0.8,
@@ -141,6 +159,8 @@ static func _sword_forms() -> Dictionary:
             "pressure_class": "controlling",
             "min_stamina_ratio": 0.24,
             "wait_weight_mult": 0.95,
+            "stamina_cost_mult": CombatWeaponFormDefsSwordAxeMace._stamina_cost_for_pressure("controlling"),
+            "cooldown_modifiers": {"windup": 1.02, "recovery": 1.04},
             "mod":
             {
                 "parry": 1.0,
@@ -195,6 +215,8 @@ static func _sword_forms() -> Dictionary:
             "pressure_class": "neutral",
             "min_stamina_ratio": 0.2,
             "wait_weight_mult": 1.0,
+            "stamina_cost_mult": CombatWeaponFormDefsSwordAxeMace._stamina_cost_for_pressure("neutral"),
+            "cooldown_modifiers": {"windup": 0.96, "recovery": 0.98},
             "mod":
             {
                 "parry": 1.08,
@@ -240,6 +262,8 @@ static func _sword_forms() -> Dictionary:
             "pressure_class": "neutral",
             "min_stamina_ratio": 0.22,
             "wait_weight_mult": 1.0,
+            "stamina_cost_mult": CombatWeaponFormDefsSwordAxeMace._stamina_cost_for_pressure("neutral"),
+            "cooldown_modifiers": {"windup": 0.95, "recovery": 1.02},
             "mod":
             {
                 "parry": 1.14,
@@ -281,6 +305,8 @@ static func _sword_forms() -> Dictionary:
             "pressure_class": "aggressive",
             "min_stamina_ratio": 0.26,
             "wait_weight_mult": 0.9,
+            "stamina_cost_mult": CombatWeaponFormDefsSwordAxeMace._stamina_cost_for_pressure("aggressive"),
+            "cooldown_modifiers": {"windup": 0.90, "recovery": 1.15},
             "mod":
             {
                 "parry": 0.84,
@@ -329,6 +355,8 @@ static func _sword_forms() -> Dictionary:
             "pressure_class": "controlling",
             "min_stamina_ratio": 0.15,
             "wait_weight_mult": 1.1,
+            "stamina_cost_mult": CombatWeaponFormDefsSwordAxeMace._stamina_cost_for_pressure("controlling"),
+            "cooldown_modifiers": {"windup": 1.08, "recovery": 1.12},
             "mod":
             {
                 "parry": 0.92,
@@ -385,6 +413,8 @@ static func _sword_forms() -> Dictionary:
             "pressure_class": "controlling",
             "min_stamina_ratio": 0.12,
             "wait_weight_mult": 1.15,
+            "stamina_cost_mult": CombatWeaponFormDefsSwordAxeMace._stamina_cost_for_pressure("controlling"),
+            "cooldown_modifiers": {"windup": 1.15, "recovery": 1.20},
             "mod":
             {
                 "parry": 0.82,
@@ -440,7 +470,7 @@ static func _sword_forms() -> Dictionary:
 static func _axe_forms() -> Dictionary:
     # Le Jeu de la Hache: demi-hache ready, bec/spike point, queue bind.
     return {
-        "balanced": CombatWeaponFormDefsDaggerSpear._balanced_entry("Balanced"),
+        "balanced": _axe_balanced_entry(),
         "wall":
         {
             "display_name": "High Ward",
@@ -449,6 +479,8 @@ static func _axe_forms() -> Dictionary:
             "pressure_class": "defensive",
             "min_stamina_ratio": 0.20,
             "wait_weight_mult": 1.3,
+            "stamina_cost_mult": CombatWeaponFormDefsSwordAxeMace._stamina_cost_for_pressure("defensive"),
+            "cooldown_modifiers": {"windup": 1.12, "recovery": 1.06},
             "mod":
             {
                 "parry": 1.18,
@@ -488,6 +520,8 @@ static func _axe_forms() -> Dictionary:
             "pressure_class": "aggressive",
             "min_stamina_ratio": 0.28,
             "wait_weight_mult": 0.88,
+            "stamina_cost_mult": CombatWeaponFormDefsSwordAxeMace._stamina_cost_for_pressure("aggressive"),
+            "cooldown_modifiers": {"windup": 0.90, "recovery": 1.20},
             "mod":
             {
                 "parry": 0.85,
@@ -541,6 +575,8 @@ static func _axe_forms() -> Dictionary:
             "pressure_class": "neutral",
             "min_stamina_ratio": 0.22,
             "wait_weight_mult": 1.0,
+            "stamina_cost_mult": CombatWeaponFormDefsSwordAxeMace._stamina_cost_for_pressure("neutral"),
+            "cooldown_modifiers": {"windup": 0.94, "recovery": 1.00},
             "mod":
             {
                 "parry": 1.05,
@@ -580,6 +616,8 @@ static func _axe_forms() -> Dictionary:
             "pressure_class": "controlling",
             "min_stamina_ratio": 0.24,
             "wait_weight_mult": 0.95,
+            "stamina_cost_mult": CombatWeaponFormDefsSwordAxeMace._stamina_cost_for_pressure("controlling"),
+            "cooldown_modifiers": {"windup": 1.04, "recovery": 1.08},
             "mod":
             {
                 "parry": 1.0,
@@ -619,6 +657,8 @@ static func _axe_forms() -> Dictionary:
             "pressure_class": "aggressive",
             "min_stamina_ratio": 0.26,
             "wait_weight_mult": 0.88,
+            "stamina_cost_mult": CombatWeaponFormDefsSwordAxeMace._stamina_cost_for_pressure("aggressive"),
+            "cooldown_modifiers": {"windup": 0.92, "recovery": 1.16},
             "mod":
             {
                 "parry": 0.86,
@@ -670,6 +710,8 @@ static func _axe_forms() -> Dictionary:
             "pressure_class": "neutral",
             "min_stamina_ratio": 0.22,
             "wait_weight_mult": 1.0,
+            "stamina_cost_mult": CombatWeaponFormDefsSwordAxeMace._stamina_cost_for_pressure("neutral"),
+            "cooldown_modifiers": {"windup": 0.98, "recovery": 0.98},
             "mod":
             {
                 "parry": 1.04,
@@ -717,7 +759,7 @@ static func _axe_forms() -> Dictionary:
 
 static func _mace_forms() -> Dictionary:
     return {
-        "balanced": CombatWeaponFormDefsDaggerSpear._balanced_entry("Balanced"),
+        "balanced": _mace_balanced_entry(),
         "wall":
         {
             "display_name": "Braced ward",
@@ -726,6 +768,8 @@ static func _mace_forms() -> Dictionary:
             "pressure_class": "defensive",
             "min_stamina_ratio": 0.20,
             "wait_weight_mult": 1.32,
+            "stamina_cost_mult": CombatWeaponFormDefsSwordAxeMace._stamina_cost_for_pressure("defensive"),
+            "cooldown_modifiers": {"windup": 1.10, "recovery": 1.05},
             "mod":
             {
                 "parry": 1.15,
@@ -764,6 +808,8 @@ static func _mace_forms() -> Dictionary:
             "pressure_class": "aggressive",
             "min_stamina_ratio": 0.30,
             "wait_weight_mult": 0.86,
+            "stamina_cost_mult": CombatWeaponFormDefsSwordAxeMace._stamina_cost_for_pressure("aggressive"),
+            "cooldown_modifiers": {"windup": 0.92, "recovery": 1.18},
             "mod":
             {
                 "parry": 0.82,
@@ -807,6 +853,8 @@ static func _mace_forms() -> Dictionary:
             "pressure_class": "aggressive",
             "min_stamina_ratio": 0.26,
             "wait_weight_mult": 0.92,
+            "stamina_cost_mult": CombatWeaponFormDefsSwordAxeMace._stamina_cost_for_pressure("aggressive"),
+            "cooldown_modifiers": {"windup": 0.94, "recovery": 1.14},
             "mod":
             {
                 "parry": 0.88,
@@ -850,6 +898,8 @@ static func _mace_forms() -> Dictionary:
             "pressure_class": "neutral",
             "min_stamina_ratio": 0.22,
             "wait_weight_mult": 1.0,
+            "stamina_cost_mult": CombatWeaponFormDefsSwordAxeMace._stamina_cost_for_pressure("neutral"),
+            "cooldown_modifiers": {"windup": 0.98, "recovery": 0.98},
             "mod":
             {
                 "parry": 1.04,
@@ -895,6 +945,8 @@ static func _mace_forms() -> Dictionary:
             "pressure_class": "aggressive",
             "min_stamina_ratio": 0.28,
             "wait_weight_mult": 0.90,
+            "stamina_cost_mult": CombatWeaponFormDefsSwordAxeMace._stamina_cost_for_pressure("aggressive"),
+            "cooldown_modifiers": {"windup": 0.94, "recovery": 1.15},
             "mod":
             {
                 "parry": 0.86,
@@ -944,6 +996,8 @@ static func _mace_forms() -> Dictionary:
             "pressure_class": "defensive",
             "min_stamina_ratio": 0.20,
             "wait_weight_mult": 1.25,
+            "stamina_cost_mult": CombatWeaponFormDefsSwordAxeMace._stamina_cost_for_pressure("defensive"),
+            "cooldown_modifiers": {"windup": 1.10, "recovery": 1.06},
             "mod":
             {
                 "parry": 1.12,
@@ -981,4 +1035,46 @@ static func _mace_forms() -> Dictionary:
             },
             "duel_offense_forms": PackedStringArray(),
         },
+    }
+
+
+static func _axe_balanced_entry() -> Dictionary:
+    return {
+        "display_name": "Balanced",
+        "home_guard": "high",
+        "preferred_guards": PackedStringArray(["high"]),
+        "pressure_class": "neutral",
+        "min_stamina_ratio": 0.22,
+        "wait_weight_mult": 1.0,
+        "stamina_cost_mult": CombatWeaponFormDefsSwordAxeMace._stamina_cost_for_pressure("neutral"),
+        "cooldown_modifiers": {"windup": 1.0, "recovery": 1.0},
+        "mod": CombatWeaponFormDefsSwordAxeMace._neutral_mod(),
+        "move_family_mult": {},
+        "move_id_mult": {},
+        "signature": {"move_ids": {}, "contact_types": {}, "lines": {"high": 0.35}, "feint_bias": 0.1},
+        "counters": {},
+        "target_part_bias": {},
+        "move_family_part_bias": {},
+        "duel_offense_forms": PackedStringArray(),
+    }
+
+
+static func _mace_balanced_entry() -> Dictionary:
+    return {
+        "display_name": "Balanced",
+        "home_guard": "high",
+        "preferred_guards": PackedStringArray(["high"]),
+        "pressure_class": "neutral",
+        "min_stamina_ratio": 0.22,
+        "wait_weight_mult": 1.0,
+        "stamina_cost_mult": CombatWeaponFormDefsSwordAxeMace._stamina_cost_for_pressure("neutral"),
+        "cooldown_modifiers": {"windup": 1.0, "recovery": 1.0},
+        "mod": CombatWeaponFormDefsSwordAxeMace._neutral_mod(),
+        "move_family_mult": {},
+        "move_id_mult": {},
+        "signature": {"move_ids": {}, "contact_types": {}, "lines": {"high": 0.35}, "feint_bias": 0.1},
+        "counters": {},
+        "target_part_bias": {},
+        "move_family_part_bias": {},
+        "duel_offense_forms": PackedStringArray(),
     }

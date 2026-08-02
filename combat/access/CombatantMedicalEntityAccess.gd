@@ -347,11 +347,7 @@ static func get_effective_medical_windup_speed_modifier(
 	_manager: Node, performer: Dictionary, target: Variant
 ) -> float:
 	var perf_node = node_variant(performer)
-	var eff_int: float = 100.0
-	if perf_node != null and "_proficiency_bonus" in perf_node:
-		eff_int = float(perf_node.intelligence) + float(perf_node._proficiency_bonus.get("intelligence", 0))
-	else:
-		eff_int = float(performer.get("intelligence", CombatConstantsMisc.DEFAULT_STAT_VALUE))
+	var eff_int: float = EntityStatsUtil.get_effective_stat(perf_node, "intelligence") if perf_node != null and perf_node.has_method("get_meta") else float(performer.get("intelligence", CombatConstantsMisc.DEFAULT_STAT_VALUE))
 	var med_eff: float = clampf(
 		eff_int / 100.0, CombatConstantsTuning.STAT_EFFECT_MULT_MIN, CombatConstantsTuning.STAT_EFFECT_MULT_MAX
 	)

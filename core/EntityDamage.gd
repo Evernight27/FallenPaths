@@ -11,17 +11,23 @@ const ENDURANCE_DAMAGE_RESISTANCE_PER_POINT: float = 0.0001
 const ENDURANCE_DAMAGE_RESISTANCE_MAX: float = 0.05
 const MIN_DAMAGE_TO_SEVER: int = 10
 const DEFLECTION_BRUISE_THRESHOLD: int = 3
-const SEVERANCE_EARLY_THRESHOLD: float = 0.18
-const SEVERANCE_EARLY_MAX_CHANCE: float = 0.65
+const SEVERANCE_EARLY_THRESHOLD: float = 0.40
+const SEVERANCE_EARLY_MAX_CHANCE: float = 0.20
 const SEVERANCE_EARLY_LIMBS_ONLY: bool = true
 
 # Severance ease: full-health limb resists dismemberment; already wounded/bone-damaged parts give way more easily.
 const SEVERANCE_EASE_MAX: float = 1.8
 const SEVERANCE_EASE_TISSUE_FACTOR: float = 0.4
 const SEVERANCE_EASE_BONE_FACTOR: float = 0.3
-const SEVERANCE_EASE_PER_WOUND: float = 0.04
-const SEVERANCE_EASE_WOUND_CAP: float = 0.25
+const SEVERANCE_EASE_PER_WOUND: float = 0.03
+const SEVERANCE_EASE_WOUND_CAP: float = 0.12
 const SEVERANCE_EASE_SEVERITY_BONUS: Dictionary = {"minor": 0.0, "moderate": 0.05, "severe": 0.12, "critical": 0.20}
+
+# Per-channel amplification dampening to prevent multi-channel zeroing from ease factor alone.
+# When base allocation already zeroes a channel (to_X >= cur_X), ease=1.0 for that channel — no bonus amplification.
+# Otherwise, local ease = 1.0 + (severance_ease - 1.0) * CHANNEL_DAMP, capping the wound amplifier so
+# at most one channel can be zeroed by amplified damage per hit when base allocations alone wouldn't do it.
+const SEVERANCE_EASE_CHANNEL_DAMP: float = 0.75
 
 ## --- Armor energy accounting (design options, not implemented) ---
 ## Option A  -  Layer joule budget: each layer absorbs KE from a running total; sharp vs blunt uses split
@@ -342,9 +348,17 @@ static func apply_damage_split(
     var cur_blunt: float = entity.body_blunt.get(part, 0.0)
     var cur_bone: float = entity.bone_health.get(part, 0.0)
     var allocated_bone: float = to_bone
-    to_cut = minf(entity._round_tissue(to_cut * severance_ease), cur_cut)
-    to_blunt = minf(entity._round_tissue(to_blunt * severance_ease), cur_blunt)
-    to_bone = minf(entity._round_tissue(to_bone * severance_ease), cur_bone)
+    # Per-channel ease cap prevents amplification from zeroing multiple channels.
+    # When base allocation already zeros a channel (to_X >= cur_X), use ease=1.0 for that
+    # channel — the hit is lethal regardless of wound factor. Otherwise, dampen the global
+    # severance_ease so moderate hits can't zero two+ channels through amplification alone:
+    # local_ease = 1.0 + (severance_ease - 1.0) * SEVERANCE_EASE_CHANNEL_DAMP.
+    var cut_ease: float = 1.0 if to_cut >= cur_cut else clampf(1.0 + (severance_ease - 1.0) * SEVERANCE_EASE_CHANNEL_DAMP, 1.0, severance_ease)
+    var blunt_ease: float = 1.0 if to_blunt >= cur_blunt else clampf(1.0 + (severance_ease - 1.0) * SEVERANCE_EASE_CHANNEL_DAMP, 1.0, severance_ease)
+    var bone_ease: float = 1.0 if to_bone >= cur_bone else clampf(1.0 + (severance_ease - 1.0) * SEVERANCE_EASE_CHANNEL_DAMP, 1.0, severance_ease)
+    to_cut = minf(entity._round_tissue(to_cut * cut_ease), cur_cut)
+    to_blunt = minf(entity._round_tissue(to_blunt * blunt_ease), cur_blunt)
+    to_bone = minf(entity._round_tissue(to_bone * bone_ease), cur_bone)
     var total_damage_this_hit: float = to_cut + to_blunt + to_bone
     if (
         total_damage_this_hit < float(MIN_DAMAGE_TO_SEVER)
@@ -439,6 +453,7 @@ static func apply_damage_split(
     # Concussion from head bone damage (Issue 1).
     if to_bone > 0.0 and part == BodyPartConstants.PART_HEAD:
         EntityPainConsciousness.try_enter_concussion_from_head_bone_damage(entity, to_bone)
+    var early_severed: bool = false
     if not entity._is_part_severed(part) and total_damage_this_hit >= float(MIN_DAMAGE_TO_SEVER):
         if not SEVERANCE_EARLY_LIMBS_ONLY or part not in entity._get_vital_parts():
             var max_cut: int = entity.body_max.get(part, 1)
@@ -456,22 +471,31 @@ static func apply_damage_split(
                     )
                     chance = clampf(chance, 0.0, 1.0)
                     if randf() < chance:
+                        # Fold the destroyed remainder into the applied allocation so the
+                        # reported final_cut/final_blunt/final_bone match what was actually
+                        # lost from the part (previously the remainder vanished from logs).
+                        to_cut += entity.body_cutting.get(part, 0.0)
+                        to_blunt += entity.body_blunt.get(part, 0.0)
+                        to_bone += entity.bone_health.get(part, 0.0)
                         entity.body_cutting[part] = 0.0
                         entity.body_blunt[part] = 0.0
                         entity.bone_health[part] = 0.0
+                        early_severed = true
+                        total_damage_this_hit = to_cut + to_blunt + to_bone
                         CombatDebug.log(
                             (
                                 (
                                     "[Severance] %s %s: early severance triggered "
-                                    + "(remaining ratio < threshold) => part destroyed"
+                                    + "(remaining ratio < threshold) => part destroyed "
+                                    + "(applied cut=%.1f blunt=%.1f bone=%.1f)"
                                 )
-                                % [entity.name, part]
+                                % [entity.name, part, to_cut, to_blunt, to_bone]
                             )
                         )
     if entity._is_part_severed(part):
         EntityWounds.ensure_stump_wound(entity, part, sub_region)
     var vital: Array = entity._get_vital_parts()
-    if part in vital and (entity.body_cutting.get(part, 0.0) <= 0.0 or entity.body_blunt.get(part, 0.0) <= 0.0):
+    if part in vital and ((entity.body_cutting.get(part, 0.0) <= 0.0 and entity.body_blunt.get(part, 0.0) <= 0.0) or (entity.bone_health.get(part, 0.0) <= 0.0 and (entity.body_cutting.get(part, 0.0) <= 0.0 or entity.body_blunt.get(part, 0.0) <= 0.0))):
         EntityWounds.emit_death_once(entity)
     var pain_from_this_hit_raw: float = 0.0
     if entity._is_part_severed(part):
@@ -528,6 +552,7 @@ static func apply_damage_split(
         "final_bone": to_bone,
         "was_deflected": blunt_from_deflection > 0.0,
         "mechanical_post_armor": mechanical_post_armor,
+        "early_severed": early_severed,
     }
     if not joule_ke.is_empty():
         result["armor_ke_absorbed_j"] = joule_ke.get("armor_ke_absorbed_j", 0.0)

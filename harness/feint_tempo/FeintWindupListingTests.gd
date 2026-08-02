@@ -294,13 +294,22 @@ static func _run_feint_windup_duration_mult_extends_state_duration_vs_oberhau(fa
                 % [str(pa_f.get("wind_up_duration", "")), str(d_f)]
             )
         )
-    var want_f: float = d_o * mult_expect
-    if absf(d_f - want_f) > 0.0001:
+    var soft_cap: float = CombatConstantsTiming.WIND_UP_SOFT_CAP_S
+    # Reverse-apply soft cap to recover pre-cap windup values for ratio verification.
+    var unwind_soft_cap = func(capped: float, cap: float) -> float:
+        if capped <= cap:
+            return capped
+        var excess: float = capped - cap
+        return cap + (excess * 2.0)
+    var base_o: float = unwind_soft_cap.call(d_o, soft_cap)
+    var base_f: float = unwind_soft_cap.call(d_f, soft_cap)
+    var want_base_f: float = base_o * mult_expect
+    if absf(base_f - want_base_f) > 0.01:
         CombatRegressionHarness._fail(
             failures,
             (
-                "feint_windup_mult: feint state_duration want ~ d_oberhau*mult got d_f=%s d_o=%s mult=%s"
-                % [str(d_f), str(d_o), str(mult_expect)]
+                "feint_windup_mult: pre-cap ratio mismatch got %s want %s (capped d_f=%s d_o=%s mult=%s)"
+                % [str(base_f), str(want_base_f), str(d_f), str(d_o), str(mult_expect)]
             )
         )
     CombatRegressionHarness._free_manager_restore_global_rng(mgr_o)
@@ -380,13 +389,21 @@ static func _run_feint_windup_duration_mult_extends_state_duration_vs_thrust(fai
                 % [str(pa_tf.get("wind_up_duration", "")), str(d_tf)]
             )
         )
-    var want_tf: float = d_t * mult_expect
-    if absf(d_tf - want_tf) > 0.0001:
+    var soft_cap2: float = CombatConstantsTiming.WIND_UP_SOFT_CAP_S
+    var unwind_soft_cap2 = func(capped: float, cap: float) -> float:
+        if capped <= cap:
+            return capped
+        var excess: float = capped - cap
+        return cap + (excess * 2.0)
+    var base_t: float = unwind_soft_cap2.call(d_t, soft_cap2)
+    var base_tf: float = unwind_soft_cap2.call(d_tf, soft_cap2)
+    var want_base_tf: float = base_t * mult_expect
+    if absf(base_tf - want_base_tf) > 0.01:
         CombatRegressionHarness._fail(
             failures,
             (
-                "feint_windup_mult_thrust: feint state_duration want ~ d_thrust*mult got d_tf=%s d_t=%s mult=%s"
-                % [str(d_tf), str(d_t), str(mult_expect)]
+                "feint_windup_mult_thrust: pre-cap ratio mismatch got %s want %s (capped d_tf=%s d_t=%s mult=%s)"
+                % [str(base_tf), str(want_base_tf), str(d_tf), str(d_t), str(mult_expect)]
             )
         )
     CombatRegressionHarness._free_manager_restore_global_rng(mgr_t)

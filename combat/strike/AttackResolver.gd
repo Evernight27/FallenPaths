@@ -30,6 +30,8 @@ static func penetration_oblique_angle_factor(
 
 ## Returns { "result_dict": Dictionary, "outcome": String, "recovery_duration": float }.
 ## Also updates tgt.stats (body_cutting, body_blunt, etc.) and tgt.alive/tgt.state if target died.
+## `wind_up_factor` — optional multiplier from CombatTiming.wind_up_factor(); applied after velocity/KE but before
+## armor penetration to model HEMA energy curve: shorter wind-ups deliver less strike energy regardless of intensity.
 
 
 static func compute_and_apply_damage(
@@ -51,9 +53,11 @@ static func compute_and_apply_damage(
 	afterblow_damage_mult: float = 1.0,
 	alignment: float = 1.0,
 	strike_mods: Dictionary = {},
-	strike_physics_ctx: Dictionary = {}
+	strike_physics_ctx: Dictionary = {},
+	wind_up_factor_override: float = -1.0
 ) -> Dictionary:
 	var sm: Dictionary = strike_mods
+	var pa: Dictionary = CombatantEntityAccess.nested_dictionary_read(atk, "pending_attack")
 	var atk_name: String = CombatantEntityAccess.get_display_name(atk, attacker_id)
 	var tgt_name: String = CombatantEntityAccess.get_display_name(tgt, target_id)
 	var atk_stats := CombatantEntityAccess.stats_dict(atk)
@@ -96,6 +100,13 @@ static func compute_and_apply_damage(
 		attack_instance.velocity_m_s *= stamina_vel_scale * power_m
 		if afterblow_damage_mult < 1.0:
 			attack_instance.velocity_m_s *= sqrt(maxf(0.04, afterblow_damage_mult))
+		var wuf: float = (
+			wind_up_factor_override
+			if wind_up_factor_override > 0.0
+			else CombatTiming.wind_up_factor(pa.get(DataKeys.PA_WIND_UP_DURATION, CombatTiming.WIND_UP_FACTOR_OPTIMAL_S))
+		)
+		if wuf < 1.0:
+			attack_instance.velocity_m_s *= wuf
 		attack_instance.velocity_m_s = ImpactVelocityModel.clamp_velocity_m_s(attack_instance.velocity_m_s)
 		var arm_mod: float = CombatantEntityAccess.get_attack_damage_modifier(atk)
 		var target_mass: float = WeaponDamageHelper.effective_blunt_target_mass_kg(tgt, part)
@@ -142,8 +153,27 @@ static func compute_and_apply_damage(
 		strike_ke_j = WeaponDamageHelper.compute_kinetic_energy_j(weapon, attack_instance)
 		CombatDebug.log(
 			(
-                "dmg %s->%s part=%s pre_armor=%.1f cut=%.1f blunt=%.1f pen=%.2f ke_j=%.1f"
-				% [atk_name, tgt_name, part, pre_armor, pre_cut, pre_blunt, pen_sharp, strike_ke_j]
+				"dmg %s->%s part=%s pre_armor=%.1f cut=%.1f blunt=%.1f pen=%.2f ke_j=%.1f v_final=%.2f v_base=%.2f ovr=%.1f i=%.2f st=%.2f pwr=%.2f exh=%.2f w=%s wuf=%.2f wdur=%.2f"
+				% [
+					atk_name,
+					tgt_name,
+					part,
+					pre_armor,
+					pre_cut,
+					pre_blunt,
+					pen_sharp,
+					strike_ke_j,
+					attack_instance.velocity_m_s,
+					v_base,
+					velocity_override,
+					intensity,
+					stamina_vel_scale,
+					power_m,
+					CombatantEntityAccess.exhaustion_float(atk),
+					str(weapon.weapon_type if weapon != null and "weapon_type" in weapon else "?"),
+					wuf,
+					float(pa.get(DataKeys.PA_WIND_UP_DURATION, -1.0)),
+				]
 			)
 		)
 	else:
@@ -152,7 +182,11 @@ static func compute_and_apply_damage(
 			float(atk_stats.get(DataKeys.ENTITY_STRENGTH, CombatConstants.DEFAULT_STAT_VALUE)), mod
 		)
 		if parry_remaining_ratio < 1.0:
-			pre_armor *= lerpf(0.5, 1.0, parry_remaining_ratio)
+			var ctrl_mapped := 1.0 - parry_remaining_ratio
+			var damage_reduction_factor := ctrl_mapped * CombatConstantsParry.PARRY_UNARMED_MAX_DAMAGE_REDUCTION
+			pre_armor *= (1.0 - clampf(damage_reduction_factor, 0.0, 1.0))
+		var unarmed_wind_up_dur: float = pa.get(DataKeys.PA_WIND_UP_DURATION, -1.0)
+		var unarmed_wuf: float = CombatTiming.wind_up_factor(unarmed_wind_up_dur) if unarmed_wind_up_dur > 0.0 else 1.0
 		var atk_st_ratio_u: float = CombatantEntityAccess.stamina_ratio(atk)
 		var stamina_u: float = sqrt(
 			lerpf(CombatConstants.STAMINA_AT_ZERO_DAMAGE_MULT, 1.0, CombatConstants.stamina_factor(atk_st_ratio_u))
@@ -162,6 +196,8 @@ static func compute_and_apply_damage(
 		pre_armor *= (
 			StrikePhysics.closing_speed_multiplier(manager, atk, tgt, strike_physics_ctx) * stamina_u * power_m * afterblow_u
 		)
+		if unarmed_wuf < 1.0:
+			pre_armor *= unarmed_wuf
 		pre_blunt = pre_armor
 		pre_cut = 0.0
 		CombatDebug.log("dmg %s->%s unarmed pre_armor=%.1f" % [atk_name, tgt_name, pre_armor])
@@ -230,7 +266,7 @@ static func compute_and_apply_damage(
 		outcome_note = "deflected (all damage avoided)"
 	elif outcome == "glancing":
 		outcome_note = (
-            "glancing (tissue_dmg %.2f < total_phys*%.2f=%.2f; total_phys=%.1f)"
+												"glancing (tissue_dmg %.2f < total_phys*%.2f=%.2f; total_phys=%.1f)"
 			% [
 				tissue_dmg,
 				CombatConstants.GLANCING_DAMAGE_RATIO,
@@ -260,11 +296,11 @@ static func compute_and_apply_damage(
 			if lane_lbl.is_empty():
 				lane_lbl = "-"
 			depth_extra = (
-                " | depth_polearm rank=%d lane=%s closing_spd=%.3f tgt_angle=%s"
+																" | depth_polearm rank=%d lane=%s closing_spd=%.3f tgt_angle=%s"
 				% [CombatantEntityAccess.rank_int(atk), lane_lbl, cls, str(tgt.get(DataKeys.PA_ENGAGEMENT_ANGLE, "?"))]
 			)
 		var hit_line: String = (
-            "[Combat] %s (%s) -> %s (%s) %s | cut=%.2f blunt=%.2f bone=%.2f | total=%s | outcome: %s%s"
+												"[Combat] %s (%s) -> %s (%s) %s | cut=%.2f blunt=%.2f bone=%.2f | total=%s | outcome: %s%s"
 			% [
 				atk_name,
 				CombatantEntityAccess.side_str(atk),
@@ -422,7 +458,7 @@ static func resolve_attack(manager: Node, attacker_id: int) -> Dictionary:
 		)
 		CombatDebug.combat_session(
 			(
-                "%s has no functional arm; skips attack. intensity=%.2f => recovery=%.2fs"
+																"%s has no functional arm; skips attack. intensity=%.2f => recovery=%.2fs"
 				% [atk_name, intensity, rec_dur_skip]
 			)
 		)
@@ -442,7 +478,7 @@ static func resolve_attack(manager: Node, attacker_id: int) -> Dictionary:
 		var dens_log: String = str(pa.get(DataKeys.STRIKE_CTX_ZONE_GEOMETRY_ATK_DENSITY, "normal"))
 		CombatDebug.flow_log(
 			(
-                "depth_polearm_resolve_parts atk=%d tgt=%d dens=%s parts=%s"
+																"depth_polearm_resolve_parts atk=%d tgt=%d dens=%s parts=%s"
 				% [attacker_id, target_id, dens_log, str(targetable)]
 			),
 			"depth_polearm_resolve:%d:%d" % [attacker_id, target_id]
@@ -554,7 +590,7 @@ static func resolve_attack(manager: Node, attacker_id: int) -> Dictionary:
 			parry_reason = "dodge (expected better or clean avoid likely)"
 		CombatDebug.log(
 			(
-                "defense %s -> %s block=%s p_a=%.1f c_d=%.1f"
+																"defense %s -> %s block=%s p_a=%.1f c_d=%.1f"
 				% [tgt_name, parry_reason, is_block_parry, parry_p_a, parry_c_d]
 			)
 		)
@@ -644,6 +680,9 @@ static func resolve_attack(manager: Node, attacker_id: int) -> Dictionary:
 	AttackWindUpStarter.clear_incoming_attack_telegraph_from_pa(manager, pa)
 	CombatFootwork.clear_on_exchange_end(atk)
 	CombatFootwork.clear_on_exchange_end(tgt)
+	# Wind-up energy must be captured before pending_attack is cleared: the resolver reads it only via
+	# `wind_up_factor_override`, otherwise an empty pa yields wind_up_factor(-1)=0 and zeroes strike velocity.
+	var wind_up_factor_resolve: float = CombatTiming.wind_up_factor(pa.get(DataKeys.PA_WIND_UP_DURATION, -1.0))
 	atk.pending_attack = {}
 	var res: Dictionary = compute_and_apply_damage(
 		manager,
@@ -664,7 +703,8 @@ static func resolve_attack(manager: Node, attacker_id: int) -> Dictionary:
 		afterblow_damage_mult,
 		hit_alignment,
 		strike_mods,
-		strike_phys_ctx
+		strike_phys_ctx,
+		wind_up_factor_resolve
 	)
 	var rd_out: Dictionary = res.result_dict
 	rd_out[DataKeys.RESULT_TARGET_PART] = intended_part

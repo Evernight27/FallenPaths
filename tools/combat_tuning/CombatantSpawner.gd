@@ -48,10 +48,11 @@ static func _create_entity(cfg: Variant) -> Node:
 		e.species = load(cfg.species_tres_path)
 	e.apply_species()
 	e.name = cfg.display_name
-	var hands: Array[String] = ["right_arm", "left_arm"]
-	e.dominant_hand = hands[randi() % hands.size()]
+	e.dominant_hand = BodyPartConstants.PART_RIGHT_ARM
 	e.offhand_functionality = 1.0
 	e._proficiency_bonus = {"strength": 0, "endurance": 0, "intelligence": 0, "agility": 0, "perception": 0}
+	e._weapon_proficiency = {cfg.weapon_id: 20.0}
+	e._form_proficiency = {cfg.form: 20.0}
 
 	e.strength = cfg.strength
 	e.agility = cfg.agility

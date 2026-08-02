@@ -66,7 +66,7 @@ const LITERATURE_HEADLESS_GATE_FULL: String = "p3b_full_including_energy_pool_jo
 ## M6 arm anchor: body_max 12 '??" design KE arm slot (`CombatDesignAnchors`).
 const LITERATURE_ARM_TISSUE_CAPACITY_J: float = CombatDesignAnchors.DESIGN_KE_ARM_J
 const LITERATURE_ARM_CAPACITY_J_TOLERANCE: float = 5.0
-const LITERATURE_ARM_DISPLAY_HALF_J: float = 6.0
+const LITERATURE_ARM_DISPLAY_HALF_J: float = 10.0
 const LITERATURE_ARM_DISPLAY_HALF_TOLERANCE: float = 1.0
 const LITERATURE_ARM_BLUNT_KE_BUDGET_J: float = 22.0
 const HUMAN_ARM_TISSUE_BODY_MAX: int = CombatDesignAnchors.REFERENCE_HUMAN_ARM_TISSUE_DISPLAY

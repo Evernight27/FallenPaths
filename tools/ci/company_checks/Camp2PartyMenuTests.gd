@@ -462,6 +462,7 @@ static func _run_camp_2_bridge_spot_checks(failures: PackedStringArray) -> void:
     var retry_world: Node2D = _make_world(1)
     var pm_retry: Node = retry_world.get_meta("party_manager")
     var retry_ent: Node = _add_living_entity_member(pm_retry, "RetryBand")
+    retry_ent._campaign_supply_factor = 0.25
     retry_ent.wounds["chest"] = [
         {"current_bleeding_rate": 1.2, "is_arterial": true, "severity": "severe"},
     ]

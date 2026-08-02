@@ -324,6 +324,19 @@ static func _move_family_for_move_id(move_id: String) -> String:
 	return ""
 
 
+static func stamina_cost_mult(form: String, weapon: Variant = null) -> float:
+	var d: Dictionary = _def(form, weapon)
+	return float(d.get("stamina_cost_mult", 1.0))
+
+
+static func cooldown_modifiers(form: String, _move_id: String, weapon: Variant = null) -> Dictionary:
+	var d: Dictionary = _def(form, weapon)
+	var raw: Variant = d.get("cooldown_modifiers", {})
+	if raw is Dictionary:
+		return raw as Dictionary
+	return {}
+
+
 static func action_weight_mult(form: String, move_id: String, weapon: Variant = null) -> float:
 	var family: String = _move_family_for_move_id(move_id)
 	if family.is_empty():

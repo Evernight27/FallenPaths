@@ -8,24 +8,25 @@ const MFB_SHARP_DOMINANT_RATIO := 0.85
 const MFB_CUT_BONE_MIN_PENETRATION_MM := 2.5
 const MFB_BLUNT_FRACTURE_GAME_DAMAGE_FLOOR := 1.0
 ## Blunt-dominant: bone chip capped so crush tissue remains on the stream.
-const MFB_BLUNT_MAX_BONE_SHARE_OF_BLUNT := 0.42
+const MFB_BLUNT_MAX_BONE_SHARE_OF_BLUNT := 0.60
 
-## Blunt fracture anchor energy (J) by sub-region (research order-of-magnitude; elbow low, thigh high).
+## Blunt fracture anchor energy (J) by sub-region (clinical biomechanics literature order-of-magnitude).
+## Skull ~70-130J, rib ~40-80J, humerus ~60-120J, radius/ulna ~60-120J, femur ~120-250J (combat) / 300-500J (polearm), tibia ~100-200J.
 const MFB_BLUNT_FRACTURE_J_BY_SUBREGION: Dictionary = {
-    BodyPartConstants.PART_HEAD: {"scalp": 12.0, "face": 15.0, "neck": 25.0},
-    BodyPartConstants.PART_CHEST: {"thoracic": 30.0, "abdominal": 35.0},
-    BodyPartConstants.PART_RIGHT_ARM: {"upper_arm": 28.0, "elbow": 18.0, "forearm": 22.0, "hand": 20.0},
-    BodyPartConstants.PART_LEFT_ARM: {"upper_arm": 28.0, "elbow": 18.0, "forearm": 22.0, "hand": 20.0},
-    BodyPartConstants.PART_RIGHT_LEG: {"thigh": 35.0, "knee": 22.0, "calf": 25.0, "foot": 28.0},
-    BodyPartConstants.PART_LEFT_LEG: {"thigh": 35.0, "knee": 22.0, "calf": 25.0, "foot": 28.0},
+    BodyPartConstants.PART_HEAD: {"scalp": 80.0, "face": 60.0, "neck": 50.0},
+    BodyPartConstants.PART_CHEST: {"thoracic": 65.0, "abdominal": 80.0},
+    BodyPartConstants.PART_RIGHT_ARM: {"upper_arm": 100.0, "elbow": 45.0, "forearm": 70.0, "hand": 35.0},
+    BodyPartConstants.PART_LEFT_ARM: {"upper_arm": 100.0, "elbow": 45.0, "forearm": 70.0, "hand": 35.0},
+    BodyPartConstants.PART_RIGHT_LEG: {"thigh": 200.0, "knee": 60.0, "calf": 120.0, "foot": 55.0},
+    BodyPartConstants.PART_LEFT_LEG: {"thigh": 200.0, "knee": 60.0, "calf": 120.0, "foot": 55.0},
 }
 const _PART_DEFAULT_BLUNT_J: Dictionary = {
-    BodyPartConstants.PART_HEAD: 18.0,
-    BodyPartConstants.PART_CHEST: 32.0,
-    BodyPartConstants.PART_RIGHT_ARM: 24.0,
-    BodyPartConstants.PART_LEFT_ARM: 24.0,
-    BodyPartConstants.PART_RIGHT_LEG: 30.0,
-    BodyPartConstants.PART_LEFT_LEG: 30.0,
+    BodyPartConstants.PART_HEAD: 70.0,
+    BodyPartConstants.PART_CHEST: 80.0,
+    BodyPartConstants.PART_RIGHT_ARM: 100.0,
+    BodyPartConstants.PART_LEFT_ARM: 100.0,
+    BodyPartConstants.PART_RIGHT_LEG: 200.0,
+    BodyPartConstants.PART_LEFT_LEG: 200.0,
 }
 
 

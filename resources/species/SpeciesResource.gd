@@ -38,11 +38,11 @@ const DERIVED_BONE_TO_TISSUE_LEG := 12.0 / 16.0
 @export var right_leg: int = 16
 # Bone max: scale with tissue; larger segments = more bone. Keep proportions per species.
 @export var head_bone: int = 8
-@export var chest_bone: int = 22
+@export var chest_bone: int = 6
 @export var right_arm_bone: int = 8
 @export var left_arm_bone: int = 8
-@export var left_leg_bone: int = 12
-@export var right_leg_bone: int = 12
+@export var left_leg_bone: int = 14
+@export var right_leg_bone: int = 14
 # Core attributes: one scale for all. 100 = average, 50 - 150 typical range â stat/100.0 gives 0.5 - 1.5 multiplier.
 @export var strength: int = 100  # Damage, parry (50 - 150: 100 = average)
 @export var agility: int = 100  # Gauge fill, dodge, cooldowns (50 - 150: 100 = average)

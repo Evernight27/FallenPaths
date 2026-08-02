@@ -124,6 +124,7 @@ static func choose_defense(
     dodge_chance *= pa.get(DataKeys.PA_TACTICAL_AMBUSH_MULT, 1.0)
     dodge_chance *= TacticalCombat.surround_defense_multiplier_from_pa(tgt, pa)
     dodge_chance *= _spacing_band_dodge_chance_mult(tgt, atk)
+    dodge_chance *= CombatMuscleFatigue.dodge_chance_mult(tgt)
     if CombatantEntityAccess.state_str(tgt) == CombatConstants.STATE_RECOVERING:
         dodge_chance *= CombatConstants.defense_footwork_recovering_dodge_mult_for_cause(
             str(tgt.get(DataKeys.ATTACK_RECOVERY_CAUSE, "skip"))
@@ -443,6 +444,7 @@ static func choose_defense(
     parry_c_d *= pa.get(DataKeys.PA_ZONE_ENGAGEMENT_PARRY_MULT, 1.0)
     parry_c_d *= _spacing_band_parry_capacity_mult(tgt, atk)
     parry_c_d *= CombatWeaponPosition.parry_capacity_mult_for_defender(tgt)
+    parry_c_d *= CombatMuscleFatigue.parry_capacity_mult(tgt)
     parry_c_d *= CombatWeaponPosition.incoming_attack_parry_c_d_mult(atk)
 
     result.can_parry_in_time = can_parry_in_time
@@ -457,6 +459,17 @@ static func choose_defense(
     result.late_parry = late_parry
 
     var parry_cfg: Dictionary = PassiveParryContext.get_parry_config()
+    # Classify parry timing as proactive/reactive/mid based on how far into the wind-up the defender responds.
+    var effective_wind_up_for_timing: float = maxf(0.001, wind_up_duration * comm_frac) if can_parry_in_time else 1.0
+    var parry_windup_frac: float = clampf(parry_time_to_react / effective_wind_up_for_timing, 0.0, 1.0) if not late_parry else 0.9
+    var timing_class: String = CombatConstants.classify_parry_timing(parry_windup_frac)
+    # Apply proactive/reactive capacity multiplier and control bonus to parry_c_d (initiative matters).
+    # Proactive parries also get a momentum boost — meeting the attack early transfers more of its force.
+    if can_parry_in_time:
+        parry_c_d *= CombatConstants.parry_timing_capacity_mult(timing_class)
+        var timing_ctrl_bonus: float = CombatConstants.parry_timing_control_bonus(timing_class)
+        if timing_ctrl_bonus > 0.0 and parry_p_a > 0.0:
+            parry_p_a *= (1.0 + timing_ctrl_bonus)
     # Bidirectional strong/weak: attacker weak exposure + defender forte (blade only). Shaft/haft use leverage in
     # contact_geometry.
     # Contact quality: delayed/slow parries couldn't get weapon into optimal position — contact happens further out
@@ -480,8 +493,15 @@ static func choose_defense(
             var full_strong_mod: float = sc_map.get(arch_id, 1.0) if pct == "blade" else 1.0
             if pct == "blade":
                 var weak_exp: float = CombatConstants.WEAK_EXPOSURE_BY_ARCH.get(arch_id, 0.5)
-                var strong_frac: float = CombatantEntityAccess.weapon_parry_strong_fraction(def_w_arch)
-                full_strong_mod *= 1.0 + CombatConstants.DEFENDER_STRONG_BONUS * strong_frac * weak_exp
+                # Spatial strong fraction: models Stercke/Schweche — early parries contact with forte (strong),
+                # late parries contact farther toward blade tip (weak). Uses parry_progress to estimate where
+                # along the defender's blade the contact occurs.
+                var spatial_strong_frac: float = 0.5  # fallback default
+                if def_w_arch is Weapon:
+                    var eff_wind_val: float = maxf(0.001, wind_up_duration * comm_frac)
+                    var pp: float = 1.0 - clampf(parry_time_to_react / eff_wind_val, 0.0, 1.0) if not late_parry else 0.85
+                    spatial_strong_frac = def_w_arch.get_spatial_strong_fraction_at_parry(pp)
+                full_strong_mod *= 1.0 + CombatConstants.DEFENDER_STRONG_BONUS * spatial_strong_frac * weak_exp
             var strong_mod: float = lerpf(1.0, full_strong_mod, contact_quality)
             parry_c_d *= strong_mod
         parry_c_d *= CombatWeaponForm.mod(
@@ -539,7 +559,10 @@ static func choose_defense(
     elif can_parry_in_time and def_has_weapon:
         var part_mod: float = CombatantEntityAccess._get_part_dodge_modifier(tgt, result.dodge_eval_part)
         var effective_dodge_chance: float = dodge_chance * part_mod
-        if preview_align < CombatConstants.PARRY_PARTIAL_GUARD_ALIGNMENT_THRESHOLD and not interpose_active:
+        # Below glancing floor (cos60): parry is physically ineffective — boost dodge and skip parry decision entirely.
+        if preview_align < CombatConstants.PARRY_GLANCING_ALIGNMENT_FLOOR:
+            effective_dodge_chance *= 1.25
+        elif preview_align < CombatConstants.PARRY_PARTIAL_GUARD_ALIGNMENT_THRESHOLD and not interpose_active:
             effective_dodge_chance *= 1.15
         var full_dodge_prob: float = effective_dodge_chance * CombatConstants.DODGE_FULL_THRESHOLD
         var partial_dodge_avg_ratio: float = (CombatConstants.DODGE_PARTIAL_RATIO_MIN + 1.0) * 0.5
@@ -547,11 +570,12 @@ static func choose_defense(
             (1.0 - effective_dodge_chance) * 1.0
             + effective_dodge_chance * (1.0 - CombatConstants.DODGE_FULL_THRESHOLD) * partial_dodge_avg_ratio
         )
+        var contact_type_for_parry: String = WeaponConstants.contact_type_for_move_id(attack_type)
         var parry_full: bool = CombatConstants.parry_full_stop_reached(
-            result.parry_c_d, result.parry_p_a, result.is_block_parry
+            result.parry_c_d, result.parry_p_a, result.is_block_parry, contact_type_for_parry
         )
         var parry_edge: bool = CombatConstants.parry_edge_deflect_reached(
-            result.parry_c_d, result.parry_p_a, preview_align, result.is_block_parry
+            result.parry_c_d, result.parry_p_a, preview_align, result.is_block_parry, contact_type_for_parry
         )
         var agi_d: float = float(
             tgt_stats.get(DataKeys.ENTITY_AGILITY, CombatConstants.DEFAULT_STAT_VALUE)
@@ -579,14 +603,28 @@ static func choose_defense(
         )
         var dodge_better: bool = energy_dodge < energy_parry
         var clean_dodge_likely: bool = full_dodge_prob >= CombatConstants.PARRY_PREFER_DODGE_FULL_THRESHOLD
-        # Well-aligned on-time steel prefers parry; arm interpose also keeps steel in play when capacity is viable.
+        # Alignment tiers: strong (>=cos45) -> parry preferred; glancing (cos45-cos60) -> needs stronger capacity surplus;
+        ## below glancing floor (cos60) -> parry physically ineffective, dodge always wins.
         var well_aligned: bool = preview_align >= CombatConstants.PARRY_PARTIAL_GUARD_ALIGNMENT_THRESHOLD
+        var is_glancing: bool = (preview_align < CombatConstants.PARRY_PARTIAL_GUARD_ALIGNMENT_THRESHOLD
+            and preview_align >= CombatConstants.PARRY_GLANCING_ALIGNMENT_FLOOR)
+        # Glancing parries need a meaningful capacity surplus to overcome dodge energy advantage.
         choose_parry = (
             late_parry
             and (block_viable or redirect_viable)
             or (
-                (block_viable or redirect_viable)
-                and (well_aligned or interpose_active or (not dodge_better and not clean_dodge_likely))
+                well_aligned
+                and (block_viable or redirect_viable)
+            )
+            or (
+                interpose_active
+                and (block_viable or redirect_viable)
+            )
+            or (
+                not is_glancing
+                and not clean_dodge_likely
+                and (block_viable or redirect_viable)
+                and not dodge_better
             )
         )
     if choose_parry:

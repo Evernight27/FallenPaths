@@ -394,3 +394,108 @@ static func _run_gap6_diagonal_variance_distribution(failures: PackedStringArray
             )
         )
     CombatRegressionHarness._free_manager(mgr)
+
+
+## Gap 7: wounded-vitals exploit (`FEATURE_WOUNDED_VITALS_EXPLOIT`) presses a defender's already-damaged head/chest in
+## both the AI part-pick weights and the hit-resolution weights.
+
+static func _run_gap7_wounded_vitals_exploit(failures: PackedStringArray) -> void:
+    if not CombatConstants.FEATURE_WOUNDED_VITALS_EXPLOIT:
+        return
+    var mgr: Node = CombatManager.new()
+    mgr.register(CombatRegressionHarness._new_entity("AXE"), "player")
+    mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
+    mgr.start({"files": 1, "ranks": 1, "density": "normal"}, {"files": 1, "ranks": 1, "density": "normal"})
+    var atk: Dictionary = mgr.combatants[0]
+    var enm: Dictionary = mgr.combatants[1]
+    CombatDoctrine.evaluate_automatic_doctrine(mgr)
+    for c in mgr.combatants:
+        if c is Dictionary:
+            CombatWeaponForm.assign_form(mgr, c as Dictionary, CombatWeaponForm.FORM_BALANCED, "harness_gap7")
+    var def_ent: CoreEntity = CombatantEntityAccess.scene_entity(enm)
+    if def_ent == null:
+        CombatRegressionHarness._free_manager(mgr)
+        return
+    var move_def: Dictionary = WeaponConstants.get_move("overhead_chop")
+    var attack_line: String = move_def.get("attack_line", "high")
+    enm["guard_line"] = "high"
+    var targetable: Array = CombatantEntityAccess.get_targetable_parts(enm)
+    if targetable.is_empty():
+        CombatRegressionHarness._free_manager(mgr)
+        return
+    var segment: Array = AttackPathResolver.path_segment_for_strike(attack_line, "high", targetable, 0.9, {})
+    if not segment.has(BodyPartConstants.PART_HEAD):
+        CombatRegressionHarness._free_manager(mgr)
+        return
+    var weights_base: Dictionary = AttackPathResolver.part_weights_for_ai_pick(
+        segment, attack_line, move_def, atk, enm, CombatantEntityAccess.id_int(atk), "overhead_chop", true
+    )
+    var head_base: float = weights_base.get(BodyPartConstants.PART_HEAD, 0.0)
+    var chest_base: float = weights_base.get(BodyPartConstants.PART_CHEST, 0.0)
+    var mult_pristine: float = AttackPathResolver._wounded_vitals_part_mult(enm, BodyPartConstants.PART_HEAD)
+    if absf(mult_pristine - 1.0) > 0.001:
+        CombatRegressionHarness._fail(
+            failures, "gap7_wounded_vitals: pristine head mult want 1.0 got %.3f" % mult_pristine
+        )
+    # Pristine resolution distribution (seeded; each resolve draws one randf).
+    var seeds: Array = [101, 202, 303, 404, 505, 606, 707, 808, 909, 1011, 1112, 1213, 1314, 1415, 1516, 1617, 1718, 1819, 1920, 2021]
+    var pristine_head: int = 0
+    for s in seeds:
+        seed(int(s))
+        if (
+            AttackPathResolver.resolve_hit_part(
+                attack_line, "high", targetable, {}, "", enm, {}, atk, move_def, true
+            )
+            == BodyPartConstants.PART_HEAD
+        ):
+            pristine_head += 1
+    # Damage the defender's head to ~50% tissue remaining (destroyed 0.5 > ramp 0.35 -> top mult).
+    var head_max: int = def_ent.body_max.get(BodyPartConstants.PART_HEAD, 1)
+    def_ent.body_cutting[BodyPartConstants.PART_HEAD] = float(head_max) * 0.5
+    def_ent.body_blunt[BodyPartConstants.PART_HEAD] = float(head_max) * 0.5
+    var mult_wounded: float = AttackPathResolver._wounded_vitals_part_mult(enm, BodyPartConstants.PART_HEAD)
+    if absf(mult_wounded - AttackPathResolver.WOUNDED_VITAL_TOP_MULT) > 0.001:
+        CombatRegressionHarness._fail(
+            failures,
+            "gap7_wounded_vitals: wounded head mult want %.2f got %.3f"
+            % [AttackPathResolver.WOUNDED_VITAL_TOP_MULT, mult_wounded]
+        )
+    var mult_arm: float = AttackPathResolver._wounded_vitals_part_mult(enm, BodyPartConstants.PART_LEFT_ARM)
+    if mult_arm != 1.0:
+        CombatRegressionHarness._fail(
+            failures, "gap7_wounded_vitals: non-vital part mult must stay 1.0 got %.3f" % mult_arm
+        )
+    var weights_wounded: Dictionary = AttackPathResolver.part_weights_for_ai_pick(
+        segment, attack_line, move_def, atk, enm, CombatantEntityAccess.id_int(atk), "overhead_chop", true
+    )
+    var head_wounded: float = weights_wounded.get(BodyPartConstants.PART_HEAD, 0.0)
+    if head_wounded <= head_base * 1.7:
+        CombatRegressionHarness._fail(
+            failures,
+            "gap7_wounded_vitals: AI pick head weight should jump ~%.2fx on wounded head (base %.4f got %.4f)"
+            % [AttackPathResolver.WOUNDED_VITAL_TOP_MULT, head_base, head_wounded]
+        )
+    if segment.has(BodyPartConstants.PART_CHEST) and chest_base > 0.0:
+        var chest_wounded: float = weights_wounded.get(BodyPartConstants.PART_CHEST, 0.0)
+        if absf(chest_wounded - chest_base) > 0.001:
+            CombatRegressionHarness._fail(
+                failures,
+                "gap7_wounded_vitals: pristine chest weight must be unchanged (base %.4f got %.4f)"
+                % [chest_base, chest_wounded]
+            )
+    var wounded_head: int = 0
+    for s in seeds:
+        seed(int(s))
+        if (
+            AttackPathResolver.resolve_hit_part(
+                attack_line, "high", targetable, {}, "", enm, {}, atk, move_def, true
+            )
+            == BodyPartConstants.PART_HEAD
+        ):
+            wounded_head += 1
+    if wounded_head <= pristine_head:
+        CombatRegressionHarness._fail(
+            failures,
+            "gap7_wounded_vitals: wounded head picks %d should exceed pristine %d" % [wounded_head, pristine_head]
+        )
+    CombatRegressionHarness._free_manager(mgr)

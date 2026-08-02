@@ -17,6 +17,8 @@ static func _dagger_forms() -> Dictionary:
             "pressure_class": "defensive",
             "min_stamina_ratio": 0.18,
             "wait_weight_mult": 1.25,
+            "stamina_cost_mult": CombatWeaponFormDefsDaggerSpear._stamina_for_pressure("defensive"),
+            "cooldown_modifiers": {"windup": 1.08, "recovery": 1.06},
             "mod":
             {
                 "parry": 1.22,
@@ -56,6 +58,8 @@ static func _dagger_forms() -> Dictionary:
             "pressure_class": "neutral",
             "min_stamina_ratio": 0.20,
             "wait_weight_mult": 0.98,
+            "stamina_cost_mult": CombatWeaponFormDefsDaggerSpear._stamina_for_pressure("neutral"),
+            "cooldown_modifiers": {"windup": 0.94, "recovery": 0.96},
             "mod":
             {
                 "parry": 1.05,
@@ -100,6 +104,8 @@ static func _dagger_forms() -> Dictionary:
             "pressure_class": "neutral",
             "min_stamina_ratio": 0.22,
             "wait_weight_mult": 1.0,
+            "stamina_cost_mult": CombatWeaponFormDefsDaggerSpear._stamina_for_pressure("neutral"),
+            "cooldown_modifiers": {"windup": 0.98, "recovery": 1.00},
             "mod":
             {
                 "parry": 1.08,
@@ -139,6 +145,8 @@ static func _dagger_forms() -> Dictionary:
             "pressure_class": "controlling",
             "min_stamina_ratio": 0.24,
             "wait_weight_mult": 0.94,
+            "stamina_cost_mult": CombatWeaponFormDefsDaggerSpear._stamina_for_pressure("controlling"),
+            "cooldown_modifiers": {"windup": 1.04, "recovery": 1.06},
             "mod":
             {
                 "parry": 1.0,
@@ -178,6 +186,8 @@ static func _dagger_forms() -> Dictionary:
             "pressure_class": "controlling",
             "min_stamina_ratio": 0.24,
             "wait_weight_mult": 0.96,
+            "stamina_cost_mult": CombatWeaponFormDefsDaggerSpear._stamina_for_pressure("controlling"),
+            "cooldown_modifiers": {"windup": 1.06, "recovery": 1.08},
             "mod":
             {
                 "parry": 1.02,
@@ -228,6 +238,8 @@ static func _dagger_forms() -> Dictionary:
             "pressure_class": "neutral",
             "min_stamina_ratio": 0.20,
             "wait_weight_mult": 1.0,
+            "stamina_cost_mult": CombatWeaponFormDefsDaggerSpear._stamina_for_pressure("neutral"),
+            "cooldown_modifiers": {"windup": 0.96, "recovery": 0.98},
             "mod":
             {
                 "parry": 1.06,
@@ -283,6 +295,8 @@ static func _spear_forms() -> Dictionary:
             "pressure_class": "defensive",
             "min_stamina_ratio": 0.20,
             "wait_weight_mult": 1.28,
+            "stamina_cost_mult": CombatWeaponFormDefsDaggerSpear._stamina_for_pressure("defensive"),
+            "cooldown_modifiers": {"windup": 1.14, "recovery": 1.08},
             "mod":
             {
                 "parry": 1.16,
@@ -321,6 +335,8 @@ static func _spear_forms() -> Dictionary:
             "pressure_class": "neutral",
             "min_stamina_ratio": 0.22,
             "wait_weight_mult": 1.0,
+            "stamina_cost_mult": CombatWeaponFormDefsDaggerSpear._stamina_for_pressure("neutral"),
+            "cooldown_modifiers": {"windup": 0.96, "recovery": 1.02},
             "mod":
             {
                 "parry": 1.10,
@@ -364,6 +380,8 @@ static func _spear_forms() -> Dictionary:
             "pressure_class": "neutral",
             "min_stamina_ratio": 0.22,
             "wait_weight_mult": 1.0,
+            "stamina_cost_mult": CombatWeaponFormDefsDaggerSpear._stamina_for_pressure("neutral"),
+            "cooldown_modifiers": {"windup": 0.98, "recovery": 1.00},
             "mod":
             {
                 "parry": 1.06,
@@ -407,6 +425,8 @@ static func _spear_forms() -> Dictionary:
             "pressure_class": "aggressive",
             "min_stamina_ratio": 0.26,
             "wait_weight_mult": 0.90,
+            "stamina_cost_mult": CombatWeaponFormDefsDaggerSpear._stamina_for_pressure("aggressive"),
+            "cooldown_modifiers": {"windup": 0.94, "recovery": 1.12},
             "mod":
             {
                 "parry": 0.88,
@@ -453,6 +473,8 @@ static func _spear_forms() -> Dictionary:
             "pressure_class": "neutral",
             "min_stamina_ratio": 0.22,
             "wait_weight_mult": 1.0,
+            "stamina_cost_mult": CombatWeaponFormDefsDaggerSpear._stamina_for_pressure("neutral"),
+            "cooldown_modifiers": {"windup": 0.96, "recovery": 1.00},
             "mod":
             {
                 "parry": 1.06,
@@ -502,6 +524,8 @@ static func _spear_forms() -> Dictionary:
             "pressure_class": "neutral",
             "min_stamina_ratio": 0.22,
             "wait_weight_mult": 1.0,
+            "stamina_cost_mult": CombatWeaponFormDefsDaggerSpear._stamina_for_pressure("neutral"),
+            "cooldown_modifiers": {"windup": 0.98, "recovery": 1.04},
             "mod":
             {
                 "parry": 1.08,
@@ -553,6 +577,8 @@ static func _balanced_entry(display: String) -> Dictionary:
         "pressure_class": "neutral",
         "min_stamina_ratio": 0.22,
         "wait_weight_mult": 1.0,
+        "stamina_cost_mult": _stamina_for_pressure("neutral"),
+        "cooldown_modifiers": {"windup": 1.0, "recovery": 1.0},
         "mod": CombatWeaponFormDefsSwordAxeMace._neutral_mod(),
         "move_family_mult": {},
         "move_id_mult": {},
@@ -562,3 +588,15 @@ static func _balanced_entry(display: String) -> Dictionary:
         "move_family_part_bias": {},
         "duel_offense_forms": PackedStringArray(),
     }
+
+
+static func _stamina_for_pressure(pressure_class: String) -> float:
+    match pressure_class:
+        "aggressive":
+            return 1.25
+        "controlling":
+            return 1.12
+        "defensive":
+            return 0.88
+        _:
+            return 1.0

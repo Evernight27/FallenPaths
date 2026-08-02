@@ -360,6 +360,49 @@ static func _run_combat_end_enemy_win_stops_manager(failures: PackedStringArray)
     _free_manager(mgr)
 
 
+## Tier 5.0: full-stop **`duel_auto_end_detection`** — runs a seeded 1v1 SWORD duel for up to 60 s, asserts combat resolves (medical_phase or single survivor). Validates the auto-end chain (winner check -> phase end -> manager stop) under full AI-driven simulation.
+
+
+static func _run_duel_auto_end_detection(failures: PackedStringArray) -> void:
+    seed(42)
+    var mgr: Node = MgrScript.new()
+    mgr.register(_new_entity("SWORD"), "player")
+    mgr.register(_new_entity("SWORD"), "enemy")
+    mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+    var elapsed: float = 0.0
+    const MAX_TICKS := 1200
+    for _i in MAX_TICKS:
+        for c in mgr.combatants:
+            if c is not Dictionary: continue
+            if not EntityAccess.alive_bool(c): continue
+            if bool(c.get(DataKeys.COMBATANT_COMBAT_ABSENT, false)): continue
+            var st: String = EntityAccess.state_str(c)
+            if st != CombatConstants.STATE_WAITING and st != CombatConstants.STATE_COWERING: continue
+            if EntityAccess.gauge_float(c) < CombatConstants.GAUGE_FULL_THRESHOLD: continue
+            var cid: int = EntityAccess.id_int(c)
+            var actions: Array = mgr.get_available_actions(cid)
+            var log_side: String = "player" if EntityAccess.is_player_side(c) else "enemy"
+            AIPicker.resolve_picked_turn_or_skip(mgr, cid, actions, log_side)
+        ProcessTick.tick(mgr, 0.05)
+        elapsed += 0.05
+        if mgr.medical_phase: break
+    var players_alive := 0
+    var enemies_alive := 0
+    for c in mgr.combatants:
+        if c is not Dictionary or not EntityAccess.alive_bool(c): continue
+        if bool(c.get(DataKeys.COMBATANT_COMBAT_ABSENT, false)): continue
+        if EntityAccess.is_player_side(c): players_alive += 1
+        else: enemies_alive += 1
+    var single_survivor := (players_alive + enemies_alive) == 1 and (players_alive + enemies_alive) > 0
+    if not mgr.medical_phase and not single_survivor:
+        _fail(
+            failures,
+            "duel_auto_end_timeout: clock=%.2f medical_phase=%s player_alive=%d enemy_alive=%d"
+            % [elapsed, str(mgr.medical_phase), players_alive, enemies_alive]
+        )
+    _free_manager(mgr)
+
+
 ## Tier 4.3: mental stack L1 picks medical when ally in peril.
 
 
@@ -407,7 +450,7 @@ static func _run_feint_second_windup_clears_prior_telegraph_before_restamp(failu
 ## (second **`start()`** without re-**`register`**).
 static func _run_weapon_part_mass_model_normalized(failures: PackedStringArray) -> void:
     for wid in WeaponConstants.get_all_weapon_ids():
-        var weapon: Weapon = Weapon.create_from_definition(wid)
+        var weapon: Weapon = HarnessFixtures.get_cached_weapon(wid)
         if weapon == null:
             _fail(failures, "weapon_parts: could not create %s" % wid)
             continue
@@ -855,7 +898,7 @@ static func _run_kinematic_delivery_velocity_from_intensity_bridges_get_effectiv
         {"def": "AXE", "move": "diagonal_chop", "pfx": "kin_vel_ax"},
         {"def": "DAGGER", "move": "quick_slash", "pfx": "kin_vel_dg"},
     ]:
-        var w_b: Weapon = Weapon.create_from_definition(str(blade_spec["def"]))
+        var w_b: Weapon = HarnessFixtures.get_cached_weapon(str(blade_spec["def"]))
         if w_b == null:
             _fail(failures, "%s: missing %s" % [str(blade_spec["pfx"]), str(blade_spec["def"])])
             return
@@ -925,6 +968,7 @@ static func _run_kinematic_delivery_velocity_from_intensity_bridges_get_effectiv
                 failures,
                 "%s: mixed blend expected spread v(0.95)-v(0.05) >= 0.01 got %.6f" % [tag, vb_mx_hi - vb_mx_lo]
             )
+
 
 ## Tier 5.1: **`compute_pre_armor_cut`** scales with **`sqrt(KE)`** at fixed strength/**`arm_mod`** when
 ## **`velocity_m_s`** pins tip speed (no clamp skew)  -  **SWORD** **`oberhau`**, **AXE** **`diagonal_chop`**,

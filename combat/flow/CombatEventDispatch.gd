@@ -15,7 +15,19 @@ static func process_event_queue(manager: Node) -> void:
             manager.event_queue.pop_front()
             continue
         var head: Dictionary = head_raw
-        if head.get(DataKeys.EVENT_RESOLVE_AT, 0.0) > CombatantEntityAccess.combat_clock_float(manager):
+        var resolve_at: float = head.get(DataKeys.EVENT_RESOLVE_AT, 0.0)
+        var clk: float = CombatantEntityAccess.combat_clock_float(manager)
+        if resolve_at > clk:
+            # Harness diagnostic: log pending melee attacks awaiting fire
+            if manager.has_meta("_fp_harness_diag") and bool(manager.get_meta("_fp_harness_diag")):
+                var ev_type_head: String = head.get(DataKeys.EVENT_TYPE, "")
+                if ev_type_head == CombatConstants.EVENT_MELEE_ATTACK:
+                    var cid_head: int = head.get(DataKeys.EVENT_COMBATANT_ID, -1)
+                    var wait_s: float = resolve_at - clk
+                    var atk_name: String = ""
+                    if not CombatantEntityAccess.manager_get_combatant(manager, cid_head).is_empty():
+                        atk_name = CombatantEntityAccess.get_display_name(CombatantEntityAccess.manager_get_combatant(manager, cid_head), cid_head)
+                    CombatDebug.harness_diag("event_queue_blocked melee_attack id=%d name=%s resolve_at=%.3f clock=%.3f wait=%.3fs queue_size=%d" % [cid_head, atk_name, resolve_at, clk, wait_s, manager.event_queue.size()])
             break
         var ev: Dictionary = manager.event_queue.pop_front() as Dictionary
         handle_event(manager, ev)
@@ -125,24 +137,6 @@ static func handle_melee_attack(manager: Node, c: Dictionary) -> void:
         CounterTempo.abort_attacker_wind_up(manager, CombatantEntityAccess.id_int(c))
         return
     manager._execute_attack(CombatantEntityAccess.id_int(c))
-    var atk: Dictionary = CombatantEntityAccess.manager_get_combatant(manager, CombatantEntityAccess.id_int(c))
-    if (
-        not atk.is_empty()
-        and CombatantEntityAccess.state_str(atk) == CombatConstants.STATE_RECOVERING
-        and atk.state_duration > 0.0
-    ):
-        (
-            CombatantEntityAccess
-            . manager_schedule_event(
-                manager,
-                {
-                    "type": CombatConstants.EVENT_RECOVERY_END,
-                    "combatant_id": CombatantEntityAccess.id_int(c),
-                    "resolve_at": CombatantEntityAccess.combat_clock_plus(manager, atk.state_duration),
-                    "data": {},
-                }
-            )
-        )
 
 
 static func handle_recovery_end(manager: Node, c: Dictionary) -> void:

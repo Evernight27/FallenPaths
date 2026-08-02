@@ -27,7 +27,7 @@ const CAMP_SMOKE_ROWS: Array = [
 ## Preloads to resolve direct class references (post-merge: incoming master removed preloads).
 const _CC := preload("res://combat/CombatConstants.gd")
 const _OpsLog := preload("res://core/OperationalLog.gd")
-const _D001Runner := preload("res://harness/d001/CombatD001SoakRunner.gd")
+## Note: CombatD001SoakRunner uses load() at runtime to avoid circular preload issues.
 const _CalibrationAudit := preload("res://harness/calibration/CombatCalibrationAudit.gd")
 const _SoakSanity := preload("res://harness/d001/CombatD001SoakSanity.gd")
 const _MedicalPhaseTail := preload("res://harness/medical_phase/MedicalPhaseTail.gd")
@@ -76,8 +76,9 @@ func _run_mode_regression() -> void:
 
 func _run_mode_d001() -> void:
     var failures: PackedStringArray = PackedStringArray()
-    _merge_failures(failures, _D001Runner.RUNNER_NAME, _run_d001())
-    _quit_mode(_D001Runner.RUNNER_NAME, failures, "d001")
+    var d001_r = load("res://harness/d001/CombatD001SoakRunner.gd")
+    _merge_failures(failures, d001_r.RUNNER_NAME, _run_d001())
+    _quit_mode(d001_r.RUNNER_NAME, failures, "d001")
 
 
 func _run_mode_calibration() -> void:
@@ -112,7 +113,8 @@ func _run_mode_sanity() -> void:
 func _run_mode_all() -> void:
     var failures: PackedStringArray = PackedStringArray()
     _merge_failures(failures, "CombatRegressionHarness", _run_regression())
-    _merge_failures(failures, _D001Runner.RUNNER_NAME, _run_d001())
+    var d001_r = load("res://harness/d001/CombatD001SoakRunner.gd")
+    _merge_failures(failures, d001_r.RUNNER_NAME, _run_d001())
     _merge_failures(failures, "CombatCalibrationAudit", _run_calibration_audit())
     _quit_mode(HARNESS_NAME, failures, "regression+d001")
 
@@ -134,8 +136,9 @@ func _run_regression() -> Dictionary:
 
 func _run_d001() -> Dictionary:
     print("=== CombatD001SoakRunner ===")
-    _OpsLog.harness_begin(_D001Runner.RUNNER_NAME)
-    return _D001Runner.run_all()
+    var d001_r = load("res://harness/d001/CombatD001SoakRunner.gd")
+    _OpsLog.harness_begin(d001_r.RUNNER_NAME)
+    return d001_r.run_all()
 
 
 func _run_calibration_audit() -> Dictionary:
@@ -157,7 +160,8 @@ func _run_mode_d001_presets() -> void:
     _CC.set_headless_harness_quiet(true)
     var preset_ids: PackedStringArray = _resolve_d001_preset_ids()
     _OpsLog.harness_begin(D001_PRESETS_NAME)
-    var r: Dictionary = _D001Runner.run_preset_ids(preset_ids)
+    var d001_r = load("res://harness/d001/CombatD001SoakRunner.gd")
+    var r: Dictionary = d001_r.run_preset_ids(preset_ids)
     _print_d001_preset_summary(r)
     _RegHarness.flush_harness_live_nodes()
     if bool(r.get("ok", false)):

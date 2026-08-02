@@ -32,7 +32,7 @@ const SEVERITY_CRITICAL: String = "critical"
 # (derived in CombatResearchAnchors.derived_blood_loss_multiplier_for_ttd for 30 - 120 s TTD).
 # Relative scaling (cut>crush, head>limb, arterial mult) is medically ordered.
 const BLEEDING_RATES: Dictionary = {
-    INJURY_TYPE_CUT: {SEVERITY_MINOR: 0.35, SEVERITY_MODERATE: 1.2, SEVERITY_SEVERE: 2.25, SEVERITY_CRITICAL: 4.5},
+    INJURY_TYPE_CUT: {SEVERITY_MINOR: 0.35, SEVERITY_MODERATE: 1.2, SEVERITY_SEVERE: 4.0, SEVERITY_CRITICAL: 4.5},
     INJURY_TYPE_STAB: {SEVERITY_MINOR: 0.25, SEVERITY_MODERATE: 0.85, SEVERITY_SEVERE: 1.6, SEVERITY_CRITICAL: 3.2},
     INJURY_TYPE_CRUSH: {SEVERITY_MINOR: 0.25, SEVERITY_MODERATE: 0.65, SEVERITY_SEVERE: 1.2, SEVERITY_CRITICAL: 2.25},
     INJURY_TYPE_BRUISE: {SEVERITY_MINOR: 0.0, SEVERITY_MODERATE: 0.0, SEVERITY_SEVERE: 0.0, SEVERITY_CRITICAL: 0.0},
@@ -41,6 +41,8 @@ const BLEEDING_RATES: Dictionary = {
 
 # --- Body part bleeding multipliers (scalp/face/trunk more vascular; StatPearls / clinical) ---
 # Used as base when no sub-region; with sub-regions, effective mult = part_base * sub_region_mult.
+# Combined body part × sub-region multiplier cap prevents extreme multiplicative stacking (e.g., head 1.5× neck 1.6× arterial 2.0x).
+const MAX_BODY_PART_SUBREGION_BLEED_MULT: float = 2.4
 const BODY_PART_BLEEDING_MULTIPLIERS: Dictionary = {
     BodyPartConstants.PART_HEAD: 1.5,
     BodyPartConstants.PART_CHEST: 1.2,
@@ -74,7 +76,7 @@ const SUB_REGION_WEIGHTS: Dictionary = {
 # Bleeding multiplier per sub-region (relative to limb baseline 1.0). Scalp bleeds profusely; neck carotid/jugular;
 # forearm most injured in UE.
 const SUB_REGION_BLEEDING_MULTIPLIERS: Dictionary = {
-    BodyPartConstants.PART_HEAD: {"scalp": 1.8, "face": 1.4, "neck": 1.6},
+    BodyPartConstants.PART_HEAD: {"scalp": 1.8, "face": 1.4, "neck": 2.2},
     BodyPartConstants.PART_CHEST: {"thoracic": 1.15, "abdominal": 1.25},
     BodyPartConstants.PART_RIGHT_ARM: {"upper_arm": 0.9, "elbow": 1.0, "forearm": 1.15, "hand": 1.05},
     BodyPartConstants.PART_LEFT_ARM: {"upper_arm": 0.9, "elbow": 1.0, "forearm": 1.15, "hand": 1.05},
@@ -86,7 +88,7 @@ const SUB_REGION_BLEEDING_MULTIPLIERS: Dictionary = {
 # Neck ~25% vascular in penetrating; scalp STA; forearm most injured in UE; SFA (thigh) penetrating, popliteal (knee)
 # blunt.
 const SUB_REGION_ARTERIAL_MULTIPLIERS: Dictionary = {
-    BodyPartConstants.PART_HEAD: {"scalp": 1.2, "face": 1.1, "neck": 1.5},
+    BodyPartConstants.PART_HEAD: {"scalp": 1.2, "face": 1.1, "neck": 2.0},
     BodyPartConstants.PART_CHEST: {"thoracic": 1.15, "abdominal": 1.2},
     BodyPartConstants.PART_RIGHT_ARM: {"upper_arm": 0.95, "elbow": 1.0, "forearm": 1.2, "hand": 0.9},
     BodyPartConstants.PART_LEFT_ARM: {"upper_arm": 0.95, "elbow": 1.0, "forearm": 1.2, "hand": 0.9},
@@ -162,14 +164,14 @@ const PENETRATION_DEPTH_ARTERIAL_DEEP_MULT := 1.12
 
 const MAX_BLOOD_VOLUME: float = 100.0
 # total_bleeding_rate - -  this = blood % lost per second (see docs/LIVE_PATHS.md#bleeding-physics).
-# Derived: buffer (100-35)% / (REFERENCE_UNCONTROLLED_BLEED_RATE - -  48 s) 'permille^ 0.1003; shipped 0.10 within
-# tolerance.
-# Calibrates TTD to ATLS/CoTCCC untreated major-bleed band (30 - 120 s). Tune lethality here, not raw HP/s alone.
-const BLOOD_LOSS_RATE_MULTIPLIER: float = 0.10
-# Death when remaining blood_volume <= this. 35% remaining = 65% lost (deep Class IV; ATLS IV begins >40% lost).
-const BLOOD_LOSS_DEATH_THRESHOLD: float = 35.0
+# Derived: buffer (100 - 30)% / (REFERENCE_UNCONTROLLED_BLEED_RATE - -  48 s) = 70 / (20.25 x 48) = 0.0720
+# (CombatResearchDerivations.derived_blood_loss_multiplier_for_ttd). Reference critical-arterial-head-cut TTD = 48 s,
+# inside the ATLS/CoTCCC untreated major-bleed band (30 - 120 s). Tune lethality here, not raw HP/s alone.
+const BLOOD_LOSS_RATE_MULTIPLIER: float = 0.0720
+# Death when remaining blood_volume <= this. 45% remaining = 55% lost (ATLS Class IV; clinical death at >50-55%).
+const BLOOD_LOSS_DEATH_THRESHOLD: float = 30.0
 # Critical state (UI/effects) when remaining <= this (Class III - IV border).
-const BLOOD_LOSS_CRITICAL_THRESHOLD: float = 30.0
+const BLOOD_LOSS_CRITICAL_THRESHOLD: float = 35.0
 
 # --- ATLS hemorrhage class (remaining blood %). ATLS 10th ed. loss bands: I <15%, II 15 - 30%, III 31 - 40%, IV >40%.
 # ---
@@ -181,9 +183,29 @@ const FEATURE_ATLS_STEPPED_BLOOD_CONSCIOUSNESS: bool = true
 
 # --- Medical triage bands (remaining % volume). Used by MedicalPhaseController AI/urgency. ---
 const MEDICAL_TRIAGE_DANGER_BLOOD_REMAINING: float = 55.0
-const MEDICAL_TRIAGE_PERIL_BLOOD_REMAINING: float = 42.0
+const MEDICAL_TRIAGE_PERIL_BLOOD_REMAINING: float = 47.0
 const MEDICAL_TRIAGE_DANGER_SECONDS: float = 60.0
 const MEDICAL_TRIAGE_PERIL_SECONDS: float = 30.0
+
+ # --- Compensation phase (ATLS): vasoconstriction delays full bleeding rate onset. ---
+## When a wound first opens, sympathetic nervous system triggers vasoconstriction that limits
+## hemorrhage. Bleeding rate starts at near-full and decays toward a sustained baseline (~20%)
+## over ~30 seconds as compensatory mechanisms engage. Separate from clotting — this is the
+## physiological delay before full hemorrhage manifests.
+const COMPENSATION_FLOOR_MULT: float = 0.35   # bleeding decays to ~35% of initial rate
+const COMPENSATION_DECAY_RATE: float = 0.045  # per second; half-life ~15s to reach floor
+
+ # --- Decompensation threshold: ATLS Class III→IV nonlinear collapse. ---
+## When blood volume drops below this, compensatory mechanisms fail and the patient enters
+## decompensated shock — a tipping point where deterioration accelerates non-linearly.
+## Clinically matches ATLS Class III (60% remaining) boundary where tachycardia + vasoconstriction
+## can no longer maintain perfusion; heart rate behavior changes toward bradycardia as pre-terminal sign.
+const DECOMPENSATION_BLOOD_THRESHOLD: float = 50.0  # blood volume % — below this, decompensation active
+## Decompensation accelerates bleeding: failed vasoconstriction causes rebound vasodilation and
+## increased capillary leak. Models the nonlinear collapse from compensatory to decompensated shock.
+const DECOMPENSATION_BLEED_ACCEL_MULT: float = 1.8  # +80% bleed rate when in decompensation
+## Decompensation accelerates blood volume drain (perfusion failure, microvascular leakage).
+const DECOMPENSATION_BLOOD_DRAIN_MULT: float = 1.25  # +25% blood loss rate when decompensated
 
 # --- Clotting: exponential decay of bleeding rate (rate *= exp(-k*delta)). First-order kinetics. ---
 # Per-severity clotting rate (k) per second. Half-life of rate = ln(2)/k (first-order clot decay).
@@ -252,7 +274,7 @@ const ARTERIAL_BODY_PART_MULTIPLIERS: Dictionary = {
 }
 # When a wound is arterial: higher bleeding rate and pressure inhibits clotting (2-5 min to exsanguination if
 # uncontrolled).
-const ARTERIAL_BLEEDING_MULTIPLIER: float = 2.0  # arterial bleeds much faster
+const ARTERIAL_BLEEDING_MULTIPLIER: float = 3.0  # arterial bleeds much faster
 const ARTERIAL_CLOTTING_MULTIPLIER: float = 0.15  # arterial pressure inhibits clotting; clot very slowly
 
 # --- Bandaging ---
@@ -276,7 +298,7 @@ const STABILIZE_PER_WOUND_EXTRA_SECONDS: float = 1.0
 const STABILIZE_SUCCESS_BASE_CHANCE: float = 0.82
 const STABILIZE_SUCCESS_ARTERIAL_MULT: float = 0.72
 const STABILIZE_ARTERIAL_EFFECTIVENESS_MULT: float = 0.55
-const STABILIZE_IMMEDIATE_REDUCTION: float = 0.45
+const STABILIZE_IMMEDIATE_REDUCTION: float = 0.65
 
 # --- Wound packing (head/chest; deep cavity; linen/cloth stuffed into wound) ---
 # Medieval: Celsus, Albucasis, Crusades - packing wounds with lint, linen, cloth to control hemorrhage. For
@@ -511,6 +533,8 @@ static func get_bleeding_rate(injury_type: String, severity: String, part: Strin
     var mult: float = BODY_PART_BLEEDING_MULTIPLIERS.get(part, 1.0)
     if not sub_region.is_empty():
         mult *= SUB_REGION_BLEEDING_MULTIPLIERS.get(part, {}).get(sub_region, 1.0)
+    # Cap combined body part × sub-region multiplier to prevent extreme stacking (e.g., head+neck=2.4x vs clinical ~1.5-2.0x).
+    mult = clampf(mult, 0.0, MAX_BODY_PART_SUBREGION_BLEED_MULT)
     return base_rate * mult
 
 
@@ -587,5 +611,7 @@ static func get_arterial_chance(
         base_chance *= penetration_depth_arterial_mult(penetration_to_tissue_mm)
     var part_mult: float = ARTERIAL_BODY_PART_MULTIPLIERS.get(part, 1.0)
     if not sub_region.is_empty():
-        part_mult *= SUB_REGION_ARTERIAL_MULTIPLIERS.get(part, {}).get(sub_region, 1.0)
+        var sr_mult: float = SUB_REGION_ARTERIAL_MULTIPLIERS.get(part, {}).get(sub_region, 1.0)
+        # Use max of part/sub-region rather than multiply to avoid over-counting vascular chance (e.g., neck critical at ~55% vs lit ~25%).
+        part_mult = maxf(part_mult, sr_mult)
     return clampf(base_chance * part_mult, 0.0, 1.0)

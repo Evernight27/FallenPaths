@@ -4,12 +4,16 @@ extends RefCounted
 ## Stamina and exhaustion constants extracted from CombatConstants.gd.
 ## Preload this module when you only need stamina/exhaustion values and helpers.
 const STAMINA_MAX := 100.0
-const STAMINA_REFILL_RATE := 2.1
+const STAMINA_REFILL_RATE := 3.5
 const STAMINA_ATTACK_COST_BASE := 12.0
 const STAMINA_ATTACK_COST_SCALE := 8.0
 const STAMINA_PARRY_COST := 12.0
 const STAMINA_PARRY_COST_BASE := 12.0
 const STAMINA_PARRY_COST_SCALE := 8.0
+## Dodge stamina cost — footwork step + body reposition burns energy; ~60% of parry to reflect lower mechanical demand
+## but still meaningful (real fighters cannot evade indefinitely without fatigue).
+const STAMINA_DODGE_COST_BASE := 7.5
+const STAMINA_DODGE_COST_SCALE := 5.0
 const STAMINA_ACTION_READY_DELAY_AT_ZERO_MULT := 1.35
 const PARRY_BIND_RIPOSTE_GAUGE_BONUS := 28.0
 const STAMINA_AT_ZERO_PARRY_MULT := 0.5
@@ -24,6 +28,7 @@ const EXHAUSTION_OFFENSE_DAMP_FLOOR := 0.35
 const COMBATANT_KEY_EXHAUSTION := "exhaustion"
 const COMBATANT_KEY_EXHAUSTION_FP_BAND_LOGGED := "exhaustion_fp_band_logged"
 const COMBATANT_KEY_CONSECUTIVE_ACTIONS := "_consecutive_actions"
+const COMBATANT_KEY_CONSECUTIVE_PARRIES := "_consecutive_parry_count"
 const COMBATANT_KEY_METABOLIC_STRESS := "_metabolic_stress"
 const EXHAUSTION_MAX := 1.0
 const EXHAUSTION_EXERTION_PER_STAMINA_POINT := 0.001
@@ -57,6 +62,9 @@ static func stamina_attack_cost_from_intensity(intensity: float) -> float:
 
 static func stamina_parry_cost_from_intensity(intensity: float) -> float:
     return STAMINA_PARRY_COST_BASE + STAMINA_PARRY_COST_SCALE * clampf(intensity, 0.0, 1.0)
+
+static func stamina_dodge_cost_from_intensity(intensity: float) -> float:
+    return STAMINA_DODGE_COST_BASE + STAMINA_DODGE_COST_SCALE * clampf(intensity, 0.0, 1.0)
 
 
 static func action_ready_stamina_delay_mult(stamina_ratio: float) -> float:
@@ -124,6 +132,20 @@ static func consecutive_action_stamina_mult(consecutive: int) -> float:
         return 1.0
     var t: float = float(consecutive - 1)
     return lerpf(1.0, 2.5, clampf(t / 4.0, 0.0, 1.0))
+
+
+## Escalating stamina cost multiplier specifically for consecutive parries.
+## Models HEMA reality: repeatedly parrying without letting the blade settle creates compounding fatigue.
+## Each parry within `parry_cooldown_reset_s` seconds of the previous one costs more than the last.
+## Consecutive count resets after a full recovery window (default 1.5s).
+static func consecutive_parry_stamina_mult(consecutive: int) -> float:
+    if consecutive <= 1:
+        return 1.0
+    # Parry fatigue escalates faster than general actions — each successive parry is ~30% more expensive.
+    # By the 5th consecutive parry, cost is roughly 2x base (vs 2.5x for generic consecutive actions which
+    # include low-cost actions like waiting). Parries are physically demanding defensive motions.
+    var t: float = float(consecutive - 1)
+    return lerpf(1.0, 3.0, clampf(t / 4.0, 0.0, 1.0))
 
 
 ## Gain metabolic stress from stamina spend (lactate-like accumulation).

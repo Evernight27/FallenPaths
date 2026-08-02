@@ -43,8 +43,7 @@ static func pick(actions: Array, combatant_id: int, manager: Node) -> Dictionary
         var choice_stacked: Dictionary = stacked.duplicate()
         CombatAIAttackTargetPart._add_attack_target_part(choice_stacked, manager, combatant_id)
         return choice_stacked
-    if CombatWeaponForm.evaluate_automatic_form(manager, c_pick):
-        return {}
+    CombatWeaponForm.evaluate_automatic_form(manager, c_pick)
     return pick_weighted(actions, combatant_id, manager)
 
 
@@ -127,6 +126,11 @@ static func opts_from_choice(choice: Dictionary) -> Dictionary:
 
 ## Apply a picked move via **`CombatManager.resolve_action`** (shared by player/enemy turn paths).
 static func resolve_choice(manager: Node, combatant_id: int, choice: Dictionary, self_target: bool = false) -> bool:
+    if choice.is_empty():
+        CombatantEntityAccess.manager_skip_turn(
+            manager, combatant_id, CombatConstants.SKIP_TURN_LOG_PASS, "resolve_choice got empty choice"
+        )
+        return false
     var opts: Dictionary = opts_from_choice(choice)
     var target_id: int = combatant_id if self_target else int(choice.get(DataKeys.ACTION_TARGET_ID, combatant_id))
     var move_id: String = choice.get(DataKeys.ACTION_MOVE_ID, "")
@@ -144,6 +148,11 @@ static func resolve_picked_turn(
         return
     var choice: Dictionary = pick(actions, combatant_id, manager)
     CombatEngagementDiagnostics.maybe_log_turn_pick(manager, combatant_id, actions, choice)
+    if choice.is_empty():
+        CombatantEntityAccess.manager_skip_turn(
+            manager, combatant_id, CombatConstants.SKIP_TURN_LOG_PASS, "pick produced no actionable choice"
+        )
+        return
     var committed: bool = resolve_choice(manager, combatant_id, choice, self_target)
     if not committed and manager != null and manager.medical_phase:
         CombatantEntityAccess.manager_skip_turn(

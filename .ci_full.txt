@@ -1,11 +1,30 @@
 ﻿Godot Engine v4.7.stable.official.5b4e0cb0f - https://godotengine.org
 
+E:\Godot_v4.7-stable_win64.exe : SCRIPT ERROR: Parse Error: Could not resolve class 
+"CombatRegressionHarnessMuscleFatigueTail", because of a parser error.
+At line:1 char:1
++ E:\Godot_v4.7-stable_win64.exe --headless -s tools/ci/run_company_sta ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (SCRIPT ERROR: P...a parser error.:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+   at: GDScript::reload (res://harness/regression/CombatRegressionHarness.gd:131)
+SCRIPT ERROR: Compile Error: Failed to compile depended scripts.
+   at: GDScript::reload (res://harness/HarnessFixtures.gd:0)
+SCRIPT ERROR: Compile Error: Failed to compile depended scripts.
+   at: GDScript::reload (res://tools/ci/company_checks/CompanyChecksCore.gd:0)
+SCRIPT ERROR: Compile Error: Failed to compile depended scripts.
+   at: GDScript::reload (res://tools/ci/company_checks/Camp1EconomyTests.gd:0)
+SCRIPT ERROR: Compile Error: Failed to compile depended scripts.
+   at: GDScript::reload (res://tools/ci/run_company_state_checks.gd:0)
+ERROR: Failed to load script "res://tools/ci/run_company_state_checks.gd" with error "Compilation failed".
+   at: load (modules/gdscript/gdscript_resource_format.cpp:46)
 FP_SESSION_BEGIN: headless://camp_wage_warn flow_logs=false hit_summary=false per_hit_debug=false research_feel=false dev_soak=(empty) dev_research_feel=false  -  walk red 7v7 tile OR set dev_soak_encounter; grep soak_guide  -  copy full Output; grep hit_resolve reason= strike_avoided reason= diagram_banner player: engagement_debug opposition offset engagement_transition encounter_context parry_partial rem= hit_outcome_stats parry_stats soak_fight_end hit_coverage_hint FP_COMBAT FP_ERROR SCRIPT_ERROR
 FP_WORLD: Wages short  -  paid what you could; mood fell (gold 10, bill 30).
 FP_WORLD: provisions fed=2 food_left=12
 FP_WORLD: company_wages: gold=-20 below next wage bill=30 (day 1)
 FP_WORLD: Company is in debt (-20g). Low-mood brothers may desert at the next day end.
-FP_WORLD: campaign_autosave path=user://fallen_paths_harness_14725589.json gold=-20 day=1 living=2
+FP_WORLD: campaign_autosave path=user://fallen_paths_harness_7869962.json gold=-20 day=1 living=2
 FP_WORLD: company_day_advanced day=1 wages_paid=30 gold=-20 living=2 autosave=true
 FP_SESSION_END: headless://camp_wage_warn
 FP_SESSION_BEGIN: headless://camp_desertion_summary flow_logs=false hit_summary=false per_hit_debug=false research_feel=false dev_soak=(empty) dev_research_feel=false  -  walk red 7v7 tile OR set dev_soak_encounter; grep soak_guide  -  copy full Output; grep hit_resolve reason= strike_avoided reason= diagram_banner player: engagement_debug opposition offset engagement_transition encounter_context parry_partial rem= hit_outcome_stats parry_stats soak_fight_end hit_coverage_hint FP_COMBAT FP_ERROR SCRIPT_ERROR
@@ -18,7 +37,7 @@ FP_COMBAT: soak_session_plan fight=walk red 7v7 tile  -  covers formation gauge 
 FP_COMBAT: soak_session_plan Q1=off  -  enable main dev_research_feel for per-hit research_feel lines
 FP_COMBAT: soak_session_plan after fight grep hit_resolve reason= strike_avoided reason= diagram_banner player: engagement_transition hit_outcome_stats parry_stats soak_fight_end soak_coverage  -  paste full Output
 Tile texture exists and is valid
-FP_WORLD: campaign_autosave path=user://fallen_paths_harness_14725589.json gold=50 day=0 living=2
+FP_WORLD: campaign_autosave path=user://fallen_paths_harness_7869962.json gold=50 day=0 living=2
 FP_WORLD: hire_rookie name=Companion gold=50 living=2
 FP_SESSION_BEGIN: res://scenes/campaign/main.tscn flow_logs=false hit_summary=false per_hit_debug=false research_feel=false dev_soak=(empty) dev_research_feel=false  -  walk red 7v7 tile OR set dev_soak_encounter; grep soak_guide  -  copy full Output; grep hit_resolve reason= strike_avoided reason= diagram_banner player: engagement_debug opposition offset engagement_transition encounter_context parry_partial rem= hit_outcome_stats parry_stats soak_fight_end hit_coverage_hint FP_COMBAT FP_ERROR SCRIPT_ERROR
 FP_COMBAT: soak_session_plan dev_soak_encounter=(empty) dev_research_feel=false
@@ -33,9 +52,9 @@ FP_COMBAT: soak_session_plan fight=walk red 7v7 tile  -  covers formation gauge 
 FP_COMBAT: soak_session_plan Q1=off  -  enable main dev_research_feel for per-hit research_feel lines
 FP_COMBAT: soak_session_plan after fight grep hit_resolve reason= strike_avoided reason= diagram_banner player: engagement_transition hit_outcome_stats parry_stats soak_fight_end soak_coverage  -  paste full Output
 Tile texture exists and is valid
-FP_WORLD: campaign_autosave path=user://fallen_paths_harness_14725589.json gold=300 day=0 living=3
+FP_WORLD: campaign_autosave path=user://fallen_paths_harness_7869962.json gold=300 day=0 living=3
 FP_WORLD: hire_rookie name=Companion2 gold=300 living=3
-FP_WORLD: campaign_autosave path=user://fallen_paths_harness_14725589.json gold=300 day=0 living=3
+FP_WORLD: campaign_autosave path=user://fallen_paths_harness_7869962.json gold=300 day=0 living=3
 FP_SESSION_BEGIN: res://scenes/campaign/main.tscn flow_logs=false hit_summary=false per_hit_debug=false research_feel=false dev_soak=(empty) dev_research_feel=false  -  walk red 7v7 tile OR set dev_soak_encounter; grep soak_guide  -  copy full Output; grep hit_resolve reason= strike_avoided reason= diagram_banner player: engagement_debug opposition offset engagement_transition encounter_context parry_partial rem= hit_outcome_stats parry_stats soak_fight_end hit_coverage_hint FP_COMBAT FP_ERROR SCRIPT_ERROR
 FP_COMBAT: soak_session_plan dev_soak_encounter=(empty) dev_research_feel=false
 FP_COMBAT: soak_session_plan fight=walk red 7v7 tile  -  covers formation gauge medical parry exhaustion flee (not ii5 cowering / ii6 shock / ii2b bind-only)
@@ -94,7 +113,7 @@ FP_SESSION_BEGIN: headless://camp_field_care_done flow_logs=false hit_summary=fa
 FP_COMBAT: medical LogDress _apply_bandage(chest) => success, 1 wound(s) stabilized
 FP_WORLD: field_care bandage part=chest target=LogDress seconds=150 parts_left=0 med_left=1 eff=1.00 all_dressed=true camp_rest_ready
 FP_WORLD: provisions fed=2 food_left=12
-FP_WORLD: campaign_autosave path=user://fallen_paths_harness_14725589.json gold=470 day=1 living=2
+FP_WORLD: campaign_autosave path=user://fallen_paths_harness_7869962.json gold=470 day=1 living=2
 FP_WORLD: company_day_advanced day=1 wages_paid=30 gold=470 living=2 autosave=true
 FP_WORLD: camp_heal seconds=600 mult=3.0 med_left=0 day=0->1 all_dressed=true mood=+1
 FP_SESSION_END: headless://camp_field_care_done
@@ -120,7 +139,7 @@ FP_WORLD: Wages short  -  paid what you could; mood fell (gold 5, bill 30).
 FP_WORLD: provisions fed=2 food_left=12
 FP_WORLD: company_wages: gold=-25 below next wage bill=30 (day 1)
 FP_WORLD: Company is in debt (-25g). Low-mood brothers may desert at the next day end.
-FP_WORLD: campaign_autosave path=user://fallen_paths_harness_14725589.json gold=-25 day=1 living=2
+FP_WORLD: campaign_autosave path=user://fallen_paths_harness_7869962.json gold=-25 day=1 living=2
 FP_WORLD: company_day_advanced day=1 wages_paid=30 gold=-25 living=2 autosave=true
 FP_SESSION_END: headless://camp_debt_warn
 FP_SESSION_BEGIN: headless://camp_settlement_continue flow_logs=false hit_summary=false per_hit_debug=false research_feel=false dev_soak=(empty) dev_research_feel=false  -  walk red 7v7 tile OR set dev_soak_encounter; grep soak_guide  -  copy full Output; grep hit_resolve reason= strike_avoided reason= diagram_banner player: engagement_debug opposition offset engagement_transition encounter_context parry_partial rem= hit_outcome_stats parry_stats soak_fight_end hit_coverage_hint FP_COMBAT FP_ERROR SCRIPT_ERROR
@@ -139,7 +158,7 @@ FP_WORLD: field_care: open Party -- pressure (free) -- bandage/pack/TQ; 1 part(s
 FP_SESSION_END: headless://camp_field_care_hint
 FP_SESSION_BEGIN: headless://camp_company_day flow_logs=false hit_summary=false per_hit_debug=false research_feel=false dev_soak=(empty) dev_research_feel=false  -  walk red 7v7 tile OR set dev_soak_encounter; grep soak_guide  -  copy full Output; grep hit_resolve reason= strike_avoided reason= diagram_banner player: engagement_debug opposition offset engagement_transition encounter_context parry_partial rem= hit_outcome_stats parry_stats soak_fight_end hit_coverage_hint FP_COMBAT FP_ERROR SCRIPT_ERROR
 FP_WORLD: provisions fed=2 food_left=12
-FP_WORLD: campaign_autosave path=user://fallen_paths_harness_14725589.json gold=470 day=1 living=2
+FP_WORLD: campaign_autosave path=user://fallen_paths_harness_7869962.json gold=470 day=1 living=2
 FP_WORLD: company_day_advanced day=1 wages_paid=30 gold=470 living=2 autosave=true
 FP_SESSION_END: headless://camp_company_day
 FP_SESSION_BEGIN: headless://camp_rest_day_advance flow_logs=false hit_summary=false per_hit_debug=false research_feel=false dev_soak=(empty) dev_research_feel=false  -  walk red 7v7 tile OR set dev_soak_encounter; grep soak_guide  -  copy full Output; grep hit_resolve reason= strike_avoided reason= diagram_banner player: engagement_debug opposition offset engagement_transition encounter_context parry_partial rem= hit_outcome_stats parry_stats soak_fight_end hit_coverage_hint FP_COMBAT FP_ERROR SCRIPT_ERROR
@@ -148,7 +167,7 @@ FP_WORLD: field_care bandage failed part=chest target=CampRest parts_left=1  -  
 FP_COMBAT: medical CampRest _apply_bandage(chest) => success, 1 wound(s) stabilized
 FP_WORLD: field_care bandage part=chest target=CampRest seconds=150 parts_left=0 med_left=2 eff=1.00 all_dressed=true camp_rest_ready
 FP_WORLD: provisions fed=2 food_left=12
-FP_WORLD: campaign_autosave path=user://fallen_paths_harness_14725589.json gold=470 day=1 living=2
+FP_WORLD: campaign_autosave path=user://fallen_paths_harness_7869962.json gold=470 day=1 living=2
 FP_WORLD: company_day_advanced day=1 wages_paid=30 gold=470 living=2 autosave=true
 FP_WORLD: camp_heal seconds=600 mult=3.0 med_left=1 day=0->1 all_dressed=true mood=+1
 FP_SESSION_END: headless://camp_rest_day_advance
@@ -167,22 +186,15 @@ FP_WORLD: party_triage_open living=3 untreated=1 bleeding=1 parts_need_dressing=
 FP_SESSION_END: headless://camp_party_triage
 FP_SESSION_BEGIN: headless://p2_day_autosave_log flow_logs=false hit_summary=false per_hit_debug=false research_feel=false dev_soak=(empty) dev_research_feel=false  -  walk red 7v7 tile OR set dev_soak_encounter; grep soak_guide  -  copy full Output; grep hit_resolve reason= strike_avoided reason= diagram_banner player: engagement_debug opposition offset engagement_transition encounter_context parry_partial rem= hit_outcome_stats parry_stats soak_fight_end hit_coverage_hint FP_COMBAT FP_ERROR SCRIPT_ERROR
 FP_WORLD: provisions fed=2 food_left=12
-FP_WORLD: campaign_autosave path=user://fallen_paths_harness_14725589.json gold=470 day=1 living=2
+FP_WORLD: campaign_autosave path=user://fallen_paths_harness_7869962.json gold=470 day=1 living=2
 FP_WORLD: company_day_advanced day=1 wages_paid=30 gold=470 living=2 autosave=true
 FP_SESSION_END: headless://p2_day_autosave_log
 FP_HARNESS_OK: CompanyStateChecks (425 tests)
 FP_HARNESS_SUMMARY: CompanyStateChecks OK
 FP_HARNESS_SUMMARY: wrote E:/FallenPaths/fallen-paths/.harness_out.txt
-ERROR: 1 RID allocations of type 'P11GodotBody2D' were leaked at exit.
-Godot_v4.7-stable_win64.exe : WARNING: 6 RIDs of type "CanvasItem" were leaked.
-At line:1 char:1
-+ & 'E:\Godot_v4.7-stable_win64.exe' --headless --path 'E:\\FallenPaths ...
-+ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    + CategoryInfo          : NotSpecified: (WARNING: 6 RIDs...m" were leaked.:String) [], RemoteException
-    + FullyQualifiedErrorId : NativeCommandError
- 
+WARNING: 3 RIDs of type "CanvasItem" were leaked.
    at: _free_rids (servers/rendering/renderer_canvas_cull.cpp:2735)
-WARNING: 14 ObjectDB instances were leaked at exit (run with `--verbose` for details).
+WARNING: 8 ObjectDB instances were leaked at exit (run with `--verbose` for details).
    at: cleanup (core/object/object.cpp:2535)
-ERROR: 3 resources still in use at exit (run with --verbose for details).
+ERROR: 2 resources still in use at exit (run with --verbose for details).
    at: clear (core/io/resource.cpp:822)

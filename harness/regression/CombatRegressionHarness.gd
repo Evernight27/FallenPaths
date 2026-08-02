@@ -131,6 +131,7 @@ static func get_test_functions() -> Array:
     tests.append(Callable(CombatRegressionHarnessMuscleFatigueTail, "run"))
     tests.append(Callable(CombatRegressionHarnessTargeting1v1Tail, "run"))
     tests.append(Callable(ParryActionResolvedTests, "_run_combat_end_enemy_win_stops_manager"))
+    tests.append(Callable(ParryActionResolvedTests, "_run_duel_auto_end_detection"))
     tests.append(Callable(KinematicDeliveryStaminaFormationTests, "_run_medical_pain_shock_susceptibility_mult_from_effective_pain"))
     tests.append(Callable(KinematicDeliveryStaminaFormationTests, "_run_medical_ambient_pain_shock_tick_enters_from_sustained_pain"))
     tests.append(Callable(KinematicDeliveryStaminaFormationTests, "_run_medical_ambient_pain_shock_skips_when_feature_off"))

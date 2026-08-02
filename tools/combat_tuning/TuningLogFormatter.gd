@@ -635,7 +635,7 @@ static func _format_ke_bucket_lines(ke_samples: Array) -> String:
         var weapon_id: String = _ke_sample_weapon_id(raw)
         if _is_committed_swing_sample(raw):
             swing_samples.append(raw)
-        if (
+        if weapon_id != "DAGGER" and (
             move_id.contains("thrust")
             or move_id in ["spike_thrust", "quick_thrust", "committed_thrust", "spear_thrust"]
         ):
@@ -646,7 +646,8 @@ static func _format_ke_bucket_lines(ke_samples: Array) -> String:
     var swing_weapon: String = _dominant_weapon_in_samples(swing_samples)
     parts.append(_format_ke_bucket_line("committed_swing", swing_samples, true, swing_weapon, "swing"))
     if not thrust_samples.is_empty():
-        parts.append(_format_ke_bucket_line("thrust", thrust_samples, true, "SPEAR", "thrust"))
+        var thrust_weapon: String = _dominant_weapon_in_samples(thrust_samples)
+        parts.append(_format_ke_bucket_line("thrust", thrust_samples, true, thrust_weapon, "thrust"))
     if not light_samples.is_empty():
         parts.append(_format_ke_bucket_line("light", light_samples, true, "DAGGER", "thrust"))
     parts.append(_format_ke_bucket_line("all", all_samples, false))

@@ -82,7 +82,7 @@ static func _run_attention_load_stacks_peril_and_incoming(failures: PackedString
     var atk_id: int = CombatantEntityAccess.id_int(atk)
     var ally_ent: Node = CombatantEntityAccess.get_entity_from_manager(mgr, ally)
     if ally_ent != null:
-        ally_ent.blood_volume = 38.0
+        ally_ent.blood_volume = 46.0
     AttackWindUpStarter.start(mgr, atk_id, medic_id, "oberhau")
     CombatAttention.refresh_salience(mgr, medic_id)
     var load: float = CombatAttention.get_attention_load(medic)
@@ -156,7 +156,7 @@ static func _run_mental_stack_medical_overrides_attack(failures: PackedStringArr
     var ally_id: int = CombatantEntityAccess.id_int(ally)
     var enemy_id: int = CombatantEntityAccess.id_int(mgr.combatants[2])
     var ally_ent: Node = CombatantEntityAccess.get_entity_from_manager(mgr, ally)
-    AttentionFootworkAttentionLoadTests._harness_immediate_peril_bleeding_chest(ally_ent, 38.0)
+    AttentionFootworkAttentionLoadTests._harness_immediate_peril_bleeding_chest(ally_ent, 46.0)
     mgr.medical_phase = true
     mgr.medical_phase_winner = "player"
 
@@ -178,10 +178,10 @@ static func _run_mental_stack_medical_overrides_attack(failures: PackedStringArr
     if ally_ent != null:
         ally_bv = float(ally_ent.get("blood_volume"))
     ctx += " bv=%.1f|" % ally_bv
-    if ally_bv > 42.0:
+    if ally_bv > BleedingConstants.MEDICAL_TRIAGE_PERIL_BLOOD_REMAINING:
         CombatRegressionHarness._fail(
             failures,
-            "mental_stack_medical diag: ally blood_volume=%.1f > 42 threshold  -  peril won't trigger" % ally_bv
+            "mental_stack_medical diag: ally blood_volume=%.1f > %s threshold  -  peril won't trigger" % [ally_bv, BleedingConstants.MEDICAL_TRIAGE_PERIL_BLOOD_REMAINING]
         )
         CombatRegressionHarness._free_manager_restore_global_rng(mgr)
         return
@@ -589,7 +589,7 @@ static func _run_mental_stack_stamps_layer_on_medical_pick(failures: PackedStrin
     var medic_id: int = CombatantEntityAccess.id_int(medic)
     var ally_id: int = CombatantEntityAccess.id_int(ally)
     var ally_ent: Node = CombatantEntityAccess.get_entity_from_manager(mgr, ally)
-    AttentionFootworkAttentionLoadTests._harness_immediate_peril_bleeding_chest(ally_ent, 38.0)
+    AttentionFootworkAttentionLoadTests._harness_immediate_peril_bleeding_chest(ally_ent, 46.0)
     mgr.medical_phase = true
     mgr.medical_phase_winner = "player"
     var actions: Array = [
@@ -631,8 +631,8 @@ static func _run_mental_stack_self_peril_before_ally_medical(failures: PackedStr
     var ally_id: int = CombatantEntityAccess.id_int(ally)
     var medic_ent: Node = CombatantEntityAccess.get_entity_from_manager(mgr, medic)
     var ally_ent: Node = CombatantEntityAccess.get_entity_from_manager(mgr, ally)
-    AttentionFootworkAttentionLoadTests._harness_immediate_peril_bleeding_chest(medic_ent, 38.0)
-    AttentionFootworkAttentionLoadTests._harness_immediate_peril_bleeding_chest(ally_ent, 38.0)
+    AttentionFootworkAttentionLoadTests._harness_immediate_peril_bleeding_chest(medic_ent, 46.0)
+    AttentionFootworkAttentionLoadTests._harness_immediate_peril_bleeding_chest(ally_ent, 46.0)
     mgr.medical_phase = true
     mgr.medical_phase_winner = "player"
     var actions: Array = [

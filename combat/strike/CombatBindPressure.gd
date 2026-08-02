@@ -64,11 +64,13 @@ static func set_after_parry_bind(target: Dictionary, manager: Node, attacker_id:
     if target.is_empty():
         return
     var pressure: float = clampf((control - CombatConstants.PARRY_BIND_CONTROL_THRESHOLD) / (1.0 - CombatConstants.PARRY_BIND_CONTROL_THRESHOLD), 0.2, 0.8)
+    var clock: float = CombatantEntityAccess.combat_clock_float(manager)
     target[DataKeys.BIND_PRESSURE_VALUE] = pressure
-    target[DataKeys.BIND_PRESSURE_UNTIL] = (
-        CombatantEntityAccess.combat_clock_float(manager) + CombatConstants.BIND_PRESSURE_DURATION_S
-    )
+    target[DataKeys.BIND_PRESSURE_UNTIL] = clock + CombatConstants.BIND_PRESSURE_DURATION_S
     target[DataKeys.BIND_PARTNER_ID] = attacker_id
+    # Track when bind started for progressive leverage calculation.
+    if not target.has(DataKeys.BIND_SUSTAINED_UNTIL) or float(target.get(DataKeys.BIND_SUSTAINED_UNTIL, 0.0)) < clock:
+        target[DataKeys.BIND_SUSTAINED_UNTIL] = clock + CombatConstants.BIND_PRESSURE_DURATION_S
     ## A1: control side — winner of parry bind takes inside line.
     var guard_line: String = str(target.get(DataKeys.ATTACK_GUARD_LINE, CombatConstants.GUARD_DEFAULT)).strip_edges()
     match guard_line:
@@ -86,11 +88,13 @@ static func set_after_manual_bind(winner: Dictionary, manager: Node, opp_id: int
     if winner.is_empty():
         return
     var pressure: float = clampf(power_ratio, 0.3, 0.9)
+    var clock: float = CombatantEntityAccess.combat_clock_float(manager)
     winner[DataKeys.BIND_PRESSURE_VALUE] = pressure
-    winner[DataKeys.BIND_PRESSURE_UNTIL] = (
-        CombatantEntityAccess.combat_clock_float(manager) + CombatConstants.BIND_PRESSURE_DURATION_S
-    )
+    winner[DataKeys.BIND_PRESSURE_UNTIL] = clock + CombatConstants.BIND_PRESSURE_DURATION_S
     winner[DataKeys.BIND_PARTNER_ID] = opp_id
+    # Track when bind started for progressive leverage calculation.
+    if not winner.has(DataKeys.BIND_SUSTAINED_UNTIL) or float(winner.get(DataKeys.BIND_SUSTAINED_UNTIL, 0.0)) < clock:
+        winner[DataKeys.BIND_SUSTAINED_UNTIL] = clock + CombatConstants.BIND_PRESSURE_DURATION_S
     ## A1: control side — derived from lane offset relative to opponent.
     var w_loa: float = float(winner.get(DataKeys.BIND_LANE_OFFSET, 0.0))
     if w_loa > 0.15:
@@ -103,6 +107,7 @@ static func set_after_manual_bind(winner: Dictionary, manager: Node, opp_id: int
 
 ## Apply decay during waiting state processing. Reduces pressure over time.
 ## Also clears bind when partner is no longer at CLOSE distance (formation shuffle, death, flee).
+## Progressive leverage degradation: prolonged binds cause blade fatigue — pressure decays faster after grace period.
 static func apply_decay(combatant: Dictionary, manager: Node, delta: float) -> void:
     if combatant.is_empty():
         return
@@ -124,7 +129,21 @@ static func apply_decay(combatant: Dictionary, manager: Node, delta: float) -> v
             _clear_bind_state(combatant)
             return
     var val: float = float(combatant.get(DataKeys.BIND_PRESSURE_VALUE, 0.0))
-    val -= CombatConstants.BIND_PRESSURE_DECAY_RATE * delta
+    # Progressive leverage degradation: after grace period of sustained bind, blade fatigue accelerates decay.
+    var base_decay: float = CombatConstants.BIND_PRESSURE_DECAY_RATE * delta
+    var elapsed_sustained: float = float(combatant.get(DataKeys.BIND_SUSTAINED_UNTIL, now) - CombatConstants.BIND_LEVERAGE_GRACE_PERIOD_S)
+    if elapsed_sustained > 0.0 and val >= CombatConstants.BIND_STATE_MEDIUM_THRESHOLD:
+        # Accelerated decay from leverage loss — pressure drops faster as muscles fatigue.
+        var accelerated_decay: float = base_decay * CombatConstants.BIND_PROGRESSIVE_LEVERAGE_DECAY_MULT
+        val -= accelerated_decay
+    else:
+        val -= base_decay
+    # Check for wrestling transition opportunity — high sustained pressure means blade is locked but opponent is tiring.
+    if val >= CombatConstants.BIND_WRESTLING_TRANSITION_THRESHOLD and not combatant.has(DataKeys.BIND_WRESTLING_AVAILABLE):
+        combatant[DataKeys.BIND_WRESTLING_AVAILABLE] = true
+    # Clear wrestling flag if pressure dropped below threshold.
+    if val < CombatConstants.BIND_STATE_HARD_THRESHOLD:
+        combatant.erase(DataKeys.BIND_WRESTLING_AVAILABLE)
     if val <= 0.0:
         _clear_bind_state(combatant)
     else:
@@ -437,6 +456,8 @@ static func _clear_bind_state(c: Dictionary) -> void:
     c[DataKeys.BIND_PRESSURE_UNTIL] = -1.0
     c[DataKeys.BIND_PARTNER_ID] = -1
     c[DataKeys.BIND_CONTROL_SIDE] = DataKeys.BIND_SIDE_CENTRE
+    c.erase(DataKeys.BIND_WRESTLING_AVAILABLE)
+    c.erase(DataKeys.BIND_SUSTAINED_UNTIL)
 
 
 static func _schedule_ready(manager: Node, combatant_id: int) -> void:

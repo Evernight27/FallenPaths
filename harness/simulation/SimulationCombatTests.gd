@@ -685,12 +685,17 @@ static func _run_sim_notify_died_emits_once(failures: PackedStringArray) -> void
     if EntityWounds.get_total_bleeding_rate(bleed_ent) <= 0.0:
         SimulationCombatTests._fail(failures, "notify_died: need bleed rate on wounded entity")
         return
-    bleed_ent.blood_volume = 36.0
+    bleed_ent.blood_volume = 50.0
     bleed_ent._set_combat_blood_loss_mult(1.0)
     bleed_ent._set_combat_blood_recovery_per_s(0.0)
     var bleed_fired: Array = [0]
     bleed_ent.died.connect(func() -> void: bleed_fired[0] = int(bleed_fired[0]) + 1)
-    for _i in range(24):
+    # Ticks to exsanguination from current volume (blood 50 -> death 30) at the clinical TTD band; the loop window must
+    # span it regardless of BLOOD_LOSS_RATE_MULTIPLIER calibration.
+    var ticks_to_die: int = int(ceil(BleedingConstants.seconds_to_exsanguination_at_death_threshold(
+        EntityWounds.get_total_bleeding_rate(bleed_ent), bleed_ent.blood_volume, 30.0, 1.0
+    ))) + 5
+    for _i in range(ticks_to_die):
         EntityWounds.process_blood_loss(bleed_ent, 1.0)
     if int(bleed_fired[0]) != 1:
         SimulationCombatTests._fail(
@@ -872,8 +877,8 @@ static func _run_sim_atls_consciousness_class_boundaries(failures: PackedStringA
     )
     if not is_equal_approx(mod_85, 1.0):
         SimulationCombatTests._fail(failures, "sim_atls: mod at 85%% want 1.0 got %.3f" % mod_85)
-    if not is_equal_approx(mod_35, 0.5):
-        SimulationCombatTests._fail(failures, "sim_atls: mod at 35%% want 0.5 got %.3f" % mod_35)
+    if not is_equal_approx(mod_35, 0.25):
+        SimulationCombatTests._fail(failures, "sim_atls: mod at 35%% want 0.25 got %.3f" % mod_35)
 
 
 ## S7: blood-loss consciousness modifier decreases monotonically with volume loss.

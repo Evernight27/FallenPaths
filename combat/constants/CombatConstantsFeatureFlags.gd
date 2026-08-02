@@ -69,6 +69,8 @@ const FEATURE_JOULE_ARMOR_BUDGET := true
 const DEBUG_BACK_RANK_DEPTH_POLEARM_LOADOUT := false
 ## Fight exhaustion index — exhaustion_performance_mult gates (Stamina sub-module).
 const FEATURE_FIGHT_EXHAUSTION_INDEX := true
+## Vitals-finish exploit: attackers press an already-damaged head/chest (targeting realism).
+const FEATURE_WOUNDED_VITALS_EXPLOIT := true
 
 ## Tier 4.3 combat attention (default on; harness may toggle).
 static var _feature_combat_attention_enabled: bool = true

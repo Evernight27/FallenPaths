@@ -34,7 +34,7 @@ const NRS_SHOCK: float = 7.0
 # +50 END -> +1.0 shock threshold (7->8, ~14% increase on base). Realistic: well-conditioned individuals have higher
 # pain tolerance but pain is neurological, not purely muscular.
 const ENDURANCE_PAIN_SHOCK_SLOPE_PER_POINT: float = 0.02
-const PAIN_SHOCK_RISK_PER_POINT_NORMALIZED: float = 0.15  # (effective - 7) * 0.15; 1 over = 15% risk
+const PAIN_SHOCK_RISK_PER_POINT_NORMALIZED: float = 0.25  # (effective - 7) * 0.25; exceeding shock threshold is a significant event
 # Ambient (sustained pain) shock: periodic roll in combat when effective pain stays above threshold (no new hit).
 const PAIN_SHOCK_AMBIENT_CHECK_INTERVAL_S: float = 3.0
 const PAIN_SHOCK_AMBIENT_RISK_PER_POINT: float = 0.035
@@ -46,14 +46,14 @@ const PAIN_SHOCK_SUSCEPTIBILITY_MULT_HIGH: float = 1.2  # at/above NRS_SEVERE
 # --- Pain -> performance modifier (action bar fill, hit chance, wind-up, etc). Research-aligned; pain impairs function.
 # ---
 const PAIN_PERFORMANCE_NONE: float = 0.0
-const PAIN_PERFORMANCE_MINOR: float = 0.08  # -8% (NRS 4 - 6: first functional impairment)
-const PAIN_PERFORMANCE_MODERATE: float = 0.20  # -20% (NRS 6 - 8: moderate impairment)
-const PAIN_PERFORMANCE_SEVERE: float = 0.35  # -35% (NRS 8 - 10: severe impairment)
-const PAIN_PERFORMANCE_EXTREME: float = 0.50  # -50% (NRS 10+: extreme impairment)
+const PAIN_PERFORMANCE_MINOR: float = 0.08  # -8% (NRS 4 - 6: first functional impairment; lit. -10 to -18%)
+const PAIN_PERFORMANCE_MODERATE: float = 0.28  # -28% (NRS 6 - 8: moderate impairment; lit. -18 to -40%)
+const PAIN_PERFORMANCE_SEVERE: float = 0.50  # -50% (NRS 8 - 10: severe impairment; lit. -40 to -70%)
+const PAIN_PERFORMANCE_EXTREME: float = 0.65  # -65% (NRS 10+: extreme impairment; literature ~70%)
 
 # --- Consciousness: direct scale (effective_consciousness / 100 = performance scale). ---
 # Incapacitation when true consciousness < this (no longer able to act).
-const INCAPACITATION_CONSCIOUSNESS_THRESHOLD: float = 10.0
+const INCAPACITATION_CONSCIOUSNESS_THRESHOLD: float = 5.0
 # Leg functionality below this '**' cannot walk for formation retreat (flee / fall_back). Tier 6.1.
 const MOBILITY_FLEE_THRESHOLD: float = 0.2
 
@@ -63,7 +63,7 @@ const MOBILITY_FLEE_THRESHOLD: float = 0.2
 const BLOOD_CONSCIOUSNESS_START_THRESHOLD: float = 85.0  # No effect above this (Class I: <15% lost)
 # Max reduction at/below this (align with BLOOD_LOSS_DEATH_THRESHOLD)
 const BLOOD_CONSCIOUSNESS_FLOOR_THRESHOLD: float = 35.0
-const BLOOD_CONSCIOUSNESS_REDUCTION_MAX: float = 0.5  # At floor: modifier = 0.5 (50% of base)
+const BLOOD_CONSCIOUSNESS_REDUCTION_MAX: float = 0.75  # At floor: modifier = 0.25 (Class IV ATLS: lethargic to unresponsive)
 
 # --- Pain shock (temporary; reduces effective consciousness for combat, not incapacitation). ---
 # Research: Lighter impacts cause brief grogginess; more severe single impacts cause longer confusion/disorientation
@@ -84,7 +84,8 @@ const PAIN_SHOCK_DURATION_IMPACT_REFERENCE: float = 10.0
 const PAIN_SHOCK_DURATION_IMPACT_MAX_MULTIPLIER: float = 2.0
 
 # --- Performance floor (action bar and hit chance never below this). ---
-const MIN_PERFORMANCE_MODIFIER: float = 0.35
+## Floor at 15% — a severely injured, near-unconscious fighter still moves but cannot fight effectively (~crippled gait).
+const MIN_PERFORMANCE_MODIFIER: float = 0.15
 
 # --- Per-injury pain: damage - -  severity_mult - -  body_part_mult - -  injury_type_mult - -  (1 - healing). ---
 const SEVERITY_PAIN_MULTIPLIERS: Dictionary = {"minor": 0.5, "moderate": 1.0, "severe": 1.5, "critical": 2.0}
@@ -92,7 +93,7 @@ const SEVERITY_PAIN_MULTIPLIERS: Dictionary = {"minor": 0.5, "moderate": 1.0, "s
 # --- Body part pain multipliers (cortical representation + clinical pain salience). ---
 # Head/face/chest more salient; hands high; limbs baseline; feet lower. Research: somatosensory homunculus, wound pain.
 const BODY_PART_PAIN_MULTIPLIERS: Dictionary = {
-    BodyPartConstants.PART_HEAD: 1.4,
+    BodyPartConstants.PART_HEAD: 1.8,
     BodyPartConstants.PART_CHEST: 1.25,
     BodyPartConstants.PART_RIGHT_ARM: 1.0,
     BodyPartConstants.PART_LEFT_ARM: 1.0,
@@ -235,4 +236,36 @@ static func get_arm_hit_chance_penalty(entity: Node, arm_part: String) -> float:
     var damage_ratio: float = clampf(1.0 - (remaining / max_val), 0.0, 1.0)
     var base_penalty: float = ARM_HIT_CHANCE_PENALTIES.get(arm_part, 0.0)
     return base_penalty * damage_ratio
+
+
+# --- Concussion phase identifiers (numeric constants for match/case). ---
+const CONCUSSION_PHASE_CRITICAL: int = 1
+const CONCUSSION_PHASE_ACUTE: int = 2
+const CONCUSSION_PHASE_SUBACUTE: int = 3
+const CONCUSSION_PHASE_RECOVERY: int = 4
+
+# --- Phase boundary weights (proportional fractions of total recovery duration). ---
+## Clinical research basis: recovery follows exponential decay — most dramatic improvement in first days,
+## then gradual tapering. Weights chosen to approximate this curve across capped game durations:
+## Critical(15%) captures immediate post-injury confusion/disorientation (~minutes),
+## Acute(40%) covers the peak symptom period where most patients are still impaired,
+## Subacute(35%) represents the longest recovery window where gradual improvement occurs,
+## Recovery(10%) is the tail-end return-to-baseline period.
+const CONCUSSION_PHASE_WEIGHT_CRITICAL: float = 0.15
+const CONCUSSION_PHASE_WEIGHT_ACUTE: float = 0.40
+const CONCUSSION_PHASE_WEIGHT_SUBACUTE: float = 0.35
+const CONCUSSION_PHASE_WEIGHT_RECOVERY: float = 0.10
+
+# --- Concussion perception impairment boundary (used for continuous triage scoring). ---
+## The minimum perception_mult value at concussion onset; used to normalize severity-to-triage mapping.
+## Matches clinical data (GCS 13-15, LOC <30min): perception drops to ~35% of normal immediately post-injury.
+const CONCUSSION_PERCEPTION_CRITICAL_MIN: float = 0.35
+
+# --- TBI / concussion wound-healing impairment (Issue 8). ---
+## Clinical evidence: traumatic brain injury impairs inflammatory cascade, fibroblast migration, and collagen synthesis.
+## Concussed entities heal ~15-25% slower depending on phase severity. Multiplicative with endurance healing speed.
+const CONCUSSION_HEALING_CRITICAL_MULT: float = 0.75   # -25% healing in critical phase
+const CONCUSSION_HEALING_ACUTE_MULT: float = 0.80      # -20% healing in acute phase
+const CONCUSSION_HEALING_SUBACUTE_MULT: float = 0.90   # -10% healing in subacute phase
+const CONCUSSION_HEALING_RECOVERY_MULT: float = 0.95   # -5% healing in recovery phase
 

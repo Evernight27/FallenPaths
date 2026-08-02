@@ -80,7 +80,11 @@ static func estimate_adjacent_rank_pair_duration_s(
     var kind_mult: float = (
         CombatConstants.DRAG_BACK_DURATION_MULT if move_kind == CombatConstants.FORMATION_MOVE_KIND_DRAG_BACK else 1.0
     )
-    return _agi_scale_s(initiator) * lane_foot * pressure_mod * kind_mult * _armor_mult(initiator, partner)
+    var duration: float = _agi_scale_s(initiator) * lane_foot * pressure_mod * kind_mult * _armor_mult(initiator, partner)
+    # Muscle fatigue: fatigued legs make formation reposition moves significantly slower.
+    if CombatMuscleFatigue.enabled() and not initiator.is_empty():
+        duration *= CombatMuscleFatigue.formation_movement_weight_mult(initiator, move_kind)
+    return duration
 
 
 static func estimate_solo_fall_back_duration_s(manager: Node, initiator: Dictionary) -> float:
@@ -90,7 +94,11 @@ static func estimate_solo_fall_back_duration_s(manager: Node, initiator: Diction
     var f: int = CombatantEntityAccess.file_int(initiator)
     var lane_foot: float = ZoneOfControl.get_lane_and_footing_duration_multiplier(manager, fid, f)
     var pressure_mod: float = ZoneOfControl.get_opponent_pressure_duration_multiplier(manager, fid)
-    return _agi_scale_s(initiator) * lane_foot * pressure_mod * _armor_mult(initiator)
+    var duration: float = _agi_scale_s(initiator) * lane_foot * pressure_mod * _armor_mult(initiator)
+    # Muscle fatigue: fatigued legs make disengagement slower.
+    if CombatMuscleFatigue.enabled() and not initiator.is_empty():
+        duration *= CombatMuscleFatigue.step_speed_mult(initiator, "retreat")
+    return duration
 
 
 static func estimate_rotate_file_duration_s(manager: Node, initiator: Dictionary, partner: Dictionary) -> float:
@@ -100,7 +108,11 @@ static func estimate_rotate_file_duration_s(manager: Node, initiator: Dictionary
     var f0: int = CombatantEntityAccess.file_int(initiator)
     var lane_foot: float = ZoneOfControl.get_lane_and_footing_duration_multiplier(manager, fid, f0)
     var pressure_mod: float = ZoneOfControl.get_opponent_pressure_duration_multiplier(manager, fid)
-    return _agi_scale_s(initiator) * lane_foot * pressure_mod * _armor_mult(initiator, partner)
+    var duration: float = _agi_scale_s(initiator) * lane_foot * pressure_mod * _armor_mult(initiator, partner)
+    # Muscle fatigue: fatigued legs make rotation slower.
+    if CombatMuscleFatigue.enabled() and not initiator.is_empty():
+        duration *= CombatMuscleFatigue.formation_movement_weight_mult(initiator, CombatConstants.MOVE_ID_ROTATE_FILE)
+    return duration
 
 
 static func format_duration_hint(

@@ -113,9 +113,17 @@ static func resolve(manager: Node, attacker_id: int, target_id: int, move_id: St
             return false
         var cur_line: String = str(atk.get(DataKeys.ATTACK_GUARD_LINE, CombatConstants.GUARD_DEFAULT)).strip_edges()
         if cur_line == focus_line:
+            CombatDebug.flow_log_event(
+                "focus_line_skip id=%d move=%s line=%s (already set)" % [attacker_id, move_id, focus_line],
+                "focus_skip:%d:%s" % [attacker_id, focus_line]
+            )
             manager.skip_turn(attacker_id, CombatConstants.SKIP_TURN_LOG_WAIT, "focus already set")
             return true
         GuardLineUpdater.set_guard_from_line(atk, focus_line)
+        CombatDebug.flow_log_event(
+            "focus_line_set id=%d move=%s line=%s" % [attacker_id, move_id, focus_line],
+            "focus_set:%d:%s" % [attacker_id, focus_line]
+        )
         manager.emit_signal("action_resolved", attacker_id, attacker_id, {"outcome": "focus_line", "line": focus_line})
         manager.emit_signal("turn_resolved", attacker_id)
         CombatDebug.finish_instant_turn_and_schedule_ready(manager, atk)
@@ -262,7 +270,7 @@ static func resolve(manager: Node, attacker_id: int, target_id: int, move_id: St
             var fb_tag: String = (
                 "cowering_fall_back"
                 if CombatantEntityAccess.state_str(atk) == CombatConstants.STATE_COWERING
-                else "fall_back"
+                else CombatConstants.MOVE_ID_FALL_BACK
             )
             CombatF5SoakTrace.note_fall_back_pick(
                 fb_tag, CombatantEntityAccess.get_display_name(atk, attacker_id), target_id
@@ -349,10 +357,22 @@ static func resolve(manager: Node, attacker_id: int, target_id: int, move_id: St
         wind_st != CombatConstants.STATE_WAITING
         or CombatantEntityAccess.gauge_float(atk) < CombatConstants.GAUGE_FULL_THRESHOLD
     ):
-        # e.g. short recovery when no functional arm
+        # e.g. short recovery when no functional arm — consume gauge to prevent stuck loop.
         manager.emit_signal("turn_resolved", attacker_id)
+        var reason: String = ""
+        if wind_st != CombatConstants.STATE_WAITING:
+            reason = "wind_up did not produce STATE_WIND_UP (state=%s duration=%.1f)" % [wind_st, atk.state_duration]
+        else:
+            reason = "wind_up did not start: gauge=%.1f threshold=%s" % [
+                CombatantEntityAccess.gauge_float(atk),
+                CombatConstants.GAUGE_FULL_THRESHOLD,
+            ]
+        CombatDebug.flow_log_event(
+            "resolve_action_silent_fail id=%d move=%s reason=%s" % [attacker_id, move_id, reason],
+            "silent_fail:%d:%s" % [attacker_id, move_id]
+        )
+        manager.skip_turn(attacker_id, CombatConstants.SKIP_TURN_LOG_PASS, "wind_up_failed: %s" % reason)
         return true
-    CombatDebug.resolve_action_rejected(manager, attacker_id, move_id, "wind_up did not start")
     return false
 
 

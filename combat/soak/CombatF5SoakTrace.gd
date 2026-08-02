@@ -17,6 +17,7 @@ static var _soak_validate_hint_logged: bool = false
 static var _last_cowering_fall_back_executed_line: String = ""
 static var _last_fled_line: String = ""
 static var _last_ambient_pain_shock_line: String = ""
+static var _last_concussion_entry_line: String = ""
 static var _last_death_tick_line: String = ""
 static var _last_exhaustion_crossing_line: String = ""
 static var _last_diagram_banner_line: String = ""
@@ -159,6 +160,7 @@ static func reset_fight_trace_buffer() -> void:
     _last_cowering_fall_back_executed_line = ""
     _last_fled_line = ""
     _last_ambient_pain_shock_line = ""
+    _last_concussion_entry_line = ""
     _last_death_tick_line = ""
     _last_exhaustion_crossing_line = ""
     OperationalLog.reset_fight_fp_channel_dedupe()
@@ -438,6 +440,18 @@ static func note_ambient_pain_shock(who: String, effective_pain: float, duration
     if line == _last_ambient_pain_shock_line:
         return
     _last_ambient_pain_shock_line = line
+    OperationalLog.play_combat(line)
+
+
+static func note_concussion_entry(who: String, bone_damage_ratio: float, total_recovery_s: float) -> void:
+    if not OperationalLog.play_session_is_editor_f5():
+        return
+    var line: String = (
+        "concussion_entered %s bone_damage=%.2f recovery=%.1fs" % [who.strip_edges(), bone_damage_ratio, total_recovery_s]
+    )
+    if line == _last_concussion_entry_line:
+        return
+    _last_concussion_entry_line = line
     OperationalLog.play_combat(line)
 
 

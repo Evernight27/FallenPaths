@@ -374,8 +374,6 @@ static func _actions_include_formation_menu(actions: Array) -> bool:
             ]
         ):
             return true
-        if mid.begins_with("rotate_file") or mid.begins_with("swap_rank") or mid.begins_with("flee"):
-            return true
     return false
 
 

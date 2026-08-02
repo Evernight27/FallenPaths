@@ -5,6 +5,12 @@ extends RefCounted
 ## × move_family).
 const MAX_PRE_INT_WEIGHT_MULT: float = 1.5
 
+## Vitals-finish exploit (`FEATURE_WOUNDED_VITALS_EXPLOIT`): damaged head/chest draws extra weight.
+## `WOUNDED_VITAL_TOP_MULT` = max extra mult at full focus; `WOUNDED_VITAL_RAMP_RATIO` = tissue destroyed fraction
+## (0-1) at which focus ramps to its top (linear between pristine and that point).
+const WOUNDED_VITAL_TOP_MULT: float = 1.8
+const WOUNDED_VITAL_RAMP_RATIO: float = 0.35
+
 ## Option 6: Path + Guard Intercept  -  hit part selection from blade trajectory.
 ## Footing: optional **`alignment_context`** **`attack_angle_deg`** / **`guard_angle_deg`**  -  use
 ## **`CombatFootwork.guard_angle_deg`** at contact, not raw **`guard_line`** alone when PA flag on. LIVE_PATHS
@@ -102,6 +108,10 @@ static func resolve_hit_part(
                     ent, _weapon_id_for_attacker(attacker), CombatantEntityAccess.form_str(attacker)
                 )
         part_weights[intended_part] = part_weights.get(intended_part, 1.0) * intended_boost
+    # Vitals-finish exploit: press a defender's already-damaged head/chest when the pathway reaches it.
+    for vit in [BodyPartConstants.PART_HEAD, BodyPartConstants.PART_CHEST]:
+        if part_weights.has(vit):
+            part_weights[vit] = part_weights.get(vit, 1.0) * _wounded_vitals_part_mult(defender, vit)
     var flat: bool = true
     var first_w: float = -1.0
     for w in part_weights.values():
@@ -204,6 +214,32 @@ static func _weapon_id_for_attacker(attacker: Dictionary) -> String:
     return ""
 
 
+## Vitals-finish exploit: mult for a defender part whose head/chest tissue is already damaged.
+## Pristine vitals return 1.0; focus ramps linearly to `WOUNDED_VITAL_TOP_MULT` once the part is `WOUNDED_VITAL_RAMP_RATIO`
+## destroyed. Only head/chest (kill/incapacitation vitals) are pressed.
+static func _wounded_vitals_part_mult(defender: Dictionary, part: String) -> float:
+    if not CombatConstants.FEATURE_WOUNDED_VITALS_EXPLOIT:
+        return 1.0
+    if (
+        defender.is_empty()
+        or not (
+            part == BodyPartConstants.PART_HEAD
+            or part == BodyPartConstants.PART_CHEST
+        )
+    ):
+        return 1.0
+    var ent: CoreEntity = CombatantEntityAccess.scene_entity(defender)
+    if ent == null:
+        return 1.0
+    var max_per_type: int = ent.body_max.get(part, 0)
+    if max_per_type <= 0:
+        return 1.0
+    var combined_max: float = float(max_per_type * 2)
+    var remaining: float = ent.body_cutting.get(part, 0.0) + ent.body_blunt.get(part, 0.0)
+    var destroyed: float = clampf(1.0 - remaining / combined_max, 0.0, 1.0)
+    return lerpf(1.0, WOUNDED_VITAL_TOP_MULT, clampf(destroyed / WOUNDED_VITAL_RAMP_RATIO, 0.0, 1.0))
+
+
 static func part_weights_for_ai_pick(
     path_segment: Array,
     attack_line: String,
@@ -281,6 +317,8 @@ static func part_weights_for_ai_pick(
         w = minf(raw_weight, anatomy_base * MAX_PRE_INT_WEIGHT_MULT)
         if preferred.has(p):
             w *= preferred_mult
+        # Vitals-finish exploit: AI presses the defender's already-damaged head/chest.
+        w *= _wounded_vitals_part_mult(defender, p)
         var part_line: String = CombatConstants.PART_TO_LINE.get(p, "")
         if not focus_part.is_empty():
             if p == focus_part and part_line == attack_line:
@@ -551,6 +589,8 @@ static func _compute_weights_for_segment(
         w = minf(w, anatomy_base_clamp * MAX_PRE_INT_WEIGHT_MULT)
         if preferred.has(p):
             w *= preferred_mult
+        # Vitals-finish exploit: AI presses the defender's already-damaged head/chest.
+        w *= _wounded_vitals_part_mult(defender, p)
         var part_line: String = CombatConstants.PART_TO_LINE.get(p, "")
         if not focus_part.is_empty():
             if p == focus_part and part_line == resolved_line:

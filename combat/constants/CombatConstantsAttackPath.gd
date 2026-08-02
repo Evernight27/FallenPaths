@@ -5,7 +5,8 @@ extends RefCounted
 ## Canonical source for body-part paths, angles, alignment, deflection logic.
 
 const PARRY_ALIGNMENT_FLOOR := 0.0
-const GEOMETRIC_LEAK_MAX := 0.35
+const GEOMETRIC_LEAK_MAX := 0.25
+## Non-linear geometric leak: alignment loss follows a square curve so high-alignment parries (HEMA "on the blade") are clean, while oblique angles produce proportionally more leak than linear scaling would suggest. Formula: pow(1-align, 2) * GEOMETRIC_LEAK_MAX.
 const PARRY_GEOMETRY_VARIANCE_BASE := 0.08
 
 const PARRY_OPPOSITE_DEFLECT_SEVERITY_CUT := 0.65
@@ -139,6 +140,7 @@ const DODGE_FULL_THRESHOLD := 0.55
 const DODGE_PARTIAL_RATIO_MIN := 0.4
 const PARRY_FOLLOW_THROUGH_DODGE_EFFICIENCY := 0.67
 const PARRY_FOLLOW_THROUGH_PARTIAL_MIN := 0.5
+const PARRY_PARTIAL_MAX_RATIO := 0.85
 const PARRY_FOLLOW_THROUGH_THRUST_PENALTY := 0.12
 const PARRY_FOLLOW_THROUGH_CUT_BONUS := 0.05
 const RECOVERY_AGILITY_MIN := 0.7

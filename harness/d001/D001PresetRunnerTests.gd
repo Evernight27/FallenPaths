@@ -9,6 +9,14 @@ extends RefCounted
 const RUNNER_NAME := "CombatD001SoakRunner"
 const TICK_DT := 0.05
 
+## Cross-file preloads — Godot class_name lazy resolution requires explicit preload.
+const _OpsLog := preload("res://core/OperationalLog.gd")
+const SoakEncounterPresets := preload("res://world/SoakEncounterPresets.gd")
+const _D001RunnerHelpers := preload("res://harness/d001/D001RunnerHelpers.gd")
+const _D001Ii5Ii6Tests := preload("res://harness/d001/D001Ii5Ii6RunnerTests.gd")
+const _D001TrackSpecs := preload("res://harness/d001/CombatD001TrackSpecs.gd")
+const _F5SoakTrace := preload("res://combat/soak/CombatF5SoakTrace.gd")
+
 
 static func _preset_seed(preset_id: String) -> int:
     return int(hash("d001_soak_%s" % preset_id) & 0x7FFFFFFF)

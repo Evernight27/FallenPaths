@@ -437,6 +437,16 @@ static func _pick_hold_line_action(actions: Array, combatant_id: int, manager: N
             var line: String = CombatConstants.guard_line_for_focus_move_id(mid)
             if line != cur_line:
                 focus_pool.append(a)
+    if not focus_pool.is_empty():
+        var focus_lines: PackedStringArray = PackedStringArray()
+        for a in focus_pool:
+            focus_lines.append(CombatConstants.guard_line_for_focus_move_id(a.get(DataKeys.ACTION_MOVE_ID, "")))
+        CombatDebug.flow_log_event(
+            "focus_pool id=%d count=%d lines=[%s] cur_line=%s" % [
+                combatant_id, focus_pool.size(), ", ".join(focus_lines), cur_line
+            ],
+            "focus_pool:%d" % combatant_id
+        )
     var close_pool: Array = _filter_hold_line_close_actions(actions, combatant_id, manager, c)
     var close_eligible: bool = not close_pool.is_empty() and CombatDoctrine.hold_line_close_pick_eligible(manager, c)
     # III-4 **3e** / fight-finish: close beats focus shuffle when finishing the last enemy or sparse tail.

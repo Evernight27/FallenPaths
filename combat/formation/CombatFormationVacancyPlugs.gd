@@ -397,12 +397,7 @@ static func debug_verify_vacancy_invariants_after_reconcile(manager: Node) -> vo
                     has_promotable_deeper = true
                     break
             if has_promotable_deeper:
-                push_error(
-                    (
-                        "CombatFormationFlow: vacancy invariant failed after reconcile (rank 0 empty, deeper ally avail"
-                        + "able) fid=%s file=%d" % [fid_str, file]
-                    )
-                )
+                push_error("CombatFormationFlow: vacancy invariant failed after reconcile (rank 0 empty, deeper ally available) fid=%s file=%d" % [fid_str, file])
 
 ## Death-triggered same-file micro-plug (bounded steps) after corpse is written to **`slot_obstacles`**.
 static func run_death_column_micro_plug(

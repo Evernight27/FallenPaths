@@ -19,9 +19,9 @@ const REFERENCE_BLOOD_VOLUME_ML_ADULT := REFERENCE_ADULT_MASS_KG * REFERENCE_BLO
 ## `human.tres` tissue integer sum (10+30+12+12+16+16); scales inferred mass when `reference_body_mass_kg` unset.
 const REFERENCE_HUMAN_TISSUE_SUM := 96
 
-## Human hand-export tissue display caps (energy pool '??" J capacity).
-const REFERENCE_HUMAN_ARM_TISSUE_DISPLAY := 12
-const REFERENCE_HUMAN_LEG_TISSUE_DISPLAY := 16
+## Human hand-export tissue display caps (energy pool '?'' J capacity).
+const REFERENCE_HUMAN_ARM_TISSUE_DISPLAY := 20
+const REFERENCE_HUMAN_LEG_TISSUE_DISPLAY := 24
 
 ## HEMA committed oberhau strict audit band (S1 / `.calibration_audit.txt` `audit_KE_arm_strict_65-145J`).
 const COMMITTED_STRIKE_KE_J_MIN := 65.0
@@ -70,13 +70,13 @@ static func ke_band_min_max_for_weapon(weapon_id: String, kinematic_delivery: St
     var delivery: String = kinematic_delivery.to_lower().strip_edges()
     if delivery == "thrust" or wid == "DAGGER":
         if wid == "DAGGER":
-            return Vector2(3.0, 45.0)
-        return Vector2(40.0, 120.0)
+            return Vector2(3.0, 38.0)
+        return Vector2(25.0, 90.0)
     match wid:
         "AXE":
             return Vector2(55.0, 155.0)
         "MACE":
-            return Vector2(75.0, 220.0)
+            return Vector2(75.0, 195.0)
         "SPEAR":
             return Vector2(45.0, 130.0)
         _:

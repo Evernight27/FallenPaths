@@ -4,6 +4,16 @@
 **Last Updated:** 2026-07-13 — Fabricated sources audit and replacement with verifiable data
 **Status:** PROPOSAL (pending approval)
 
+## Implemented: Wounded-Vitals Exploit (2026-08-01)
+
+Vitals focus targeting realism: attackers press an already-damaged head/chest to finish fights.
+
+- **Flag:** `CombatConstants.FEATURE_WOUNDED_VITALS_EXPLOIT` (default on).
+- **Mechanic:** `AttackPathResolver._wounded_vitals_part_mult` reads the defender's head/chest tissue (`body_cutting` + `body_blunt` vs `2 × body_max`); mult ramps 1.0 → `WOUNDED_VITAL_TOP_MULT` (1.8) as the part reaches `WOUNDED_VITAL_RAMP_RATIO` (0.35) destroyed. Applied post-`MAX_PRE_INT_WEIGHT_MULT` cap in both the AI part-pick (`part_weights_for_ai_pick`, `_compute_weights_for_segment`) and hit resolution (`resolve_hit_part`), so the ~1.5× anatomy cap is preserved.
+- **Effect measured** (`probe_fight.gd`, post-stall-fix baseline → now): SWORD 240/78/240 → **56.5/80.6/240s**, SPEAR 47.3/187.6 → **61.0/55.9/240s**, AXE **47.5/9.7/5.7s**, MACE **20.7/12.2/20.4s**. DAGGER 240/240/224.5s → **29.6/23.2/50.8s** (no stall) — resolved by the damage-scaling work already in-tree (`DAMAGE_KE_SCALE` 2.0→3.5, `STAB_PENETRATION_MULT` 1.7, `INTENSITY_VELOCITY_FLOOR_FACTOR` 0.50), raising per-hit dmg ~3.4 → ~7–11 and ending the 40-point head-pool depletion stall.
+- **Regression gate:** 26 failures, identical set to the stall-fix baseline; new `gap7_wounded_vitals` harness test passes.
+- **Tuning knobs:** `WOUNDED_VITAL_TOP_MULT`, `WOUNDED_VITAL_RAMP_RATIO` (AttackPathResolver). Heavy weapons (AXE 5.7-47.5s, MACE 12-21s) may need a lower top mult if the <3-exchange floor is violated.
+
 ## Research Foundation
 
 ### Verifiable Sources Used

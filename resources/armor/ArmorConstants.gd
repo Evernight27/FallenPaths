@@ -63,8 +63,8 @@ const BLUNT_TRANSMISSION_WARN_MAX: float = 1.0
 # Cloth: gambeson padding, leg wraps, coif. Williams: 50 J for 16 layers linen. pen=(50/55)^0.6 ' 0.9 mm.
 const LAYER_CLOTH: Dictionary = {
     "sharp_resistance_rha_mm": 0.9,
-    "blunt_cushion": 0.8,
-    "blunt_transmission": 0.45,
+    "blunt_cushion": 0.65,
+    "blunt_transmission": 0.55,
     "rigidity": 0.0,
     "durability_loss_rate": 0.22,
     "sharp_deflect_transmission": 0.16,
@@ -85,8 +85,8 @@ const LAYER_LEATHER: Dictionary = {
 # Mail: chainmail + jack. Williams: 80 - 120 J. pen=(120/55)^0.6 ' 1.5 mm.
 const LAYER_MAIL: Dictionary = {
     "sharp_resistance_rha_mm": 1.5,
-    "blunt_cushion": 0.2,
-    "blunt_transmission": 0.70,
+    "blunt_cushion": 0.1,
+    "blunt_transmission": 0.72,
     "rigidity": 0.2,
     "durability_loss_rate": 0.12,
     "sharp_deflect_transmission": 0.36,
@@ -94,13 +94,15 @@ const LAYER_MAIL: Dictionary = {
 }
 
 # Plate: medieval steel. Williams: 2 mm=175 J, 3.5 mm'380 J. Rigid -> area coupling (mace > thrust).
+# Blunt transmission reduced from 0.72 to ~0.38 so plate armor transmits LESS blunt force than cloth/mail.
+# Historical: hard plate on padded gambeson deflects/shatters blow energy; soft clothing alone transmits more impact shock.
 const LAYER_PLATE: Dictionary = {
     "sharp_resistance_rha_mm": 3.5,
-    "blunt_cushion": 0.0,
-    "blunt_transmission": 0.72,
+    "blunt_cushion": 0.15,
+    "blunt_transmission": 0.38,
     "rigidity": 1.0,
     "durability_loss_rate": 0.07,
-    "sharp_deflect_transmission": 0.46,
+    "sharp_deflect_transmission": 0.15,
     "mass_kg": 4.85
 }
 const DEFAULT_PENETRATION_SHARP: float = 5.0

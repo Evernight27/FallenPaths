@@ -493,8 +493,11 @@ static func _run_medical_triage_reference_bleed_peril_parity(failures: PackedStr
                 )
             )
     var loss_per_s: float = BleedingConstants.blood_volume_loss_per_second(ref_rate, 1.0)
+    # Margin below the boundary: at bv = death + loss_per_s * PERIL_SECONDS the float TTD lands on ~PERIL_SECONDS
+    # (30.000000x), which fails the `<=` check. Slightly deeper volume keeps TTD robustly inside peril.
     var peril_bv: float = (
-        BleedingConstants.BLOOD_LOSS_DEATH_THRESHOLD + loss_per_s * BleedingConstants.MEDICAL_TRIAGE_PERIL_SECONDS
+        BleedingConstants.BLOOD_LOSS_DEATH_THRESHOLD
+        + loss_per_s * BleedingConstants.MEDICAL_TRIAGE_PERIL_SECONDS * 0.98
     )
     ent.blood_volume = peril_bv
     if not MedicalPhaseController.is_in_immediate_peril(mgr, fighter):

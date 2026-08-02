@@ -22,14 +22,14 @@ static func _run_mat_energy_display_bridge(failures: PackedStringArray) -> void:
     var body_max: int = CombatDesignAnchors.REFERENCE_HUMAN_ARM_TISSUE_DISPLAY
     var cap_j: float = TissueEnergyCapacity.capacity_j_for_part("right_arm", body_max)
     var display: float = TissueEnergyCapacity.display_tissue_from_remaining_j(body_max, cap_j * 0.5, cap_j)
-    if display < 5.0 or display > 7.0:
+    if display < 9.0 or display > 11.0:
         SimulationCombatTests._fail(
-            failures, "mat_energy: 50%% J display %.0f want ~6 (body_max %d)" % [display, body_max]
+            failures, "mat_energy: 50%% J display %.0f want ~10 (body_max %d)" % [display, body_max]
         )
-    var rem_j: float = TissueEnergyCapacity.remaining_j_from_display_pools(body_max, 6.0, 6.0, cap_j)
+    var rem_j: float = TissueEnergyCapacity.remaining_j_from_display_pools(body_max, 10.0, 10.0, cap_j)
     if rem_j < cap_j * 0.45 or rem_j > cap_j * 0.55:
         SimulationCombatTests._fail(
-            failures, "mat_energy: round-trip J %.0f want ~%.0f from 6+6 display" % [rem_j, cap_j * 0.5]
+            failures, "mat_energy: round-trip J %.0f want ~%.0f from 10+10 display" % [rem_j, cap_j * 0.5]
         )
 
 

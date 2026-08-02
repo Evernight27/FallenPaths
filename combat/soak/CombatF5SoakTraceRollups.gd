@@ -134,12 +134,8 @@ static func _log_hit_coverage_hint() -> void:
     var avoided_note: String = ""
     if avoided > 0:
         avoided_note = " strike_avoided=%d" % avoided
-    OperationalLog.play_combat(
-        (
-            "hit_coverage_hint hit_resolve=0 turn_ready=%d%s  -  grep strike_avoided reason= parry_partial rem=; fo"
-            + "rmation-only or all avoids/parries" % [turns, avoided_note]
-        )
-    )
+    var coverage_hint = "hit_coverage_hint hit_resolve=0 turn_ready=%d%s  -  grep strike_avoided reason= parry_partial rem=; formation-only or all avoids/parries" % [turns, avoided_note]
+    OperationalLog.play_combat(coverage_hint)
 
 
 ## F5: miss / dodge (grep **`strike_avoided`**).

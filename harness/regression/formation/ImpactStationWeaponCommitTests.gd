@@ -395,11 +395,11 @@ static func _run_iii3_deflect_bind_calibration_suite(failures: PackedStringArray
             failures,
             "iii3_calibration: PARRY_DEFLECT_THRESHOLD want 1.02 got %.3f" % CombatConstants.PARRY_DEFLECT_THRESHOLD
         )
-    if not is_equal_approx(CombatConstants.PARRY_BIND_CONTROL_THRESHOLD, 0.65):
+    if not is_equal_approx(CombatConstants.PARRY_BIND_CONTROL_THRESHOLD, 0.55):
         _fail(
             failures,
             (
-                "iii3_calibration: PARRY_BIND_CONTROL_THRESHOLD want 0.65 got %.3f"
+                "iii3_calibration: PARRY_BIND_CONTROL_THRESHOLD want 0.55 got %.3f"
                 % CombatConstants.PARRY_BIND_CONTROL_THRESHOLD
             )
         )
@@ -418,10 +418,10 @@ static func _run_iii3_deflect_bind_calibration_suite(failures: PackedStringArray
         _fail(failures, "iii3_calibration: edge deflect must not apply when block parry")
     if CombatConstants.parry_full_stop_reached(edge_cd, pa, false):
         _fail(failures, "iii3_calibration: edge deflect must not use full_stop without block")
-    if CombatConstants.parry_bind_control_reached(0.649):
-        _fail(failures, "iii3_calibration: bind control should be false below 0.65")
-    if not CombatConstants.parry_bind_control_reached(0.65):
-        _fail(failures, "iii3_calibration: bind control should be true at 0.65")
+    if CombatConstants.parry_bind_control_reached(0.549):
+        _fail(failures, "iii3_calibration: bind control should be false below 0.55")
+    if not CombatConstants.parry_bind_control_reached(0.55):
+        _fail(failures, "iii3_calibration: bind control should be true at 0.55")
     var ctrl_nom: float = CombatConstants.parry_control_for_bind_deflect(12.0, 8.0, 0.85, 1.0, false, false, "cut")
     if not CombatConstants.parry_bind_control_reached(ctrl_nom):
         _fail(

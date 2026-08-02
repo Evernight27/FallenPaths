@@ -81,6 +81,10 @@ static func _process_healing(entity: Node, seconds: float) -> void:
         var heal_speed: float = 1.0
         if entity.has_method("_get_endurance_healing_speed_mult"):
             heal_speed = entity._get_endurance_healing_speed_mult()
+        # TBI impairs recovery cascades — concussed entities heal slower (clinical evidence of delayed wound healing in TBI).
+        var conc_info: Dictionary = EntityPainConsciousness.get_concussion_phase_info(entity)
+        var conc_healing_mult: float = conc_info.get("healing_mult", 1.0)
+        heal_speed *= conc_healing_mult
         var tau_tissue: float = tissue_duration / (HealingConstants.EXPONENTIAL_HEAL_TAU_DIVISOR * heal_speed)
         var add_cut: float = remain_cut * (1.0 - exp(-seconds / tau_tissue))
         var add_blunt: float = remain_blunt * (1.0 - exp(-seconds / tau_tissue))

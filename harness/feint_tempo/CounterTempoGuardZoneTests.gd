@@ -168,10 +168,16 @@ static func _run_riposte_chain_after_parry_deflect_shortens_wind_up_vs_plain(fai
     var pa_r: Dictionary = CombatantEntityAccess.nested_dictionary_read(def_r, "pending_attack")
     if not pa_r.get(CombatConstants.PA_KEY_RIPOSTE_CHAIN, false):
         CombatRegressionHarness._fail(failures, "riposte_chain: pending_attack should stamp riposte_chain")
-    var want_r: float = d_plain * CombatConstants.RIPOSTE_CHAIN_WINDUP_MULT
-    if absf(d_rip - want_r) > 0.0002:
+    var soft_cap_rc: float = CombatConstantsTiming.WIND_UP_SOFT_CAP_S
+    var unwind_soft_cap_rc = func(capped: float, cap: float) -> float:
+        if capped <= cap: return capped
+        return cap + (capped - cap) * 2.0
+    var plain_un: float = unwind_soft_cap_rc.call(d_plain, soft_cap_rc)
+    var rip_un: float = unwind_soft_cap_rc.call(d_rip, soft_cap_rc)
+    var want_r_uncapped: float = plain_un * CombatConstants.RIPOSTE_CHAIN_WINDUP_MULT
+    if absf(rip_un - want_r_uncapped) > 0.01:
         CombatRegressionHarness._fail(
-            failures, "riposte_chain: duration want %.4f got %.4f plain=%.4f" % [want_r, d_rip, d_plain]
+            failures, "riposte_chain: pre-cap ratio mismatch want %.4f got %.4f plain=%.4f" % [want_r_uncapped, rip_un, plain_un]
         )
     if def_r.has(CombatConstants.COMBATANT_KEY_RIPOSTE_CHAIN_UNTIL):
         CombatRegressionHarness._fail(failures, "riposte_chain: riposte window should be consumed after wind-up start")

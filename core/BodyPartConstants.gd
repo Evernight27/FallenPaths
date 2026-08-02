@@ -34,31 +34,31 @@ const BODY_BAR_COLUMNS := [["head", "right_arm", "left_leg"], ["chest", "left_ar
 const BONE_DAMAGE_MIN: int = 1
 
 const _PART_BONE_THRESHOLD: Dictionary = {
-    "head": 3, "chest": 8, "right_arm": 5, "left_arm": 5, "right_leg": 6, "left_leg": 6
+    "head": 6, "chest": 10, "right_arm": 5, "left_arm": 5, "right_leg": 7, "left_leg": 7
 }
 
 const _PART_BONE_FRACTION: Dictionary = {
-    "head": 0.55, "chest": 0.30, "right_arm": 0.38, "left_arm": 0.38, "right_leg": 0.42, "left_leg": 0.42
+    "head": 0.45, "chest": 0.32, "right_arm": 0.38, "left_arm": 0.38, "right_leg": 0.42, "left_leg": 0.42
 }
 
 # Per-sub-region bone threshold (damage above this can go to bone). Lower = bone involved earlier.
 const _SUB_REGION_BONE_THRESHOLD: Dictionary = {
-    "head": {"scalp": 2, "face": 3, "neck": 6},
-    "chest": {"thoracic": 6, "abdominal": 10},
+    "head": {"scalp": 4, "face": 5, "neck": 7},
+    "chest": {"thoracic": 8, "abdominal": 12},
     "right_arm": {"upper_arm": 4, "elbow": 3, "forearm": 5, "hand": 4},
     "left_arm": {"upper_arm": 4, "elbow": 3, "forearm": 5, "hand": 4},
-    "right_leg": {"thigh": 5, "knee": 4, "calf": 6, "foot": 5},
-    "left_leg": {"thigh": 5, "knee": 4, "calf": 6, "foot": 5}
+    "right_leg": {"thigh": 6, "knee": 5, "calf": 7, "foot": 6},
+    "left_leg": {"thigh": 6, "knee": 5, "calf": 7, "foot": 6}
 }
 
 # Per-sub-region fraction of damage (above threshold) that goes to bone vs tissue.
 const _SUB_REGION_BONE_FRACTION: Dictionary = {
-    "head": {"scalp": 0.50, "face": 0.60, "neck": 0.35},
-    "chest": {"thoracic": 0.35, "abdominal": 0.22},
+    "head": {"scalp": 0.42, "face": 0.55, "neck": 0.30},
+    "chest": {"thoracic": 0.32, "abdominal": 0.20},
     "right_arm": {"upper_arm": 0.40, "elbow": 0.45, "forearm": 0.35, "hand": 0.30},
     "left_arm": {"upper_arm": 0.40, "elbow": 0.45, "forearm": 0.35, "hand": 0.30},
-    "right_leg": {"thigh": 0.45, "knee": 0.40, "calf": 0.42, "foot": 0.35},
-    "left_leg": {"thigh": 0.45, "knee": 0.40, "calf": 0.42, "foot": 0.35}
+    "right_leg": {"thigh": 0.44, "knee": 0.40, "calf": 0.42, "foot": 0.35},
+    "left_leg": {"thigh": 0.44, "knee": 0.40, "calf": 0.42, "foot": 0.35}
 }
 
 # --- Targeting (weapon hit probability by body part) ---

@@ -1,3 +1,0 @@
-﻿Godot Engine v4.7.stable.official.5b4e0cb0f - https://godotengine.org
-
-FP_ERROR: SCRIPT_ERROR res://tools/ci/run_company_state_checks.gd:24 in CompanyStateChecksHarness._run_harness()  -  Invalid call. Nonexistent function '_run_camp_1_1_company_state' in base 'GDScript'.

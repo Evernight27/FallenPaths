@@ -27,6 +27,8 @@ var melee_range: float = 1.5
 var depth_melee_eligible: bool = false
 # Cut ratio 0-1 for slash/cut (rest blunt). Blunt attacks use archetype; floor MIN_CUT_RATIO so no weapon is 0% cut.
 var blade_cut_ratio: float = 0.75
+# Cut ratio 0-1 for stab/thrust (rest blunt). Falls back to blade_cut_ratio if unset.
+var stab_cut_ratio: float = 0.75
 # Edge sharpness 0-1: 1 = keen (small effective contact), 0 = dull (wider effective contact). Used for effective edge
 # width in cutting.
 var sharpness: float = 1.0
@@ -90,6 +92,7 @@ static func create_from_definition(weapon_id: String) -> Weapon:
     w.melee_range = def.get("melee_range", 1.5)
     w.depth_melee_eligible = def.get("depth_melee_eligible", false)
     w.blade_cut_ratio = def.get("blade_cut_ratio", 0.75)
+    w.stab_cut_ratio = def.get("stab_cut_ratio", w.blade_cut_ratio)
     w.sharpness = def.get("sharpness", 1.0)
     var parts_arr = def.get("parts", [])
     if parts_arr is Array and parts_arr.size() > 0:
@@ -137,12 +140,13 @@ static func create_from_definition(weapon_id: String) -> Weapon:
     else:
         var seen: Dictionary = {}
         for move_id in w.attack_types.keys():
-            if WeaponConstants.is_parry_move(move_id):
-                var m: Dictionary = WeaponConstants.get_move(move_id)
-                var ct: String = str(m.get("contact_type", WeaponConstants.ATTACK_TYPE_CUT)).to_lower().strip_edges()
-                if valid_bind_contacts.get(ct, false) and not seen.get(ct, false):
-                    seen[ct] = true
-                    w.bind_riposte_contact_types.append(ct)
+            var m: Dictionary = WeaponConstants.get_move(move_id)
+            if m is Dictionary and m.get("is_parry", false):
+                continue
+            var ct: String = str(m.get("contact_type", WeaponConstants.ATTACK_TYPE_CUT)).to_lower().strip_edges()
+            if valid_bind_contacts.get(ct, false) and not seen.get(ct, false):
+                seen[ct] = true
+                w.bind_riposte_contact_types.append(ct)
     var ivb: Variant = def.get("impact_velocity_bands", {})
     if ivb is Dictionary:
         w.impact_velocity_bands = ivb.duplicate(true)
@@ -337,7 +341,15 @@ func get_striking_part_mass_kg(contact_type: String) -> float:
     var from_fallback: float = -1.0
     match ct:
         WeaponConstants.ATTACK_TYPE_STAB:
-            from_fallback = _striking_mass_for_ids(["point", "blade", "spike", "head"])
+            # For polearm-style weapons, include shaft mass behind the point to reflect
+            # that a thrust transmits significant weapon mass through linear drive —
+            # especially for polearms where the entire shaft moves forward behind the tip.
+            var head_mass: float = _striking_mass_for_ids(["point", "blade", "spike", "head"])
+            var shaft_mass: float = _striking_mass_for_ids(["shaft", "haft"])
+            if shaft_mass >= 0.0 and (head_mass < 0.0 or shaft_mass > head_mass):
+                from_fallback = maxf(0.0, head_mass) + shaft_mass * 0.45  # shaft contributes ~45% to thrust inertia
+            elif head_mass >= 0.0:
+                from_fallback = head_mass
         WeaponConstants.ATTACK_TYPE_CUT:
             from_fallback = _striking_mass_for_ids(["blade"])
         WeaponConstants.ATTACK_TYPE_BLUNT:
@@ -377,3 +389,23 @@ func get_parry_strong_fraction() -> float:
     if total <= 0.0 or handle_len <= 0.0:
         return 0.25
     return clampf(handle_len / total, 0.1, 0.5)
+
+
+## Spatial strong/weak zone fraction at a given parry timing progress (0 = very early/handle-end, 1 = impact/tip).
+## Models HEMA Stercke/Schweche: early parries contact with the forte (strong/near-hands), late parries
+## contact near the middle or weak of blade. Contact quality scales multiplicatively with this fraction.
+## `parry_progress` is where along the attack wind-up the defender meets the blade (0..1).
+## Returns a strong_fraction in [0.25, 1.0] where 1.0 = full forte engagement.
+func get_spatial_strong_fraction_at_parry(parry_progress: float) -> float:
+    if not has_parts() or parry_part_id.is_empty():
+        return 0.5
+    if get_parry_contact_type() != "blade":
+        return 1.0  # Shaft/haft don't have strong/weak zones in the same way
+    var base_strong: float = get_parry_strong_fraction()
+    # Early parry (parry_progress < 0.5): contact near handle — stronger engagement.
+    # Late parry (parry_progress > 0.7): contact farther from handle — weaker engagement.
+    # Parry progress 0.3 = very early = 90% of base_strong; progress 0.85 = late = 40% of base_strong.
+    var timing_shift: float = 1.0 - clampf((parry_progress - 0.2) / 0.7, 0.0, 1.0)
+    # Strong fraction at contact point: ranges from base_strong (early) down to base_strong * 0.4 (late).
+    var effective_strong: float = lerpf(base_strong, base_strong * 0.35, timing_shift)
+    return clampf(effective_strong, 0.15, 0.6)

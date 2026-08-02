@@ -4,11 +4,11 @@ extends Node2D
 ## (Wounds, Medical, Healing, Damage, Equipment, PainConsciousness, Proficiency, StatsUtil).
 ## Combat reads via CombatantEntityAccess / health entity — see docs/ARCHITECTURE.md.
 ## Stats boosted by training drill (merged into proficiency bonus after each contract). Per-stat.
-"""Medical effectiveness from intelligence (100 INT = 1.0; 50 = 0.75, 150 = 1.25). Used for bandage, direct pressure."""
-"""Max blood volume scaling from END (100 |' 1.0x; 150 |' 1.25x). Applied in BloodVolumeMl.init_entity_pool."""
-"""Camp rest healing speed from END (100 |' 1.0x; 150 |' ~1.20x faster). Applied in EntityHealing tau calculations."""
-"""Contract pay scaling from INT (100 |' 1.0x; 150 |' 1.075x max). Applied in CompanyState post-victory gold."""
-"""Ensure consciousness/performance are current before UI reads. Only recalculates when dirty."""
+## Medical effectiveness from intelligence (100 INT = 1.0; 50 = 0.75, 150 = 1.25). Used for bandage, direct pressure.
+## Max blood volume scaling from END (100 |' 1.0x; 150 |' 1.25x). Applied in BloodVolumeMl.init_entity_pool.
+## Camp rest healing speed from END (100 |' 1.0x; 150 |' ~1.20x faster). Applied in EntityHealing tau calculations.
+## Contract pay scaling from INT (100 |' 1.0x; 150 |' 1.075x max). Applied in CompanyState post-victory gold.
+## Ensure consciousness/performance are current before UI reads. Only recalculates when dirty.
 
 signal died
 signal creature_incapacitated
@@ -16,11 +16,11 @@ signal health_changed
 @export var species: Resource = null
 ## Campaign / harness: player party lead (stamped on **`CombatManager.register`** for player side only).
 var training_pending: Dictionary = {
-    "strength": 0.0,
-    "agility": 0.0,
-    "intelligence": 0.0,
-    "endurance": 0.0,
-    "perception": 0.0,
+	"strength": 0.0,
+	"agility": 0.0,
+	"intelligence": 0.0,
+	"endurance": 0.0,
+	"perception": 0.0,
 }
 
 ## Day index of last combat participation (for calendar-day decay calculation).
@@ -112,11 +112,11 @@ var _campaign_supply_factor: float = 1.0
 ## Per-stat proficiency bonus above species base (int). Grows through combat, decays through inactivity.
 ## Stored as SEPARATE dict from base stats so _apply_species() cannot wipe it.
 var _proficiency_bonus: Dictionary = {
-    "strength": 0.0,
-    "agility": 0.0,
-    "intelligence": 0.0,
-    "endurance": 0.0,
-    "perception": 0.0,
+	"strength": 0.0,
+	"agility": 0.0,
+	"intelligence": 0.0,
+	"endurance": 0.0,
+	"perception": 0.0,
 }
 ## Per-weapon / per-form fight familiarity (XCamp-4 targeting extension). Not decayed yet.
 var _weapon_proficiency: Dictionary = {}
@@ -134,43 +134,43 @@ var _death_notified: bool = false
 
 
 func _get_training_pending() -> Dictionary:
-    return training_pending
+	return training_pending
 
 
 func _set_training_pending_value(stat: String, value: float) -> void:
-    training_pending[stat] = value
+	training_pending[stat] = value
 
 
 # BleedingConstants is class_name in core/BleedingConstants.gd; preload for linter/standalone parse
 
 
 func _get_weapon_proficiency() -> Dictionary:
-    return _weapon_proficiency
+	return _weapon_proficiency
 
 
 func _get_form_proficiency() -> Dictionary:
-    return _form_proficiency
+	return _form_proficiency
 
 
 ## Camp rest clears local limb exertion pools (FEATURE_MUSCLE_GROUP_FATIGUE campaign bridge).
 func _restore_muscle_fatigue_at_camp() -> void:
-    muscle_fatigue = {}
+	muscle_fatigue = {}
 
 
 func _get_combat_blood_loss_mult() -> float:
-    return clampf(_combat_blood_loss_mult, 0.0, 1.0)
+	return clampf(_combat_blood_loss_mult, 0.0, 1.0)
 
 
 func _get_combat_blood_recovery_per_s() -> float:
-    return maxf(0.0, _combat_blood_recovery_per_s)
+	return maxf(0.0, _combat_blood_recovery_per_s)
 
 
 func _set_combat_blood_loss_mult(mult: float) -> void:
-    _combat_blood_loss_mult = clampf(mult, 0.0, 1.0)
+	_combat_blood_loss_mult = clampf(mult, 0.0, 1.0)
 
 
 func _set_combat_blood_recovery_per_s(rate_per_s: float) -> void:
-    _combat_blood_recovery_per_s = maxf(0.0, rate_per_s)
+	_combat_blood_recovery_per_s = maxf(0.0, rate_per_s)
 
 
 # Game time (seconds) for per-wound healing and pain decay. Advanced in _process_healing(seconds).
@@ -178,7 +178,7 @@ func _set_combat_blood_recovery_per_s(rate_per_s: float) -> void:
 
 # Tissue health precision: round to 2 decimal places for finer damage representation.
 func _round_tissue(v: float) -> float:
-    return roundf(v * 100.0) / 100.0
+	return roundf(v * 100.0) / 100.0
 
 
 # Pain and consciousness. Consciousness = head f -  blood only (pain does not affect it). Pain strongly affects
@@ -186,11 +186,11 @@ func _round_tissue(v: float) -> float:
 
 
 func _get_last_ambient_pain_shock_time() -> float:
-    return _last_ambient_pain_shock_time
+	return _last_ambient_pain_shock_time
 
 
 func _set_last_ambient_pain_shock_time(value: float) -> void:
-    _last_ambient_pain_shock_time = value
+	_last_ambient_pain_shock_time = value
 
 
 # Dirty flag: only recalc consciousness when something changed (damage, blood loss, healing).
@@ -198,656 +198,676 @@ func _set_last_ambient_pain_shock_time(value: float) -> void:
 
 ## Called by EntityDamage and EntityWounds when entity dies (vital part destroyed or blood loss). Centralizes emission.
 func _notify_died() -> void:
-    if _death_notified:
-        return
-    _death_notified = true
-    emit_signal("died")
+	if _death_notified:
+		return
+	_death_notified = true
+	emit_signal("died")
 
 
 ## Called by EntityPainConsciousness when consciousness drops below incapacitation threshold.
 ## CombatManager connects this so UI refreshes; Phase 5 formation logic can react (fall back, plug gap).
 func _notify_creature_incapacitated() -> void:
-    creature_incapacitated.emit()
+	creature_incapacitated.emit()
 
 
 ## Called by EntityPainConsciousness when consciousness/pain changes. UI refreshes via CombatManager.
 func _notify_health_changed() -> void:
-    health_changed.emit()
+	health_changed.emit()
 
 
 func _get_body_part_list() -> Array:
-    return BodyPartQuery.get_body_part_list(self)
+	return BodyPartQuery.get_body_part_list(self)
 
 
 func _get_vital_parts() -> Array:
-    return BodyPartQuery.get_vital_parts(self)
+	return BodyPartQuery.get_vital_parts(self)
 
 
 func _get_targetable_parts() -> Array:
-    return BodyPartQuery.get_targetable_parts(self)
+	return BodyPartQuery.get_targetable_parts(self)
 
 
 func _is_part_severed(part: String) -> bool:
-    return BodyPartQuery.is_part_severed(self, part)
+	return BodyPartQuery.is_part_severed(self, part)
 
 
 func _is_part_crushed(part: String) -> bool:
-    return BodyPartQuery.is_part_crushed(self, part)
+	return BodyPartQuery.is_part_crushed(self, part)
 
 
 func _is_part_destroyed(part: String) -> bool:
-    return BodyPartQuery.is_part_destroyed(self, part)
+	return BodyPartQuery.is_part_destroyed(self, part)
 
 
 func _is_bone_fractured(part: String) -> bool:
-    return bone_health.get(part, 0.0) <= 0.0
+	return bone_health.get(part, 0.0) <= 0.0
 
 
 func _is_bone_broken(part: String) -> bool:
-    return bone_health.get(part, 0.0) <= 0.0
+	return bone_health.get(part, 0.0) <= 0.0
 
 
 func _get_bone_functionality_factor(part: String) -> float:
-    return BodyPartQuery.get_bone_functionality_factor(self, part)
+	return BodyPartQuery.get_bone_functionality_factor(self, part)
 
 
 func _get_offhand() -> String:
-    return (
-        BodyPartConstants.PART_LEFT_ARM
-        if dominant_hand == BodyPartConstants.PART_RIGHT_ARM
-        else BodyPartConstants.PART_RIGHT_ARM
-    )
+	return (
+		BodyPartConstants.PART_LEFT_ARM
+		if dominant_hand == BodyPartConstants.PART_RIGHT_ARM
+		else BodyPartConstants.PART_RIGHT_ARM
+	)
 
 
 func _is_arm_destroyed(part: String) -> bool:
-    return BodyPartQuery.is_arm_destroyed(self, part)
+	return BodyPartQuery.is_arm_destroyed(self, part)
 
 
 func _get_arm_functionality(part: String) -> float:
-    return BodyPartQuery.get_arm_functionality(self, part)
+	return BodyPartQuery.get_arm_functionality(self, part)
 
 
 func _get_leg_functionality() -> float:
-    return BodyPartQuery.get_leg_functionality(self)
+	return BodyPartQuery.get_leg_functionality(self)
 
 
 func _get_part_dodge_modifier(part: String) -> float:
-    return BodyPartQuery.get_part_dodge_modifier(self, part)
+	return BodyPartQuery.get_part_dodge_modifier(self, part)
 
 
 # Effective speed for gauge fill / mobility: base agility f -  leg functionality (research: leg fracture |' major
 # mobility loss).
 func _get_effective_speed() -> int:
-    var leg: float = _get_leg_functionality()
-    return maxi(1, int(roundf(float(agility) * leg)))
+	var leg: float = _get_leg_functionality()
+	return maxi(1, int(roundf(float(agility) * leg)))
 
 
 # Which arm is used to hold and attack with the weapon. Effectively swaps to the offhand when the
 # dominant arm is injured or destroyed and the offhand would be more effective (by effective damage).
 func get_attacking_arm() -> String:
-    return EntityEquipment.get_attacking_arm(self)
+	return EntityEquipment.get_attacking_arm(self)
 
 
 func _get_attack_damage_modifier() -> float:
-    return EntityEquipment.get_attack_damage_modifier(self)
+	return EntityEquipment.get_attack_damage_modifier(self)
 
 
 func _get_armor_for_part(part: String) -> Variant:
-    return EntityEquipment._get_armor_for_part(self, part)
+	return EntityEquipment._get_armor_for_part(self, part)
 
 
 # Sharp resistance (mm RHA) of armor on this part. For energy-based thrust contact estimation.
 func _get_armor_sharp_resistance_for_part(part: String) -> float:
-    return EntityEquipment._get_armor_sharp_resistance_for_part(self, part)
+	return EntityEquipment._get_armor_sharp_resistance_for_part(self, part)
 
 
 func _get_armor_slots() -> Dictionary:
-    return EntityEquipment.get_armor_slots(self)
+	return EntityEquipment.get_armor_slots(self)
 
 
 func equip_armor(part: String, piece: Variant) -> void:
-    EntityEquipment.equip_armor(self, part, piece)
+	EntityEquipment.equip_armor(self, part, piece)
 
 
 func get_weapon():
-    return EntityEquipment.get_weapon(self)
+	return EntityEquipment.get_weapon(self)
 
 
 func equip_weapon(w) -> void:
-    EntityEquipment.equip_weapon(self, w)
+	EntityEquipment.equip_weapon(self, w)
 
 
 func _get_blood_loss_death_threshold() -> float:
-    if (
-        species != null
-        and species.get("blood_loss_death_threshold") != null
-        and species.blood_loss_death_threshold >= 0.0
-    ):
-        return species.blood_loss_death_threshold
-    return BleedingConstants.BLOOD_LOSS_DEATH_THRESHOLD
+	if (
+		species != null
+		and species.get("blood_loss_death_threshold") != null
+		and species.blood_loss_death_threshold >= 0.0
+	):
+		return species.blood_loss_death_threshold
+	return BleedingConstants.BLOOD_LOSS_DEATH_THRESHOLD
 
 
 func _get_blood_loss_critical_threshold() -> float:
-    if (
-        species != null
-        and species.get("blood_loss_critical_threshold") != null
-        and species.blood_loss_critical_threshold >= 0.0
-    ):
-        return species.blood_loss_critical_threshold
-    return BleedingConstants.BLOOD_LOSS_CRITICAL_THRESHOLD
+	if (
+		species != null
+		and species.get("blood_loss_critical_threshold") != null
+		and species.blood_loss_critical_threshold >= 0.0
+	):
+		return species.blood_loss_critical_threshold
+	return BleedingConstants.BLOOD_LOSS_CRITICAL_THRESHOLD
 
 
+## True when remaining blood is at or below this entity's critical threshold (for UI/effects).
 func _is_blood_critical() -> bool:
-    """True when remaining blood is at or below this entity's critical threshold (for UI/effects)."""
-    return blood_volume <= _get_blood_loss_critical_threshold()
+	return blood_volume <= _get_blood_loss_critical_threshold()
 
 
 # --- Pain and consciousness (Combat Extended--"style) ---
 # Per-wound healing progress 0..1 (exponential: after healing_duration seconds ~95% healed). Backwards compat: missing
 # fields => progress 0.
 func _get_wound_healing_progress(injury: Dictionary) -> float:
-    return EntityWounds._get_wound_healing_progress(self, injury)
+	return EntityWounds._get_wound_healing_progress(self, injury)
 
 
 func _get_pain_contribution_for_wound(
-    part: String, damage: float, severity: String, injury_type: String, sub_region: String, is_stump: bool = false
+	part: String, damage: float, severity: String, injury_type: String, sub_region: String, is_stump: bool = false
 ) -> float:
-    return EntityPainConsciousness.get_pain_contribution_for_wound(
-        self, part, damage, severity, injury_type, sub_region, is_stump
-    )
+	return EntityPainConsciousness.get_pain_contribution_for_wound(
+		self, part, damage, severity, injury_type, sub_region, is_stump
+	)
 
 
 func _get_total_pain() -> float:
-    return EntityPainConsciousness.get_total_pain(self)
+	return EntityPainConsciousness.get_total_pain(self)
 
 
 func _get_effective_pain_for_thresholds() -> float:
-    return EntityPainConsciousness.get_effective_pain_for_thresholds(self)
+	return EntityPainConsciousness.get_effective_pain_for_thresholds(self)
 
 
 func _get_effective_pain_for_region(region: String) -> float:
-    return EntityPainConsciousness._get_effective_pain_for_region(self, region)
+	return EntityPainConsciousness._get_effective_pain_for_region(self, region)
 
 
 func _mark_consciousness_dirty() -> void:
-    EntityPainConsciousness.mark_consciousness_dirty(self)
+	EntityPainConsciousness.mark_consciousness_dirty(self)
 
 
 func _try_enter_pain_shock_from_hit(pain_from_this_hit_raw: float) -> void:
-    EntityPainConsciousness.try_enter_pain_shock_from_hit(self, pain_from_this_hit_raw)
+	EntityPainConsciousness.try_enter_pain_shock_from_hit(self, pain_from_this_hit_raw)
 
 
 func _try_ambient_pain_shock_tick(delta: float) -> void:
-    if EntityPainConsciousness.try_ambient_pain_shock_tick(self, delta):
-        _update_consciousness()
+	if EntityPainConsciousness.try_ambient_pain_shock_tick(self, delta):
+		_update_consciousness()
 
 
 func _update_consciousness() -> void:
-    EntityPainConsciousness.update_consciousness(self)
+	EntityPainConsciousness.update_consciousness(self)
 
 
 func is_cowering() -> bool:
-    return get_attacking_arm().is_empty()
+	if get_attacking_arm().is_empty():
+		return true
+	var leg_func: float = _get_leg_functionality()
+	if leg_func <= 0.08:
+		return true
+	var blood_pct: float = blood_volume
+	if blood_pct < 40.0 and is_unconscious():
+		return true
+	return false
 
 
 ## True when blood/head trauma has dropped true consciousness below the incapacitation floor (cannot act or move).
 func is_unconscious() -> bool:
-    ensure_consciousness_current()
-    return consciousness < PainConsciousnessConstants.INCAPACITATION_CONSCIOUSNESS_THRESHOLD
+	ensure_consciousness_current()
+	return consciousness <= PainConsciousnessConstants.INCAPACITATION_CONSCIOUSNESS_THRESHOLD
 
 
 ## Formation retreat (flee / fall_back): not unconscious and legs functional enough to walk. Cowering (no arms) may
 ## still retreat when mobile.
 func can_flee_or_fall_back() -> bool:
-    if is_unconscious():
-        return false
-    return _get_leg_functionality() >= PainConsciousnessConstants.MOBILITY_FLEE_THRESHOLD
+	if is_unconscious():
+		return false
+	return _get_leg_functionality() >= PainConsciousnessConstants.MOBILITY_FLEE_THRESHOLD
 
 
 func is_incapacitated() -> bool:
-    if is_unconscious():
-        return true
-    return is_cowering()
+	if is_unconscious():
+		return true
+	return is_cowering()
 
 
 func _get_effective_consciousness() -> float:
-    return EntityPainConsciousness.get_effective_consciousness(self)
+	return EntityPainConsciousness.get_effective_consciousness(self)
 
 
 func get_performance_modifier() -> float:
-    return EntityPainConsciousness.get_performance_modifier(self)
+	return EntityPainConsciousness.get_performance_modifier(self)
 
 
 func _get_action_bar_performance_modifier() -> float:
-    return EntityPainConsciousness.get_action_bar_performance_modifier(self)
+	return EntityPainConsciousness.get_action_bar_performance_modifier(self)
 
 
 func _get_hit_chance_performance_modifier() -> float:
-    return EntityPainConsciousness.get_hit_chance_performance_modifier(self)
+	return EntityPainConsciousness.get_hit_chance_performance_modifier(self)
 
 
 func _get_passive_parry_reaction_time() -> float:
-    return EntityPainConsciousness.get_passive_parry_reaction_time(self)
+	return EntityPainConsciousness.get_passive_parry_reaction_time(self)
 
 
 func _get_dodge_chance() -> float:
-    return EntityPainConsciousness.get_dodge_chance(self)
+	return EntityPainConsciousness.get_dodge_chance(self)
 
 
 func is_dead() -> bool:
-    if blood_volume <= _get_blood_loss_death_threshold():
-        return true
-    for part in _get_vital_parts():
-        if _is_part_destroyed(part):
-            return true
-        if body_cutting.get(part, 0.0) <= 0.0 and body_blunt.get(part, 0.0) <= 0.0:
-            return true
-    return false
+	if blood_volume <= _get_blood_loss_death_threshold():
+		return true
+	for part in _get_vital_parts():
+		if _is_part_destroyed(part):
+			return true
+		if body_cutting.get(part, 0.0) <= 0.0 and body_blunt.get(part, 0.0) <= 0.0:
+			return true
+	return false
 
 
 ## True when a vital part has one health pool depleted but the other still carries damage.
 func is_vital_part_critically_damaged() -> bool:
-    for part in _get_vital_parts():
-        var cutting: float = body_cutting.get(part, 0.0)
-        var blunt: float = body_blunt.get(part, 0.0)
-        if (cutting <= 0.0 and blunt > 0.0) or (blunt <= 0.0 and cutting > 0.0):
-            return true
-    return false
+	for part in _get_vital_parts():
+		var cutting: float = body_cutting.get(part, 0.0)
+		var blunt: float = body_blunt.get(part, 0.0)
+		if (cutting <= 0.0 and blunt > 0.0) or (blunt <= 0.0 and cutting > 0.0):
+			return true
+	return false
 
 
 # Returns a short string describing why this entity is dead (for combat/debug logging). Call only when is_dead() is
 # true.
 func _get_death_reason() -> String:
-    var death_thresh: float = _get_blood_loss_death_threshold()
-    if blood_volume <= death_thresh:
-        return "blood_loss (volume=%.1f <= threshold %.1f)" % [blood_volume, death_thresh]
-    for part in _get_vital_parts():
-        if _is_part_destroyed(part):
-            return "vital_part_destroyed (%s severed/crushed)" % part
-        var cut: float = body_cutting.get(part, 0.0)
-        var blunt: float = body_blunt.get(part, 0.0)
-        if cut <= 0.0 and blunt <= 0.0:
-            return "vital_part_zero (%s cut=%.2f blunt=%.2f)" % [part, cut, blunt]
-    return "unknown"
+	var death_thresh: float = _get_blood_loss_death_threshold()
+	if blood_volume <= death_thresh:
+		return "blood_loss (volume=%.1f <= threshold %.1f)" % [blood_volume, death_thresh]
+	for part in _get_vital_parts():
+		if _is_part_destroyed(part):
+			var sever_cut: float = body_cutting.get(part, 0.0)
+			var sev_blunt: float = body_blunt.get(part, 0.0)
+			var bone: float = bone_health.get(part, 0.0)
+			return "vital_part_destroyed (%s severed/crushed cut=%.1f blunt=%.1f bone=%.1f)" % [part, sever_cut, sev_blunt, bone]
+		var zero_cut: float = body_cutting.get(part, 0.0)
+		var zero_blunt: float = body_blunt.get(part, 0.0)
+		if zero_cut <= 0.0 and zero_blunt <= 0.0:
+			return "vital_part_zero (%s cut=%.2f blunt=%.2f)" % [part, zero_cut, zero_blunt]
+	return "unknown"
 
 
 func _get_severance_ease_factor(part: String) -> float:
-    return EntityDamage.get_severance_ease_factor(self, part)
+	return EntityDamage.get_severance_ease_factor(self, part)
 
 
 # Split damage: apply cut (SHARP) and blunt (BLUNT) streams; armor, bone/tissue split, wounds, pain shock in
 # EntityDamage.
 func take_damage_split(
-    cut_pre: float,
-    blunt_pre: float,
-    part: String,
-    penetration_sharp: float = -1.0,
-    penetration_blunt_momentum_per_area: float = -1.0,
-    blunt_contact_cm: float = -1.0,
-    extras: Dictionary = {}
+	cut_pre: float,
+	blunt_pre: float,
+	part: String,
+	penetration_sharp: float = -1.0,
+	penetration_blunt_momentum_per_area: float = -1.0,
+	blunt_contact_cm: float = -1.0,
+	extras: Dictionary = {}
 ) -> Dictionary:
-    return EntityDamage.apply_damage_split(
-        self, cut_pre, blunt_pre, part, penetration_sharp, penetration_blunt_momentum_per_area, blunt_contact_cm, extras
-    )
+	return EntityDamage.apply_damage_split(
+		self, cut_pre, blunt_pre, part, penetration_sharp, penetration_blunt_momentum_per_area, blunt_contact_cm, extras
+	)
 
 
 # --- Wounds and bleeding: delegated to EntityWounds (core/EntityWounds.gd) ---
 
 
 func _get_total_bleeding_rate() -> float:
-    return EntityWounds.get_total_bleeding_rate(self)
+	return EntityWounds.get_total_bleeding_rate(self)
 
 
 func _get_permanent_bleeding_rate() -> float:
-    return EntityWounds.get_permanent_bleeding_rate(self)
+	return EntityWounds.get_permanent_bleeding_rate(self)
 
 
 func get_bleeding_rate_for_part(part: String) -> float:
-    return EntityWounds.get_bleeding_rate_for_part(self, part)
+	return EntityWounds.get_bleeding_rate_for_part(self, part)
 
 
 func get_wounded_parts() -> Array:
-    return EntityWounds.get_wounded_parts(self)
+	return EntityWounds.get_wounded_parts(self)
 
 
 func _get_wounds_snapshot() -> Dictionary:
-    return EntityWounds.get_wounds(self)
+	return EntityWounds.get_wounds(self)
 
 
 func _get_game_time_seconds() -> float:
-    return _game_time_seconds
+	return _game_time_seconds
 
 
 func process_bleeding(delta: float) -> void:
-    EntityWounds.process_bleeding(self, delta)
+	EntityWounds.process_bleeding(self, delta)
 
 
 func process_blood_loss(delta: float) -> void:
-    EntityWounds.process_blood_loss(self, delta)
+	EntityWounds.process_blood_loss(self, delta)
 
 
 # --- Medical: delegated to EntityMedical (core/EntityMedical.gd) ---
 
 
 func _get_bandage_application_time_seconds() -> float:
-    return EntityMedical._get_bandage_application_time_seconds()
+	return EntityMedical._get_bandage_application_time_seconds()
 
 
 func _get_bandage_application_time_seconds_for_part(part: String) -> float:
-    return EntityMedical._get_bandage_application_time_seconds_for_part(self, part)
+	return EntityMedical._get_bandage_application_time_seconds_for_part(self, part)
 
 
 func _get_medical_effectiveness() -> float:
-    var effective_int: float = float(intelligence)
-    if CompanyState.read_stub_proficiency_enabled() and "_proficiency_bonus" in self:
-        effective_int += float(_proficiency_bonus.get("intelligence", 0))
-    var base: float = clampf(effective_int / 100.0, 0.5, 1.5)
-    return base * clampf(_campaign_supply_factor, 0.25, 1.5)
+	var effective_int: float = float(intelligence)
+	if CompanyState.read_stub_proficiency_enabled() and "_proficiency_bonus" in self:
+		effective_int += float(_proficiency_bonus.get("intelligence", 0))
+	var base: float = clampf(effective_int / 100.0, 0.5, 1.5)
+	return base * clampf(_campaign_supply_factor, 0.25, 1.5)
 
 
 func _set_campaign_supply_factor(factor: float) -> void:
-    _campaign_supply_factor = clampf(factor, 0.25, 1.5)
+	_campaign_supply_factor = clampf(factor, 0.25, 1.5)
 
 
 func _get_campaign_supply_factor() -> float:
-    return _campaign_supply_factor
+	return _campaign_supply_factor
 
 
 func _get_endurance_blood_volume_mult() -> float:
-    var effective_end: float = float(endurance)
-    if CompanyState.read_stub_proficiency_enabled() and "_proficiency_bonus" in self:
-        effective_end += float(_proficiency_bonus.get("endurance", 0))
-    return 1.0 + (effective_end - 100) / 400.0
+	var effective_end: float = float(endurance)
+	if CompanyState.read_stub_proficiency_enabled() and "_proficiency_bonus" in self:
+		effective_end += float(_proficiency_bonus.get("endurance", 0))
+	return 1.0 + (effective_end - 100) / 400.0
 
 
 func _get_endurance_healing_speed_mult() -> float:
-    var effective_end: float = float(endurance)
-    if CompanyState.read_stub_proficiency_enabled() and "_proficiency_bonus" in self:
-        effective_end += float(_proficiency_bonus.get("endurance", 0))
-    return 1.0 - clampf((effective_end - 100) / 500.0, 0.0, 0.25)
+	var effective_end: float = float(endurance)
+	if CompanyState.read_stub_proficiency_enabled() and "_proficiency_bonus" in self:
+		effective_end += float(_proficiency_bonus.get("endurance", 0))
+	return 1.0 - clampf((effective_end - 100) / 500.0, 0.0, 0.25)
 
 
 func _get_intelligence_contract_bonus_mult() -> float:
-    var effective_int: float = float(intelligence)
-    if CompanyState.read_stub_proficiency_enabled() and "_proficiency_bonus" in self:
-        effective_int += float(_proficiency_bonus.get("intelligence", 0))
-    return 1.0 + clampf((effective_int - 100) / 500.0, 0.0, 0.15)
+	var effective_int: float = float(intelligence)
+	if CompanyState.read_stub_proficiency_enabled() and "_proficiency_bonus" in self:
+		effective_int += float(_proficiency_bonus.get("intelligence", 0))
+	return 1.0 + clampf((effective_int - 100) / 500.0, 0.0, 0.15)
 
 
 func _get_campaign_stamina_mult() -> float:
-    var m: float = 1.0
-    for raw in campaign_afflictions:
-        if raw is Dictionary:
-            m *= clampf(raw.get("stamina_mult", 1.0), 0.5, 1.0)
-    return m
+	var m: float = 1.0
+	for raw in campaign_afflictions:
+		if raw is Dictionary:
+			m *= clampf(raw.get("stamina_mult", 1.0), 0.5, 1.0)
+	return m
 
 
 func _get_campaign_pain_mult() -> float:
-    var m: float = 1.0
-    for raw in campaign_afflictions:
-        if raw is Dictionary:
-            m *= clampf(raw.get("pain_mult", 1.0), 0.5, 1.5)
-    return m
+	var m: float = 1.0
+	for raw in campaign_afflictions:
+		if raw is Dictionary:
+			m *= clampf(raw.get("pain_mult", 1.0), 0.5, 1.5)
+	return m
 
 
 func _add_campaign_affliction(def: Dictionary) -> bool:
-    if def.is_empty():
-        return false
-    var id: String = def.get("id", "")
-    if id.is_empty():
-        return false
-    for raw in campaign_afflictions:
-        if raw is Dictionary and raw.get("id", "") == id:
-            return false
-    campaign_afflictions.append(def.duplicate(true))
-    return true
+	if def.is_empty():
+		return false
+	var id: String = def.get("id", "")
+	if id.is_empty():
+		return false
+	for raw in campaign_afflictions:
+		if raw is Dictionary and raw.get("id", "") == id:
+			return false
+	campaign_afflictions.append(def.duplicate(true))
+	return true
 
 
 func _get_campaign_affliction_labels() -> PackedStringArray:
-    var out: PackedStringArray = PackedStringArray()
-    for raw in campaign_afflictions:
-        if raw is Dictionary:
-            out.append(raw.get("label", raw.get("id", "")))
-    return out
+	var out: PackedStringArray = PackedStringArray()
+	for raw in campaign_afflictions:
+		if raw is Dictionary:
+			out.append(raw.get("label", raw.get("id", "")))
+	return out
 
 
 func _get_tourniquet_application_time_seconds() -> float:
-    return EntityMedical._get_tourniquet_application_time_seconds()
+	return EntityMedical._get_tourniquet_application_time_seconds()
 
 
 func _can_apply_bandage(part: String) -> bool:
-    return EntityMedical._can_apply_bandage(self, part)
+	return EntityMedical._can_apply_bandage(self, part)
 
 
 func _apply_bandage(part: String, effectiveness: float = 1.0) -> bool:
-    return EntityMedical._apply_bandage(self, part, effectiveness)
+	return EntityMedical._apply_bandage(self, part, effectiveness)
 
 
 func _can_apply_stabilize(part: String) -> bool:
-    return EntityMedical._can_apply_stabilize(self, part)
+	return EntityMedical._can_apply_stabilize(self, part)
 
 
 func _apply_stabilize(part: String, effectiveness: float = 1.0) -> bool:
-    return EntityMedical._apply_stabilize(self, part, effectiveness)
+	return EntityMedical._apply_stabilize(self, part, effectiveness)
 
 
 func _get_stabilize_application_time_seconds_for_part(part: String) -> float:
-    return EntityMedical._get_stabilize_application_time_seconds_for_part(self, part)
+	return EntityMedical._get_stabilize_application_time_seconds_for_part(self, part)
 
 
 func can_apply_packing(part: String) -> bool:
-    return EntityMedical.can_apply_packing(self, part)
+	return EntityMedical.can_apply_packing(self, part)
 
 
 func _apply_packing(part: String, effectiveness: float = 1.0) -> bool:
-    return EntityMedical._apply_packing(self, part, effectiveness)
+	return EntityMedical._apply_packing(self, part, effectiveness)
 
 
 func _get_packing_application_time_seconds_for_part(part: String) -> float:
-    return EntityMedical._get_packing_application_time_seconds_for_part(self, part)
+	return EntityMedical._get_packing_application_time_seconds_for_part(self, part)
 
 
 func _get_medical_entity() -> Node:
-    return self
+	return self
 
 
 func ensure_consciousness_current() -> void:
-    if _consciousness_dirty:
-        _update_consciousness()
+	if _consciousness_dirty:
+		_update_consciousness()
 
 
 func _can_apply_direct_pressure(target_part: String) -> bool:
-    return EntityMedical._can_apply_direct_pressure(self, target_part)
+	return EntityMedical._can_apply_direct_pressure(self, target_part)
 
 
 func _can_apply_direct_pressure_from_ally(part: String, performer_entity: Node = null) -> bool:
-    return EntityMedical._can_apply_direct_pressure_from_ally(self, part, performer_entity)
+	return EntityMedical._can_apply_direct_pressure_from_ally(self, part, performer_entity)
 
 
 func _apply_direct_pressure_from_ally(part: String, performer_entity: Node = null) -> bool:
-    return EntityMedical._apply_direct_pressure_from_ally(self, part, performer_entity)
+	return EntityMedical._apply_direct_pressure_from_ally(self, part, performer_entity)
 
 
 func _stack_assist_pressure_eligible(part: String, assist_entity: Node = null) -> bool:
-    return EntityMedical._stack_assist_pressure_eligible(self, part, assist_entity)
+	return EntityMedical._stack_assist_pressure_eligible(self, part, assist_entity)
 
 
 func _stack_assist_pressure_during_ally_treatment(part: String, assist_entity: Node = null) -> bool:
-    return EntityMedical._stack_assist_pressure_during_ally_treatment(self, part, assist_entity)
+	return EntityMedical._stack_assist_pressure_during_ally_treatment(self, part, assist_entity)
 
 
 func apply_direct_pressure(part: String, effectiveness: float = -1.0) -> bool:
-    return EntityMedical.apply_direct_pressure(self, part, effectiveness)
+	return EntityMedical.apply_direct_pressure(self, part, effectiveness)
 
 
 func _is_applying_direct_pressure() -> bool:
-    return EntityMedical.is_applying_direct_pressure(self)
+	return EntityMedical.is_applying_direct_pressure(self)
 
 
 func has_direct_pressure_on_part(part: String) -> bool:
-    return EntityMedical.has_direct_pressure_on_part(self, part)
+	return EntityMedical.has_direct_pressure_on_part(self, part)
 
 
 func _get_direct_pressure_part() -> String:
-    return EntityMedical.get_direct_pressure_part(self)
+	return EntityMedical.get_direct_pressure_part(self)
 
 
 func _clear_direct_pressure() -> void:
-    EntityMedical.clear_direct_pressure(self)
+	EntityMedical.clear_direct_pressure(self)
 
 
 func _prepare_for_medical_windup(target: Node, part: String) -> void:
-    EntityMedical._prepare_for_medical_windup(self, target, part)
+	EntityMedical._prepare_for_medical_windup(self, target, part)
 
 
 func _is_tourniquet_indicated_for_part(part: String) -> bool:
-    return EntityMedical._is_tourniquet_indicated_for_part(self, part)
+	return EntityMedical._is_tourniquet_indicated_for_part(self, part)
 
 
 func _can_apply_tourniquet(part: String) -> bool:
-    return EntityMedical._can_apply_tourniquet(self, part)
+	return EntityMedical._can_apply_tourniquet(self, part)
 
 
 func _is_tourniquet_applied(part: String) -> bool:
-    return EntityMedical._is_tourniquet_applied(self, part)
+	return EntityMedical._is_tourniquet_applied(self, part)
 
 
 func _apply_tourniquet(part: String, effectiveness: float = 1.0) -> bool:
-    return EntityMedical._apply_tourniquet(self, part, effectiveness)
+	return EntityMedical._apply_tourniquet(self, part, effectiveness)
 
 
 func _remove_tourniquet(part: String) -> void:
-    EntityMedical._remove_tourniquet(self, part)
+	EntityMedical._remove_tourniquet(self, part)
 
 
 ## Tracks failed tourniquet attempts per limb for escalating retry chance.
 func _get_tourniquet_failures(part: String, default: int = 0) -> int:
-    return int(tourniquet_failures.get(part, default))
+	return int(tourniquet_failures.get(part, default))
 
 
 func _set_tourniquet_failures(part: String, count: int) -> void:
-    tourniquet_failures[part] = count
+	tourniquet_failures[part] = count
 
 
 # Healing: exponential deficit decay (tissue, bone, blood). Per-wound: pain decays by healing progress; resolved wounds
 # removed.
 # Call on time advance. Game time advances here for per-wound healing and pain.
 func _process_healing(seconds: float) -> void:
-    EntityHealing._process_healing(self, seconds)
+	EntityHealing._process_healing(self, seconds)
 
 
 func _ready():
-    if species != null:
-        _apply_species()
+	if species != null:
+		_apply_species()
 
 
 func apply_species():
-    _apply_species()
+	_apply_species()
 
 
 func _apply_species():
-    _death_notified = false
-    if has_meta("_fp_death_notified"):
-        remove_meta("_fp_death_notified")
-    body_cutting.clear()
-    body_blunt.clear()
-    body_max.clear()
-    bone_health.clear()
-    bone_max.clear()
-    wounds.clear()
-    tissue_layer_state.clear()
-    tissue_energy_capacity_j.clear()
-    tissue_energy_remaining_j.clear()
-    tourniquet_applied.clear()
-    tourniquet_failures.clear()
-    bandaged_parts.clear()
-    packed_parts.clear()
-    linen_strips_remaining = BleedingConstants.PACKING_LINEN_PARTY_START
-    direct_pressure_part = ""
-    self_direct_pressure_part = ""
-    direct_pressure_assist_held_by = null
-    _game_time_seconds = 0.0
-    if BloodVolumeMl.is_active() and species != null:
-        var ref_kg: float = CombatDesignAnchors.REFERENCE_ADULT_MASS_KG
-        if species.has_method("resolved_reference_mass_kg"):
-            ref_kg = species.resolved_reference_mass_kg()
-        BloodVolumeMl.init_entity_pool(self, ref_kg)
-    else:
-        BloodVolumeMl.clear_entity_pool(self)
-        blood_volume = BleedingConstants.MAX_BLOOD_VOLUME
-    consciousness = 100.0
-    effective_consciousness = 100.0
-    _consciousness_dirty = false
-    _pain_shock_until_time = -1.0
-    _last_hit_impact = 0.0
-    _ambient_pain_shock_accum = 0.0
-    if species != null:
-        for p in _get_body_part_list():
-            var m = species.get_body_part_max(p) if species.has_method("get_body_part_max") else 10
-            var b = species.get_bone_max(p) if species.has_method("get_bone_max") else maxi(1, m / 2)
-            body_max[p] = m
-            body_cutting[p] = _round_tissue(float(m))
-            body_blunt[p] = _round_tissue(float(m))
-            bone_max[p] = b
-            bone_health[p] = _round_tissue(float(b))
-        strength = species.strength
-        agility = species.agility
-        intelligence = species.intelligence
-        endurance = species.endurance
-        perception = species.perception
-    if species != null and typeof(species.name) == TYPE_STRING and species.name != "":
-        self.name = species.name
-    else:
-        # Fallback when no species: use generic values consistent with aggressive realism scale
-        for p in _get_body_part_list():
-            body_max[p] = CombatDesignAnchors.REFERENCE_HUMAN_ARM_TISSUE_DISPLAY
-            body_cutting[p] = _round_tissue(12.0)
-            body_blunt[p] = _round_tissue(12.0)
-            bone_max[p] = 8
-            bone_health[p] = _round_tissue(8.0)
-        strength = 100
-        agility = 100
-        intelligence = 100
-        endurance = 100
-        perception = 100
-    _apply_common_seed_defaults()
+	_death_notified = false
+	if has_meta("_fp_death_notified"):
+		remove_meta("_fp_death_notified")
+	body_cutting.clear()
+	body_blunt.clear()
+	body_max.clear()
+	bone_health.clear()
+	bone_max.clear()
+	wounds.clear()
+	tissue_layer_state.clear()
+	tissue_energy_capacity_j.clear()
+	tissue_energy_remaining_j.clear()
+	tourniquet_applied.clear()
+	tourniquet_failures.clear()
+	bandaged_parts.clear()
+	packed_parts.clear()
+	linen_strips_remaining = BleedingConstants.PACKING_LINEN_PARTY_START
+	direct_pressure_part = ""
+	self_direct_pressure_part = ""
+	direct_pressure_assist_held_by = null
+	_game_time_seconds = 0.0
+	if BloodVolumeMl.is_active() and species != null:
+		var ref_kg: float = CombatDesignAnchors.REFERENCE_ADULT_MASS_KG
+		if species.has_method("resolved_reference_mass_kg"):
+			ref_kg = species.resolved_reference_mass_kg()
+		BloodVolumeMl.init_entity_pool(self, ref_kg)
+	else:
+		BloodVolumeMl.clear_entity_pool(self)
+		blood_volume = BleedingConstants.MAX_BLOOD_VOLUME
+	consciousness = 100.0
+	effective_consciousness = 100.0
+	_consciousness_dirty = false
+	_pain_shock_until_time = -1.0
+	_last_hit_impact = 0.0
+	_ambient_pain_shock_accum = 0.0
+	if species != null:
+		for p in _get_body_part_list():
+			var m = species.get_body_part_max(p) if species.has_method("get_body_part_max") else 10
+			var b = species.get_bone_max(p) if species.has_method("get_bone_max") else maxi(1, m / 2)
+			body_max[p] = m
+			body_cutting[p] = _round_tissue(float(m))
+			body_blunt[p] = _round_tissue(float(m))
+			bone_max[p] = b
+			bone_health[p] = _round_tissue(float(b))
+		strength = species.strength
+		agility = species.agility
+		intelligence = species.intelligence
+		endurance = species.endurance
+		perception = species.perception
+	if species != null and typeof(species.name) == TYPE_STRING and species.name != "":
+		self.name = species.name
+	else:
+		# Fallback when no species: use generic values consistent with aggressive realism scale
+		for p in _get_body_part_list():
+			body_max[p] = CombatDesignAnchors.REFERENCE_HUMAN_ARM_TISSUE_DISPLAY
+			body_cutting[p] = _round_tissue(float(CombatDesignAnchors.REFERENCE_HUMAN_ARM_TISSUE_DISPLAY))
+			body_blunt[p] = _round_tissue(float(CombatDesignAnchors.REFERENCE_HUMAN_ARM_TISSUE_DISPLAY))
+			bone_max[p] = maxf(1, int(CombatDesignAnchors.REFERENCE_HUMAN_ARM_TISSUE_DISPLAY / 2.0))
+			bone_health[p] = _round_tissue(float(bone_max[p]))
+		strength = 100
+		agility = 100
+		intelligence = 100
+		endurance = 100
+		perception = 100
+	# Clear concussion metas between combat sessions (Issue 7a).
+	if has_meta("_concussion_until_time"):
+		remove_meta("_concussion_until_time")
+	if has_meta("_concussion_onset_time"):
+		remove_meta("_concussion_onset_time")
+	if has_meta("_cumulative_concussion_count"):
+		remove_meta("_cumulative_concussion_count")
+	if has_meta("_last_concussion_time"):
+		remove_meta("_last_concussion_time")
+	_apply_common_seed_defaults()
 
 
 ## Common seed defaults shared by species and fallback branches.
 func _apply_common_seed_defaults():
-    dominant_hand = [BodyPartConstants.PART_RIGHT_ARM, BodyPartConstants.PART_LEFT_ARM][randi() % 2]
-    offhand_functionality = randf_range(0.6, 1.0)
-    CombatLayerTissue.seed_all_layer_states(self)
-    TissueEnergyCapacity.seed_entity_energy_pools(self, true)
+	dominant_hand = [BodyPartConstants.PART_RIGHT_ARM, BodyPartConstants.PART_LEFT_ARM][randi() % 2]
+	offhand_functionality = randf_range(0.6, 1.0)
+	CombatLayerTissue.seed_all_layer_states(self)
+	TissueEnergyCapacity.seed_entity_energy_pools(self, true)
 
 
 ## Deterministic species application for harness tests that overwrite RNG-driven fields anyway.
 func apply_species_harness_deterministic():
-    _apply_species()
-    dominant_hand = BodyPartConstants.PART_RIGHT_ARM
-    offhand_functionality = 1.0
+	_apply_species()
+	dominant_hand = BodyPartConstants.PART_RIGHT_ARM
+	offhand_functionality = 1.0
 
 
 func _seed_body_parts_from_species(species_resource: Resource) -> void:
-    for p in _get_body_part_list():
-        var m = species_resource.get_body_part_max(p) if species_resource.has_method("get_body_part_max") else 10
-        var b = species_resource.get_bone_max(p) if species_resource.has_method("get_bone_max") else maxi(1, m / 2)
-        body_max[p] = m
-        body_cutting[p] = _round_tissue(float(m))
-        body_blunt[p] = _round_tissue(float(m))
-        bone_max[p] = b
-        bone_health[p] = _round_tissue(float(b))
+	for p in _get_body_part_list():
+		var m = species_resource.get_body_part_max(p) if species_resource.has_method("get_body_part_max") else 10
+		var b = species_resource.get_bone_max(p) if species_resource.has_method("get_bone_max") else maxi(1, m / 2)
+		body_max[p] = m
+		body_cutting[p] = _round_tissue(float(m))
+		body_blunt[p] = _round_tissue(float(m))
+		bone_max[p] = b
+		bone_health[p] = _round_tissue(float(b))
 
 
 func _seed_body_parts_generic() -> void:
-    for p in _get_body_part_list():
-        body_max[p] = CombatDesignAnchors.REFERENCE_HUMAN_ARM_TISSUE_DISPLAY
-        body_cutting[p] = _round_tissue(12.0)
-        body_blunt[p] = _round_tissue(12.0)
-        bone_max[p] = 8
-        bone_health[p] = _round_tissue(8.0)
+	for p in _get_body_part_list():
+		body_max[p] = CombatDesignAnchors.REFERENCE_HUMAN_ARM_TISSUE_DISPLAY
+		body_cutting[p] = _round_tissue(12.0)
+		body_blunt[p] = _round_tissue(12.0)
+		bone_max[p] = 8
+		bone_health[p] = _round_tissue(8.0)
 
 
 ## Camp rest: clear muscle fatigue so it doesn't persist across campaigns.
 func restore_muscle_fatigue_at_camp() -> void:
-    muscle_fatigue.clear()
+	muscle_fatigue.clear()

@@ -22,7 +22,7 @@ const DEFAULT_COOLDOWN: float = 1.5
 
 # --- Attack archetypes: velocity arc, cut ratio, recovery/windup multiplier ---
 # velocity_factor: 1.0 = full intensity -> full velocity; <1 = quicker attack, less KE.
-# cut_ratio: 0-1 (rest blunt). Overridden by weapon blade_cut_ratio for slash/cut when not set in archetype.
+# cut_ratio: 0-1 (rest blunt). Overridden by weapon blade_cut_ratio (slash/cut) or stab_cut_ratio (stab) when -1.
 # recovery_multiplier / windup_multiplier: scale state-machine timing.
 const ARCHETYPE_STAB: String = "stab"
 const ARCHETYPE_SLASH: String = "slash"
@@ -49,16 +49,18 @@ static func _weapon_definitions_build() -> Dictionary:
             "allowed_forms": ["ox", "plow", "wrath", "fool", "wall", "tempest", "balanced"],
             "mass": 1.2,
             "parry_speed_factor": 1.0,
+            "bind_riposte_contact_types": ["stab", "cut"],
             "blade_width": 2.0,
             "point_width": 0.5,
             "thrust_head_width": 2.0,
             "head_diameter": 3.0,
             "edge_width": 0.0,
             "blade_cut_ratio": 0.75,
+            "stab_cut_ratio": 0.7,
             "melee_range": 1.5,
             "parts":
             [
-                {"id": "blade", "length_cm": 90, "mass_fraction": 0.6, "parry_eligible": true},
+                {"id": "blade", "length_cm": 90, "mass_fraction": 0.6, "parry_eligible": true, "striking_for": ["stab", "cut"]},
                 {"id": "handle", "length_cm": 30, "mass_fraction": 0.4, "parry_eligible": false}
             ],
             "parry_part_id": "blade",
@@ -114,6 +116,7 @@ static func _weapon_definitions_build() -> Dictionary:
             "head_diameter": 4.0,
             "edge_width": 0.0,
             "blade_cut_ratio": 0.6,
+            "stab_cut_ratio": 0.5,
             "melee_range": 1.5,
             "parts":
             [
@@ -177,12 +180,14 @@ static func _weapon_definitions_build() -> Dictionary:
             },
             "mass": 1.7,
             "parry_speed_factor": 0.9,
+            "bind_riposte_contact_types": ["blunt"],
             "blade_width": 0.0,
             "point_width": 0.5,
             "thrust_head_width": 2.0,
             "head_diameter": 8.0,
             "edge_width": 0.5,
             "blade_cut_ratio": 0.0,
+            "stab_cut_ratio": 0.05,
             "melee_range": 1.3,
             "parts":
             [
@@ -193,7 +198,7 @@ static func _weapon_definitions_build() -> Dictionary:
                     "parry_eligible": false,
                     "striking_for": ["blunt"]
                 },
-                {"id": "shaft", "length_cm": 55, "mass_fraction": 0.3, "parry_eligible": true}
+                {"id": "shaft", "length_cm": 55, "mass_fraction": 0.3, "parry_eligible": true, "striking_for": ["blunt"]}
             ],
             "parry_part_id": "shaft",
             "strike_physics":
@@ -236,18 +241,20 @@ static func _weapon_definitions_build() -> Dictionary:
                 "defensive": "wall",
                 "ox": "high_hut",
             },
-            "mass": 0.3,
-            "parry_speed_factor": 1.2,
+            "mass": 0.45,
+            "parry_speed_factor": 1.25,
+            "bind_riposte_contact_types": ["stab"],
             "blade_width": 1.5,
             "point_width": 0.3,
             "thrust_head_width": 1.0,
             "head_diameter": 2.5,
             "edge_width": 0.0,
             "blade_cut_ratio": 0.9,
+            "stab_cut_ratio": 0.85,
             "melee_range": 0.8,
             "parts":
             [
-                {"id": "blade", "length_cm": 20, "mass_fraction": 0.55, "parry_eligible": true},
+                {"id": "blade", "length_cm": 20, "mass_fraction": 0.55, "parry_eligible": true, "striking_for": ["stab", "cut"]},
                 {"id": "handle", "length_cm": 12, "mass_fraction": 0.45, "parry_eligible": false}
             ],
             "parry_part_id": "blade",
@@ -294,12 +301,14 @@ static func _weapon_definitions_build() -> Dictionary:
             },
             "mass": 1.8,
             "parry_speed_factor": 1.0,
+            "bind_riposte_contact_types": ["stab"],
             "blade_width": 2.5,
             "point_width": 0.6,
             "thrust_head_width": 2.5,
             "head_diameter": 3.5,
             "edge_width": 0.0,
             "blade_cut_ratio": 0.85,
+            "stab_cut_ratio": 0.35,
             "melee_range": 2.5,
             "depth_melee_eligible": true,
             "parts":
@@ -320,7 +329,7 @@ static func _weapon_definitions_build() -> Dictionary:
                 }
             ],
             "parry_part_id": "shaft",
-            "impact_velocity_bands": {"stab": {"min": 5.5, "max": 21.0}},
+            "impact_velocity_bands": {"stab": {"min": 4.0, "max": 16.0}},
             "strike_physics":
             {
                 "station_mean": 0.48,
@@ -358,7 +367,7 @@ static func _archetype_definitions_build() -> Dictionary:
         {
             "velocity_factor": 1.0,
             "velocity_intensity_curve": 0.95,
-            "cut_ratio": -1.0,  # use weapon blade_cut_ratio
+            "cut_ratio": -1.0,  # use weapon stab_cut_ratio (falls back to blade_cut_ratio)
             "recovery_multiplier": 1.0,
             "windup_multiplier": 1.0,
             "kinematic_delivery": KINEMATIC_DELIVERY_THRUST
@@ -431,6 +440,29 @@ static func _weapon_template_id(weapon: Variant) -> String:
         if wt != null:
             return str(wt).strip_edges().to_upper()
     return ""
+
+## Per-weapon measure curves: optimal engagement distance profiles.
+## measure_curve: {"optimal_ratio": 0.85, "effective_range_m": 1.5, "overextend_threshold": 1.15}
+## - optimal_ratio: measure ratio where damage/velocity peaks (0.78-0.92 typical)
+## - effective_range_m: max distance for full effectiveness
+## - overextend_threshold: measure ratio beyond which penalties apply
+
+static func _measure_curves_build() -> Dictionary:
+    return {
+        "SWORD": {"optimal_ratio": 0.85, "effective_range_m": 1.6, "overextend_threshold": 1.12},
+        "AXE": {"optimal_ratio": 0.82, "effective_range_m": 1.55, "overextend_threshold": 1.10},
+        "MACE": {"optimal_ratio": 0.78, "effective_range_m": 1.35, "overextend_threshold": 1.08},
+        "DAGGER": {"optimal_ratio": 0.90, "effective_range_m": 0.85, "overextend_threshold": 1.06},
+        "SPEAR": {"optimal_ratio": 0.75, "effective_range_m": 2.8, "overextend_threshold": 1.20},
+    }
+
+static var _measure_curves_cache: Dictionary = {}
+
+
+static func measure_curve(weapon_type: String) -> Dictionary:
+    if _measure_curves_cache.is_empty():
+        _measure_curves_cache = _measure_curves_build()
+    return _measure_curves_cache.get(weapon_type, {"optimal_ratio": 0.85, "effective_range_m": 1.5, "overextend_threshold": 1.15})
 
 ## Legacy encounter / mood keys -> weapon-native form id (e.g. axe `wrath` -> `demi_hache`).
 

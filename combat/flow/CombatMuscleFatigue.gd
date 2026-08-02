@@ -87,6 +87,13 @@ static func most_fatigued_limb(c: Dictionary) -> String:
     return best_part
 
 
+## Max leg fatigue across both legs — extracted shared helper for all leg-based curves.
+static func max_leg_fatigue(c: Dictionary) -> float:
+    return maxf(
+        limb_fatigue(c, BodyPartConstants.PART_RIGHT_LEG), limb_fatigue(c, BodyPartConstants.PART_LEFT_LEG)
+    )
+
+
 static func _party_short_label(part: String) -> String:
     match part:
         BodyPartConstants.PART_RIGHT_ARM:
@@ -108,7 +115,7 @@ static func strike_exertion_mult(c: Dictionary, move_id: String, manager: Node =
     var limb: String = dominant_strike_limb(c, manager)
     var fatigue: float = limb_fatigue(c, limb)
     if move_id == CombatConstants.MOVE_ID_HEAVY:
-        fatigue = maxf(fatigue, limb_fatigue(c, off_strike_limb(limb)) * 0.65)
+        fatigue = maxf(fatigue, limb_fatigue(c, off_strike_limb(limb)) * CombatConstants.MUSCLE_FATIGUE_HEAVY_OFF_ARM_PENALTY)
     return lerpf(1.0, CombatConstants.MUSCLE_FATIGUE_WIND_UP_PERF_FLOOR, fatigue)
 
 
@@ -218,6 +225,32 @@ static func _process_limb_recovery(c: Dictionary, delta: float, rate_mult: float
     c[COMBATANT_KEY_MUSCLE_FATIGUE] = pools
 
 
+## Step speed mult from leg fatigue (curved power curve with directional asymmetry).
+static func step_speed_mult(c: Dictionary, direction: String = "forward") -> float:
+    if not enabled() or c.is_empty():
+        return 1.0
+    var leg_f: float = max_leg_fatigue(c)
+    var base: float = lerpf(1.0, CombatConstants.MUSCLE_FATIGUE_FORWARD_SPEED_FLOOR_AT_MAX, pow(leg_f, CombatConstants.MUSCLE_FATIGUE_STEP_SPEED_CURVE_POWER))
+    if direction == "retreat":
+        return lerpf(1.0, CombatConstants.MUSCLE_FATIGUE_RETREAT_SPEED_FLOOR_AT_MAX, pow(leg_f, CombatConstants.MUSCLE_FATIGUE_STEP_SPEED_CURVE_POWER))
+    if direction == "lateral":
+        return base * CombatConstants.MUSCLE_FATIGUE_LATERAL_SPEED_PENALTY
+    return base
+
+## Balance / stability mult from leg fatigue.
+static func balance_stability_mult(c: Dictionary) -> float:
+    if not enabled() or c.is_empty():
+        return 1.0
+    var leg_f: float = max_leg_fatigue(c)
+    return lerpf(1.0, CombatConstants.MUSCLE_FATIGUE_BALANCE_STABILITY_FLOOR_AT_MAX, pow(leg_f, CombatConstants.MUSCLE_FATIGUE_STEP_SPEED_CURVE_POWER))
+
+## Step precision mult from leg fatigue (affects formation alignment).
+static func step_precision_mult(c: Dictionary) -> float:
+    if not enabled() or c.is_empty():
+        return 1.0
+    var leg_f: float = max_leg_fatigue(c)
+    return lerpf(1.0, CombatConstants.MUSCLE_FATIGUE_STEP_PRECISION_FLOOR_AT_MAX, pow(leg_f, CombatConstants.MUSCLE_FATIGUE_STEP_SPEED_CURVE_POWER))
+
 ## AI / listing: damp strikes when dominant limb is fatigued; heavy moves damp more than quick.
 static func offense_weight_mult(c: Dictionary, move_id: String, manager: Node = null) -> float:
     if not enabled() or c.is_empty():
@@ -244,15 +277,13 @@ static func wait_recovery_weight_mult(c: Dictionary, manager: Node = null) -> fl
 
 
 ## Formation reposition (rotate/swap): damp when legs are spent.
+## Delegates to step_speed_mult + step_precision_mult for graded degradation.
 static func formation_movement_weight_mult(c: Dictionary, move_id: String, _manager: Node = null) -> float:
     if not enabled() or c.is_empty():
         return 1.0
     if not CombatConstants.is_formation_reposition_move(move_id):
         return 1.0
-    var leg_f: float = maxf(
-        limb_fatigue(c, BodyPartConstants.PART_RIGHT_LEG), limb_fatigue(c, BodyPartConstants.PART_LEFT_LEG)
-    )
-    return lerpf(1.0, CombatConstants.MUSCLE_FATIGUE_FORMATION_DAMP_FLOOR, leg_f)
+    return step_speed_mult(c) * step_precision_mult(c)
 
 
 ## Defender parry capacity from dominant-arm fatigue (layers on breath/exhaustion).
@@ -264,13 +295,17 @@ static func parry_capacity_mult(c: Dictionary, manager: Node = null) -> float:
 
 
 ## Defender dodge from leg fatigue (footwork / weight transfer).
+## Uses balance_stability_mult() as the graded degradation curve; smooth collapse between 85–100%.
 static func dodge_chance_mult(c: Dictionary, _manager: Node = null) -> float:
     if not enabled() or c.is_empty():
         return 1.0
-    var leg_f: float = maxf(
-        limb_fatigue(c, BodyPartConstants.PART_RIGHT_LEG), limb_fatigue(c, BodyPartConstants.PART_LEFT_LEG)
-    )
-    return lerpf(1.0, CombatConstants.MUSCLE_FATIGUE_DODGE_CHANCE_FLOOR, leg_f)
+    var leg_f: float = max_leg_fatigue(c)
+    var stability: float = balance_stability_mult(c)
+    # Smooth collapse transition from 85% → 100% fatigue (no cliff-edge jump).
+    if leg_f >= CombatConstants.MUSCLE_FATIGUE_DODGE_COLLAPSE_START:
+        var t: float = (leg_f - CombatConstants.MUSCLE_FATIGUE_DODGE_COLLAPSE_START) / (1.0 - CombatConstants.MUSCLE_FATIGUE_DODGE_COLLAPSE_START)
+        return lerpf(stability, CombatConstants.MUSCLE_FATIGUE_DODGE_FLAT_FLOOR_AT_MAX, t)
+    return stability
 
 
 static func gauge_suffix_for_limb(c: Dictionary, part: String) -> String:

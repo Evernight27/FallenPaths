@@ -10,7 +10,9 @@ const WIND_UP_BASE_S: float = 0.25
 const WIND_UP_SCALE_S: float = 0.6
 const RECOVERY_BASE_S: float = 0.2
 const RECOVERY_COMMITMENT_SCALE_S: float = 0.5
-const RECOVERY_EXTRA_HIT_S: float = 0.0
+## Successful hits (especially penetrating ones) delay recovery as momentum continues through target tissue.
+## Models biomechanical reality — a strike that penetrates carries force forward, delaying blade repositioning.
+const RECOVERY_EXTRA_HIT_S: float = 0.12
 const RECOVERY_EXTRA_NEGLIGIBLE_CHIP_S: float = -0.06
 const RECOVERY_EXTRA_DEFLECTED_BASE_S: float = 0.1
 const RECOVERY_DEFLECT_MOMENTUM_SCALE_S: float = 0.15
@@ -20,9 +22,23 @@ const RECOVERY_EXTRA_MISS_BASE_S: float = 0.35
 const RECOVERY_MISS_COMMITMENT_SCALE_S: float = 0.9
 const RECOVERY_EXTRA_FULL_STOP_BASE_S: float = 0.5
 const RECOVERY_FULL_STOP_COMMITMENT_SCALE_S: float = 0.35
+## Wind-up energy cap (T_optimal): beyond this duration, no additional strike energy is gained.
+## Models HEMA biomechanics — a human holding a weapon at full extension for >0.8s is telegraphing and losing balance.
+## Research confirms optimal wind-up is ~0.40s; by 0.7-0.8s the quadratic factor hits 1.0 (full energy).
+const WIND_UP_ENERGY_CAP_S: float = 0.75
+## Maximum effective wind-up duration after soft cap — absolute ceiling on how long an attack can take.
+## Capped at 0.8s to prevent telegraphed attacks with no penalty; any input held beyond this should trigger
+## a "committed strike" state where the fighter cannot cancel or redirect the attack without penalty.
+const WIND_UP_DURATION_MAX_S: float = 0.8
+## Soft cap for wind-up duration — above this, diminishing returns apply (each extra 0.1s costs only 0.2s real time).
+## Set at 0.5s so that most attacks naturally fall below the energy cap; power swings get a modest bonus but
+## cannot exceed the hard cap of WIND_UP_DURATION_MAX_S.
+const WIND_UP_SOFT_CAP_S: float = 0.5
+## Hit recovery penalty: successful hits delay recovery by this factor (momentum continues through target tissue).
+## Models biomechanical reality — penetrating strikes carry momentum into the target, delaying blade repositioning.
+const RECOVERY_HIT_PENALTY_MULT: float = 1.20
+
 const WINDUP_LEG_MIN: float = 0.2
-const WIND_UP_DURATION_MAX_S: float = 2.0
-const WIND_UP_SOFT_CAP_S: float = 1.5
 const RECOVERY_AFTER_MEDICAL_S: float = 0.5
 
 # Power and follow_through (0.2-1.0 each); intensity drives velocity, wind-up, recovery.

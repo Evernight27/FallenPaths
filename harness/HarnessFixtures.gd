@@ -17,6 +17,7 @@ static var _cached_weapons: Dictionary = {}
 static var _cached_armor: Dictionary = {}
 static var _cached_weapon_melee_ranges: Dictionary = {}
 static var _cached_weapon_move_counts: Dictionary = {}
+static var _windup_duration_cache: Dictionary = {}
 
 
 ## Flush all static caches to release resource instances at harness exit.
@@ -25,6 +26,7 @@ static func flush_static_caches() -> void:
     _cached_armor.clear()
     _cached_weapon_melee_ranges.clear()
     _cached_weapon_move_counts.clear()
+    _windup_duration_cache.clear()
 
 
 static func get_cached_weapon(weapon_id: String) -> Weapon:
@@ -88,14 +90,11 @@ static func _free_harness_node(n: Node) -> void:
 static func _disconnect_all_signals_on_node(node: Node) -> void:
     if node == null or not is_instance_valid(node):
         return
-    var signal_list := node.get_signal_list()
-    for sig_def in signal_list:
-        if sig_def is not Dictionary:
+    var known_signals := ["health_changed", "creature_incapacitated", "died"]
+    for sig_name in known_signals:
+        if typeof(sig_name) != TYPE_STRING:
             continue
-        var name = sig_def.get("name")
-        if typeof(name) != TYPE_STRING:
-            continue
-        var signal_obj: Variant = node.get(name)
+        var signal_obj: Variant = node.get(sig_name)
         if typeof(signal_obj) == TYPE_SIGNAL:
             var connections := (signal_obj as Signal).get_connections()
             for conn in connections:
@@ -118,16 +117,21 @@ static func _disconnect_all_signals_on_node(node: Node) -> void:
 static func _free_manager(mgr: Node) -> void:
     if mgr == null or not is_instance_valid(mgr):
         return
-    ## Disconnect all signal listeners before freeing to prevent ObjectDB leaks.
-    _disconnect_signal_connections(mgr, "turn_ready", mgr.turn_ready)
-    _disconnect_signal_connections(mgr, "action_resolved", mgr.action_resolved)
-    _disconnect_signal_connections(mgr, "combat_ended", mgr.combat_ended)
-    _disconnect_signal_connections(mgr, "enemies_eliminated", mgr.enemies_eliminated)
-    _disconnect_signal_connections(mgr, "combatant_health_changed", mgr.combatant_health_changed)
-    _disconnect_signal_connections(mgr, "formation_changed", mgr.formation_changed)
-    _disconnect_signal_connections(mgr, "engagement_state_changed", mgr.engagement_state_changed)
-    _disconnect_signal_connections(mgr, "turn_resolved", mgr.turn_resolved)
-    _disconnect_signal_connections(mgr, "combat_ui_hint", mgr.combat_ui_hint)
+    ## Disconnect manager output listeners that harness tests may have attached.
+    var _mgr_sigs: Array[Dictionary] = [
+        {"name": "action_resolved", "sig": mgr.action_resolved},
+        {"name": "combat_ended", "sig": mgr.combat_ended},
+        {"name": "enemies_eliminated", "sig": mgr.enemies_eliminated},
+        {"name": "combatant_health_changed", "sig": mgr.combatant_health_changed},
+        {"name": "formation_changed", "sig": mgr.formation_changed},
+        {"name": "engagement_state_changed", "sig": mgr.engagement_state_changed},
+        {"name": "turn_resolved", "sig": mgr.turn_resolved},
+        {"name": "combat_ui_hint", "sig": mgr.combat_ui_hint},
+    ]
+    for _s in _mgr_sigs:
+        var _conns := (_s["sig"] as Signal).get_connections()
+        if not _conns.is_empty():
+            _disconnect_signal_connections(mgr, _s["name"], _s["sig"])
     ## Call stop() to disconnect entity-side signals (health_changed, etc.).
     if mgr.has_method("stop"):
         mgr.call("stop")
@@ -336,6 +340,13 @@ static func _soak_kill_combatant(mgr: Node, combatant_id: int) -> void:
         return
     c["alive"] = false
     mgr.on_combatant_died(c)
+
+
+static func get_windup_duration_for_bind(weapon_id: String, move_id: String, bind: bool) -> float:
+    var key := "%s|%s|%d" % [weapon_id, move_id, int(bind)]
+    if not _windup_duration_cache.has(key):
+        _windup_duration_cache[key] = _windup_duration_for_bind_test(weapon_id, move_id, bind)
+    return float(_windup_duration_cache[key])
 
 
 static func _windup_duration_for_bind_test(weapon_id: String, move_id: String, bind: bool) -> float:

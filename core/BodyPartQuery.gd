@@ -70,18 +70,36 @@ static func is_part_destroyed(entity: Node, part: String) -> bool:
 ## Limb/part can still function and receive aimed blows: all channels that exist for the part must be > 0.
 ## If cutting OR blunt OR bone (when this part has bone_max > 0) reaches zero, the part is inoperable and excluded from
 ## targeting.
-static func is_part_physically_operable(entity: Node, part: String) -> bool:
+
+const _PART_OPERABILITY_CHANNEL_WEIGHTS: Dictionary = {
+    "cutting": 0.45,
+    "blunt": 0.35,
+    "bone": 0.20,
+}
+
+
+static func get_part_operability(entity: Node, part: String) -> float:
     if not part in entity.body_cutting or not part in entity.body_blunt:
-        return false
-    if entity.body_cutting.get(part, 0.0) <= 0.0:
-        return false
-    if entity.body_blunt.get(part, 0.0) <= 0.0:
-        return false
+        return 0.0
+    var cutting_max: float = maxf(1.0, float(entity.body_max.get(part, 10)))
+    var blunt_max: float = maxf(1.0, float(entity.body_max.get(part, 10)))
+    var cutting_ratio: float = clampf(entity.body_cutting.get(part, 0.0) / cutting_max, 0.0, 1.0)
+    var blunt_ratio: float = clampf(entity.body_blunt.get(part, 0.0) / blunt_max, 0.0, 1.0)
+    var bone_ratio: float = 1.0
     if entity.get("bone_health") != null and entity.get("bone_max") != null:
         var bmx: int = entity.bone_max.get(part, 0)
-        if bmx > 0 and entity.bone_health.get(part, 0.0) <= 0.0:
-            return false
-    return true
+        if bmx > 0:
+            bone_ratio = clampf(entity.bone_health.get(part, float(bmx)) / float(bmx), 0.0, 1.0)
+    return (
+        cutting_ratio * _PART_OPERABILITY_CHANNEL_WEIGHTS["cutting"]
+        + blunt_ratio * _PART_OPERABILITY_CHANNEL_WEIGHTS["blunt"]
+        + bone_ratio * _PART_OPERABILITY_CHANNEL_WEIGHTS["bone"]
+    )
+
+
+static func is_part_physically_operable(entity: Node, part: String) -> bool:
+    var operability: float = get_part_operability(entity, part)
+    return operability >= 0.15
 
 
 static func get_targetable_parts(entity: Node) -> Array:
@@ -137,11 +155,13 @@ static func is_arm_destroyed(entity: Node, part: String) -> bool:
 static func get_arm_functionality(entity: Node, part: String) -> float:
     if not is_arm(part):
         return 0.0
-    if not is_part_physically_operable(entity, part):
+    var operability: float = get_part_operability(entity, part)
+    if operability < 0.15:
         return 0.0
     var tissue: float = get_arm_tissue_factor(entity, part)
     var bone_factor: float = get_bone_functionality_factor(entity, part)
-    return clampf(tissue * bone_factor, 0.0, 1.0)
+    var combined: float = clampf(tissue * bone_factor, 0.0, 1.0)
+    return clampf(combined * operability / maxf(operability, 0.15), 0.0, 1.0)
 
 
 # --- Part-specific dodge modifier: attacked part's ability to get out of the way ---

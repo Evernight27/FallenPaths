@@ -1,4 +1,4 @@
-﻿class_name KinematicDeliveryStaminaFormationTests
+class_name KinematicDeliveryStaminaFormationTests
 extends CombatRegressionHarnessCore
 ## Tier 5.1 (optional long-tail): **`strike_mods.strike_energy_mult`** in **`compute_and_apply_damage`**  -
 ## **`strike_ke_j`** * mult; **`pre_cut`** * **`sqrt(mult)`**; **`penetration_sharp`** * **`mult^PENETRATION_EXPONENT`**
@@ -261,7 +261,7 @@ static func _run_bind_riposte_contact_types_normalized(failures: PackedStringArr
         "SPEAR": [WeaponConstants.ATTACK_TYPE_STAB]
     }
     for wid in expected.keys():
-        var weapon: Weapon = Weapon.create_from_definition(str(wid))
+        var weapon: Weapon = HarnessFixtures.get_cached_weapon(str(wid))
         if weapon == null:
             _fail(failures, "bind_contacts: missing weapon %s" % str(wid))
             continue
@@ -889,3 +889,4 @@ static func _run_formation_move_duration_ui_hint_when_lane_crowded(failures: Pac
         _fail(failures, "form_dur_ui: want crowded lane in hint got '%s'" % tip)
 
 ## Tier 1: **`rotate_file`** listed for adjacent rank-0 allies on a multi-file line.
+

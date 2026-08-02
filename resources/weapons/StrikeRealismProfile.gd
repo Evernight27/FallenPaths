@@ -13,6 +13,15 @@ static func _phys(weapon: RefCounted) -> Dictionary:
     return sp if sp is Dictionary else {}
 
 
+static func _weapon_type_for_weapon(weapon: RefCounted) -> String:
+    if weapon == null or not (weapon is Object):
+        return ""
+    var wt: Variant = weapon.get("weapon_type")
+    if wt != null:
+        return str(wt).strip_edges().to_upper()
+    return ""
+
+
 static func measure_ratio(manager: Node, atk: Dictionary, tgt: Dictionary, weapon: RefCounted) -> float:
     return CombatStrikeStamping.strike_measure_ratio_for_attack_pair(manager, atk, tgt, weapon, -1.0)
 
@@ -48,8 +57,16 @@ static func _station_velocity_mult(contact: String, station: float, phys: Dictio
     return lerpf(0.96, 1.05, station)
 
 
-static func _measure_velocity_mult(contact: String, meas: float) -> float:
-    var t: float = clampf((meas - 0.78) / 0.34, 0.0, 1.0)
+static func _measure_velocity_mult(contact: String, meas: float, measure_curve: Dictionary = {}) -> float:
+    var optimal_ratio: float = measure_curve.get("optimal_ratio", 0.85)
+    var overextend_threshold: float = measure_curve.get("overextend_threshold", 1.15)
+    # Map measure ratio into 0..1 where optimal_ratio = peak (t=1), overextend_threshold = valley (t=0).
+    # When meas <= optimal_ratio, t=1 (at or inside optimal — full velocity).
+    # When meas >= overextend_threshold, t=0 (overextended — reduced velocity).
+    var t: float = 1.0
+    if meas > optimal_ratio:
+        var denom: float = maxf(overextend_threshold - optimal_ratio, 0.001)
+        t = clampf(1.0 - (meas - optimal_ratio) / denom, 0.0, 1.0)
     if contact == WeaponConstants.ATTACK_TYPE_STAB:
         return lerpf(0.93, 1.04, t)
     return lerpf(0.97, 1.02, t)
@@ -63,7 +80,8 @@ static func velocity_intent_mult_from_pa(
     var phys: Dictionary = _phys(weapon)
     var station: float = blade_station_from_pa(pa, weapon, move_id, intensity)
     var meas: float = pa.get("strike_measure_ratio", 1.0)
-    return _station_velocity_mult(contact, station, phys) * _measure_velocity_mult(contact, meas)
+    var mc: Dictionary = WeaponTemplateDefinitions.measure_curve(_weapon_type_for_weapon(weapon))
+    return _station_velocity_mult(contact, station, phys) * _measure_velocity_mult(contact, meas, mc)
 
 
 static func _coupling(contact: String, phys: Dictionary) -> float:
@@ -95,6 +113,29 @@ static func _station_cut_draw_mult(station: float) -> float:
     return clampf(lerpf(0.92, 1.08, bell), 0.88, 1.12)
 
 
+static func _sharpness_station_interaction(sharpness: float, station: float, contact: String) -> float:
+    ## Dull blades (low sharpness) lose effectiveness most at blade tip/foible (station < 0.3 and station > 0.75).
+    ## Mid-blade strikes retain more cut quality even when dull — this models how a worn edge still bites near the guard.
+    if contact != WeaponConstants.ATTACK_TYPE_CUT:
+        return 1.0
+    var s: float = clampf(sharpness, 0.0, 1.0)
+    var x: float = clampf(station, 0.0, 1.0)
+    # Dullness penalty: tip (x~0.9) and foible (x~0.1) suffer more than mid-blade (x~0.5)
+    var tip_penalty: float = pow(1.0 - x, 2.0) * (1.0 - s) * 0.35
+    var foible_penalty: float = pow(x, 2.0) * (1.0 - s) * 0.28
+    return clampf(1.0 - tip_penalty - foible_penalty, 0.65, 1.0)
+
+
+static func sharpness_for_weapon(weapon: RefCounted) -> float:
+    if weapon == null or not (weapon is Object):
+        return 1.0
+    var raw_sharp: Variant = weapon.get("sharpness")
+    if raw_sharp is float or raw_sharp is int:
+        return clampf(float(raw_sharp), 0.0, 1.0)
+    return 1.0
+
+
+
 static func compute_strike_modifiers(
     manager: Node,
     atk: Dictionary,
@@ -122,16 +163,21 @@ static func compute_strike_modifiers(
     var commit_frac: float = pa.get("weapon_extension_commit_fraction", -1.0)
     if commit_frac < 0.0:
         commit_frac = 1.0
-    var vel_m: float = _station_velocity_mult(contact, station, phys) * _measure_velocity_mult(contact, meas)
+    var sharpness: float = sharpness_for_weapon(weapon)
+    var mc: Dictionary = WeaponTemplateDefinitions.measure_curve(_weapon_type_for_weapon(weapon))
+    var vel_m: float = _station_velocity_mult(contact, station, phys) * _measure_velocity_mult(contact, meas, mc)
     var coup: float = _coupling(contact, phys)
     var obliq: float = _obliquity_factor(hit_alignment, parry_remaining_ratio)
-    var cut_m: float = 1.0
+    var contact_damage_mult: float = 1.0
     if contact == WeaponConstants.ATTACK_TYPE_CUT:
-        cut_m = _station_cut_draw_mult(station) * obliq
+        var base_cut: float = _station_cut_draw_mult(station)
+        var sharp_interp: float = _sharpness_station_interaction(sharpness, station, contact)
+        contact_damage_mult = base_cut * sharp_interp * obliq
     elif contact == WeaponConstants.ATTACK_TYPE_STAB:
-        cut_m = lerpf(0.94, 1.05, station) * obliq
+        var stab_sharp: float = lerpf(0.82, 1.0, sharpness)
+        contact_damage_mult = stab_sharp * lerpf(0.94, 1.05, station) * obliq
     else:
-        cut_m = obliq
+        contact_damage_mult = obliq
     var blunt_m: float = obliq * _blunt_pressure_mult(weapon, phys)
     if contact == WeaponConstants.ATTACK_TYPE_BLUNT:
         blunt_m *= lerpf(0.94, 1.06, station)
@@ -141,14 +187,15 @@ static func compute_strike_modifiers(
         if contact == WeaponConstants.ATTACK_TYPE_STAB
         else clampf(lerpf(0.96, 1.028, sin(station * PI)), 0.9, 1.08)
     )
+    var sharp_pen_mult: float = pen_station * lerpf(0.75, 1.0, sharpness)
     return {
         "blade_station": station,
         "measure_ratio": meas,
         "velocity_mult": vel_m,
         "ke_coupling_mult": coup,
-        "cut_damage_mult": cut_m,
+        "cut_damage_mult": contact_damage_mult,
         "blunt_damage_mult": blunt_m,
-        "sharp_penetration_mult": pen_station,
+        "sharp_penetration_mult": sharp_pen_mult,
         "blunt_momentum_pa_mult": obliq * _blunt_pressure_mult(weapon, phys),
         "strike_energy_mult": vel_m * vel_m * coup * clampf(commit_frac, 0.3, 1.0),
         "strike_momentum_mult": vel_m * coup

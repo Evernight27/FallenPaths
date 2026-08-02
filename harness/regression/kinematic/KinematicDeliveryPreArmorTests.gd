@@ -1,4 +1,4 @@
-﻿class_name KinematicDeliveryPreArmorTests
+class_name KinematicDeliveryPreArmorTests
 extends CombatRegressionHarnessCore
 
 
@@ -45,7 +45,7 @@ static func _run_kinematic_delivery_pre_armor_cut_sqrt_ke_ratio_and_blunt_rises_
         {"def": "AXE", "move": "diagonal_chop", "pfx": "kin_pre_armor_cut_ax", "v_lo": 8.0, "v_hi": 15.0},
         {"def": "DAGGER", "move": "quick_slash", "pfx": "kin_pre_armor_cut_dg", "v_lo": 8.0, "v_hi": 15.0},
     ]:
-        var w_c: Weapon = Weapon.create_from_definition(str(cfx["def"]))
+        var w_c: Weapon = HarnessFixtures.get_cached_weapon(str(cfx["def"]))
         if w_c == null:
             _fail(failures, "%s: missing %s" % [str(cfx["pfx"]), str(cfx["def"])])
             return
@@ -151,7 +151,7 @@ static func _run_kinematic_delivery_penetration_sharp_ke_exponent_and_blunt_mpa_
         {"def": "AXE", "move": "diagonal_chop", "pfx": "kin_pen_sharp_ax"},
         {"def": "DAGGER", "move": "quick_slash", "pfx": "kin_pen_sharp_dg"},
     ]:
-        var w_p: Weapon = Weapon.create_from_definition(str(pfx_row["def"]))
+        var w_p: Weapon = HarnessFixtures.get_cached_weapon(str(pfx_row["def"]))
         if w_p == null:
             _fail(failures, "%s: missing %s" % [str(pfx_row["pfx"]), str(pfx_row["def"])])
             return
@@ -264,7 +264,7 @@ static func _run_kinematic_delivery_strike_energy_mult_scales_ke_and_pre_armor_c
         {"def": "AXE", "move": "diagonal_chop", "pfx": "kin_e_mult_pin_ax"},
         {"def": "DAGGER", "move": "quick_slash", "pfx": "kin_e_mult_pin_dg"},
     ]:
-        var wp: Weapon = Weapon.create_from_definition(str(pin_fx["def"]))
+        var wp: Weapon = HarnessFixtures.get_cached_weapon(str(pin_fx["def"]))
         if wp == null:
             _fail(failures, "%s: missing %s" % [str(pin_fx["pfx"]), str(pin_fx["def"])])
             return
@@ -329,7 +329,7 @@ static func _run_kinematic_delivery_strike_energy_mult_scales_ke_and_pre_armor_c
         {"def": "AXE", "move": "diagonal_chop", "pfx": "kin_e_mult_mix_ax"},
         {"def": "DAGGER", "move": "quick_slash", "pfx": "kin_e_mult_mix_dg"},
     ]:
-        var w_ex: Weapon = Weapon.create_from_definition(str(fx["def"]))
+        var w_ex: Weapon = HarnessFixtures.get_cached_weapon(str(fx["def"]))
         if w_ex == null:
             _fail(failures, "%s: missing %s" % [str(fx["pfx"]), str(fx["def"])])
             return
@@ -415,7 +415,7 @@ static func _run_kinematic_delivery_strike_momentum_mult_scales_blunt_damage_and
         # otherwise clamps both samples to **1.0** -> ratio **1.0**).
         {"def": "DAGGER", "move": "quick_slash", "pfx": "kin_p_mult_cb_dg", "v": 20.0},
     ]:
-        var wcb: Weapon = Weapon.create_from_definition(str(cb["def"]))
+        var wcb: Weapon = HarnessFixtures.get_cached_weapon(str(cb["def"]))
         if wcb == null:
             _fail(failures, "%s: missing %s" % [str(cb["pfx"]), str(cb["def"])])
             return
@@ -463,3 +463,6 @@ static func _run_kinematic_delivery_strike_momentum_mult_scales_blunt_damage_and
 ## **`get_effective_velocity_m_s`** >= **`strike_energy_mult`** (**SWORD** **`sw_*`**, **`swx`** **AXE** / **DAGGER**)
 ## -  same blunt-channel >= on **MACE** **`direct_blow`** and **SWORD** / **AXE** / **DAGGER** cut swing (pinned
 ## **`v`**)  -  orthogonal energy vs momentum paths.
+
+
+

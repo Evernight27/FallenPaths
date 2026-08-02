@@ -8,11 +8,31 @@ static func tick(manager: Node, delta: float) -> void:
     manager.combat_clock += delta
     CombatEventDispatch.process_event_queue(manager)
     manager._combat_tick_index += 1
+    # Harness diagnostic: log standing counts each tick so we can see why combat persists.
+    if not manager.medical_phase and manager.has_meta("_fp_harness_diag") and bool(manager.get_meta("_fp_harness_diag")):
+        var standing_counts: Dictionary = CombatStandingHelper.get_standing_by_side(manager.combatants)
+        var alive_count: int = 0
+        var dead_count: int = 0
+        for c in manager.combatants:
+            if not c is Dictionary:
+                continue
+            if not CombatantEntityAccess.alive_bool(c):
+                dead_count += 1
+            else:
+                alive_count += 1
+        var standing_str: String = ""
+        for k in standing_counts:
+            standing_str += "%s=%d " % [k, standing_counts[k]]
+        CombatDebug.harness_diag(
+            "tick=%d clock=%.2f medical_phase=%s standing=[%s] alive=%d dead=%d"
+            % [manager._combat_tick_index, manager.combat_clock, str(manager.medical_phase), standing_str.strip_edges(), alive_count, dead_count]
+        )
     # Check for winner after event queue drain  -  prevents remaining turns from firing
     # when one side has zero standing combatants (all dead/fled/incapacitated).
     if not manager.medical_phase:
         var early_victor: String = manager._check_for_winner()
         if not early_victor.is_empty() and MedicalPhaseController.should_apply_phase_end(manager, early_victor):
+            CombatDebug.harness_diag("winner_check_1 victor=%s" % early_victor)
             manager._end_combat_phase(early_victor, null)
             return
     var fast_forward: bool = MedicalPhaseController.medical_fast_forward_active(manager)
@@ -73,6 +93,7 @@ static func tick(manager: Node, delta: float) -> void:
         and not manager.medical_phase
         and MedicalPhaseController.should_apply_phase_end(manager, victor)
     ):
+        CombatDebug.harness_diag("winner_check_2 victor=%s" % victor)
         manager._end_combat_phase(victor, last_death_node)
         return
     victor = manager._check_for_winner()
@@ -81,6 +102,7 @@ static func tick(manager: Node, delta: float) -> void:
         and not manager.medical_phase
         and MedicalPhaseController.should_apply_phase_end(manager, victor)
     ):
+        CombatDebug.harness_diag("winner_check_3 victor=%s" % victor)
         manager._end_combat_phase(victor, null)
         return
     for c in manager.combatants:

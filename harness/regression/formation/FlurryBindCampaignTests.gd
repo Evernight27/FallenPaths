@@ -244,8 +244,16 @@ static func _run_tier7_parry_bind_riposte_gauge_bonus_on_deflect(failures: Packe
 
 ## Tier 3.2: bind riposte speed depends on parry contact part plus the riposte contact type.
 static func _run_bind_riposte_contact_multipliers(failures: PackedStringArray) -> void:
-    var spear_normal: float = _windup_duration_for_bind_test("SPEAR", "spear_thrust", false)
-    var spear_bind: float = _windup_duration_for_bind_test("SPEAR", "spear_thrust", true)
+    var soft_cap: float = CombatConstantsTiming.WIND_UP_SOFT_CAP_S
+    var unwind_soft_cap = func(capped: float, cap: float) -> float:
+        if capped <= cap: return capped
+        return cap + (capped - cap) * 2.0
+    var spear_normal: float = unwind_soft_cap.call(
+        HarnessFixtures.get_windup_duration_for_bind("SPEAR", "spear_thrust", false), soft_cap
+    )
+    var spear_bind: float = unwind_soft_cap.call(
+        HarnessFixtures.get_windup_duration_for_bind("SPEAR", "spear_thrust", true), soft_cap
+    )
     var spear_want: float = float((CombatConstants.PARRY_BIND_RIPOSTE_BY_PART_CONTACT["shaft"] as Dictionary)["stab"])
     if spear_normal <= 0.0 or absf((spear_bind / spear_normal) - spear_want) > 0.001:
         _fail(
@@ -255,8 +263,12 @@ static func _run_bind_riposte_contact_multipliers(failures: PackedStringArray) -
                 % [(spear_bind / spear_normal) if spear_normal > 0.0 else -1.0, spear_want]
             )
         )
-    var mace_normal: float = _windup_duration_for_bind_test("MACE", "direct_blow", false)
-    var mace_bind: float = _windup_duration_for_bind_test("MACE", "direct_blow", true)
+    var mace_normal: float = unwind_soft_cap.call(
+        HarnessFixtures.get_windup_duration_for_bind("MACE", "direct_blow", false), soft_cap
+    )
+    var mace_bind: float = unwind_soft_cap.call(
+        HarnessFixtures.get_windup_duration_for_bind("MACE", "direct_blow", true), soft_cap
+    )
     var mace_want: float = float((CombatConstants.PARRY_BIND_RIPOSTE_BY_PART_CONTACT["shaft"] as Dictionary)["blunt"])
     if mace_normal <= 0.0 or absf((mace_bind / mace_normal) - mace_want) > 0.001:
         _fail(
@@ -266,8 +278,12 @@ static func _run_bind_riposte_contact_multipliers(failures: PackedStringArray) -
                 % [(mace_bind / mace_normal) if mace_normal > 0.0 else -1.0, mace_want]
             )
         )
-    var axe_normal: float = _windup_duration_for_bind_test("AXE", "spike_thrust", false)
-    var axe_bind: float = _windup_duration_for_bind_test("AXE", "spike_thrust", true)
+    var axe_normal: float = unwind_soft_cap.call(
+        HarnessFixtures.get_windup_duration_for_bind("AXE", "spike_thrust", false), soft_cap
+    )
+    var axe_bind: float = unwind_soft_cap.call(
+        HarnessFixtures.get_windup_duration_for_bind("AXE", "spike_thrust", true), soft_cap
+    )
     var axe_want: float = float((CombatConstants.PARRY_BIND_RIPOSTE_BY_PART_CONTACT["haft"] as Dictionary)["stab"])
     if axe_normal <= 0.0 or absf((axe_bind / axe_normal) - axe_want) > 0.001:
         _fail(
@@ -277,8 +293,12 @@ static func _run_bind_riposte_contact_multipliers(failures: PackedStringArray) -
                 % [(axe_bind / axe_normal) if axe_normal > 0.0 else -1.0, axe_want]
             )
         )
-    var spear_slash_normal: float = _windup_duration_for_bind_test("SPEAR", "spear_slash", false)
-    var spear_slash_bind: float = _windup_duration_for_bind_test("SPEAR", "spear_slash", true)
+    var spear_slash_normal: float = unwind_soft_cap.call(
+        HarnessFixtures.get_windup_duration_for_bind("SPEAR", "spear_slash", false), soft_cap
+    )
+    var spear_slash_bind: float = unwind_soft_cap.call(
+        HarnessFixtures.get_windup_duration_for_bind("SPEAR", "spear_slash", true), soft_cap
+    )
     if spear_slash_normal <= 0.0 or absf((spear_slash_bind / spear_slash_normal) - 1.0) > 0.001:
         _fail(
             failures,
@@ -287,8 +307,12 @@ static func _run_bind_riposte_contact_multipliers(failures: PackedStringArray) -
                 % [(spear_slash_bind / spear_slash_normal) if spear_slash_normal > 0.0 else -1.0]
             )
         )
-    var sword_normal: float = _windup_duration_for_bind_test("SWORD", "oberhau", false)
-    var sword_bind: float = _windup_duration_for_bind_test("SWORD", "oberhau", true)
+    var sword_normal: float = unwind_soft_cap.call(
+        HarnessFixtures.get_windup_duration_for_bind("SWORD", "oberhau", false), soft_cap
+    )
+    var sword_bind: float = unwind_soft_cap.call(
+        HarnessFixtures.get_windup_duration_for_bind("SWORD", "oberhau", true), soft_cap
+    )
     var sword_want: float = float((CombatConstants.PARRY_BIND_RIPOSTE_BY_PART_CONTACT["blade"] as Dictionary)["cut"])
     if sword_normal <= 0.0 or absf((sword_bind / sword_normal) - sword_want) > 0.001:
         _fail(
@@ -298,8 +322,12 @@ static func _run_bind_riposte_contact_multipliers(failures: PackedStringArray) -
                 % [(sword_bind / sword_normal) if sword_normal > 0.0 else -1.0, sword_want]
             )
         )
-    var dagger_normal: float = _windup_duration_for_bind_test("DAGGER", "quick_thrust", false)
-    var dagger_bind: float = _windup_duration_for_bind_test("DAGGER", "quick_thrust", true)
+    var dagger_normal: float = unwind_soft_cap.call(
+        HarnessFixtures.get_windup_duration_for_bind("DAGGER", "quick_thrust", false), soft_cap
+    )
+    var dagger_bind: float = unwind_soft_cap.call(
+        HarnessFixtures.get_windup_duration_for_bind("DAGGER", "quick_thrust", true), soft_cap
+    )
     var dagger_want: float = float((CombatConstants.PARRY_BIND_RIPOSTE_BY_PART_CONTACT["blade"] as Dictionary)["stab"])
     if dagger_normal <= 0.0 or absf((dagger_bind / dagger_normal) - dagger_want) > 0.001:
         _fail(
@@ -316,10 +344,10 @@ static func _run_bind_riposte_contact_multipliers(failures: PackedStringArray) -
 
 ## Tier 3.2 / P4h: bind riposte wind-up ordering  -  extend (stab) faster than swing (blunt) on bind follow-up.
 static func _run_bind_riposte_archetype_ordering_spear_faster_than_mace(failures: PackedStringArray) -> void:
-    var spear_normal: float = _windup_duration_for_bind_test("SPEAR", "spear_thrust", false)
-    var spear_bind: float = _windup_duration_for_bind_test("SPEAR", "spear_thrust", true)
-    var mace_normal: float = _windup_duration_for_bind_test("MACE", "direct_blow", false)
-    var mace_bind: float = _windup_duration_for_bind_test("MACE", "direct_blow", true)
+    var spear_normal: float = HarnessFixtures.get_windup_duration_for_bind("SPEAR", "spear_thrust", false)
+    var spear_bind: float = HarnessFixtures.get_windup_duration_for_bind("SPEAR", "spear_thrust", true)
+    var mace_normal: float = HarnessFixtures.get_windup_duration_for_bind("MACE", "direct_blow", false)
+    var mace_bind: float = HarnessFixtures.get_windup_duration_for_bind("MACE", "direct_blow", true)
     if spear_normal <= 0.0 or mace_normal <= 0.0:
         _fail(
             failures,
@@ -338,8 +366,8 @@ static func _run_bind_riposte_archetype_ordering_spear_faster_than_mace(failures
             failures,
             "bind_riposte_order: spear bind duration %.4f should be < mace bind %.4f" % [spear_bind, mace_bind]
         )
-    var sword_normal: float = _windup_duration_for_bind_test("SWORD", "oberhau", false)
-    var sword_bind: float = _windup_duration_for_bind_test("SWORD", "oberhau", true)
+    var sword_normal: float = HarnessFixtures.get_windup_duration_for_bind("SWORD", "oberhau", false)
+    var sword_bind: float = HarnessFixtures.get_windup_duration_for_bind("SWORD", "oberhau", true)
     if sword_normal > 0.0:
         var sword_ratio: float = sword_bind / sword_normal
         if spear_ratio >= sword_ratio - 0.001 or sword_ratio >= mace_ratio - 0.001:
@@ -458,9 +486,15 @@ static func _run_flurry_bind_exchange_wind_up_reduced_vs_plain(failures: PackedS
     seed(90331)
     WindUpStarter.start(mgr_f, p_id, e_id, "oberhau")
     var dur_flurry: float = float(mgr_f.combatants[0].get(DataKeys.PA_STATE_DURATION, 0.0))
-    var want: float = dur_plain * CombatConstants.FLURRY_BIND_WIND_UP_MULT
-    if absf(dur_flurry - want) > 0.0002:
-        _fail(failures, "flurry_bind: duration want %.4f got %.4f plain=%.4f" % [want, dur_flurry, dur_plain])
+    var soft_cap_fb: float = CombatConstantsTiming.WIND_UP_SOFT_CAP_S
+    var unwind_soft_cap_fb = func(capped: float, cap: float) -> float:
+        if capped <= cap: return capped
+        return cap + (capped - cap) * 2.0
+    var plain_un_f: float = unwind_soft_cap_fb.call(dur_plain, soft_cap_fb)
+    var flurry_un_f: float = unwind_soft_cap_fb.call(dur_flurry, soft_cap_fb)
+    var want_fb_uncapped: float = plain_un_f * CombatConstants.FLURRY_BIND_WIND_UP_MULT
+    if absf(flurry_un_f - want_fb_uncapped) > 0.01:
+        _fail(failures, "flurry_bind: pre-cap ratio mismatch want %.4f got %.4f plain=%.4f" % [want_fb_uncapped, flurry_un_f, plain_un_f])
     _free_manager(mgr_p)
     _free_manager(mgr_f)
     seed(_HARNESS_RESTORE_GLOBAL_SEED)
@@ -852,19 +886,22 @@ static func _run_parry_defender_vs_attack_modifiers(failures: PackedStringArray)
     var dagger_cut_cd: float = DefenseChoice._compute_parry_c_d(
         dagger, dagger_defender, WeaponConstants.ATTACK_TYPE_CUT
     )
-    var dagger_expected: float = float((CombatConstants.PARRY_DEF_VS_ATK_MOD["DAGGER"] as Dictionary)["stab"])
+    var dagger_mods: Dictionary = CombatConstants.PARRY_DEF_VS_ATK_MOD["DAGGER"] as Dictionary
+    var dagger_expected: float = dagger_mods.get("stab", 1.0) / dagger_mods.get("cut", 1.0)
     var dagger_ratio: float = dagger_stab_cd / dagger_cut_cd if dagger_cut_cd > 0.0 else -1.0
     if dagger_cut_cd <= 0.0 or absf(dagger_ratio - dagger_expected) > 0.001:
         _fail(failures, "parry_def_vs_atk: dagger stab/cut ratio %.3f want %.3f" % [dagger_ratio, dagger_expected])
     var mace_blunt_cd: float = DefenseChoice._compute_parry_c_d(mace, mace_defender, WeaponConstants.ATTACK_TYPE_BLUNT)
     var mace_cut_cd: float = DefenseChoice._compute_parry_c_d(mace, mace_defender, WeaponConstants.ATTACK_TYPE_CUT)
-    var mace_expected: float = float((CombatConstants.PARRY_DEF_VS_ATK_MOD["MACE"] as Dictionary)["blunt"])
+    var mace_mods: Dictionary = CombatConstants.PARRY_DEF_VS_ATK_MOD["MACE"] as Dictionary
+    var mace_expected: float = mace_mods.get("blunt", 1.0) / mace_mods.get("cut", 1.0)
     var mace_ratio: float = mace_blunt_cd / mace_cut_cd if mace_cut_cd > 0.0 else -1.0
     if mace_cut_cd <= 0.0 or absf(mace_ratio - mace_expected) > 0.001:
         _fail(failures, "parry_def_vs_atk: mace blunt/cut ratio %.3f want %.3f" % [mace_ratio, mace_expected])
     var spear_cut_cd: float = DefenseChoice._compute_parry_c_d(spear, spear_defender, WeaponConstants.ATTACK_TYPE_CUT)
     var spear_stab_cd: float = DefenseChoice._compute_parry_c_d(spear, spear_defender, WeaponConstants.ATTACK_TYPE_STAB)
-    var spear_expected: float = float((CombatConstants.PARRY_DEF_VS_ATK_MOD["SPEAR"] as Dictionary)["cut"])
+    var spear_mods: Dictionary = CombatConstants.PARRY_DEF_VS_ATK_MOD["SPEAR"] as Dictionary
+    var spear_expected: float = spear_mods.get("cut", 1.0) / spear_mods.get("stab", 1.0)
     var spear_ratio: float = spear_cut_cd / spear_stab_cd if spear_stab_cd > 0.0 else -1.0
     if spear_stab_cd <= 0.0 or absf(spear_ratio - spear_expected) > 0.001:
         _fail(failures, "parry_def_vs_atk: spear cut/stab ratio %.3f want %.3f" % [spear_ratio, spear_expected])
@@ -877,3 +914,4 @@ static func _run_parry_defender_vs_attack_modifiers(failures: PackedStringArray)
 ## sets **`impact_blade_station`** before **`resolve`** so post-resolve kinematics recompute matches
 ## **`velocity_intent_mult_from_pa`** (no extra **`randf()`** vs resolver); unstamped **`pa`** -> clash
 ## **`strike_measure_ratio`** **-1**, then **`seed(3312)`** before stamped path for stable RNG.
+

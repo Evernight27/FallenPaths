@@ -605,7 +605,7 @@ static func _run_ms_mid_infight_ally_medical_listing(failures: PackedStringArray
         if not fdict.is_empty():
             fdict.engagement_posture = CombatConstants.ENGAGEMENT_POSTURE_LINE
     var ally_ent: Node = CombatantEntityAccess.get_entity_from_manager(mgr, ally)
-    AttentionFootworkAttentionLoadTests._harness_immediate_peril_bleeding_chest(ally_ent, 38.0)
+    AttentionFootworkAttentionLoadTests._harness_immediate_peril_bleeding_chest(ally_ent, 46.0)
     if mgr.medical_phase:
         CombatRegressionHarness._fail(failures, "ms_mid_listing: fixture must stay in combat phase")
         CombatRegressionHarness._free_manager_restore_global_rng(mgr)

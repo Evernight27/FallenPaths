@@ -40,7 +40,7 @@ const VELOCITY_MAX_M_S: float = 24.0
 # Pre-armor damage: scale * sqrt(KE) * strength_mod * arm_mod. 2.0 aligns severance with research (~100 J arm, ~200 J
 # leg).
 # Severance tuning narrative: docs/LIVE_PATHS.md#research-audit + .calibration_audit.txt.
-const DAMAGE_KE_SCALE: float = 2.0
+const DAMAGE_KE_SCALE: float = 3.5
 const DAMAGE_KE_MIN: float = 1.0
 const DAMAGE_KE_MAX: float = 80.0
 # Cap penetration (mm RHA) from KE so very high energy doesn't trivialize armor.
@@ -144,6 +144,10 @@ static func weapon_is_two_handed(weapon: Variant) -> bool:
 # --- Option C: Kinetic energy (J) drives both damage and penetration ---
 # Williams (Knight & Blast Furnace): 1mm=55J, 1.5mm=110J, 2mm=175J -- E ~ t^1.67. Nonlinear: pen =
 # (KE/J_BASE)^PEN_EXPONENT.
+
+## Stab/thrust penetration bonus: forensic consensus that stabs penetrate deeper than cuts of equivalent energy
+## because force concentrates on tiny tip area rather than distributing along cutting edge (~1.6× per Knight's Forensic Pathology).
+const STAB_PENETRATION_MULT := 1.7
 
 
 # --- Move pool (historical / HEMA-inspired) ---
