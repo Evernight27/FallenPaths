@@ -307,6 +307,11 @@ static func parry_timing_capacity_mult(timing_class: String) -> float:
 
 
 ## Get control bonus for proactive parries (meeting the attack early in Langen-ort style).
+## Velocity-based parry difficulty: faster attacks are harder to time/read.
+const PARRY_VELOCITY_INTENSITY_MIN_THRESHOLD := 0.75  # Only apply velocity penalty at high intensity (real fast strikes)
+const PARRY_VELOCITY_DIFFICULTY_REF_M_S := 8.0  # Below this, no penalty (reasonable strike speed)
+const PARRY_VELOCITY_DIFFICULTY_MAX_PENALTY := 0.35  # Max capacity reduction at extreme velocities
+
 static func parry_timing_control_bonus(timing_class: String) -> float:
     if timing_class == "proactive":
         return PARRY_PROACTIVE_CONTROL_BONUS

@@ -83,3 +83,6 @@ const WF_FORM_STALENESS_MARGIN_RATIO_THRESHOLD: float = 0.25
 
 const COMBATANT_KEY_DECEPTION_STATE := "_deception_state"
 
+## V5 HEMA realism: Perception scaling for yomi min_line_count. High perception = fewer observations to detect patterns.
+const YOMI_PERCEPTION_LINE_SCALE: float = 0.6  # At max perception (100), min lines reduced by 60%
+

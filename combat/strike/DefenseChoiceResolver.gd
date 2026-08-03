@@ -209,7 +209,8 @@ static func choose_defense(
                     * CombatAttention.focus_line_mult_for_feint(tgt, pa)
                 )
                 parry_off_balance = PassiveParryContext.is_off_balance(tgt)
-                parry_c_d *= parry_capacity_mult * pr_base
+                var v_par_diff_mult: float = _parry_velocity_difficulty_mult(v_intent if v_intent > 0 else WeaponConstants.VELOCITY_MAX_M_S * 0.7, pa)
+                parry_c_d *= parry_capacity_mult * pr_base * v_par_diff_mult
                 if parry_off_balance:
                     parry_c_d *= CombatConstants.OFF_BALANCE_PARRY_CAPACITY_MULT
                 parry_c_d *= _parry_bonus_if_active(tgt)
@@ -1013,3 +1014,18 @@ static func _guard_zone_modifier(
     if expected_part == gz_eval:
         return CombatConstants.GUARD_ZONE_BONUS
     return CombatConstants.GUARD_ZONE_UNGUARDED_PENALTY
+
+
+## Velocity-based parry difficulty: faster attacks reduce effective parry capacity.
+## Models the reality that high-speed strikes are harder to time/read, not just harder to stop.
+## Low-intensity attacks (below threshold) are excluded to avoid penalizing deliberate/slow techniques.
+static func _parry_velocity_difficulty_mult(attack_velocity_m_s: float, pa: Dictionary = {}) -> float:
+    var intensity: float = float(pa.get(CombatConstants.PA_KEY_INTENSITY, 1.0))
+    if intensity < CombatConstants.PARRY_VELOCITY_INTENSITY_MIN_THRESHOLD:
+        return 1.0
+    var ref: float = CombatConstants.PARRY_VELOCITY_DIFFICULTY_REF_M_S
+    if attack_velocity_m_s <= ref:
+        return 1.0
+    var ratio: float = (attack_velocity_m_s - ref) / maxf(ref, 1.0)
+    var penalty: float = clampf(ratio * CombatConstants.PARRY_VELOCITY_DIFFICULTY_MAX_PENALTY / 2.0, 0.0, CombatConstants.PARRY_VELOCITY_DIFFICULTY_MAX_PENALTY)
+    return 1.0 - penalty

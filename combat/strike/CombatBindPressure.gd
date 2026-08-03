@@ -1,7 +1,22 @@
 ## Bind pressure / control meter: continuous spectrum (none/light/medium/hard).
 ## Sets pressure after bind outcomes, decays over time, affects defense and contest power.
 ## A1: Phase 3 — full state derivation, partner tracking, control side.
+class_name CombatBindPressure
 extends RefCounted
+
+
+## V5 HEMA realism: blade feel (Waffenfühlen) — Perception and Intelligence scale bind contest power.
+
+static func blade_feel_atk_mult_full(perc: float, int_val: float) -> float:
+    return 1.0 + 0.3 * ((perc / 100.0) + 0.5 * (int_val / 100.0))
+
+
+static func blade_feel_atk_mult(perc: float) -> float:
+    return 1.0 + 0.3 * (perc / 100.0)
+
+
+static func blade_feel_resist_mult(perc: float) -> float:
+    return 1.0 + 0.25 * (perc / 100.0)
 
 
 ## Derive bind state name from pressure value.
@@ -61,16 +76,13 @@ static func get_bind_partner_id(c: Dictionary) -> int:
 ## Set pressure after a parry-to-bind (passive path from AttackResultApplier).
 ## control is the clash control value 0..1.
 static func set_after_parry_bind(target: Dictionary, manager: Node, attacker_id: int, control: float) -> void:
-    if target.is_empty():
+    if target.is_empty() or manager == null:
         return
     var pressure: float = clampf((control - CombatConstants.PARRY_BIND_CONTROL_THRESHOLD) / (1.0 - CombatConstants.PARRY_BIND_CONTROL_THRESHOLD), 0.2, 0.8)
     var clock: float = CombatantEntityAccess.combat_clock_float(manager)
     target[DataKeys.BIND_PRESSURE_VALUE] = pressure
     target[DataKeys.BIND_PRESSURE_UNTIL] = clock + CombatConstants.BIND_PRESSURE_DURATION_S
     target[DataKeys.BIND_PARTNER_ID] = attacker_id
-    # Track when bind started for progressive leverage calculation.
-    if not target.has(DataKeys.BIND_SUSTAINED_UNTIL) or float(target.get(DataKeys.BIND_SUSTAINED_UNTIL, 0.0)) < clock:
-        target[DataKeys.BIND_SUSTAINED_UNTIL] = clock + CombatConstants.BIND_PRESSURE_DURATION_S
     ## A1: control side — winner of parry bind takes inside line.
     var guard_line: String = str(target.get(DataKeys.ATTACK_GUARD_LINE, CombatConstants.GUARD_DEFAULT)).strip_edges()
     match guard_line:
@@ -85,16 +97,13 @@ static func set_after_parry_bind(target: Dictionary, manager: Node, attacker_id:
 ## Set pressure after a manual bind contest (from CombatEngagementResolver).
 ## power_ratio is the winner's contest probability 0..1.
 static func set_after_manual_bind(winner: Dictionary, manager: Node, opp_id: int, power_ratio: float) -> void:
-    if winner.is_empty():
+    if winner.is_empty() or manager == null:
         return
     var pressure: float = clampf(power_ratio, 0.3, 0.9)
     var clock: float = CombatantEntityAccess.combat_clock_float(manager)
     winner[DataKeys.BIND_PRESSURE_VALUE] = pressure
     winner[DataKeys.BIND_PRESSURE_UNTIL] = clock + CombatConstants.BIND_PRESSURE_DURATION_S
     winner[DataKeys.BIND_PARTNER_ID] = opp_id
-    # Track when bind started for progressive leverage calculation.
-    if not winner.has(DataKeys.BIND_SUSTAINED_UNTIL) or float(winner.get(DataKeys.BIND_SUSTAINED_UNTIL, 0.0)) < clock:
-        winner[DataKeys.BIND_SUSTAINED_UNTIL] = clock + CombatConstants.BIND_PRESSURE_DURATION_S
     ## A1: control side — derived from lane offset relative to opponent.
     var w_loa: float = float(winner.get(DataKeys.BIND_LANE_OFFSET, 0.0))
     if w_loa > 0.15:
@@ -112,7 +121,7 @@ static func apply_decay(combatant: Dictionary, manager: Node, delta: float) -> v
     if combatant.is_empty():
         return
     var until: float = float(combatant.get(DataKeys.BIND_PRESSURE_UNTIL, -1.0))
-    if until < 0.0:
+    if until < 0.0 or manager == null:
         return
     var now: float = CombatantEntityAccess.combat_clock_float(manager)
     if now >= until:
@@ -131,7 +140,8 @@ static func apply_decay(combatant: Dictionary, manager: Node, delta: float) -> v
     var val: float = float(combatant.get(DataKeys.BIND_PRESSURE_VALUE, 0.0))
     # Progressive leverage degradation: after grace period of sustained bind, blade fatigue accelerates decay.
     var base_decay: float = CombatConstants.BIND_PRESSURE_DECAY_RATE * delta
-    var elapsed_sustained: float = float(combatant.get(DataKeys.BIND_SUSTAINED_UNTIL, now) - CombatConstants.BIND_LEVERAGE_GRACE_PERIOD_S)
+    var bind_start: float = until - CombatConstants.BIND_PRESSURE_DURATION_S
+    var elapsed_sustained: float = (now - bind_start) - CombatConstants.BIND_LEVERAGE_GRACE_PERIOD_S
     if elapsed_sustained > 0.0 and val >= CombatConstants.BIND_STATE_MEDIUM_THRESHOLD:
         # Accelerated decay from leverage loss — pressure drops faster as muscles fatigue.
         var accelerated_decay: float = base_decay * CombatConstants.BIND_PROGRESSIVE_LEVERAGE_DECAY_MULT
@@ -208,6 +218,8 @@ static func contest_power_mult(combatant: Dictionary, clock: float) -> float:
 
 ## Resolve bind_press: contested attempt to maintain/increase pressure.
 static func resolve_bind_press(manager: Node, attacker_id: int, target_id: int) -> void:
+    if manager == null:
+        return
     if MedicalPhaseController.combat_resolution_blocked(manager):
         manager.emit_signal(
             "action_resolved",
@@ -250,12 +262,20 @@ static func resolve_bind_press(manager: Node, attacker_id: int, target_id: int) 
         return
     var atk_stats := CombatantEntityAccess.stats_dict(atk)
     var tgt_stats := CombatantEntityAccess.stats_dict(tgt)
-    var atk_skill: float = float(atk_stats.get(DataKeys.ENTITY_MELEE_SKILL, 5.0))
-    var atk_str: float = float(atk_stats.get(DataKeys.ENTITY_STRENGTH, 10.0))
-    var tgt_skill: float = float(tgt_stats.get(DataKeys.ENTITY_MELEE_SKILL, 5.0))
-    var tgt_str: float = float(tgt_stats.get(DataKeys.ENTITY_STRENGTH, 10.0))
+    var atk_skill: float = float(atk_stats.get(DataKeys.ENTITY_MELEE_SKILL, CombatConstants.DEFAULT_STAT_VALUE))
+    var atk_str: float = float(atk_stats.get(DataKeys.ENTITY_STRENGTH, CombatConstants.DEFAULT_STAT_VALUE))
+    var tgt_skill: float = float(tgt_stats.get(DataKeys.ENTITY_MELEE_SKILL, CombatConstants.DEFAULT_STAT_VALUE))
+    var tgt_str: float = float(tgt_stats.get(DataKeys.ENTITY_STRENGTH, CombatConstants.DEFAULT_STAT_VALUE))
     var atk_power: float = atk_skill * 2.0 + atk_str
     var tgt_power: float = tgt_skill * 2.0 + tgt_str
+    # V5 HEMA realism: Perception and Intelligence scale blade feel (Waffenfühlen) in bind contests.
+    var atk_perc_bp: float = float(atk_stats.get(DataKeys.ENTITY_PERCEPTION, CombatConstants.DEFAULT_STAT_VALUE))
+    var atk_int_bp: float = float(atk_stats.get(DataKeys.ENTITY_INTELLIGENCE, CombatConstants.DEFAULT_STAT_VALUE))
+    var tgt_perc_bp: float = float(tgt_stats.get(DataKeys.ENTITY_PERCEPTION, CombatConstants.DEFAULT_STAT_VALUE))
+    var atk_blade_feel_mult: float = blade_feel_atk_mult_full(atk_perc_bp, atk_int_bp)
+    var tgt_resist_mult: float = blade_feel_resist_mult(tgt_perc_bp)
+    atk_power *= atk_blade_feel_mult
+    tgt_power *= tgt_resist_mult
     atk_power *= contest_power_mult(atk, clock)
     var roll: float = randf()
     var atk_chance: float = atk_power / maxf(1.0, atk_power + tgt_power)
@@ -290,6 +310,8 @@ static func resolve_bind_press(manager: Node, attacker_id: int, target_id: int) 
 
 ## Resolve bind_void: slip offline to create opening, clear bind, gain angular advantage.
 static func resolve_bind_void(manager: Node, attacker_id: int, target_id: int) -> void:
+    if manager == null:
+        return
     if MedicalPhaseController.combat_resolution_blocked(manager):
         manager.emit_signal(
             "action_resolved",
@@ -332,10 +354,15 @@ static func resolve_bind_void(manager: Node, attacker_id: int, target_id: int) -
         return
     var atk_stats := CombatantEntityAccess.stats_dict(atk)
     var tgt_stats := CombatantEntityAccess.stats_dict(tgt)
-    var atk_agi: float = float(atk_stats.get(DataKeys.ENTITY_AGILITY, 5.0))
-    var tgt_skill: float = float(tgt_stats.get(DataKeys.ENTITY_MELEE_SKILL, 5.0))
-    var void_power: float = atk_agi * 2.0 + float(atk_stats.get(DataKeys.ENTITY_STRENGTH, 10.0))
-    var hold_power: float = tgt_skill * 2.0 + float(tgt_stats.get(DataKeys.ENTITY_STRENGTH, 10.0))
+    var atk_agi: float = float(atk_stats.get(DataKeys.ENTITY_AGILITY, CombatConstants.DEFAULT_STAT_VALUE))
+    var tgt_skill: float = float(tgt_stats.get(DataKeys.ENTITY_MELEE_SKILL, CombatConstants.DEFAULT_STAT_VALUE))
+    var void_power: float = atk_agi * 2.0 + float(atk_stats.get(DataKeys.ENTITY_STRENGTH, CombatConstants.DEFAULT_STAT_VALUE))
+    var hold_power: float = tgt_skill * 2.0 + float(tgt_stats.get(DataKeys.ENTITY_STRENGTH, CombatConstants.DEFAULT_STAT_VALUE))
+    # V5 HEMA realism: Perception scales blade feel (Waffenfühlen) in bind contests.
+    var atk_perc_v: float = float(atk_stats.get(DataKeys.ENTITY_PERCEPTION, CombatConstants.DEFAULT_STAT_VALUE))
+    var tgt_perc_v: float = float(tgt_stats.get(DataKeys.ENTITY_PERCEPTION, CombatConstants.DEFAULT_STAT_VALUE))
+    void_power *= blade_feel_atk_mult(atk_perc_v)
+    hold_power *= blade_feel_resist_mult(tgt_perc_v)
     var void_chance: float = void_power / maxf(1.0, void_power + hold_power)
     var breath: float = CombatantEntityAccess.breath_float(atk)
     atk[DataKeys.COMBATANT_BREATH] = maxf(0.0, breath - CombatConstants.BREATH_BIND_VOID_COST)
@@ -370,6 +397,8 @@ static func resolve_bind_void(manager: Node, attacker_id: int, target_id: int) -
 
 ## Resolve bind_wind: rotate to take inside/outside of opponent's blade. Contested.
 static func resolve_bind_wind(manager: Node, attacker_id: int, target_id: int) -> void:
+    if manager == null:
+        return
     if MedicalPhaseController.combat_resolution_blocked(manager):
         manager.emit_signal(
             "action_resolved",
@@ -412,10 +441,15 @@ static func resolve_bind_wind(manager: Node, attacker_id: int, target_id: int) -
         return
     var atk_stats := CombatantEntityAccess.stats_dict(atk)
     var tgt_stats := CombatantEntityAccess.stats_dict(tgt)
-    var atk_skill: float = float(atk_stats.get(DataKeys.ENTITY_MELEE_SKILL, 5.0))
-    var tgt_skill: float = float(tgt_stats.get(DataKeys.ENTITY_MELEE_SKILL, 5.0))
-    var wind_power: float = atk_skill * 3.0 + float(atk_stats.get(DataKeys.ENTITY_AGILITY, 5.0))
-    var hold_power: float = tgt_skill * 3.0 + float(tgt_stats.get(DataKeys.ENTITY_STRENGTH, 10.0))
+    var atk_skill: float = float(atk_stats.get(DataKeys.ENTITY_MELEE_SKILL, CombatConstants.DEFAULT_STAT_VALUE))
+    var tgt_skill: float = float(tgt_stats.get(DataKeys.ENTITY_MELEE_SKILL, CombatConstants.DEFAULT_STAT_VALUE))
+    var wind_power: float = atk_skill * 3.0 + float(atk_stats.get(DataKeys.ENTITY_AGILITY, CombatConstants.DEFAULT_STAT_VALUE))
+    var hold_power: float = tgt_skill * 3.0 + float(tgt_stats.get(DataKeys.ENTITY_STRENGTH, CombatConstants.DEFAULT_STAT_VALUE))
+    # V5 HEMA realism: Perception scales blade feel (Waffenfühlen) in bind contests.
+    var atk_perc_w: float = float(atk_stats.get(DataKeys.ENTITY_PERCEPTION, CombatConstants.DEFAULT_STAT_VALUE))
+    var tgt_perc_w: float = float(tgt_stats.get(DataKeys.ENTITY_PERCEPTION, CombatConstants.DEFAULT_STAT_VALUE))
+    wind_power *= blade_feel_atk_mult(atk_perc_w)
+    hold_power *= blade_feel_resist_mult(tgt_perc_w)
     var wind_chance: float = wind_power / maxf(1.0, wind_power + hold_power)
     var breath: float = CombatantEntityAccess.breath_float(atk)
     atk[DataKeys.COMBATANT_BREATH] = maxf(0.0, breath - CombatConstants.BREATH_BIND_WIND_COST)
@@ -457,7 +491,6 @@ static func _clear_bind_state(c: Dictionary) -> void:
     c[DataKeys.BIND_PARTNER_ID] = -1
     c[DataKeys.BIND_CONTROL_SIDE] = DataKeys.BIND_SIDE_CENTRE
     c.erase(DataKeys.BIND_WRESTLING_AVAILABLE)
-    c.erase(DataKeys.BIND_SUSTAINED_UNTIL)
 
 
 static func _schedule_ready(manager: Node, combatant_id: int) -> void:

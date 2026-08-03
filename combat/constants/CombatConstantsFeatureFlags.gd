@@ -321,8 +321,12 @@ static func initiative_score_for_combatant(combatant: Dictionary) -> float:
     if combatant.is_empty():
         return 0.0
     var stats: Dictionary = CombatantEntityAccess.stats_dict(combatant)
-    var agi: float = stats.get(DataKeys.ENTITY_AGILITY, 100)
-    var perc: float = stats.get(DataKeys.ENTITY_PERCEPTION, 100)
+    var agi: float = stats.get(
+        DataKeys.ENTITY_AGILITY, CombatConstants.DEFAULT_STAT_VALUE
+    )
+    var perc: float = stats.get(
+        DataKeys.ENTITY_PERCEPTION, CombatConstants.DEFAULT_STAT_VALUE
+    )
     var rank_factor: float = maxf(0.65, 1.2 - float(CombatantEntityAccess.rank_int(combatant)) * 0.18)
     var armor_factor: float = 1.0 / maxf(0.01, armor_burden_action_ready_mult(combatant))
     return CombatConstantsParry.stats_factor_agi_perc(agi, perc) * rank_factor * armor_factor
@@ -333,8 +337,12 @@ static func compare_combatants_for_initiative_order(a: Dictionary, b: Dictionary
     var sb: float = initiative_score_for_combatant(b)
     if sa != sb:
         return sa > sb
-    var agi_a: int = int(CombatantEntityAccess.stats_dict(a).get(DataKeys.ENTITY_AGILITY, 100))
-    var agi_b: int = int(CombatantEntityAccess.stats_dict(b).get(DataKeys.ENTITY_AGILITY, 100))
+    var agi_a: int = int(CombatantEntityAccess.stats_dict(a).get(
+        DataKeys.ENTITY_AGILITY, CombatConstants.DEFAULT_STAT_VALUE
+    ))
+    var agi_b: int = int(CombatantEntityAccess.stats_dict(b).get(
+        DataKeys.ENTITY_AGILITY, CombatConstants.DEFAULT_STAT_VALUE
+    ))
     if agi_a != agi_b:
         return agi_a > agi_b
     return CombatantEntityAccess.id_int(a) < CombatantEntityAccess.id_int(b)

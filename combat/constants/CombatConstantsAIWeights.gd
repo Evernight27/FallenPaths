@@ -13,6 +13,8 @@ const AI_FIGHT_FINISH_TRUSTED_CLOSE_MIN_WEIGHT := 0.58
 
 const AI_FLEE_CRITICAL_STAMINA_RATIO := 0.12
 
+const AI_WOUNDED_OPPONENT_WEIGHT_MULT := 2.5  # Target heavily wounded — exploit at up to 2.5x attack weight
+
 const AI_FLEE_EXHAUSTION_TUNNEL_WEIGHT := 0.88
 
 const AI_FLEE_HIGH_CASUALTY_MULT := 1.22

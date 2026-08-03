@@ -182,7 +182,8 @@ static func pick_gap_target(
 
 
 ## Apply armor-aware target part bias to AI weights. Modifies `weights` dict in place,
-## boosting gap parts when attacker is using doctrine form against armored opponent.
+## boosting gap parts when attacking armored opponent. Doctrine forms get full bonuses;
+## non-doctrine forms still get partial awareness (instinctive targeting of gaps).
 static func apply_armor_bias_to_weights(
 	attacker: Dictionary,
 	defender: Dictionary,
@@ -192,8 +193,7 @@ static func apply_armor_bias_to_weights(
 	if weights.is_empty():
 		return
 	var atk_form: String = CombatantEntityAccess.form_str(attacker)
-	if not is_doctrine_form(atk_form):
-		return
+	var is_doctrine: bool = is_doctrine_form(atk_form)
 	var def_tier: String = classify_tier(defender)
 	if def_tier in [TIER_NONE, TIER_LIGHT]:
 		return
@@ -207,11 +207,12 @@ static func apply_armor_bias_to_weights(
 		return
 	for gap in gaps:
 		if weights.has(gap):
-			var bonus: float = 1.4
+			var base_bonus: float = 1.4 if is_doctrine else 1.2
+			var bonus: float = base_bonus
 			if contact_type == "stab" and gap in [BodyPartConstants.PART_HEAD]:
-				bonus = 2.0  # half-sword thrust to visor/joints vs heavy plate
+				bonus = 2.0 if is_doctrine else 1.6  # half-sword thrust to visor/joints vs heavy plate
 			elif contact_type == "cut":
-				bonus = 1.3  # cuts less effective at gaps, but still useful
+				bonus = 1.3 if is_doctrine else 1.15  # cuts less effective at gaps, but still useful
 			weights[gap] = weights.get(gap, 1.0) * bonus
 
 

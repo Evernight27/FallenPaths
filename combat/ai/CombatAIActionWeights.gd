@@ -479,6 +479,12 @@ static func _compute_attack_weight_components(
 	var mood_offense_m: float = CombatCampaignMoodBias.offense_action_weight_mult(
 		CombatCampaignMoodBias.mood_bias_for_combatant(manager, c)
 	)
+	var target_id: int = a.get(DataKeys.ACTION_TARGET_ID, -1)
+	var opp_degrad_m: float = 1.0
+	if target_id >= 0 and move_id != CombatConstants.MOVE_ID_ATTEMPT_CLOSE:
+		var is_feint_move: bool = str(move_id).ends_with("_feint") or ("move_id" in a and str(a.get("move_id", "")).ends_with("_feint"))
+		if is_feint_move:
+			opp_degrad_m = _opponent_degradation_weight_mult(manager, target_id)
 	var w: float = (
 		base_stamina
 		* CombatTargetScoring.ai_targeting_weight_mult(
@@ -499,6 +505,7 @@ static func _compute_attack_weight_components(
 		* muscle_f_m
 		* decision_q_m
 		* mood_offense_m
+		* opp_degrad_m
 	)
 	if (
 		move_id == CombatConstants.MOVE_ID_ATTEMPT_CLOSE
@@ -965,3 +972,25 @@ static func _get_medical_weight(a: Dictionary, combatant_id: int, manager: Node)
 				if mid == CombatConstants.MOVE_ID_PACK_WOUND:
 					w *= MedicalPhaseBatchResolve.MEDICAL_AI_WEIGHT_PACK_BEFORE_PRESSURE
 	return maxf(w, 0.001)
+
+
+## V5 HEMA realism fix: scale attack weight based on opponent's degraded state.
+## Wounded opponents are easier to hit — AI should exploit this like a real fighter would.
+static func _opponent_degradation_weight_mult(manager: Node, target_id: int) -> float:
+	if manager == null or target_id < 0:
+		return 1.0
+	var tgt = CombatantEntityAccess.manager_get_combatant(manager, target_id)
+	if tgt.is_empty():
+		return 1.0
+	var mult: float = 1.0
+	## Body-wide wound severity ratio — heavily wounded targets are easier to strike.
+	var wounds: Array = tgt.get(DataKeys.WOUNDS, [])
+	if not wounds.is_empty():
+		var total_damage: float = 0.0
+		for w in wounds:
+			total_damage += EntityProficiency.SEVERITY_MULT.get(w.get("severity", ""), 1.0)
+		var max_possible: float = wounds.size() * 2.0  # critical wound severity_mult is 2.0
+		var wound_ratio: float = clampf(total_damage / max(max_possible, 0.001), 0.0, 1.0)
+		if wound_ratio > 0.3:
+			mult *= lerpf(1.0, CombatConstants.AI_WOUNDED_OPPONENT_WEIGHT_MULT, clampf((wound_ratio - 0.3) / 0.7, 0.0, 1.0))
+	return mult

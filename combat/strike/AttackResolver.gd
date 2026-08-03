@@ -131,7 +131,9 @@ static func compute_and_apply_damage(
 		)
 		pen_sharp = pen_sharp_dict.get(DataKeys.ATK_PENETRATION_SHARP, -1.0)
 		var blunt_opts: Dictionary = {}
-		CombatantEntityAccess.apply_armor_sharp_resistance_to_blunt_opts(blunt_opts, tgt, part)
+		var armor_rha: float = CombatArmorDoctrine.get_effective_rha_with_degradation(tgt, part)
+		if armor_rha > 0.0:
+			blunt_opts[DataKeys.BLUNT_OPT_ARMOR_RESISTANCE_RHA_MM] = armor_rha
 		blunt_opts[DataKeys.BLUNT_OPT_PEN_SHARP_MM] = pen_sharp
 		blunt_opts[DataKeys.BLUNT_OPT_TARGET_EFFECTIVE_MASS_KG] = target_mass
 		var pen_blunt_dict: Dictionary = WeaponDamageHelper.compute_penetration(
@@ -245,13 +247,18 @@ static func compute_and_apply_damage(
 			glancing_severity = clampf(tissue_dmg / maxf(ratio_denom, 0.001), 0.0, 1.0)
 
 	# Minimum physical damage floor for contact hits: prevents rounding to zero.
-	var _floor_threshold: float = PHYSICAL_DAMAGE_MIN_FLOOR if outcome == "hit" else 0.0
+	var _floor_threshold: float = PHYSICAL_DAMAGE_MIN_FLOOR if outcome == "hit" else PHYSICAL_DAMAGE_MIN_FLOOR * 0.5
 	if total_physical < _floor_threshold and outcome in ["hit", "glancing"]:
 		total_physical = _floor_threshold
 		actual_dmg = int(roundf(total_physical))
 	var rounded_zero_chip: bool = actual_dmg == 0 and total_physical > CombatConstants.PHYSICAL_DAMAGE_ZERO_EPS
 	if rounded_zero_chip and outcome == "hit":
 		outcome = "negligible"
+
+	## Record armor degradation on target — absorbed damage contributes to layer wear.
+	var absorbed_armor_damage: float = maxf(0.0, pre_armor - total_physical)
+	if absorbed_armor_damage > 0.0:
+		CombatArmorDoctrine.record_armor_damage(tgt, part, absorbed_armor_damage)
 
 	var tgt_entity: Node = CombatantEntityAccess.get_health_entity_from_node(manager, tgt_n)
 	if tgt_entity == null:
