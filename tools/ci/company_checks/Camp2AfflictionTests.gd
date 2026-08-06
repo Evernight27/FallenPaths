@@ -139,7 +139,7 @@ static func _run_camp_2_bridge_spot_checks(failures: PackedStringArray) -> void:
     else:
         _pass()
     var btn_world: Node2D = _make_world(0, 0, true)
-    btn_world.set_script(CampaignWorldScript)
+    btn_world.set_script(_get_campaign_world_script())
     var player_char := Node2D.new()
     player_char.name = "Character"
     btn_world.add_child(player_char)
@@ -595,7 +595,7 @@ static func _run_camp_2_bridge_spot_checks(failures: PackedStringArray) -> void:
     _release_harness_world(debt_world)
 
     var soft_world: Node2D = _make_world(1, 0, true)
-    soft_world.set_script(CampaignWorldScript)
+    soft_world.set_script(_get_campaign_world_script())
     _add_player_at_camp(soft_world)
     CompanyState.set_gold(soft_world, 77)
     var rng := RandomNumberGenerator.new()
@@ -668,7 +668,7 @@ static func _run_camp_2_bridge_spot_checks(failures: PackedStringArray) -> void:
     _release_harness_world(r3_mood_world)
 
     var restart_world: Node2D = _make_world(1, 0, true)
-    restart_world.set_script(CampaignWorldScript)
+    restart_world.set_script(_get_campaign_world_script())
     PartySetup.setup_party(restart_world)
     var pm_a: Variant = restart_world.get_meta("party_manager")
     PartySetup.setup_party(restart_world)

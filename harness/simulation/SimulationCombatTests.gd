@@ -5,6 +5,12 @@ extends CombatRegressionHarnessCore
 const HumanSpecies := preload("res://resources/species/human.tres")
 const GoblinSpecies := preload("res://resources/species/goblin.tres")
 
+## Test tolerance thresholds — calibrated to floating-point variation in multi-step damage calculations.
+## KE comparisons: 0.5J accounts for rounding in mass×velocity²/2 across weapon archetypes.
+## Cut/blunt comparisons: 0.01 accounts for sqrt/exp variations in tissue failure functions.
+const TOLERANCE_KE_J: float = 0.5
+const TOLERANCE_SHARP: float = 0.01
+
 
 static func _sim_entity() -> CoreEntity:
     var ent: CoreEntity = CoreEntity.new()
@@ -38,14 +44,14 @@ static func _run_sim_delivery_commit_scales_ke_and_cut(failures: PackedStringArr
     var ai_hi: AttackInstance = SimulationCombatTests._oberhau_swing_instance(1.0, commit_hi)
     var ke_lo: float = WeaponDamageHelper.compute_kinetic_energy_j(sword, ai_lo)
     var ke_hi: float = WeaponDamageHelper.compute_kinetic_energy_j(sword, ai_hi)
-    if ke_hi <= ke_lo + 0.5:
+    if ke_hi <= ke_lo + TOLERANCE_KE_J:
         SimulationCombatTests._fail(
             failures,
             "sim_delivery: commit %.2f KE %.1f should exceed commit %.2f KE %.1f" % [commit_hi, ke_hi, commit_lo, ke_lo]
         )
     var cut_lo: float = WeaponDamageHelper.compute_pre_armor_cut(sword, ai_lo, strength, arm_mod)
     var cut_hi: float = WeaponDamageHelper.compute_pre_armor_cut(sword, ai_hi, strength, arm_mod)
-    if cut_hi <= cut_lo + 0.01:
+    if cut_hi <= cut_lo + TOLERANCE_SHARP:
         SimulationCombatTests._fail(
             failures,
             (
@@ -58,14 +64,14 @@ static func _run_sim_delivery_commit_scales_ke_and_cut(failures: PackedStringArr
     var ai_full: AttackInstance = SimulationCombatTests._oberhau_swing_instance(1.0, pin_commit)
     var ke_half: float = WeaponDamageHelper.compute_kinetic_energy_j(sword, ai_half)
     var ke_full: float = WeaponDamageHelper.compute_kinetic_energy_j(sword, ai_full)
-    if ke_full <= ke_half + 0.5:
+    if ke_full <= ke_half + TOLERANCE_KE_J:
         SimulationCombatTests._fail(
             failures,
             "sim_delivery: i=1.0 KE %.1f should exceed i=0.5 KE %.1f at commit %.2f" % [ke_full, ke_half, pin_commit]
         )
     var ai_no_commit: AttackInstance = SimulationCombatTests._oberhau_swing_instance(1.0, -1.0)
     var ke_no: float = WeaponDamageHelper.compute_kinetic_energy_j(sword, ai_no_commit)
-    if ke_no <= ke_full + 0.5:
+    if ke_no <= ke_full + TOLERANCE_KE_J:
         SimulationCombatTests._fail(
             failures, "sim_delivery: no-commit KE %.1f should exceed committed i=1.0 KE %.1f" % [ke_no, ke_full]
         )
@@ -814,7 +820,11 @@ static func _run_sim_pen_trace_cuirass_deep_reaches_tissue(failures: PackedStrin
     var pen_deep: float = 6.0
     var trace: Dictionary = ArmorPenetrationTrace.sharp_penetration_to_tissue_mm(cuirass, pen_deep)
     var to_tissue: float = float(trace.get("penetration_to_tissue_mm", 0.0))
-    var want_remainder: float = pen_deep - 0.9 - 3.5
+    ## CUIRASS fixture = cloth (0.9 mm RHA) + plate (3.5 mm RHA) = 4.4 mm total resistance.
+    ## Source: ArmorConstants.LAYER_CLOTH.sharp_resistance_rha_mm + LAYER_PLATE.sharp_resistance_rha_mm.
+    var cloth_res: float = ArmorConstants.LAYER_CLOTH["sharp_resistance_rha_mm"]
+    var plate_res: float = ArmorConstants.LAYER_PLATE["sharp_resistance_rha_mm"]
+    var want_remainder: float = pen_deep - cloth_res - plate_res
     if not is_equal_approx(to_tissue, want_remainder):
         SimulationCombatTests._fail(
             failures,

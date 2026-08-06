@@ -7,6 +7,13 @@ extends RefCounted
 const _Bp := preload("res://core/BodyPartConstants.gd")
 const _ArmorConst := preload("res://resources/armor/ArmorConstants.gd")
 
+static func _sanitize_name(raw: String) -> String:
+	"""Remove invisible/control characters, BOM and BBCode artifacts from display names."""
+	var s := raw.strip_edges()
+	s = s.trim_prefix("\ufeff")  # BOM
+	# Strip zero-width chars and control characters (keep printable ASCII + common Unicode letters/digits/space)
+	return s.replace("\u200b", "").replace("\u200c", "").replace("\u200d", "").replace("\u200e", "").replace("\u200f", "")
+
 const SPECIES_OPTIONS: Array[String] = [
 	"res://resources/species/human.tres",
 	"res://resources/species/goblin.tres",
@@ -50,7 +57,7 @@ class TuningCombatantConfig:
 		p_guard: String = "high",
 		p_str: int = 100, p_agi: int = 100, p_int: int = 100, p_end: int = 100, p_per: int = 100
 	):
-		display_name = p_name
+		display_name = TuningConfigData._sanitize_name(p_name)
 		weapon_id = p_weapon
 		form = p_form
 		guard_line = p_guard
@@ -67,7 +74,7 @@ class TuningCombatantConfig:
 
 	## Do not name this `randomize()` — bare calls resolve to Godot's global RNG seed function.
 	func randomize_loadout() -> void:
-		display_name = ["Warrior", "Mercenary", "Sellsword", "Veteran", "Rogue", "Berserker", "Shield-bearer", "Skirmisher"][randi() % 8]
+		display_name = TuningConfigData._sanitize_name(["Warrior", "Mercenary", "Sellsword", "Veteran", "Rogue", "Berserker", "Shield-bearer", "Skirmisher"][randi() % 8])
 
 		strength = randi() % 61 + 70  # 70-130
 		agility = randi() % 61 + 70
@@ -360,10 +367,10 @@ static func weapon_sweep_configs(weapon_id: String) -> Array[TuningCombatantConf
 	var wid: String = weapon_id.to_upper().strip_edges()
 	var atk := TuningCombatantConfig.new("Attacker", wid)
 	atk.randomize_with_weapon(wid)
-	atk.display_name = "Attacker"
+	atk.display_name = _sanitize_name("Attacker")
 	var def := TuningCombatantConfig.new("Defender", wid)
 	def.randomize_with_weapon(wid)
-	def.display_name = "Defender"
+	def.display_name = _sanitize_name("Defender")
 	return [atk, def]
 
 

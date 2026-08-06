@@ -255,10 +255,8 @@ static func log_fight_end_summary(winner: String, entering_medical_phase: bool) 
         _research_validate_hint_logged = true
         if int(_session_counts.get("research_feel", 0)) > 0:
             OperationalLog.play_combat(
-                (
-                    "research_validate_hint %d research_feel lines  -  compare to docs/LIVE_PATHS.md#f5-optional-cr"
-                    + "osswalk-feel-vs-headless" % int(_session_counts["research_feel"])
-                )
+                "research_validate_hint %d research_feel lines  -  compare to docs/LIVE_PATHS.md#f5-optional-crosswalk-feel-vs-headless"
+                % int(_session_counts["research_feel"])
             )
         elif _get_combat_constants().combat_event_debug_verbose_active():
             OperationalLog.play_combat(

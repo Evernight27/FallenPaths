@@ -10,6 +10,11 @@ extends RefCounted
 ## reduced **`pa[DataKeys.PA_VELOCITY_M_S]`**).
 ## Returns a result dict to return from resolve_attack, or null to fall through to hit.
 
+## Minimum strike mass (kg) for velocity computation in parry resolution — prevents division-by-zero when weapon
+## parts data is missing or mass is zero. 1 g is below any realistic weapon component; at this floor v_reduced
+## becomes unphysically high but the subsequent `maxf(v_reduced, v_min_eff)` line caps it to intent velocity.
+const MIN_STRIKE_MASS_FOR_VEL_KG: float = 0.001
+
 ## Debug logging — delegates to `CombatDebug.log` which gates on `combat_debug_active`.
 
 
@@ -640,6 +645,7 @@ static func _resolve_parry(
 			partial_extra_z
 		)
 		CombatDebug.log("parry_deflect_redirect %s blocked %s ctrl=%.3f" % [def_name, atk_name, parry_clash_zero.get(CombatConstants.CLASH_KEY_PARRY_CONTROL, CombatConstants.DEFAULT_PARRY_CONTROL)])
+		CombatDebug.combat_session("parry_outcome def=%s vs atk=%s action=parry_deflect ctrl=%.3f" % [def_name, atk_name, parry_clash_zero.get(CombatConstants.CLASH_KEY_PARRY_CONTROL, CombatConstants.DEFAULT_PARRY_CONTROL)])
 		return {
 			"action": "parry_deflect",
 			"target_id": target_id,
@@ -671,9 +677,6 @@ static func _resolve_parry(
 			)
 		)
 	var glancing_factor: float = CombatConstants.glancing_factor(remaining_ratio, glancing_exp)
-	# Use m_a_velocity (striking part mass when weapon has parts) for v_reduced; else m_a_parry (total mass).
-	var m_a_vel: float = m_a_velocity if m_a_velocity > 0.0 else m_a_parry
-	var v_reduced: float = (parry_p_a * glancing_factor) / maxf(0.001, m_a_vel)
 	var attack_instance = AttackInstance.new(attack_type, intensity)
 	attack_instance.archetype = archetype
 	var v_intent: float = WeaponDamageHelper.get_effective_velocity_m_s(attacker_weapon, attack_instance)
@@ -685,6 +688,18 @@ static func _resolve_parry(
 	var partial_wuf: float = CombatTiming.wind_up_factor(partial_wind_up_dur) if partial_wind_up_dur > 0.0 else 1.0
 	if partial_wuf < 1.0:
 		v_intent *= partial_wuf
+	# Use m_a_velocity (striking part mass when weapon has parts) for v_reduced; else m_a_parry (total mass).
+	var m_a_vel: float = m_a_velocity if m_a_velocity > 0.0 else m_a_parry
+	var v_reduced: float = (parry_p_a * glancing_factor) / maxf(MIN_STRIKE_MASS_FOR_VEL_KG, m_a_vel)
+	# Clamp reduced velocity to prevent unphysical amplification from small division mass.
+	# A parry follow-through cannot exceed the attacker's intent velocity, and for heavy weapons
+	# (spear ~2kg strike mass) should retain more momentum than light weapons (dagger ~0.45kg).
+	v_reduced = minf(v_reduced, v_intent * 1.1) if v_intent > 0.0 else v_reduced
+	var strike_mass_for_floor: float = m_a_vel if m_a_vel >= MIN_STRIKE_MASS_FOR_VEL_KG else 0.45
+	var v_min_mass_scaled: float = maxf(
+		CombatConstants.PARRY_V_MIN_NEAR_DEFLECT,
+		clampf(strike_mass_for_floor / 2.7, 0.0, 1.0) * (v_intent * CombatConstants.PARRY_V_MIN_FRACTION)
+	) if v_intent > 0.0 else CombatConstants.PARRY_V_MIN_NEAR_DEFLECT
 	var v_min_eff: float = (
 		v_intent
 		* lerpf(
@@ -693,7 +708,11 @@ static func _resolve_parry(
 			clampf(remaining_ratio, 0.0, 1.0)
 		)
 	)
-	pa[DataKeys.PA_VELOCITY_M_S] = maxf(v_reduced, v_min_eff)
+	# Use mass-scaled minimum when remaining_ratio is low (near-deflect parry): heavy weapons retain more momentum.
+	var v_min_final: float = v_min_eff
+	if remaining_ratio < 0.3:
+		v_min_final = maxf(v_min_eff, v_min_mass_scaled)
+	pa[DataKeys.PA_VELOCITY_M_S] = maxf(v_reduced, v_min_final)
 	pa[DataKeys.ATTACK_PARRY_REMAINING_RATIO] = remaining_ratio
 	CombatDebug.log(
 		(
@@ -710,6 +729,7 @@ static func _resolve_parry(
 			]
 		)
 	)
+	CombatDebug.combat_session("parry_outcome def=%s vs atk=%s action=parry_partial final_ratio=%.2f" % [def_name, atk_name, remaining_ratio])
 	var eff_atk_line_p: String = pa.get(DataKeys.ATTACK_EFFECTIVE_ATTACK_LINE, attack_line)
 	var atk_angle_partial: float = _parry_attack_angle_deg(atk, arc_start, arc_end, parry_progress, eff_atk_line_p)
 	var wobble_p: Dictionary = CombatantEntityAccess.parry_wobble_context_for_combatant(tgt, parry_readiness)
@@ -775,6 +795,7 @@ static func _strike_kinematics_for_parry_clash(
 	var kinematic_delivery_str: String = WeaponDamageHelper.kinematic_delivery(archetype, attack_type)
 	var strike_v: float = strike_velocity_m_s
 	var strike_ke: float = 0.0
+	var strike_momentum: float = 0.0
 	if atk_weapon != null:
 		var attack_instance: AttackInstance = AttackInstance.new(attack_type, intensity, -1.0)
 		attack_instance.archetype = archetype
@@ -789,11 +810,14 @@ static func _strike_kinematics_for_parry_clash(
 			strike_v *= parry_wuf
 		attack_instance.velocity_m_s = strike_v
 		strike_ke = WeaponDamageHelper.compute_kinetic_energy_j(atk_weapon, attack_instance)
+		var _strike_mass: float = WeaponDamageHelper.strike_mass_kg(atk_weapon, attack_instance)
+		strike_momentum = _strike_mass * strike_v
 	return {
 		"archetype_id": arch_id,
 		"kinematic_delivery": kinematic_delivery_str,
 		"strike_velocity_m_s": strike_v,
 		"strike_kinetic_energy_j": strike_ke,
+		"strike_momentum_kg_ms": strike_momentum,
 	}
 
 

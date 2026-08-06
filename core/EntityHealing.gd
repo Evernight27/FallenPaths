@@ -90,6 +90,17 @@ static func _process_healing(entity: Node, seconds: float) -> void:
         var add_blunt: float = remain_blunt * (1.0 - exp(-seconds / tau_tissue))
         entity.body_cutting[part] = entity._round_tissue(minf(float(max_tissue), cur_cut + add_cut))
         entity.body_blunt[part] = entity._round_tissue(minf(float(max_tissue), cur_blunt + add_blunt))
+        # Sync J reservoir when display pools change (prevents J/display mismatch during healing).
+        if "tissue_energy_remaining_j" in entity and "tissue_energy_capacity_j" in entity:
+            var body_max_t: int = max_tissue
+            var cap_j: float = float(entity.tissue_energy_capacity_j.get(part, 0.0))
+            if cap_j > 0.01:
+                entity.tissue_energy_remaining_j[part] = TissueEnergyCapacity.remaining_j_from_display_pools(
+                    body_max_t,
+                    entity.body_cutting.get(part, 0.0),
+                    entity.body_blunt.get(part, 0.0),
+                    cap_j,
+                )
         # Bone: exponential healing toward max (6 weeks duration)
         var bone_duration: float = HealingConstants.get_bone_heal_duration_seconds(part)
         if bone_duration <= 0.0:

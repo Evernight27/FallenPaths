@@ -70,7 +70,43 @@ static func effective_stamina_refill_rate(combatant: Dictionary) -> float:
     if not CombatConstants.is_feature_fight_exhaustion_enabled():
         return rate
     var ex: float = CombatantEntityAccess.exhaustion_float(combatant)
-    return rate * lerpf(CombatConstants.STAMINA_REFILL_EXHAUSTION_MULT_FLOOR, 1.0, 1.0 - ex)
+    rate *= lerpf(CombatConstants.STAMINA_REFILL_EXHAUSTION_MULT_FLOOR, 1.0, 1.0 - ex)
+    # Respiratory compromise from chest wounds — impaired lung expansion reduces oxygen delivery
+    ## to working muscles, slowing ATP-PCr resynthesis. Models pneumothorax / hemothorax dynamics:
+    ## partial chest wall injury → ~30% reduced tidal volume; bilateral or severe → ~60%.
+    var resp_mult: float = _get_respiratory_compromise_modifier(combatant)
+    rate *= resp_mult
+    return rate
+
+
+static func _get_respiratory_compromise_modifier(combatant: Dictionary) -> float:
+    if combatant.is_empty():
+        return 1.0
+    var entity: Node = CombatantEntityAccess.scene_node(combatant)
+    if entity == null or not entity.has_method("get_wounded_parts"):
+        return 1.0
+    var chest_wounds: Array = []
+    for part in entity.get_wounded_parts():
+        if part != BodyPartConstants.PART_CHEST:
+            continue
+        chest_wounds.append_array(entity.wounds.get(part, []))
+    if chest_wounds.is_empty():
+        return 1.0
+    # Each active chest wound reduces respiratory efficiency; compound fractures are worse.
+    var compromise: float = 0.0
+    for wound in chest_wounds:
+        var wtype: String = wound.get("injury_type", "")
+        var severity: String = str(wound.get(DataKeys.INJURY_SEVERITY, "moderate"))
+        if wtype == BleedingConstants.INJURY_TYPE_COMPOUND_FRACTURE:
+            compromise += 0.25
+        elif wtype == BleedingConstants.INJURY_TYPE_CRUSH or severity == "critical":
+            compromise += 0.18
+        elif severity == "severe":
+            compromise += 0.12
+        else:
+            compromise += 0.08
+    # Clamp to minimum 40% refill rate (chest injury still allows some recovery).
+    return clampf(1.0 - compromise, 0.4, 1.0)
 
 
 ## Stamina / **`effective_stamina_max`** — use for ratios, UI %, and turn-delay curves.
@@ -89,9 +125,9 @@ static func clamp_stamina_to_effective_max(combatant: Dictionary) -> void:
 
 
 ## MS-L7: mental stack tunnel — prefer wait / disengage over new offense.
-## Fires at **`MENTAL_STACK_EXHAUSTION_TUNNEL_THRESHOLD`** (0.50). The `exhaustion_offense_weight_mult`
-## function uses the higher **`MENTAL_STACK_EXHAUSTION_TUNNEL_EXHAUSTED_THRESHOLD`** (0.75) for its lerp span,
-## creating a "winded" zone (0.50-0.75) where offense is partially damped but disengage is preferred by layer
+## Fires at **`MENTAL_STACK_EXHAUSTION_TUNNEL_THRESHOLD`** (0.55). The `exhaustion_offense_weight_mult`
+## function uses the higher **`MENTAL_STACK_EXHAUSTION_TUNNEL_EXHAUSTED_THRESHOLD`** (0.80) for its lerp span,
+## creating a "winded" zone (0.55-0.80) where offense is partially damped but disengage is preferred by layer
 ## presentation.
 static func exhaustion_tunnel_active(combatant: Dictionary) -> bool:
     if not CombatConstants.is_feature_fight_exhaustion_enabled() or combatant.is_empty():
@@ -100,8 +136,8 @@ static func exhaustion_tunnel_active(combatant: Dictionary) -> bool:
 
 
 ## Gradual offense damp (below tunnel threshold); stacks with salience damp in **`CombatAIActionPicker`**.
-## Extended lerp range: [0.25, 0.75] — "fatigued" zone ramps down, "winded" (0.50-0.75) still allows offense (~0.675),
-## "exhausted" (>=0.75) floors at damp floor.
+## Extended lerp range: [0.25, 0.80] — "fatigued" zone ramps down, "winded" (0.55-0.80) still allows offense (~0.645),
+## "exhausted" (>=0.80) floors at damp floor.
 static func exhaustion_offense_weight_mult(combatant: Dictionary) -> float:
     if not CombatConstants.is_feature_fight_exhaustion_enabled() or combatant.is_empty():
         return 1.0

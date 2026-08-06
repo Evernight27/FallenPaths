@@ -93,11 +93,12 @@ static func compute_and_apply_damage(
 		attack_instance.velocity_m_s = v_base
 		attack_instance.velocity_m_s *= StrikePhysics.closing_speed_multiplier(manager, atk, tgt, strike_physics_ctx)
 		var atk_st_ratio_w: float = CombatantEntityAccess.stamina_ratio(atk)
-		var stamina_vel_scale: float = sqrt(
-			lerpf(CombatConstants.STAMINA_AT_ZERO_DAMAGE_MULT, 1.0, CombatConstants.stamina_factor(atk_st_ratio_w))
-		)
+		# Muscle fatigue → strike velocity degradation (HIGH #10 biomechanics audit).
+		# ATP-PCr depletion reduces rate of force development before max strength fails.
+		var exhaustion_s: float = atk.get(CombatConstantsStamina.COMBATANT_KEY_EXHAUSTION, 0.0) if CombatConstantsStamina.COMBATANT_KEY_EXHAUSTION in atk else 0.0
+		var fatigue_vel: float = CombatConstantsStamina.fatigue_velocity_mult(atk_st_ratio_w, exhaustion_s)
 		var power_m: float = CombatExhaustion.power_mult_for_combatant(atk)
-		attack_instance.velocity_m_s *= stamina_vel_scale * power_m
+		attack_instance.velocity_m_s *= fatigue_vel * power_m
 		if afterblow_damage_mult < 1.0:
 			attack_instance.velocity_m_s *= sqrt(maxf(0.04, afterblow_damage_mult))
 		var wuf: float = (
@@ -169,7 +170,7 @@ static func compute_and_apply_damage(
 					v_base,
 					velocity_override,
 					intensity,
-					stamina_vel_scale,
+					fatigue_vel,
 					power_m,
 					CombatantEntityAccess.exhaustion_float(atk),
 					str(weapon.weapon_type if weapon != null and "weapon_type" in weapon else "?"),
@@ -190,13 +191,12 @@ static func compute_and_apply_damage(
 		var unarmed_wind_up_dur: float = pa.get(DataKeys.PA_WIND_UP_DURATION, -1.0)
 		var unarmed_wuf: float = CombatTiming.wind_up_factor(unarmed_wind_up_dur) if unarmed_wind_up_dur > 0.0 else 1.0
 		var atk_st_ratio_u: float = CombatantEntityAccess.stamina_ratio(atk)
-		var stamina_u: float = sqrt(
-			lerpf(CombatConstants.STAMINA_AT_ZERO_DAMAGE_MULT, 1.0, CombatConstants.stamina_factor(atk_st_ratio_u))
-		)
+		var exh_s_u: float = atk.get(CombatConstantsStamina.COMBATANT_KEY_EXHAUSTION, 0.0) if CombatConstantsStamina.COMBATANT_KEY_EXHAUSTION in atk else 0.0
+		var fatigue_vel_u: float = CombatConstantsStamina.fatigue_velocity_mult(atk_st_ratio_u, exh_s_u)
 		var power_m: float = CombatExhaustion.power_mult_for_combatant(atk)
 		var afterblow_u: float = sqrt(maxf(0.04, afterblow_damage_mult))
 		pre_armor *= (
-			StrikePhysics.closing_speed_multiplier(manager, atk, tgt, strike_physics_ctx) * stamina_u * power_m * afterblow_u
+			StrikePhysics.closing_speed_multiplier(manager, atk, tgt, strike_physics_ctx) * fatigue_vel_u * power_m * afterblow_u
 		)
 		if unarmed_wuf < 1.0:
 			pre_armor *= unarmed_wuf
@@ -509,13 +509,56 @@ static func resolve_attack(manager: Node, attacker_id: int) -> Dictionary:
 		CombatDebug.log("abort resolve: can_melee_threaten false atk=%d tgt=%d" % [attacker_id, target_id])
 		return {"action": "skip", "target_id": target_id, "recovery_duration": rec_geom}
 
+	# G1: stamp strike realism (measure ratio + move contact type) BEFORE the miss roll so the
+	# overextension penalty (measure_ratio > 1.0) actually degrades hit chance. Pair eff dist was
+	# stamped above by stamp_attack_pair_geometry_on_dict.
+	CombatStrikeStamping.stamp_strike_realism_on_pa(manager, atk, tgt, pa, atk_wep, attack_type)
+
 	var perf_mod: float = CombatantEntityAccess.get_hit_chance_performance_modifier(atk)
+	# Apply cumulative pain degradation — sustained multi-region pain causes progressive cognitive decline.
+	if not atk.is_empty():
+		var node: Node = CombatantEntityAccess.scene_node(atk)
+		if node != null and node.has_method("_get_vital_parts"):
+			var pain_deg: float = EntityPainConsciousness.get_cumulative_pain_degradation(node)
+			# Cumulative pain degrades hit chance by up to 15% at maximum sustained pain.
+			perf_mod *= maxf(CombatConstants.PERF_MOD_MIN, 1.0 - pain_deg * 0.15)
 	var perception_factor: float = clampf(
 		float(atk_stats.get(DataKeys.ENTITY_PERCEPTION, CombatConstants.DEFAULT_STAT_VALUE)) / 100.0,
 		CombatConstants.HIT_CHANCE_PERCEPTION_MIN,
 		CombatConstants.HIT_CHANCE_PERCEPTION_MAX
 	)
-	var effective_hit_chance: float = (1.0 - CombatConstants.MISS_CHANCE_BASE) * perf_mod * perception_factor
+	var measure_ratio: float = pa.get(DataKeys.PA_STRIKE_MEASURE_RATIO, 1.0)
+	# Only penalize when attacker is overextended (ratio > 1.0). Reach advantage (ratio < 1.0) gives no bonus —
+	# the baseline hit chance already accounts for optimal range; only exceeding it degrades accuracy.
+	# No penalty against unarmed defenders: reach advantage vs unopposed space should not hurt accuracy.
+	var measure_hit_mult: float = 1.0
+	if measure_ratio > 1.0 and CombatantEntityAccess.has_weapon(tgt):
+		measure_hit_mult = lerp(1.0, CombatConstants.MEASURE_HIT_CHANCE_FLOOR, clampf((measure_ratio - 1.0) * 5.0, 0.0, 1.0))
+	var move_def_atk: Dictionary = WeaponConstants.get_move(attack_type)
+	# G2: resolve the final effective attack line BEFORE the miss roll so the shared guard alignment
+	# source uses the same line that DefenseChoiceResolver parry will use. Diagonal C rolls a line
+	# weighted by the defender's guard; the miss roll must not see a pre-roll default.
+	var atk_line_base: String = move_def_atk.get(DataKeys.PA_ATTACK_LINE, "high")
+	if (
+		not pa.get(CombatConstants.PA_KEY_PASSIVE_PARRY_ATTEMPTED, false)
+		and CombatConstants.DIAGONAL_WEIGHTS.has(attack_type)
+	):
+		var guard_line_def: String = tgt.get(DataKeys.ATTACK_GUARD_LINE, CombatConstants.GUARD_DEFAULT)
+		var weights: Variant = CombatConstants.DIAGONAL_WEIGHTS[attack_type].get(guard_line_def, {})
+		if weights is Dictionary and not weights.is_empty():
+			atk_line_base = _weighted_roll_attack_line(weights)
+		pa[DataKeys.ATTACK_EFFECTIVE_ATTACK_LINE] = atk_line_base
+	elif not pa.has(DataKeys.ATTACK_EFFECTIVE_ATTACK_LINE):
+		pa[DataKeys.ATTACK_EFFECTIVE_ATTACK_LINE] = atk_line_base
+	# Guard alignment modifier: being in the correct guard line makes attacks harder to land cleanly.
+	# Models HEMA reality — a properly held guard forces bind/disengage/feint rather than clean strikes.
+	# High alignment = attack line matches the covered guard line → mult 0.85 (harder to land clean);
+	# open line → mult 1.0. Stamped on pa so DefenseChoiceResolver parry shares the same source (G2).
+	var eff_atk_line: String = pa.get(DataKeys.ATTACK_EFFECTIVE_ATTACK_LINE, atk_line_base)
+	var guard_align: float = CombatConstants.get_line_alignment_with_deflect(eff_atk_line, tgt, {})
+	pa[DataKeys.PA_GUARD_ALIGNMENT] = guard_align
+	var guard_hit_mult: float = lerp(1.0, 0.85, clampf(guard_align, 0.0, 1.0))
+	var effective_hit_chance: float = (1.0 - CombatConstants.MISS_CHANCE_BASE) * perf_mod * perception_factor * measure_hit_mult * guard_hit_mult
 	var miss_chance: float = 1.0 - effective_hit_chance
 	var miss_roll: float = randf()
 	if miss_roll < miss_chance:
@@ -530,26 +573,13 @@ static func resolve_attack(manager: Node, attacker_id: int) -> Dictionary:
 		return {"action": "miss", "target_id": target_id, "recovery_duration": rec_dur}
 	CombatDebug.log("hit_roll %s->%s roll=%.3f" % [atk_name, tgt_name, miss_roll])
 
-	# Diagonal C: alignment-weighted roll for diagonal moves. Store effective_attack_line for parry/path/hit.
 	# Angle-based: store attack_angle_deg for continuous trajectory (deflection, alignment, damage).
-	var move_def_pre: Dictionary = WeaponConstants.get_move(attack_type)
-	var atk_line_base: String = move_def_pre.get(DataKeys.PA_ATTACK_LINE, "high")
-	if (
-		not pa.get(CombatConstants.PA_KEY_PASSIVE_PARRY_ATTEMPTED, false)
-		and CombatConstants.DIAGONAL_WEIGHTS.has(attack_type)
-	):
-		var guard_line_def: String = tgt.get(DataKeys.ATTACK_GUARD_LINE, CombatConstants.GUARD_DEFAULT)
-		var weights: Variant = CombatConstants.DIAGONAL_WEIGHTS[attack_type].get(guard_line_def, {})
-		if weights is Dictionary and not weights.is_empty():
-			atk_line_base = _weighted_roll_attack_line(weights)
-		pa[DataKeys.ATTACK_EFFECTIVE_ATTACK_LINE] = atk_line_base
-	elif not pa.has(DataKeys.ATTACK_EFFECTIVE_ATTACK_LINE):
-		pa[DataKeys.ATTACK_EFFECTIVE_ATTACK_LINE] = atk_line_base
+	# (Diagonal C effective line was resolved before the miss roll above.)
 	var arc_start: float = pa.get(DataKeys.ATTACK_ARC_START_DEG, CombatConstants.line_to_angle(atk_line_base))
 	# Diagonal C may roll a different line than wind-up; keep step offset aligned with resolve line.
 	if not pa.get(CombatConstants.PA_KEY_PASSIVE_PARRY_ATTEMPTED, false):
 		CombatFootwork.apply_attack_step_on_windup(atk, atk_line_base, target_id, manager)
-	stamp_resolve_angle_geometry_on_pa(pa, atk, atk_line_base, move_def_pre, arc_start)
+	stamp_resolve_angle_geometry_on_pa(pa, atk, atk_line_base, move_def_atk, arc_start)
 
 	var zone_mult: float = ZoneOfControl.get_engagement_parry_multiplier(manager, attacker_id, target_id)
 	pa[DataKeys.PA_ZONE_ENGAGEMENT_PARRY_MULT] = zone_mult
@@ -562,7 +592,6 @@ static func resolve_attack(manager: Node, attacker_id: int) -> Dictionary:
 
 	TacticalCombat.stamp_surround_threat_on_pa(manager, tgt, pa)
 	pa[DataKeys.PA_TACTICAL_AMBUSH_MULT] = TacticalCombat.ambush_defense_multiplier(manager, tgt)
-	CombatStrikeStamping.stamp_strike_realism_on_pa(manager, atk, tgt, pa, atk_wep, attack_type)
 	CombatIncomingParryChoice.stamp_parry_choice_on_pa(manager, pa, target_id, attacker_id)
 
 	var dc: Dictionary = DefenseChoiceResolver.choose_defense(

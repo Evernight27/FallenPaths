@@ -517,11 +517,11 @@ static func apply_result(manager: Node, attacker_id: int, result: Dictionary) ->
     if action == "parry_partial":
         var incoming_partial_intensity: float = 0.5
         var pa_partial_emit: Dictionary = {}
+        var partial_clash_raw: Variant = result.get(DataKeys.PA_PARRY_CLASH_CONTEXT, null)
         if not atk.is_empty():
             var pa_partial_int: Dictionary = _pending_attack_read(atk)
             pa_partial_emit = pa_partial_int
             incoming_partial_intensity = pa_partial_int.get(DataKeys.ATTACK_INTENSITY, 0.5)
-            var partial_clash_raw: Variant = result.get(DataKeys.PA_PARRY_CLASH_CONTEXT, null)
             atk[DataKeys.PA_PARRY_CLASH_CONTEXT] = partial_clash_raw if partial_clash_raw is Dictionary else {}
             if not tgt.is_empty():
                 atk[DataKeys.PA_DEFENDER_GUARD_LINE_AT_PARRY] = tgt.get(DataKeys.ATTACK_GUARD_LINE, CombatConstants.GUARD_DEFAULT)
@@ -580,6 +580,34 @@ static func apply_result(manager: Node, attacker_id: int, result: Dictionary) ->
                 tgt.erase(DataKeys.PA_PARRY_AGAINST_ID)
                 tgt.erase(DataKeys.PA_PARRY_BONUS_UNTIL)
             _defender_set_idle_after_parry(tgt)
+        # Apply parry deflection damage — momentum impulse transfers through blade into defender's body.
+        # HEMA force-plate: blade contact time ~20ms, 20% of incoming momentum transmits to defender's arm.
+        var remaining_ratio: float = pa_partial_emit.get(DataKeys.ATTACK_PARRY_REMAINING_RATIO, 1.0)
+        if remaining_ratio > 0.1 and not tgt.is_empty():
+            var clash_data: Dictionary = partial_clash_raw if (partial_clash_raw is Dictionary) else {}
+            var strike_ke_j: float = clash_data.get("strike_kinetic_energy_j", 0.0)
+            var strike_momentum: float = clash_data.get("strike_momentum_kg_ms", 0.0)
+            if strike_ke_j > 0.0 and strike_momentum > 0.0:
+                ## Momentum-based deflection damage: F = Δp/Δt, with Δp = momentum × deflection_fraction.
+                ## Scale converts impulse to game damage units calibrated for 5-15 blunt damage on typical parry.
+                var deflection_ratio: float = clampf(remaining_ratio - 0.1, 0.0, 0.9) / 0.9
+                var momentum_transfer: float = strike_momentum * deflection_ratio * WeaponConstants.PARRY_DEFLECTION_MOMENTUM_FRACTION
+                var base_deflect_dmg: float = momentum_transfer * WeaponConstants.IMPULSE_DAMAGE_SCALE
+                var node_tgt: Node = CombatantEntityAccess.scene_node(tgt)
+                if node_tgt != null and node_tgt.has_method("_get_vital_parts"):
+                    var right_pain: float = EntityPainConsciousness._get_effective_pain_for_region(node_tgt, BodyPartConstants.PART_RIGHT_ARM)
+                    var left_pain: float = EntityPainConsciousness._get_effective_pain_for_region(node_tgt, BodyPartConstants.PART_LEFT_ARM)
+                    var right_arm_mod: float = PainConsciousnessConstants.get_pain_performance_modifier(right_pain)
+                    var left_arm_mod: float = PainConsciousnessConstants.get_pain_performance_modifier(left_pain)
+                    var arm_shock_mult: float = (right_arm_mod + left_arm_mod) * 0.5
+                    base_deflect_dmg *= maxf(arm_shock_mult, CombatConstants.PERF_MOD_MIN)
+                var deflect_part: String = BodyPartConstants.PART_CHEST
+                var weapon_side: String = CombatantEntityAccess.get_attacking_arm(tgt)
+                if not weapon_side.is_empty() and weapon_side in [BodyPartConstants.PART_RIGHT_ARM, BodyPartConstants.PART_LEFT_ARM]:
+                    deflect_part = weapon_side
+                var applied_deflect: float = base_deflect_dmg * WeaponConstants.PARRY_DEFLECTION_SHOCK_TRANSFER
+                if applied_deflect > 0.5 and node_tgt != null:
+                    _apply_parry_deflection_blunt(manager, tgt, target_id, applied_deflect, deflect_part)
         var partial_emit: Dictionary = {DataKeys.RESULT_OUTCOME: "parry_partial", DataKeys.RESULT_DMG: 0, DataKeys.RESULT_DIED: false}
         var pcl_emit: Variant = result.get(DataKeys.PA_PARRY_CLASH_CONTEXT, null)
         if pcl_emit is Dictionary:
@@ -589,7 +617,6 @@ static func apply_result(manager: Node, attacker_id: int, result: Dictionary) ->
         _log_fp_parry_outcome(atk, tgt, attacker_id, target_id, "parry_partial", clash_partial)
         # XCamp-4: proficiency gains on parry_partial (small STR for attacker).
         notify_proficiency_gains_from_resolve(manager, attacker_id, target_id, "parry_partial", partial_emit)
-        var remaining_ratio: float = pa_partial_emit.get(DataKeys.ATTACK_PARRY_REMAINING_RATIO, 1.0)
         if not atk.is_empty():
             _evaluate_counter_read_outcome(manager, attacker_id, target_id, atk.get(DataKeys.PA_DEFENDER_FORM_AT_PARRY, ""))
         ## Phase 3: parry — defender's guard held, reset their breaks; attacker gets break on follow-through.
@@ -603,9 +630,8 @@ static func apply_result(manager: Node, attacker_id: int, result: Dictionary) ->
             if parent_idx > 0:
                 atk[DataKeys.PA_TUNING_FT_PARENT_STRIKE] = parent_idx
         manager.emit_signal("action_resolved", target_id, attacker_id, partial_emit)
-        # Follow-through gate: skip strike execution when parry absorbed >=90% of energy (remaining <= 0.1). Tuning fix
-        # T3.2.
-        if remaining_ratio > 0.1:
+        # Follow-through gate: skip strike execution when parry absorbed >=90% of energy (remaining <= 0.3). Tuning fix
+        if remaining_ratio > 0.3:
             manager._execute_attack(attacker_id)
         return
     if action == "hit":
@@ -969,5 +995,25 @@ static func _is_defender_outnumbered(manager: Node, defender: Dictionary) -> boo
         count_alive_in_group += 1
     return count_alive_in_group <= 1
 
+
+## Apply deflection shock damage from parry_partial — residual force transmitted through blade into defender's body.
+static func _apply_parry_deflection_blunt(manager: Node, tgt: Dictionary, target_id: int, dmg_blunt: float, part: String) -> void:
+    if dmg_blunt < 0.5 or tgt.is_empty():
+        return
+    var node_tgt: Node = CombatantEntityAccess.scene_node(tgt)
+    if node_tgt == null or not node_tgt.has_method("apply_blunt_damage"):
+        return
+    node_tgt.apply_blunt_damage(dmg_blunt, part)
+    if CombatConstants.combat_debug_active():
+        var tgt_name: String = CombatantEntityAccess.get_display_name(tgt, target_id)
+        CombatDebug.log("[ParryDeflect] %s took %.1f blunt from parry shock on %s" % [tgt_name, dmg_blunt, part])
+    if manager != null and manager.has_signal("action_resolved"):
+        var deflect_log: Dictionary = {
+            "outcome": "parry_deflection_shock",
+            "dmg": int(roundf(dmg_blunt)),
+            "part": part,
+            "damage_type": "blunt",
+        }
+        manager.emit_signal("action_resolved", target_id, -1, deflect_log)
 
 

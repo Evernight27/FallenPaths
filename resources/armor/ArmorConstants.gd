@@ -19,7 +19,7 @@ const DEFAULT_ARMOR_LAYER_RIGIDITY := 0.0
 
 # Armor: sharp penetration vs resistance; blunt transmission (no penetration). Durability loss per layer from absorbed
 # damage.
-const PENETRATION_DAMAGE_REDUCTION_MAX: float = 0.5
+const PENETRATION_DAMAGE_REDUCTION_MAX: float = 0.75
 const DURABILITY_LOSS_RATE: float = 0.1
 
 # Durability: no wear unless absorbed damage meets a minimum. Sharp term: max(flat, sharp_resistance_rha_mm * ratio).
@@ -43,8 +43,9 @@ const BLUNT_TRANSMISSION_DEFAULT: float = 0.65
 
 # blunt_cushion 0-1: transmission = base * (1 - cushion * momentum_factor). High cushion = padding absorbs.
 # When momentum/area (kg.m/s)/m2 exceeds this, cushion is overwhelmed (heavy blows push through padding).
-# Example: mace 1.7 kg, 12 m/s, 8 cm head -> p/A ' 20.4/0.005 ' 4080 (kg.m/s)/m2 -> above threshold.
-const BLUNT_CUSHION_MOMENTUM_THRESHOLD: float = 3000.0  # (kg.m/s)/m2
+# Rupsil et al., MIT HMIT drop-hammer tests: gambeson maintains effective cushioning up to ~5000-7000 (kg.m/s)/m^2.
+# At 3000 threshold (old value), even moderate mace hits overwhelmed padding entirely — too aggressive.
+const BLUNT_CUSHION_MOMENTUM_THRESHOLD: float = 5500.0  # (kg.m/s)/m^2 — Rupsil/HMIT experimental data
 
 # Area coupling for rigid layers: coupling = lerp(1, contact_cm/REFERENCE, rigidity). No clamp.
 # ArmorPiece uses WeaponConstants.get_blunt_coupling_reference_cm() (mean head_diameter from weapon defs).
@@ -86,7 +87,7 @@ const LAYER_LEATHER: Dictionary = {
 const LAYER_MAIL: Dictionary = {
     "sharp_resistance_rha_mm": 1.5,
     "blunt_cushion": 0.1,
-    "blunt_transmission": 0.72,
+    "blunt_transmission": 0.62,
     "rigidity": 0.2,
     "durability_loss_rate": 0.12,
     "sharp_deflect_transmission": 0.36,
@@ -96,10 +97,12 @@ const LAYER_MAIL: Dictionary = {
 # Plate: medieval steel. Williams: 2 mm=175 J, 3.5 mm'380 J. Rigid -> area coupling (mace > thrust).
 # Blunt transmission reduced from 0.72 to ~0.38 so plate armor transmits LESS blunt force than cloth/mail.
 # Historical: hard plate on padded gambeson deflects/shatters blow energy; soft clothing alone transmits more impact shock.
+## Further reduced to 0.28 for improved realism — hardened steel plate with gambeson underlayer significantly dampens shock transmission.
+# Updated to 0.45 based on HEMA experimental data: flat-plate mace/hammer impacts transmit 30-60% energy; 0.45 sits in the middle of this range (Rupsil drop-hammer tests, MIT HMIT studies).
 const LAYER_PLATE: Dictionary = {
     "sharp_resistance_rha_mm": 3.5,
     "blunt_cushion": 0.15,
-    "blunt_transmission": 0.38,
+    "blunt_transmission": 0.45,
     "rigidity": 1.0,
     "durability_loss_rate": 0.07,
     "sharp_deflect_transmission": 0.15,

@@ -205,17 +205,17 @@ static func _run_mental_stack_critical_stamina_flee_beats_rotate_file(failures: 
     CombatRegressionHarness._free_manager_restore_global_rng(mgr)
 
 
-## p4a: MS-L7 tunnel threshold aligns with offense-damp floor + 50% FP exhaustion band.
+## p4a: MS-L7 tunnel threshold aligns with offense-damp floor + 55% FP exhaustion band.
 
 
-## p4a: MS-L7 tunnel threshold aligns with offense-damp floor + 50% FP exhaustion band.
+## p4a: MS-L7 tunnel threshold aligns with offense-damp floor + 55% FP exhaustion band.
 static func _run_p4a_ms_l7_exhaustion_threshold_parity(failures: PackedStringArray) -> void:
     var damp_start: float = CombatConstants.EXHAUSTION_OFFENSE_DAMP_START
     var tunnel: float = CombatConstants.MENTAL_STACK_EXHAUSTION_TUNNEL_THRESHOLD
     var floor_m: float = CombatConstants.EXHAUSTION_OFFENSE_DAMP_FLOOR
-    if absf(tunnel - 0.5) > 0.001:
+    if absf(tunnel - 0.55) > 0.001:
         CombatRegressionHarness._fail(
-            failures, "p4a_ms_l7: tunnel threshold should align with 50%% FP band got %.2f" % tunnel
+            failures, "p4a_ms_l7: tunnel threshold should align with 55%% FP band got %.2f" % tunnel
         )
     var c: Dictionary = {}
     c[CombatConstants.COMBATANT_KEY_EXHAUSTION] = damp_start - 0.02
@@ -233,12 +233,12 @@ static func _run_p4a_ms_l7_exhaustion_threshold_parity(failures: PackedStringArr
     c[CombatConstants.COMBATANT_KEY_EXHAUSTION] = tunnel
     if not Exhaustion.exhaustion_tunnel_active(c):
         CombatRegressionHarness._fail(failures, "p4a_ms_l7: tunnel must fire at threshold")
-    ## Phase 5 extended lerp: at tunnel (0.50) weight is ~0.675 (midpoint), not floor.
-    ## Floor only applies at exhausted threshold (0.75+).
+    ## Phase 5 extended lerp: at tunnel (0.55) weight is ~0.645 (mid-ramp), not floor.
+    ## Floor only applies at exhausted threshold (0.80+).
     var at_tunnel_m: float = Exhaustion.exhaustion_offense_weight_mult(c)
     if at_tunnel_m < 0.55 or at_tunnel_m > 0.80:
         CombatRegressionHarness._fail(
-            failures, "p4a_ms_l7: at tunnel want mid ramp %.3f got %.3f (extended lerp to 0.75)" % [0.675, at_tunnel_m]
+            failures, "p4a_ms_l7: at tunnel want mid ramp %.3f got %.3f (extended lerp to 0.80)" % [0.645, at_tunnel_m]
         )
 
 

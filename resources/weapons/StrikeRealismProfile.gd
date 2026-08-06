@@ -197,6 +197,9 @@ static func compute_strike_modifiers(
         "blunt_damage_mult": blunt_m,
         "sharp_penetration_mult": sharp_pen_mult,
         "blunt_momentum_pa_mult": obliq * _blunt_pressure_mult(weapon, phys),
-        "strike_energy_mult": vel_m * vel_m * coup * clampf(commit_frac, 0.3, 1.0),
+        # velocity^2 scales KE; coup couples energy into the target; commit gates extension follow-through.
+        # Minimum ratio of 0.65 prevents sub-band strikes from being suppressed below realistic energy floors
+        # (e.g., axe thrusts at low intensity should still deliver meaningful impact energy).
+        "strike_energy_mult": maxf(0.65, vel_m * vel_m * coup * clampf(commit_frac, 0.3, 1.0)),
         "strike_momentum_mult": vel_m * coup
     }

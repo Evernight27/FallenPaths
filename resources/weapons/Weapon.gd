@@ -348,6 +348,10 @@ func get_striking_part_mass_kg(contact_type: String) -> float:
             var shaft_mass: float = _striking_mass_for_ids(["shaft", "haft"])
             if shaft_mass >= 0.0 and (head_mass < 0.0 or shaft_mass > head_mass):
                 from_fallback = maxf(0.0, head_mass) + shaft_mass * 0.45  # shaft contributes ~45% to thrust inertia
+            elif head_mass >= 0.0 and shaft_mass >= 0.0:
+                # Polearm with separate head+shaft parts: shaft always contributes behind the point on thrust,
+                # regardless of whether it's marked as striking_for=stab (it may only be marked for blunt).
+                from_fallback = maxf(0.0, head_mass) + shaft_mass * 0.45
             elif head_mass >= 0.0:
                 from_fallback = head_mass
         WeaponConstants.ATTACK_TYPE_CUT:

@@ -196,33 +196,33 @@ static func _run_exhaustion_consecutive_action_scaling(failures: PackedStringArr
     if absf(c1 - 1.0) > tol:
         _fail(failures, "conc_act: consecutive=1 want 1.0 got %.6f" % c1)
 
-    ## consecutive=2 → ~1.375 (lerp from 1.0 to 2.5 over 4 steps: 1 + (1/4)*1.5 = 1.375)
+    ## consecutive=2 → ~1.25 (lerp from 1.0 to 2.0 over 4 steps: 1 + (1/4)*1.0 = 1.25)
     var c2: float = StaminaConstants.consecutive_action_stamina_mult(2)
-    var want_c2: float = lerpf(1.0, 2.5, 1.0 / 4.0)
+    var want_c2: float = lerpf(1.0, 2.0, 1.0 / 4.0)
     if absf(c2 - want_c2) > tol:
         _fail(failures, "conc_act: consecutive=2 want %.6f got %.6f" % [want_c2, c2])
 
-    ## consecutive=3 → ~1.75 (lerpf(1.0, 2.5, 2/4) = 1.0 + 1.5*0.5 = 1.75)
+    ## consecutive=3 → ~1.5 (lerpf(1.0, 2.0, 2/4) = 1.0 + 1.0*0.5 = 1.5)
     var c3: float = StaminaConstants.consecutive_action_stamina_mult(3)
-    var want_c3: float = lerpf(1.0, 2.5, 2.0 / 4.0)
+    var want_c3: float = lerpf(1.0, 2.0, 2.0 / 4.0)
     if absf(c3 - want_c3) > tol:
         _fail(failures, "conc_act: consecutive=3 want %.6f got %.6f" % [want_c3, c3])
 
-    ## consecutive=4 → ~2.125 (lerpf(1.0, 2.5, 3/4) = 1.0 + 1.5*0.75 = 2.125)
+    ## consecutive=4 → ~1.75 (lerpf(1.0, 2.0, 3/4) = 1.0 + 1.0*0.75 = 1.75)
     var c4: float = StaminaConstants.consecutive_action_stamina_mult(4)
-    var want_c4: float = lerpf(1.0, 2.5, 3.0 / 4.0)
+    var want_c4: float = lerpf(1.0, 2.0, 3.0 / 4.0)
     if absf(c4 - want_c4) > tol:
         _fail(failures, "conc_act: consecutive=4 want %.6f got %.6f" % [want_c4, c4])
 
-    ## consecutive=5 → 2.5 (capped after full span)
+    ## consecutive=5 → 2.0 (capped after full span)
     var c5: float = StaminaConstants.consecutive_action_stamina_mult(5)
-    if absf(c5 - 2.5) > tol:
-        _fail(failures, "conc_act: consecutive=5 want 2.5 got %.6f" % c5)
+    if absf(c5 - 2.0) > tol:
+        _fail(failures, "conc_act: consecutive=5 want 2.0 got %.6f" % c5)
 
-    ## consecutive=10 → still capped at 2.5
+    ## consecutive=10 → still capped at 2.0
     var c10: float = StaminaConstants.consecutive_action_stamina_mult(10)
-    if absf(c10 - 2.5) > tol:
-        _fail(failures, "conc_act: consecutive=10 want 2.5 got %.6f" % c10)
+    if absf(c10 - 2.0) > tol:
+        _fail(failures, "conc_act: consecutive=10 want 2.0 got %.6f" % c10)
 
     ## Full flow via manager: combatant starts with no consecutive_actions key,
     ## first attack while NOT in RECOVERING sets counter to 1, second increments to 2.

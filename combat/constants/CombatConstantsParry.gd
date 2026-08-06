@@ -3,15 +3,15 @@ extends RefCounted
 
 const PARRY_V_FRACTION_OF_MAX_STRIKE := 0.5
 const PARRY_STRENGTH_NORM := 100.0
-const PARRY_DEFLECT_THRESHOLD := 1.02
-const PARRY_TECHNIQUE_VARIANCE := 0.15
+const PARRY_DEFLECT_THRESHOLD := 1.00
+const PARRY_TECHNIQUE_VARIANCE := 0.08
 const PARRY_V_MIN_FRACTION := 0.2
 const PARRY_V_MIN_NEAR_DEFLECT := 0.1
 const PASSIVE_PARRY_MIN_TIME_FOR_FULL_S := 0.25
 const PARRY_BLADE_MOVEMENT_S := 0.13
 const PARRY_MOVEMENT_MASS_STRENGTH_MIN := 0.5
 const PARRY_MOVEMENT_MASS_STRENGTH_MAX := 2.0
-const PERF_MOD_MIN := 0.35
+const PERF_MOD_MIN := 0.55
 const COMMITMENT_FRACTION := 0.2
 const COMMITMENT_FRACTION_FEINT := 0.35
 const RECOVERY_READINESS_EARLY := 0.5
@@ -19,6 +19,10 @@ const RECOVERY_READINESS_LATE := 0.85
 const OFF_BALANCE_DURATION_S := 0.4
 const OFF_BALANCE_PARRY_CAPACITY_MULT := 0.7
 const OFF_BALANCE_GAUGE_FILL_MULT := 0.5
+## Additive readiness surcharge (seconds) while off-balance, replacing the multiplicative x2 divisor.
+## Regaining footing after a heavy exchange is a fixed bounded cost, not a penalty that stacks
+## multiplicatively with stamina/armor/perf degradation (that stack created 13s+ readiness gaps).
+const OFF_BALANCE_ACTION_READY_EXTRA_S := 1.5
 const PARRY_BONUS_AFTER_DEFLECT_S := 2.0
 const GUARD_AFTER_ATTACK := 0.4
 const GUARD_RISE_RATE := 0.6
@@ -27,8 +31,8 @@ const PARRY_BLOCK_MASS_THRESHOLD := 0.75
 const PARRY_BLOCK_STR_THRESHOLD := 0.85
 const PARRY_REDIRECT_BONUS := 0.18
 const PARRY_REDIRECT_SKILL_SCALE := 0.35
-const PARRY_REDIRECT_ATTEMPT_RATIO := 2.5
-const PARRY_REDIRECT_ATTEMPT_AGILITY_SCALE := 0.5
+const PARRY_REDIRECT_ATTEMPT_RATIO := 3.5
+const PARRY_REDIRECT_ATTEMPT_AGILITY_SCALE := 0.6
 const PARRY_GLANCING_EXPONENT := 0.7
 const PARRY_REDIRECT_THRUST_BONUS := 0.22
 const PARRY_REDIRECT_BLUNT_PENALTY := 0.12
@@ -44,6 +48,10 @@ const PARRY_PENETRATION_ALIGNMENT_SCALE := 1.0
 ## prefers dodge when alignment drops below this floor. Alignments between cos(60)=0.5 and 0.707 are "glancing"
 ## (parry may be chosen but geometric leak is amplified via pow curve); below 0.5, parry is physically ineffective.
 const PARRY_PARTIAL_GUARD_ALIGNMENT_THRESHOLD := 0.707
+## Functional parry bonus: alignments near the partial guard threshold (cos45) are boosted into a more confident regime.
+## A 45° intercept is a legitimate HEMA parry line — it deflects rather than fully blocks, but should not be treated as
+## marginal. This small alignment bump prevents the decision system from oscillating between parry/dodge for borderline cases.
+const PARRY_FUNCTIONAL_ALIGNMENT_BONUS := 0.12
 ## Glancing floor: alignment at cos(60°). Below this, parry contact geometry is so degraded that even viable capacity
 ## should not override dodge — the blade cannot meaningfully engage the attack trajectory (near-perpendicular spark).
 const PARRY_GLANCING_ALIGNMENT_FLOOR := 0.5
@@ -61,11 +69,12 @@ const PARRY_CONTROL_ALIGNMENT_FLOOR := 0.15
 ## No-glance: thrust contact is point-based; a glancing blade-parry cannot "slide" off the point like it would a cutting edge.
 ## Linear-commitment penalty: failed thrust parries carry more momentum because the attacker's body is committed forward.
 ## Distinct recovery: deflecting a thrust requires redirecting linear force, which costs different timing than slashing deflection.
-const PARRY_THRUST_NO_GLANCE := true             ## Thrusts cannot be grazed — only full block or full hit.
+const PARRY_THRUST_NO_GLANCE := false             ## Thrusts can glancing at high obliquity (>cos60) — point contact slides off blade edge.
 const PARRY_THRUST_LINEAR_COMMITMENT_PENALTY := 0.18   ## Extra momentum carry when thrust parry fails (attacker drives through).
 const PARRY_THRUST_RECOVERY_MULT := 1.25           ## Thrust deflections cost 25% more recovery — linear force requires full repositioning.
-const PARRY_THRUST_BLOCK_ONLY_THRESHOLD := 1.08    ## Thrusts require slightly higher capacity to fully stop (body weight behind thrust).
-const ARCHETYPES_NEVER_BIND: Array[String] = ["pommel_strike", "heavy_blunt"]
+const PARRY_THRUST_BLOCK_ONLY_THRESHOLD := 1.03    ## Thrusts require slightly higher capacity to fully stop (body weight behind thrust).
+const PARRY_THRUST_GLANCE_ALIGNMENT_FLOOR := 0.5   ## cos60 — thrust glancing requires this alignment; below this it's a miss, not a glancing parry.
+const ARCHETYPES_NEVER_BIND: Array[String] = ["heavy_blunt"]
 const PARRY_BIND_RIPOSTE_BY_PART_CONTACT: Dictionary = {
     "blade": {"stab": 0.55, "cut": 0.78},
     "shaft": {"stab": 0.55, "cut": 0.78, "blunt": 0.90},
@@ -77,27 +86,47 @@ const PARRY_LATE_CONTROL_FACTOR := 0.6
 const PARRY_OFF_BALANCE_CONTROL_FACTOR := 0.7
 const PARRY_THRUST_CONTROL_MULT := 0.85
 const PARRY_DESPERATE_DODGE_THRESHOLD := 0.06
-const PARRY_PREFER_DODGE_FULL_THRESHOLD := 0.04
+const PARRY_PREFER_DODGE_FULL_THRESHOLD := 0.35
 const PARRY_MASS_DISPARITY_BONUS := 0.18
-const PARRY_PROACTIVE_WINDOW_FRAC: float = 0.35
-## Proactive parries (initiated before 35% of wind-up) are Langen-ort style — meet the blade early with superior control.
-## Reactive parries (>65% wind-up) are late-blocks, weaker and more momentum-dependent.
-const PARRY_PROACTIVE_CAPACITY_MULT: float = 1.20
+const PARRY_PROACTIVE_WINDOW_FRAC: float = 0.38
+## Proactive parries (initiated before ~1/3 of wind-up) are Langen-ort style — meet the blade early with superior control.
+## Threshold at 0.38 balances HEMA "early binding" windows (~25-35% of attack commitment) against gameplay feel:
+## too low (<0.30) makes proactive parries nearly impossible; too high (>0.45) removes meaningful reactive penalty.
+## Reactive parries (>62% wind-up) are late-blocks, weaker and more momentum-dependent.
+const PARRY_PROACTIVE_CAPACITY_MULT: float = 1.25
 ## Proactive parry bonus to control-on-bind (meeting the attack before full commitment).
 const PARRY_PROACTIVE_CONTROL_BONUS: float = 0.08
 ## Reactive late-parry penalty — defender is reacting, not initiating contact.
-const PARRY_REACTIVE_CAPACITY_MULT: float = 0.75
-const PARRY_LATE_CAPACITY_FLOOR := 0.40
+const PARRY_REACTIVE_CAPACITY_MULT: float = 0.85
+const PARRY_LATE_CAPACITY_FLOOR := 0.45
+## Minimum parry capacity as a fraction of attack momentum when alignment is at the partial guard threshold (cos45).
+## Prevents the multiplicative modifier cascade from reducing parry_c_d below functional levels — even with heavy
+## stamina/exhaustion/pain penalties, a well-aligned defender should always have meaningful parry options.
+const PARRY_CAPACITY_FLOOR_RATIO := 0.60
 const PARRY_CONTACT_MODIFIERS: Dictionary = {"blade": 1.0, "shaft": 0.94, "haft": 0.96}
 const PARRY_DEF_VS_ATK_MOD: Dictionary = {
-    "AXE": {"stab": 0.85, "cut": 0.90, "blunt": 0.92},
-    "DAGGER": {"stab": 0.88, "cut": 0.92, "blunt": 0.78},
-    "MACE": {"blunt": 1.05, "stab": 0.95, "cut": 0.95},
-    "SPEAR": {"cut": 0.92, "stab": 1.0, "blunt": 0.88}
+    "AXE": {"stab": 0.85, "cut": 0.92, "blunt": 0.95},
+    "DAGGER": {"stab": 0.90, "cut": 0.94, "blunt": 0.75},
+    "MACE": {"blunt": 1.08, "stab": 0.92, "cut": 0.92},
+    "SPEAR": {"cut": 0.90, "stab": 1.0, "blunt": 0.85}
 }
 const PARRY_INERTIA_BLEND: float = 0.5
 const PARRY_LEVERAGE_LONG_PART_CM: float = 80.0
 const PARRY_LEVERAGE_FLOOR: float = 0.72
+
+# --- Bind friction / leverage physics (HEMA waffenfühlen) ---
+## When blades contact in bind, blade geometry determines friction and control transfer.
+## Wider blade (greater cross-section) has more surface area for binding, increasing friction and leverage.
+## Cross-section shape matters: fuller-less blades (with grooves) have less contact area but higher torsional rigidity;
+## flat-ground blades have maximum binding contact but lower torsional stiffness. Actual medieval steel weapons typically
+## use a combination: fuller in distal third for weight reduction, flat or slightly convex proximal section for bind control.
+const BIND_BLADE_WIDTH_FRICTION_MULT: float = 0.12    # per cm of blade width; wider blade = more friction on bind
+const BIND_DEFAULT_BLADE_WIDTH_CM: float = 2.0         # baseline contact width for parry/bind (typical sword blade)
+const BIND_CROSS_SECTION_RIGIDITY_FLOOR: float = 0.70  # minimum control gain from rigid cross-section (flat > hollow ground)
+## Torsional rigidity bonus: fuller-less blades resist twisting during bind, giving better leverage for follow-through.
+## A fully-flat blade has max surface friction but lower torsional stiffness; a deeply-fullered blade has less contact
+## but resists deflection during bind — trade-off modeled via cross-section rigidty factor.
+const BIND_FULLER_RIGIDITY_BONUS: float = 0.15         # bonus control for high-rigidity (less fuller) blades
 
 const GUARD_TRANSITION_COST_SCALE := 0.4
 const GUARD_TRANSITION_MULT_MAX := 1.35
@@ -139,9 +168,13 @@ static func parry_full_stop_reached(c_d: float, parry_p_a: float, is_block_parry
 static func parry_edge_deflect_reached(c_d: float, parry_p_a: float, alignment: float, is_block_parry: bool, contact_type: String = "") -> bool:
     if is_block_parry:
         return false
-    # Thrusts have no-glance geometry: point contact cannot slide off blade edge. Only full block or miss.
+    # Thrusts can glancing at high obliquity — point contact slides off blade edge when alignment >= cos60.
+    # Below the thrust glance floor, parry is physically ineffective (miss); above it, glancing parry applies.
     if contact_type.to_lower().strip_edges() == "stab":
-        return alignment >= PARRY_PARTIAL_GUARD_ALIGNMENT_THRESHOLD and c_d >= parry_p_a * PARRY_THRUST_BLOCK_ONLY_THRESHOLD
+        if alignment < PARRY_THRUST_GLANCE_ALIGNMENT_FLOOR:
+            return false  # below glancing floor — no edge deflect possible for thrusts
+        # Thrust edge deflect: requires both sufficient capacity AND reasonable alignment (cos45+).
+        return alignment >= PARRY_THRUST_GLANCE_ALIGNMENT_FLOOR and c_d >= parry_p_a * PARRY_THRUST_BLOCK_ONLY_THRESHOLD
     # Edge deflect requires reasonable alignment (cos(45°) ≈ 0.707) and sufficient capacity surplus.
     # Alignment below PARRY_PARTIAL_GUARD_ALIGNMENT_THRESHOLD means the guard is too misaligned — glancing only, no clean deflect.
     return alignment >= PARRY_PARTIAL_GUARD_ALIGNMENT_THRESHOLD and c_d >= parry_p_a * PARRY_DEFLECT_THRESHOLD
@@ -242,7 +275,7 @@ static func parry_control_for_bind_deflect(
     # PARRY_CONTROL_ALIGNMENT_FLOOR prevents absolute zero — even a "miracle" deflect via arm interpose
     # grants minimal positional advantage because the attacker's momentum was wasted and the defender feel
     # the impact point (Waffenfühlen), per Liechtenauer: every parry is the first half of a counterattack.
-    var alignment_weight: float = pow(clampf(maxf(alignment, PARRY_CONTROL_ALIGNMENT_FLOOR), 0.0, 1.0), 1.0)
+    var alignment_weight: float = pow(clampf(maxf(alignment, PARRY_CONTROL_ALIGNMENT_FLOOR), 0.0, 1.0), 1.8)
 
     # Readiness contributes additively to the margin factor (capacity bonus), not multiplicatively.
     # This prevents readiness from acting as a "brake" — instead it helps achieve bind when

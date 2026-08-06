@@ -118,6 +118,12 @@ static func choose_defense(
     var tgt_stats := CombatantEntityAccess.stats_dict(tgt)
 
     var dodge_chance: float = CombatantEntityAccess.get_dodge_chance(tgt)
+    # Apply cumulative limb penalty to dodge — damaged legs reduce movement speed and reaction.
+    if not tgt.is_empty():
+        var node: Node = CombatantEntityAccess.scene_node(tgt)
+        if node != null and node.has_method("_get_vital_parts"):
+            var limb_penalty: float = EntityPainConsciousness.get_cumulative_limb_penalty(node)
+            dodge_chance *= maxf(CombatConstants.PERF_MOD_MIN, 1.0 - limb_penalty * 0.5)
     dodge_chance *= CombatWeaponForm.mod(
         CombatantEntityAccess.form_str(tgt), "evasion", CombatantEntityAccess.get_weapon(tgt)
     )
@@ -236,7 +242,8 @@ static func choose_defense(
                         CombatFootwork.guard_angle_deg_with_step_deg(tgt, wobble, parry_eval_step_deg),
                     }
                 var al_raw: float = _get_line_alignment(
-                    attack_type, tgt, pa.get(CombatConstants.PA_KEY_EFFECTIVE_ATTACK_LINE, ""), align_ctx
+                    attack_type, tgt, pa.get(CombatConstants.PA_KEY_EFFECTIVE_ATTACK_LINE, ""), align_ctx,
+                    pa.get(DataKeys.PA_GUARD_ALIGNMENT, -1.0)
                 )
                 var al: float = _alignment_with_arm_interpose(
                     attack_type,
@@ -379,7 +386,8 @@ static func choose_defense(
                         CombatFootwork.guard_angle_deg_with_step_deg(tgt, wobble_late, parry_eval_step_deg_late),
                     }
                 var al_raw: float = _get_line_alignment(
-                    attack_type, tgt, pa.get(CombatConstants.PA_KEY_EFFECTIVE_ATTACK_LINE, ""), align_ctx_late
+                    attack_type, tgt, pa.get(CombatConstants.PA_KEY_EFFECTIVE_ATTACK_LINE, ""), align_ctx_late,
+                    pa.get(DataKeys.PA_GUARD_ALIGNMENT, -1.0)
                 )
                 var al: float = _alignment_with_arm_interpose(
                     attack_type,
@@ -547,17 +555,56 @@ static func choose_defense(
         can_parry_in_time and (result.parry_p_a <= result.parry_c_d * effective_redirect or desperate_parry)
     )
     var preview_align: float = float(result.get(DataKeys.RESULT_PARRY_PREVIEW_ALIGNMENT, 1.0))
+    CombatDebug.combat_session(
+        "dc_pre_align def=%s state=%s cause=%s preview_align=%.4f" % [
+            CombatantEntityAccess.get_display_name(tgt, -1),
+            CombatantEntityAccess.state_str(tgt),
+            str(tgt.get(DataKeys.ATTACK_RECOVERY_CAUSE, "")),
+            preview_align
+        ]
+    )
+    # Functional alignment bonus: near-threshold alignments (cos45) get a small boost for confident parry decisions.
+    if preview_align >= CombatConstants.PARRY_GLANCING_ALIGNMENT_FLOOR and preview_align < CombatConstants.PARRY_PARTIAL_GUARD_ALIGNMENT_THRESHOLD + 0.15:
+        var margin_frac = (preview_align - CombatConstants.PARRY_GLANCING_ALIGNMENT_FLOOR) / (CombatConstants.PARRY_PARTIAL_GUARD_ALIGNMENT_THRESHOLD - CombatConstants.PARRY_GLANCING_ALIGNMENT_FLOOR)
+        preview_align = minf(1.0, preview_align + CombatConstants.PARRY_FUNCTIONAL_ALIGNMENT_BONUS * (1.0 - margin_frac))
+    # Enforce minimum capacity floor: even with heavy stamina/pain/exhaustion penalties, a well-aligned defender retains meaningful parry options.
+    # Skip the floor for defenders in active recovery from attacks — reduced parry capacity there is by design (readiness curve + weapon position).
+    var def_state = CombatantEntityAccess.state_str(tgt)
+    var def_recovering_from_attack: bool = (
+        def_state == CombatConstants.STATE_RECOVERING and (
+            tgt.get(DataKeys.ATTACK_RECOVERY_CAUSE, "") in ["attack_hit", "attack_miss"] or
+            tgt.get(DataKeys.ATTACK_RECOVERY_CAUSE, "") in ["parry_deflect", "parry_partial"]
+        )
+    )
+    if preview_align >= CombatConstants.PARRY_PARTIAL_GUARD_ALIGNMENT_THRESHOLD and not def_recovering_from_attack:
+        var alignment_floor: float = maxf(preview_align, CombatConstants.PARRY_PARTIAL_GUARD_ALIGNMENT_THRESHOLD)
+        var min_viable_capacity: float = result.parry_p_a * CombatConstants.PARRY_CAPACITY_FLOOR_RATIO * (alignment_floor / CombatConstants.PARRY_PARTIAL_GUARD_ALIGNMENT_THRESHOLD)
+        result.parry_c_d = maxf(result.parry_c_d, min_viable_capacity)
     var interpose_active: bool = float(result.get(DataKeys.RESULT_ARM_INTERPOSE_BOOST, 0.0)) > 0.0
     var def_has_weapon: bool = CombatantEntityAccess.has_weapon(tgt)
 
     var choose_parry: bool = false
+    CombatDebug.combat_session(
+        "defense_choose def=%s atk_id=%d type=%s can_pt=%s has_wpn=%s block_v=%s redir_v=%s align=%.3f dodge_c=%.2f late=%s" % [
+            CombatantEntityAccess.get_display_name(tgt, -1),
+            CombatantEntityAccess.id_int(atk), attack_type, can_parry_in_time, def_has_weapon,
+            block_viable, redirect_viable, preview_align, dodge_chance, late_parry
+        ]
+    )
     if not def_has_weapon:
         choose_parry = false
-    elif desperate_parry:
-        choose_parry = true
     elif not can_parry_in_time:
         choose_parry = false
-    elif can_parry_in_time and def_has_weapon:
+    else:
+        CombatDebug.combat_session(
+            "dc_enter_def=%s atk_id=%d type=%s late_parry=%s well_aligned=%s is_glancing=%s block_v=%s redir_v=%s" % [
+                CombatantEntityAccess.get_display_name(tgt, -1),
+                CombatantEntityAccess.id_int(atk), attack_type, late_parry,
+                (preview_align >= CombatConstants.PARRY_PARTIAL_GUARD_ALIGNMENT_THRESHOLD),
+                (preview_align < CombatConstants.PARRY_PARTIAL_GUARD_ALIGNMENT_THRESHOLD and preview_align >= CombatConstants.PARRY_GLANCING_ALIGNMENT_FLOOR),
+                block_viable, redirect_viable
+            ]
+        )
         var part_mod: float = CombatantEntityAccess._get_part_dodge_modifier(tgt, result.dodge_eval_part)
         var effective_dodge_chance: float = dodge_chance * part_mod
         # Below glancing floor (cos60): parry is physically ineffective — boost dodge and skip parry decision entirely.
@@ -610,6 +657,12 @@ static func choose_defense(
         var is_glancing: bool = (preview_align < CombatConstants.PARRY_PARTIAL_GUARD_ALIGNMENT_THRESHOLD
             and preview_align >= CombatConstants.PARRY_GLANCING_ALIGNMENT_FLOOR)
         # Glancing parries need a meaningful capacity surplus to overcome dodge energy advantage.
+        CombatDebug.combat_session(
+            "dc_sub def=%s atk_id=%d late_parry=%s well_aligned=%s is_glancing=%s clean_dodge_likely=%s dodge_better=%s energy_dodge=%.3f energy_parry=%.3f" % [
+                CombatantEntityAccess.get_display_name(tgt, -1),
+                CombatantEntityAccess.id_int(atk), late_parry, well_aligned, is_glancing, clean_dodge_likely, dodge_better, energy_dodge, energy_parry
+            ]
+        )
         choose_parry = (
             late_parry
             and (block_viable or redirect_viable)
@@ -627,6 +680,13 @@ static func choose_defense(
                 and (block_viable or redirect_viable)
                 and not dodge_better
             )
+        )
+        CombatDebug.combat_session(
+            "dc_out def=%s atk_id=%d type=%s choose_parry=%s late=%s well_aligned=%s is_glancing=%s block_v=%s redir_v=%s dodge_better=%s clean_dodge=%s align=%.3f c_d=%.2f p_a=%.2f" % [
+                CombatantEntityAccess.get_display_name(tgt, -1),
+                CombatantEntityAccess.id_int(atk), attack_type, choose_parry, late_parry, well_aligned, is_glancing,
+                block_viable, redirect_viable, dodge_better, clean_dodge_likely, preview_align, result.parry_c_d, result.parry_p_a
+            ]
         )
     if choose_parry:
         CombatFootwork.apply_defender_step_on_parry(
@@ -669,8 +729,14 @@ static func _compute_parry_c_d(def_weapon, tgt: Dictionary, contact_type: String
     )
     var agi_d: float = float(tgt_stats.get(DataKeys.ENTITY_AGILITY, CombatConstants.DEFAULT_STAT_VALUE))
     c_d_full *= clampf(agi_d / 100.0, 0.7, 1.3)
+    # Full parry capacity modifier: pain in arms + concussion balance impairment + cumulative limb crippling.
     var def_perf: float = CombatantEntityAccess.get_performance_modifier(tgt)
     c_d_full *= maxf(CombatConstants.PERF_MOD_MIN, def_perf)
+    var def_parry_mod: float = EntityPainConsciousness.get_parry_capacity_modifier(
+        CombatantEntityAccess.scene_node(tgt)
+    ) if CombatantEntityAccess.scene_node(tgt) != null and \
+       CombatantEntityAccess.scene_node(tgt).has_method("_get_vital_parts") else 1.0
+    c_d_full *= maxf(CombatConstants.PERF_MOD_MIN, def_parry_mod)
     c_d_full *= maxf(0.1, CombatantEntityAccess.get_attack_damage_modifier(tgt))
     if CombatantEntityAccess.weapon_has_parts(def_weapon):
         var pct: String = CombatantEntityAccess.weapon_parry_contact_type(def_weapon)
@@ -743,7 +809,8 @@ static func _get_line_alignment(
     attack_type: String,
     tgt: Dictionary,
     effective_attack_line_override: String = "",
-    alignment_context: Dictionary = {}
+    alignment_context: Dictionary = {},
+    base_alignment: float = -1.0
 ) -> float:
     var move_def: Dictionary = WeaponConstants.get_move(attack_type)
     var attack_line: String = (
@@ -751,6 +818,10 @@ static func _get_line_alignment(
         if not effective_attack_line_override.is_empty()
         else move_def.get(DataKeys.PA_ATTACK_LINE, "high")
     )
+    # G2: share the guard alignment stamped at resolve (same source guard_hit_mult uses) for the
+    # line-based path; the angle context (blade at parry contact) is the fine-grained refinement.
+    if alignment_context.is_empty() and base_alignment >= 0.0:
+        return base_alignment
     return CombatConstants.get_line_alignment_with_deflect(attack_line, tgt, alignment_context)
 
 

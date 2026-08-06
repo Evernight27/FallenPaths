@@ -137,6 +137,9 @@ const ARC_SPAN_LATE_PARRY_THRESHOLD_DEG: float = 50.0
 const ARC_SPAN_LATE_PARRY_PENALTY_MAX: float = 0.25
 
 const DODGE_FULL_THRESHOLD := 0.55
+## Dodge outcome threshold: randf() < this value → full dodge; otherwise partial (glancing) dodge.
+## Game-feel tuning: ~55% of successful dodges roll as full evasions for average combatants, with the remainder
+## producing partial dodges that reduce but don't eliminate hit damage. Higher values make dodges feel more reliable.
 const DODGE_PARTIAL_RATIO_MIN := 0.4
 const PARRY_FOLLOW_THROUGH_DODGE_EFFICIENCY := 0.67
 const PARRY_FOLLOW_THROUGH_PARTIAL_MIN := 0.5

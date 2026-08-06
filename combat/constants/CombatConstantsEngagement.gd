@@ -9,6 +9,9 @@ const COHESION_FILL_SCALE := 0.65
 
 const COHESION_LANE_STRESS_WEIGHT := 0.45
 
+## Minimum active combatants per side before engagement enters FORMATION mode (vs duel or skirmish).
+## Set to 4: below this, encounters are too small for formation tactics (rank/file depth matters); at 4+,
+## squad-level maneuvers like plug gaps, staggered ranks, and flank pressure become meaningful.
 const ENGAGEMENT_FORMATION_MIN_ACTIVE_PER_SIDE := 4
 
 const ENGAGEMENT_MODE_CODE_DUEL := 0

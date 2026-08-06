@@ -481,10 +481,13 @@ static func _run_camp_2_bridge_spot_checks(failures: PackedStringArray) -> void:
         var med_before: int = CompanyState.get_medical_supplies(retry_world)
         if MapFieldCare.try_field_bandage(retry_world, retry_member):
             continue
+        var cond1: bool = CompanyState.get_medical_supplies(retry_world) == med_before
+        var cond2: bool = not bool(retry_ent.bandaged_parts.get("chest", false))
+        var cond3: bool = EntityMedical.has_direct_pressure_on_part(retry_ent, "chest")
         if (
-            CompanyState.get_medical_supplies(retry_world) == med_before
-            and not bool(retry_ent.bandaged_parts.get("chest", false))
-            and EntityMedical.has_direct_pressure_on_part(retry_ent, "chest")
+            cond1
+            and cond2
+            and cond3
         ):
             saw_fail_refund = true
             break

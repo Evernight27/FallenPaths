@@ -5,10 +5,18 @@ extends RefCounted
 
 const MFB_SHARP_DOMINANT_RATIO := 0.85
 ## Shallow cut / glance: no bone chip unless penetration reaches this (mm RHA scale).
+## WARNING: This conflates RHA-equivalent armor penetration with wound-track tissue depth.
+## For anatomically accurate bone fracture, use CUT_BONE_MIN_TISSUE_DEPTH_MM instead — clinical data shows
+## cortical bone (~2-3 mm thick) requires actual tissue penetration of ~5-8 mm beyond skin/fascia to chip bone.
 const MFB_CUT_BONE_MIN_PENETRATION_MM := 2.5
+## Actual tissue depth (mm from skin surface) needed to reach and chip cortical bone after passing through
+## subcutaneous fat, fascia, and muscle (~3-5 mm average for mid-torso). Replaces RHA-based threshold.
+const CUT_BONE_MIN_TISSUE_DEPTH_MM := 6.0
 const MFB_BLUNT_FRACTURE_GAME_DAMAGE_FLOOR := 1.0
 ## Blunt-dominant: bone chip capped so crush tissue remains on the stream.
-const MFB_BLUNT_MAX_BONE_SHARE_OF_BLUNT := 0.60
+const MFB_BLUNT_MAX_BONE_SHARE_OF_BLUNT := 0.45
+## R4: Mace-specific bone share — currently 1.0 (no reduction from baseline); cap set but mace bone boost not applied.
+const MACE_BONE_SHARE_MULT := 1.0
 
 ## Blunt fracture anchor energy (J) by sub-region (clinical biomechanics literature order-of-magnitude).
 ## Skull ~70-130J, rib ~40-80J, humerus ~60-120J, radius/ulna ~60-120J, femur ~120-250J (combat) / 300-500J (polearm), tibia ~100-200J.
@@ -38,7 +46,8 @@ static func allocate_bone_and_tissue(
     sub_region: String,
     penetration_sharp: float,
     strike_ke_j: float,
-    strike_ke_blunt_j: float = -1.0
+    strike_ke_blunt_j: float = -1.0,
+    weapon_type: String = ""
 ) -> Dictionary:
     var ke_blunt: float = strike_ke_blunt_j if strike_ke_blunt_j >= 0.0 else strike_ke_j
     var to_cut: float = 0.0
@@ -61,10 +70,10 @@ static func allocate_bone_and_tissue(
             to_bone = _sharp_bone_damage(final_cut, part, sub_region, penetration_sharp, strike_ke_j)
             to_tissue_total = maxf(0.0, total_final - to_bone)
         "blunt":
-            to_bone = _blunt_bone_damage_capped(final_blunt, part, sub_region, ke_blunt)
+            to_bone = _blunt_bone_damage_capped(final_blunt, part, sub_region, ke_blunt, weapon_type)
             to_tissue_total = maxf(0.0, total_final - to_bone)
         _:
-            to_bone = _blunt_bone_damage_capped(final_blunt, part, sub_region, ke_blunt)
+            to_bone = _blunt_bone_damage_capped(final_blunt, part, sub_region, ke_blunt, weapon_type)
             to_tissue_total = maxf(0.0, total_final - to_bone)
     if to_tissue_total > 0.0:
         to_cut = to_tissue_total * (final_cut / total_final)
@@ -84,11 +93,22 @@ static func j_excess_to_bone_damage(excess_j: float) -> float:
     return WeaponConstants.DAMAGE_KE_SCALE * sqrt(maxf(0.0, excess_j))
 
 
+## Convert RHA-equivalent armor penetration (mm) to approximate tissue depth (mm).
+## Steel is ~3-5× harder than muscle/fat on Vickers hardness scale; a blade penetrating 2 mm RHA
+## typically reaches ~6-10 mm in tissue. Historical ballistic data for edged weapons suggests
+## tissue_depth ≈ rha_penetration × 3.0 (average compression factor through layered soft tissue).
+static func rha_penetration_to_tissue_depth_mm(rha_pen_mm: float) -> float:
+    return rha_pen_mm * 3.0
+
+
 static func _sharp_bone_damage(
     final_cut: float, part: String, sub_region: String, penetration_sharp: float, strike_ke_j: float
 ) -> float:
     var to_bone: float = 0.0
-    if penetration_sharp >= MFB_CUT_BONE_MIN_PENETRATION_MM:
+    ## Convert RHA-equivalent armor penetration to tissue depth before bone chip check.
+    ## Clinical anatomy: cortical bone ~2-3 mm thick; requires ~6+ mm actual tissue depth beyond skin.
+    var tissue_depth: float = rha_penetration_to_tissue_depth_mm(penetration_sharp)
+    if tissue_depth >= CUT_BONE_MIN_TISSUE_DEPTH_MM:
         to_bone = _bone_from_tissue_stream_threshold(final_cut, part, sub_region)
     if strike_ke_j >= 0.0:
         var j_anchor: float = blunt_fracture_j_anchor(part, sub_region)
@@ -100,7 +120,7 @@ static func _sharp_bone_damage(
 
 
 static func _blunt_bone_damage_capped(
-    final_blunt: float, part: String, sub_region: String, strike_ke_j: float
+    final_blunt: float, part: String, sub_region: String, strike_ke_j: float, weapon_type: String = ""
 ) -> float:
     if final_blunt <= 0.0:
         return 0.0
@@ -113,6 +133,8 @@ static func _blunt_bone_damage_capped(
     if stream_fallback > 0.0:
         to_bone = maxf(to_bone, stream_fallback)
     var cap: float = final_blunt * MFB_BLUNT_MAX_BONE_SHARE_OF_BLUNT
+    if weapon_type == "MACE":
+        cap *= MACE_BONE_SHARE_MULT
     return minf(to_bone, cap)
 
 

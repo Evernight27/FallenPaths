@@ -480,9 +480,9 @@ static func _stack_assist_pressure_during_ally_treatment(
 static func _can_apply_direct_pressure(entity: Node, target_part: String) -> bool:
     if part_is_bandaged(entity, target_part) or part_is_packed(entity, target_part):
         return false
-    if entity.get_bleeding_rate_for_part(target_part) <= BleedingConstants.BLEEDING_RATE_EPSILON:
-        return false
     if entity.tourniquet_applied.has(target_part):
+        return false
+    if entity.get_bleeding_rate_for_part(target_part) <= BleedingConstants.BLEEDING_RATE_EPSILON:
         return false
     var arm: String = entity.get_attacking_arm()
     if arm.is_empty():

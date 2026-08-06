@@ -222,6 +222,46 @@ static func get_attack_damage_modifier(combatant: Dictionary) -> float:
     return node._get_attack_damage_modifier()
 
 
+## Parry capacity modifier: pain in arms + concussion balance impairment + limb crippling.
+static func get_parry_capacity_modifier(combatant: Dictionary) -> float:
+    var node = node_variant(combatant)
+    if node == null or not node.has_method("get_parry_capacity_modifier"):
+        return 1.0
+    return node.get_parry_capacity_modifier()
+
+
+## Dodge speed modifier: leg pain + concussion balance impairment.
+static func get_dodge_speed_modifier(combatant: Dictionary) -> float:
+    var node = node_variant(combatant)
+    if node == null or not node.has_method("get_dodge_speed_modifier"):
+        return 1.0
+    return node.get_dodge_speed_modifier()
+
+
+## Cumulative pain degradation across all body parts (0-1, higher = more degraded).
+static func get_cumulative_pain_degradation(combatant: Dictionary) -> float:
+    var node = node_variant(combatant)
+    if node == null or not node.has_method("_get_vital_parts"):
+        return 0.0
+    return EntityPainConsciousness.get_cumulative_pain_degradation(node)
+
+
+## Limb crippling modifier for a specific part (1.0 = functional, <1.0 = impaired).
+static func get_limb_crippling_modifier(combatant: Dictionary, limb_part: String) -> float:
+    var node = node_variant(combatant)
+    if node == null or not node.has_method("_get_vital_parts"):
+        return 1.0
+    return EntityPainConsciousness.get_limb_crippling_modifier(node, limb_part)
+
+
+## Cumulative penalty from all damaged limbs (0-1).
+static func get_cumulative_limb_penalty(combatant: Dictionary) -> float:
+    var node = node_variant(combatant)
+    if node == null or not node.has_method("_get_vital_parts"):
+        return 0.0
+    return EntityPainConsciousness.get_cumulative_limb_penalty(node)
+
+
 static func has_passive_parry_reaction_time(combatant: Dictionary) -> bool:
     var node = node_variant(combatant)
     return node != null and node.has_method("_get_passive_parry_reaction_time")

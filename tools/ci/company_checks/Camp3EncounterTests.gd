@@ -13,7 +13,7 @@ const HARNESS_NAME := "CompanyStateChecks"
 
 static func _run_combat_start_abort_cleanup(failures: PackedStringArray) -> void:
     var world: Node2D = _make_world(1, 0, true)
-    world.set_script(CampaignWorldScript)
+    world.set_script(_get_campaign_world_script())
     _add_player_at_camp(world)
     var pm: Node = world.get_meta("party_manager")
     if pm is Node and "members" in pm and pm.members.size() > 0:
@@ -48,7 +48,7 @@ static func _run_combat_start_abort_cleanup(failures: PackedStringArray) -> void
 
 static func _run_encounter_entry_rollback(failures: PackedStringArray) -> void:
     var world: Node2D = _make_world(1, 0, true)
-    world.set_script(CampaignWorldScript)
+    world.set_script(_get_campaign_world_script())
     var rng := RandomNumberGenerator.new()
     var enc: Node2D = EncounterNode.new()
     enc.enemy_count = 0

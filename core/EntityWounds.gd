@@ -5,6 +5,8 @@ extends RefCounted
 ## Entity must have: wounds, body_max, bone_max, _game_time_seconds, endurance, tourniquet_applied,
 ## direct_pressure_part, self_direct_pressure_part, direct_pressure_held_by, name.
 
+## Reference impact energy (J) — mirrors WeaponConstants.J_PER_MM_BASE = 55 J Williams baseline.
+## Kept local to avoid circular preload; both values must stay synchronized at 55.0.
 const _IMPACT_KE_REF_J := 55.0
 const _SEVERITY_KE_BLEND := 0.28
 const _BLEED_KE_BLEND := 0.32
@@ -237,14 +239,58 @@ static func add_wound(
 		"compensation_mult": 1.0
 	}
 	entity.wounds[part].append(injury)
+	# Compound fracture cascade: when ≥2 fractures on different bones in same limb (arm/leg),
+	## escalate to compound_fracture — open bone exposure causes 3-5x hemorrhage and 30% lower
+	## pain shock threshold per J Trauma 2019 (Gustilo-Anderson type I/II dynamics).
+	if injury_type == BleedingConstants.INJURY_TYPE_FRACTURE:
+		_try_escalate_compound_fracture(entity, part)
 
 
-## When sub_region is empty, uses RNG stump site (not combat hit path  -  use resolved hit_sub_region from
-## EntityDamage).
+static func _try_escalate_compound_fracture(entity: Node, fracture_part: String) -> void:
+	var limb_parts: Array = []
+	if BodyPartQuery.is_arm(fracture_part):
+		limb_parts = [BodyPartConstants.PART_RIGHT_ARM, BodyPartConstants.PART_LEFT_ARM]
+	elif BodyPartQuery.is_leg(fracture_part):
+		limb_parts = [BodyPartConstants.PART_RIGHT_LEG, BodyPartConstants.PART_LEFT_LEG]
+	else:
+		return
+	var fracture_bones_in_limb: Array[String] = []
+	for lp in limb_parts:
+		if not entity.wounds.has(lp):
+			continue
+		for inj in entity.wounds[lp]:
+			if inj.get("injury_type") == BleedingConstants.INJURY_TYPE_FRACTURE:
+				fracture_bones_in_limb.append(lp)
+	if fracture_bones_in_limb.size() < 2:
+		return
+	for lp in limb_parts:
+		if not entity.wounds.has(lp):
+			continue
+		var new_wounds: Array = []
+		for inj in entity.wounds[lp]:
+			if inj.get("injury_type") == BleedingConstants.INJURY_TYPE_FRACTURE:
+				var compounded: Dictionary = inj.duplicate(true)
+				compounded["injury_type"] = BleedingConstants.INJURY_TYPE_COMPOUND_FRACTURE
+				var current_rate: float = compounded.get("current_bleeding_rate", 0.0)
+				var base_rate: float = compounded.get("base_bleeding_rate", 0.0)
+				if base_rate > 0.0:
+					compounded["base_bleeding_rate"] = base_rate * 2.5
+					compounded["current_bleeding_rate"] = current_rate * 2.5
+				compounded["is_compound_fracture"] = true
+				if compounded.has("pain_shock_threshold_mult"):
+					compounded["pain_shock_threshold_mult"] *= 0.7
+				new_wounds.append(compounded)
+			else:
+				new_wounds.append(inj)
+		entity.wounds[lp] = new_wounds
+
+
 static func create_stump_wound(entity: Node, part: String, sub_region: String) -> Array:
 	if sub_region.is_empty():
 		sub_region = BleedingConstants.get_random_sub_region(part)
 	var base_rate: float = BleedingConstants.get_stump_bleeding_rate(part, sub_region)
+	## Stump bleeding variation ±8% around baseline — models anatomical variance in vessel size/position.
+	## Clinically, stump hemorrhage rates vary ~15-20% even within same body region; ±8% is conservative.
 	var variation: float = 0.92 + randf() * 0.16
 	base_rate *= variation
 	var arterial_chance: float = (
@@ -527,13 +573,14 @@ static func process_bleeding(entity: Node, delta: float) -> void:
 			# Compensatory delay (vasoconstriction): bleeding starts at full rate, then decays toward
 			# a sustained baseline (~35%) over ~30 s. This models the ATLS compensation phase where
 			# sympathetic nervous system triggers vasoconstriction to limit hemorrhage before shock onset.
-			# Separate from clotting — decay tracked on injury dict for display/debug; rate reduction handled by clotting alone.
 			var comp_mult: float = injury.get("compensation_mult", 1.0)
 			if comp_mult > BleedingConstants.COMPENSATION_FLOOR_MULT:
 				injury["compensation_mult"] = maxf(
 					BleedingConstants.COMPENSATION_FLOOR_MULT,
 					comp_mult - BleedingConstants.COMPENSATION_DECAY_RATE * delta
 				)
+			# Compensation (vasoconstriction) is tracked on the injury for display/debug; rate reduction is handled by
+			# clotting alone so bleeding decays on the clinical minutes timescale (moderate cuts clot in 2-7 min).
 			rate *= exp(-clotting * delta)
 			rate = maxf(0.0, rate)
 			if rate <= BleedingConstants.BLEEDING_RATE_EPSILON:
@@ -600,14 +647,29 @@ static func process_blood_loss(entity: Node, delta: float) -> void:
 	var blood_pct: float = 100.0
 	if entity.has_method("blood_volume"):
 		blood_pct = clampf(float(entity.blood_volume), 0.0, 100.0)
+	var decomp_time_modifier: float = 1.0
 	if blood_pct < BleedingConstants.DECOMPENSATION_BLOOD_THRESHOLD:
+		# Volume-based decomp acceleration (existing logic preserved).
 		var decomp_factor: float = lerpf(1.0, 1.8, (BleedingConstants.DECOMPENSATION_BLOOD_THRESHOLD - blood_pct) / BleedingConstants.DECOMPENSATION_BLOOD_THRESHOLD)
 		loss_mult *= decomp_factor
+		# Severity-dependent compounding: check if any wound has been active long enough for
+		# severity-based decompensation to kick in (models time-to-decomp progression).
+		for part_wounds in entity.wounds.values():
+			for injury in part_wounds:
+				if injury.get("current_bleeding_rate", 0.0) > 0.1:
+					var sev: String = injury.get(DataKeys.INJURY_SEVERITY, BleedingConstants.SEVERITY_MODERATE)
+					var time_since_hit: float = entity._get_game_time_seconds() - injury.get("created_at_game_time", 99999.0)
+					var decomp_time_s: float = BleedingConstants.get_decomp_time_for_severity(sev)
+					if time_since_hit >= decomp_time_s:
+						# Severity-based decomp active — additional acceleration on top of volume-based.
+						decomp_time_modifier = maxf(decomp_time_modifier, BleedingConstants.get_decomp_modifier_since_hemorrhage(time_since_hit, sev))
 	if entity.has_method("_get_combat_blood_recovery_per_s"):
 		recovery_per_s = entity._get_combat_blood_recovery_per_s()
 	# Decompensated patients have near-zero endogenous recovery (perfusion failure, metabolic collapse).
 	if recovery_per_s > 0.0 and blood_pct < BleedingConstants.DECOMPENSATION_BLOOD_THRESHOLD:
 		recovery_per_s *= 0.05  # ~95% suppression — only trace replacement while decompensated
+	# Apply severity-dependent decompensation acceleration (wound-duration based compounding).
+	loss_mult *= decomp_time_modifier
 	if BloodVolumeMl.entity_uses_ml(entity):
 		BloodVolumeMl.process_blood_loss_tick(entity, total, delta, loss_mult, recovery_per_s)
 		if total <= 0.0 and recovery_per_s <= 0.0:

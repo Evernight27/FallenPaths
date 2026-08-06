@@ -4,7 +4,9 @@ extends RefCounted
 ## S6 literal blood pool (mL) pilot  -  canonical `blood_volume_ml` when active; `blood_volume` % stays in sync for
 ## UI/ATLS.
 
-## Adult reference pool  -  derived from `CombatDesignAnchors` (75 kg - -  70 mL/kg = 5250 mL).
+## Adult reference blood volume: 70 mL/kg × 75 kg = 5250 mL. Based on Nadler-Rodkey formula (Nadler et al. 1962) and
+## ATLS 11th ed. Table 1-3 (average adult male blood volume ~70 mL/kg, female ~65 mL/kg). Used as default for all
+## human-species entities; non-human species scale via _REFERENCE_SPECIES_TISSUE_SUM in WeaponDamageHelper.
 const REFERENCE_BLOOD_VOLUME_ML_ADULT: float = CombatDesignAnchors.REFERENCE_BLOOD_VOLUME_ML_ADULT
 const REFERENCE_BLOOD_ML_PER_KG: float = CombatDesignAnchors.REFERENCE_BLOOD_ML_PER_KG
 

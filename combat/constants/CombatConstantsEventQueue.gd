@@ -11,6 +11,10 @@ const EVENT_PLUG_FORWARD_RESOLVE := "plug_forward_resolve"
 const EVENT_FORM_SWITCH_COMPLETE := "form_switch_complete"
 
 const COOLDOWN_ACTION_READY_BASE := 2.0
+## Hard ceiling on readiness cooldown. Fatigue/armor/footing penalties are each bounded individually, but
+## multiplicative stacking pushed late-fight gaps past 13s and produced batch "draw" aborts. Real armored
+## duelists ready again in a few seconds even when exhausted; cap keeps exchange cadence live.
+const COOLDOWN_ACTION_READY_MAX := 6.0
 const READY_DELAY_SKIP_DEFAULT_S := 0.5
 const READY_DELAY_SKIP_BACK_RANK_S := 2.0
 const READY_DELAY_SKIP_BACK_RANK_DEPTH_LANE_S := 1.0

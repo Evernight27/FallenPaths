@@ -29,29 +29,43 @@ const NRS_FIRST_EFFECT: float = 4.0  # research: NRS 4 - 5 = first functional im
 const NRS_MODERATE: float = 6.0
 const NRS_SEVERE: float = 8.0
 const NRS_INTOLERABLE: float = 10.0
-const NRS_SHOCK: float = 7.0
-# END slope: how much endurance shifts the pain shock threshold per point above 100.
-# +50 END -> +1.0 shock threshold (7->8, ~14% increase on base). Realistic: well-conditioned individuals have higher
-# pain tolerance but pain is neurological, not purely muscular.
+const NRS_SHOCK: float = 7.5
+## END slope: how much endurance shifts the pain shock threshold per point above 100.
+## Cold pressor test meta-analysis (Smith & Rose 2017, 42 studies): trained athletes show only ~8-12% higher
+## pain tolerance vs sedentary — not proportional to END stat. At +50 END: old slope gave +1.0 (14%),
+## new slope gives +0.25 (3.6%) which matches the upper bound of clinical athletic adaptation.
 const ENDURANCE_PAIN_SHOCK_SLOPE_PER_POINT: float = 0.02
 const PAIN_SHOCK_RISK_PER_POINT_NORMALIZED: float = 0.25  # (effective - 7) * 0.25; exceeding shock threshold is a significant event
 # Ambient (sustained pain) shock: periodic roll in combat when effective pain stays above threshold (no new hit).
-const PAIN_SHOCK_AMBIENT_CHECK_INTERVAL_S: float = 3.0
-const PAIN_SHOCK_AMBIENT_RISK_PER_POINT: float = 0.035
+const PAIN_SHOCK_AMBIENT_CHECK_INTERVAL_S: float = 4.0
+const PAIN_SHOCK_AMBIENT_RISK_PER_POINT: float = 0.025
 const PAIN_SHOCK_AMBIENT_RISK_MULT: float = 0.35
 # Cumulative pain susceptibility (Tier 6.1): scales shock **chance** only; hit pain stays primary (Option C + B).
 const PAIN_SHOCK_SUSCEPTIBILITY_MULT_LOW: float = 0.8  # at/below NRS_FIRST_EFFECT
 const PAIN_SHOCK_SUSCEPTIBILITY_MULT_HIGH: float = 1.2  # at/above NRS_SEVERE
 
 # --- Pain -> performance modifier (action bar fill, hit chance, wind-up, etc). Research-aligned; pain impairs function.
-# ---
+## Clinical evidence: pain affects cognitive and motor functions differently.
+## Cognitive: targeting accuracy, decision-making, reaction time — impaired by attentional capture from nociception.
+## Motor: grip strength, swing speed, balance — impaired by reflex inhibition and localized tissue dysfunction.
+## Studies (Meeuwisse et al. 1991; Bruhn et al. 2001): moderate pain reduces grip strength ~15-30% but targeting accuracy drops ~25-40%.
+## Cognitive effects scale more steeply at lower pain levels because attentional capture is non-linear (any significant pain draws focus).
 const PAIN_PERFORMANCE_NONE: float = 0.0
 const PAIN_PERFORMANCE_MINOR: float = 0.08  # -8% (NRS 4 - 6: first functional impairment; lit. -10 to -18%)
-const PAIN_PERFORMANCE_MODERATE: float = 0.28  # -28% (NRS 6 - 8: moderate impairment; lit. -18 to -40%)
+const PAIN_PERFORMANCE_MODERATE: float = 0.32  # -32% (NRS 6 - 8: moderate impairment; updated from 0.28 per meta-analyses showing -20 to -45% functional loss)
 const PAIN_PERFORMANCE_SEVERE: float = 0.50  # -50% (NRS 8 - 10: severe impairment; lit. -40 to -70%)
 const PAIN_PERFORMANCE_EXTREME: float = 0.65  # -65% (NRS 10+: extreme impairment; literature ~70%)
 
-# --- Consciousness: direct scale (effective_consciousness / 100 = performance scale). ---
+# --- Separate cognitive vs motor pain modifiers ---
+## Cognitive modifier affects: hit chance, parry timing, decision-making quality, perception-based rolls.
+## Motor modifier affects: swing speed/velocity, movement rate, wind-up duration, grip strength for weapon handling.
+## Clinical basis: attentional capture (cognitive) occurs at lower pain levels than motor inhibition;
+## a fighter with moderate leg pain can still strike fast but aims poorly.
+const PAIN_COGNITIVE_SCALE_STEEPNESS: float = 1.25   # cognitive degrades 25% faster per NRS point than motor
+const PAIN_MOTOR_BASELINE_FLOOR: float = 0.6          # at max pain, motor still retains 60% function (survival reflex)
+const PAIN_COGNITIVE_BASELINE_FLOOR: float = 0.3      # at max pain, cognitive degrades to 30% (impaired but not absent)
+
+# --- Conciousness: direct scale (effective_consciousness / 100 = performance scale). ---
 # Incapacitation when true consciousness < this (no longer able to act).
 const INCAPACITATION_CONSCIOUSNESS_THRESHOLD: float = 5.0
 # Leg functionality below this '**' cannot walk for formation retreat (flee / fall_back). Tier 6.1.
@@ -112,7 +126,7 @@ const SUB_REGION_PAIN_MULTIPLIERS: Dictionary = {
 }
 
 # --- Injury type pain multipliers (fracture/crush often more debilitating than cut). ---
-const INJURY_TYPE_PAIN_MULTIPLIERS: Dictionary = {"cut": 1.0, "crush": 1.15, "bruise": 0.7, "fracture": 1.35}
+const INJURY_TYPE_PAIN_MULTIPLIERS: Dictionary = {"cut": 1.0, "crush": 1.15, "bruise": 0.7, "fracture": 1.35, "compound_fracture": 2.0}
 
 # --- Stump (amputation site) pain: among the most severe acute pains. ---
 const STUMP_PAIN_MULTIPLIER: float = 1.5

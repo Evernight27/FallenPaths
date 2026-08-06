@@ -1,4 +1,4 @@
-extends Node2D
+﻿extends Node2D
 
 ## Scene controller for the interactive combat tuning scene.
 ## Now uses the full production combat pipeline (formations, AI, signals, medical phase)
@@ -173,11 +173,38 @@ func _any_dead() -> bool:
 func _is_resolution_closed() -> bool:
 	if manager == null:
 		return true
-	if "combat_resolution_closed" in manager and manager.combat_resolution_closed:
+	var crc: bool = false
+	if manager != null and manager.has_method("_end_combat_phase"):
+		crc = manager.combat_resolution_closed
+	if crc:
 		return true
 	if manager.medical_phase and manager.has_method("can_end_medical_phase") and manager.can_end_medical_phase():
 		return true
 	return false
+
+
+func _end_combat_phase_with(winner: String) -> void:
+	if manager != null and is_instance_valid(manager):
+		manager.set_meta("tuning_stalemate_resolution", true)
+		manager.medical_phase = false
+		manager.medical_phase_winner = winner
+		manager.combat_resolution_closed = true
+		if manager.has_method("_halt_losing_side_combat"):
+			manager._halt_losing_side_combat()
+		var end_cause: String = _infer_end_cause(winner)
+		_last_end_cause = end_cause
+		_log_line(
+			_Formatter.format_fight_end(
+				winner,
+				end_cause,
+				attacker_config.display_name,
+				defender_config.display_name,
+				attacker_entity,
+				defender_entity
+			)
+		)
+		if manager.has_method("stop"):
+			manager.stop()
 
 
 func _auto_try_respawn(delta: float) -> bool:
@@ -861,6 +888,8 @@ func _record_exchange_outcome(outcome: String, result: Dictionary) -> void:
 func _infer_end_cause(winner_side: String) -> String:
 	if manager == null:
 		return "unknown"
+	if manager.has_meta("tuning_stalemate_resolution") and manager.get_meta("tuning_stalemate_resolution"):
+		return "stalemate"
 	var atk_c = _get_entity_access().manager_get_combatant(manager, attacker_id)
 	var def_c = _get_entity_access().manager_get_combatant(manager, defender_id)
 	if not atk_c.is_empty() and _get_entity_access().is_yielded(atk_c):
@@ -883,9 +912,19 @@ func _infer_end_cause(winner_side: String) -> String:
 		)
 	):
 		return "flee"
+	var atk_node = _get_entity_access().node_variant(atk_c) if not atk_c.is_empty() else null
+	var def_node = _get_entity_access().node_variant(def_c) if not def_c.is_empty() else null
 	if not atk_c.is_empty() and not _get_entity_access().alive_bool(atk_c):
+		if atk_node != null and is_instance_valid(atk_node) and atk_node.has_method("_get_blood_loss_death_threshold"):
+			var death_thresh = float(atk_node._get_blood_loss_death_threshold())
+			if float(atk_node.blood_volume) <= death_thresh:
+				return "bled_out"
 		return "kill"
 	if not def_c.is_empty() and not _get_entity_access().alive_bool(def_c):
+		if def_node != null and is_instance_valid(def_node) and def_node.has_method("_get_blood_loss_death_threshold"):
+			var death_thresh = float(def_node._get_blood_loss_death_threshold())
+			if float(def_node.blood_volume) <= death_thresh:
+				return "bled_out"
 		return "kill"
 	if not atk_c.is_empty() and _get_entity_access().is_incapacitated(atk_c):
 		return "incapacitate"
@@ -1017,14 +1056,27 @@ func _batch_run_cycle_to_completion():
 	var logical_seconds: float = 0.0
 	var tick_delta: float = 0.1
 	var events_per_burst: int = 20
-	# Stalemate detection: if strike count hasn't changed for this many bursts, abort.
+	# Stalemate detection uses two independent counters matching realistic duel timelines
+	# (bleed-decided fights: 30-300s sim before one fighter drops).
+	# Strike stall  — no strikes land for N bursts. Two thresholds: short (quiet fight, ~90s)
+	# and long (grind timeout, ~600s). Both resolve by remaining HP + blood volume tiebreaker.
+	# Health drift — strikes land but combined HP hasn't dropped significantly, meaning wounds
+	# are trivial/clotting. Separate counter so minor exchange noise doesn't mask a true deadlock.
+	var stalemate_sim_time: float = 0.0   # independent accumulator (logical_seconds resets every 2s)
 	var stalemate_strike_checkpoint: int = -1
-	var stalemate_tolerance: int = 10
+	var stalemate_struck_bursts: int = 0
+	const STALEMATE_QUIET_BURSTS := 60      # ~120s sim, no strikes (quiet fight)
+	const STALEMATE_GRIND_BURSTS := 350     # ~700s sim, grind timeout (long duel)
+	const STALEMATE_QUIET_GRACE_SECS := 60.0
+	var stalemate_health_checkpoint: float = -1.0
+	var stalemate_drift_bursts: int = 0
+	const STALEMATE_HP_THRESHOLD := 12.0     # combined HP must drop this much to reset drift
+	const STALEMATE_DRIFT_BURSTS := 350     # same as grind — if both conditions true, either fires
 
 	for _cycle in range(max_cycles):
 		if manager == null or not is_instance_valid(manager):
 			return
-		if "combat_resolution_closed" in manager and manager.combat_resolution_closed:
+		if manager != null and is_instance_valid(manager) and manager.combat_resolution_closed:
 			break
 
 		var atk_c = eac.manager_get_combatant(manager, attacker_id)
@@ -1034,18 +1086,75 @@ func _batch_run_cycle_to_completion():
 		if not eac.alive_bool(atk_c) or not eac.alive_bool(def_c):
 			break
 
-		# Stalemate check: no strikes logged for N consecutive bursts means combat is stuck.
+		# --- Strike-stall counter (tracks no-new-strikes periods) ---
 		var current_strikes: int = _strike_count
+		var atk_hp := _get_total_remaining_hp(atk_c)
+		var def_hp := _get_total_remaining_hp(def_c)
+		var combined_hp := atk_hp + def_hp
 		if stalemate_strike_checkpoint < 0:
 			stalemate_strike_checkpoint = current_strikes
-			stalemate_tolerance = 10
+			stalemate_struck_bursts = 0
 		elif current_strikes == stalemate_strike_checkpoint:
-			stalemate_tolerance -= 1
-			if stalemate_tolerance <= 0:
-				_log_line("[Batch] stalemate detected (no strikes for %d bursts), ending cycle." % (6 - stalemate_tolerance))
-				break
+			stalemate_struck_bursts += 1
 		else:
 			stalemate_strike_checkpoint = current_strikes
+			stalemate_struck_bursts = 0
+
+		# --- Health-drift counter (tracks trivial-damage periods) ---
+		if stalemate_health_checkpoint < 0.0:
+			stalemate_health_checkpoint = combined_hp
+			stalemate_drift_bursts = 0
+		else:
+			var hp_lost := stalemate_health_checkpoint - combined_hp
+			if hp_lost >= STALEMATE_HP_THRESHOLD:
+				# Meaningful damage occurred — reset drift clock
+				stalemate_health_checkpoint = combined_hp
+				stalemate_drift_bursts = 0
+			else:
+				stalemate_drift_bursts += 1
+
+		# --- Resolve grind timeout (long duel — strikes or HP stalled for N bursts) ---
+		if stalemate_struck_bursts >= STALEMATE_GRIND_BURSTS or stalemate_drift_bursts >= STALEMATE_DRIFT_BURSTS:
+			var reason := "no strikes"
+			if stalemate_drift_bursts >= STALEMATE_DRIFT_BURSTS and stalemate_struck_bursts <= STALEMATE_GRIND_BURSTS:
+				reason = "trivial damage (%.1f HP dropped, threshold %.0f over %d bursts)" % [stalemate_health_checkpoint - combined_hp, STALEMATE_HP_THRESHOLD, STALEMATE_DRIFT_BURSTS]
+			_log_line(
+				"[Batch] grind timeout (%s, %.1fs sim), resolving by remaining health." % [reason, stalemate_sim_time]
+			)
+			var batch_winner: String = "player"
+			if atk_hp > def_hp:
+				batch_winner = "player"
+			elif def_hp > atk_hp:
+				batch_winner = "enemy"
+			else:
+				var atk_blood := _get_total_blood(atk_c)
+				var def_blood := _get_total_blood(def_c)
+				if atk_blood > def_blood:
+					batch_winner = "player"
+				elif def_blood > atk_blood:
+					batch_winner = "enemy"
+			_end_combat_phase_with(batch_winner)
+			break
+
+		# Short quiet-fight abort (only after grace period)
+		if stalemate_struck_bursts >= STALEMATE_QUIET_BURSTS and stalemate_sim_time > STALEMATE_QUIET_GRACE_SECS:
+			_log_line(
+				"[Batch] stalemate detected (%.1fs sim, no strikes for %d bursts), resolving by remaining health." % [stalemate_sim_time, STALEMATE_QUIET_BURSTS]
+			)
+			var batch_winner: String = "player"
+			if atk_hp > def_hp:
+				batch_winner = "player"
+			elif def_hp > atk_hp:
+				batch_winner = "enemy"
+			else:
+				var atk_blood := _get_total_blood(atk_c)
+				var def_blood := _get_total_blood(def_c)
+				if atk_blood > def_blood:
+					batch_winner = "player"
+				elif def_blood > atk_blood:
+					batch_winner = "enemy"
+			_end_combat_phase_with(batch_winner)
+			break
 
 		for _b in range(events_per_burst):
 			if manager == null or not is_instance_valid(manager):
@@ -1053,8 +1162,9 @@ func _batch_run_cycle_to_completion():
 			_EventDispatch.process_event_queue(manager)
 			_ProcessTick.tick(manager, tick_delta)
 			logical_seconds += tick_delta
+			stalemate_sim_time += tick_delta
 
-			if "combat_resolution_closed" in manager and manager.combat_resolution_closed:
+			if manager != null and is_instance_valid(manager) and manager.combat_resolution_closed:
 				break
 			if not manager.medical_phase:
 				var early_victor := ""
@@ -1094,15 +1204,16 @@ func _log_line(plain: String, color: String = "", mirror: bool = true) -> void:
 		if not line.is_empty():
 			_plain_log.append(line)
 	if _log_rtl != null:
-		var display := plain
-		if not color.is_empty():
-			if "\n" in plain:
-				var colored := PackedStringArray()
-				for line in plain.split("\n", false):
-					colored.append("[color=%s]%s[/color]" % [color, line])
-				display = "\n".join(colored)
-			else:
-				display = "[color=%s]%s[/color]" % [color, plain]
+		var display: String
+		if "\n" in plain and not color.is_empty():
+			var colored := PackedStringArray()
+			for line in plain.split("\n", false):
+				colored.append("[color=%s]%s[/color]" % [color, _bbcode_escape(line)])
+			display = "\n".join(colored)
+		elif not color.is_empty():
+			display = "[color=%s]%s[/color]" % [color, _bbcode_escape(plain)]
+		else:
+			display = _bbcode_escape(plain)
 		if _log_rtl.text.is_empty():
 			_log_rtl.append_text(display)
 		else:
@@ -1114,6 +1225,11 @@ func _log_line(plain: String, color: String = "", mirror: bool = true) -> void:
 				sc.scroll_vertical = int(vbar.max_value)
 	if mirror and _log_line_should_mirror(plain):
 		print(plain)
+
+
+func _bbcode_escape(text: String) -> String:
+	"""Escape [ and ] for BBCode-enabled RichTextLabel."""
+	return text.replace("[", "\\[").replace("]", "\\]")
 
 
 func _append_log(text: String, store_plain: bool = true) -> void:
@@ -1284,19 +1400,83 @@ func _resolve_tuning_matchup_winner(atk_c: Dictionary, def_c: Dictionary) -> Str
 		return "attacker"
 	if not atk_alive and not def_alive:
 		return "mutual"
-	var mw: String = manager.medical_phase_winner if manager != null and "medical_phase_winner" in manager else ""
+	var mw: String = ""
+	if manager != null and is_instance_valid(manager):
+		mw = str(manager.medical_phase_winner)
 	if mw == "enemy":
 		return "defender"
 	if mw == "player":
 		return "attacker"
-	if manager != null and "combat_resolution_closed" in manager and manager.combat_resolution_closed:
-		var atk_incap: bool = not atk_c.is_empty() and _get_entity_access().is_incapacitated(atk_c)
-		var def_incap: bool = not def_c.is_empty() and _get_entity_access().is_incapacitated(def_c)
-		if atk_incap and not def_incap:
+	var atk_incap: bool = not atk_c.is_empty() and _get_entity_access().is_incapacitated(atk_c)
+	var def_incap: bool = not def_c.is_empty() and _get_entity_access().is_incapacitated(def_c)
+	if atk_incap and not def_incap:
+		return "defender"
+	if def_incap and not atk_incap:
+		return "attacker"
+	if atk_incap and def_incap:
+		return "mutual"
+	var _crc: bool = false
+	if manager != null and is_instance_valid(manager):
+		_crc = manager.combat_resolution_closed
+	var atk_yielded: bool = not atk_c.is_empty() and _get_entity_access().is_yielded(atk_c)
+	var def_yielded: bool = not def_c.is_empty() and _get_entity_access().is_yielded(def_c)
+	if atk_yielded and not def_yielded:
+		return "defender"
+	if def_yielded and not atk_yielded:
+		return "attacker"
+	if atk_yielded and def_yielded:
+		return "mutual"
+	var atk_node = _get_entity_access().node_variant(atk_c) if not atk_c.is_empty() else null
+	var def_node = _get_entity_access().node_variant(def_c) if not def_c.is_empty() else null
+	if atk_node != null and is_instance_valid(atk_node) and def_node != null and is_instance_valid(def_node):
+		atk_node.ensure_consciousness_current()
+		def_node.ensure_consciousness_current()
+		var atk_con: float = float(atk_node.consciousness) if atk_node.has_method("ensure_consciousness_current") else 100.0
+		var def_con: float = float(def_node.consciousness) if def_node.has_method("ensure_consciousness_current") else 100.0
+		if atk_con <= PainConsciousnessConstants.INCAPACITATION_CONSCIOUSNESS_THRESHOLD and def_con > PainConsciousnessConstants.INCAPACITATION_CONSCIOUSNESS_THRESHOLD:
 			return "defender"
-		if def_incap and not atk_incap:
+		if def_con <= PainConsciousnessConstants.INCAPACITATION_CONSCIOUSNESS_THRESHOLD and atk_con > PainConsciousnessConstants.INCAPACITATION_CONSCIOUSNESS_THRESHOLD:
 			return "attacker"
+		if atk_con <= PainConsciousnessConstants.INCAPACITATION_CONSCIOUSNESS_THRESHOLD and def_con <= PainConsciousnessConstants.INCAPACITATION_CONSCIOUSNESS_THRESHOLD:
+			return "mutual"
+	# Stalemate resolution tiebreaker: remaining HP, then blood volume.
+	if atk_node != null and is_instance_valid(atk_node) and def_node != null and is_instance_valid(def_node):
+		var atk_hp := 0.0
+		var def_hp := 0.0
+		for part in ["head", "chest", "right_arm", "left_arm", "left_leg", "right_leg"]:
+			atk_hp += float(atk_node.body_cutting[part])
+			atk_hp += float(atk_node.bone_health[part])
+			def_hp += float(def_node.body_cutting[part])
+			def_hp += float(def_node.bone_health[part])
+		if atk_hp > def_hp:
+			return "attacker"
+		if def_hp > atk_hp:
+			return "defender"
+		var atk_blood := float(atk_node.blood_volume)
+		var def_blood := float(def_node.blood_volume)
+		if atk_blood > def_blood:
+			return "attacker"
+		if def_blood > atk_blood:
+			return "defender"
 	return ""
+
+
+func _get_total_remaining_hp(combatant: Dictionary) -> float:
+	var node = _get_entity_access().node_variant(combatant) if not combatant.is_empty() else null
+	if node == null or not is_instance_valid(node):
+		return 0.0
+	var total := 0.0
+	for part in ["head", "chest", "right_arm", "left_arm", "left_leg", "right_leg"]:
+		total += float(node.body_cutting[part])
+		total += float(node.bone_health[part])
+	return total
+
+
+func _get_total_blood(combatant: Dictionary) -> float:
+	var node = _get_entity_access().node_variant(combatant) if not combatant.is_empty() else null
+	if node == null or not is_instance_valid(node):
+		return 0.0
+	return float(node.blood_volume)
 
 
 func _log_cycle_summary() -> void:
@@ -1307,6 +1487,19 @@ func _log_cycle_summary() -> void:
 
 	var atk_c = _get_entity_access().manager_get_combatant(manager, attacker_id) if manager != null else {}
 	var def_c = _get_entity_access().manager_get_combatant(manager, defender_id) if manager != null else {}
+
+	var atk_node = _get_entity_access().node_variant(atk_c) if not atk_c.is_empty() else null
+	var def_node = _get_entity_access().node_variant(def_c) if not def_c.is_empty() else null
+	if atk_node != null and is_instance_valid(atk_node):
+		atk_node.ensure_consciousness_current()
+	if def_node != null and is_instance_valid(def_node):
+		def_node.ensure_consciousness_current()
+	var atk_vitals: String = ""
+	var def_vitals: String = ""
+	if atk_node != null and is_instance_valid(atk_node):
+		atk_vitals = "%s %s" % [attacker_config.display_name, _Formatter.format_vitals_suffix(atk_node)]
+	if def_node != null and is_instance_valid(def_node):
+		def_vitals = "%s %s" % [defender_config.display_name, _Formatter.format_vitals_suffix(def_node)]
 
 	var winner_side: String = _resolve_tuning_matchup_winner(atk_c, def_c)
 	var winner_name: String = "?"
@@ -1361,7 +1554,9 @@ func _log_cycle_summary() -> void:
 		aggregate_line,
 		_active_scenario_key,
 		attacker_config,
-		defender_config
+		defender_config,
+		atk_vitals,
+		def_vitals
 	)
 	_log_line(summary, "#88ccff")
 
@@ -1384,12 +1579,25 @@ func _log_batch_cycle_summary(
 	atk_cfg_snap: Variant,
 	def_cfg_snap: Variant,
 	scenario_key_snap: String,
-	start_strikes: int
+	start_strikes: int,
+	cycle_contacts: int = 0
 ) -> void:
 	var strikes_this_cycle: int = _strike_count - start_strikes
-	var contacts_this_cycle: int = 0 # batch mode doesn't track per-cycle contact delta separately
+	var contacts_this_cycle: int = cycle_contacts
 	var atk_c = _get_entity_access().manager_get_combatant(manager, attacker_id) if manager != null else {}
 	var def_c = _get_entity_access().manager_get_combatant(manager, defender_id) if manager != null else {}
+	var atk_node = _get_entity_access().node_variant(atk_c) if not atk_c.is_empty() else null
+	var def_node = _get_entity_access().node_variant(def_c) if not def_c.is_empty() else null
+	if atk_node != null and is_instance_valid(atk_node):
+		atk_node.ensure_consciousness_current()
+	if def_node != null and is_instance_valid(def_node):
+		def_node.ensure_consciousness_current()
+	var atk_vitals: String = ""
+	var def_vitals: String = ""
+	if atk_node != null and is_instance_valid(atk_node):
+		atk_vitals = "%s %s" % [atk_cfg_snap.display_name, _Formatter.format_vitals_suffix(atk_node)]
+	if def_node != null and is_instance_valid(def_node):
+		def_vitals = "%s %s" % [def_cfg_snap.display_name, _Formatter.format_vitals_suffix(def_node)]
 	var winner_side: String = _resolve_tuning_matchup_winner(atk_c, def_c)
 	var winner_name: String = "draw"
 	var batch_atk_wins: int = 0
@@ -1433,7 +1641,9 @@ func _log_batch_cycle_summary(
 		aggregate_line,
 		scenario_key_snap,
 		atk_cfg_snap,
-		def_cfg_snap
+		def_cfg_snap,
+		atk_vitals,
+		def_vitals
 	)
 	_log_line(summary, "#88ccff")
 	_cycle_attacker_dmg_dealt = 0.0
@@ -2066,6 +2276,10 @@ func _run_batch(
 	var b_atk_dmg: float = 0.0
 	var b_def_dmg: float = 0.0
 
+	# Reset per-batch counters so avg_strikes reflects only this batch's cycles.
+	_cycle_total_strikes = 0
+	_cycle_count = 0
+
 	if csv_enabled:
 		_batch_csv_lines.append(_Formatter.csv_header())
 
@@ -2123,12 +2337,16 @@ func _run_batch(
 		var cycle_atk_dmg: float = _cycle_attacker_dmg_dealt
 		var cycle_def_dmg: float = _cycle_defender_dmg_dealt
 		var cycle_outcomes: Dictionary = _cycle_outcome_counts.duplicate()
+		var cycle_contacts: int = 0
+		for outcome_key in cycle_outcomes:
+			if outcome_key in ["hit", "glancing", "negligible"]:
+				cycle_contacts += int(cycle_outcomes[outcome_key])
 		b_atk_dmg += cycle_atk_dmg
 		b_def_dmg += cycle_def_dmg
 		b_total_cycles += 1
 
 		var cycle_end_cause: String = _last_end_cause if not _last_end_cause.is_empty() else "end"
-		_log_batch_cycle_summary(cycle + 1, num_cycles, cycle_atk_cfg, cycle_def_cfg, scenario_key, start_strikes)
+		_log_batch_cycle_summary(cycle + 1, num_cycles, cycle_atk_cfg, cycle_def_cfg, scenario_key, start_strikes, cycle_contacts)
 
 		if is_instance_valid(result_label):
 			var w_name: String = cycle_atk_cfg.display_name if cycle_winner == "attacker" else (cycle_def_cfg.display_name if cycle_winner == "defender" else "draw")
@@ -2145,7 +2363,7 @@ func _run_batch(
 					parts.append("%s:%d" % [key, cycle_outcomes[key]])
 				fight_line += " | " + " ".join(parts)
 			_batch_lines.append(fight_line)
-			result_label.append_text(fight_line + "\n")
+			result_label.append_text(_bbcode_escape(fight_line) + "\n")
 			_batch_scroll_to_bottom()
 
 		cycle += 1
@@ -2181,7 +2399,10 @@ func _run_batch(
 	_batch_lines.append(summary)
 
 	if is_instance_valid(result_label):
-		result_label.text = "\n".join(_batch_lines)
+		var escaped_lines := PackedStringArray()
+		for bl in _batch_lines:
+			escaped_lines.append(_bbcode_escape(bl))
+		result_label.text = "\n".join(escaped_lines)
 		_batch_scroll_to_bottom()
 	if is_instance_valid(status_label):
 		status_label.text = "Done -- %d cycles" % b_total_cycles

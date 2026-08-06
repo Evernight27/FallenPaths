@@ -250,7 +250,7 @@ static func _weapon_definitions_build() -> Dictionary:
             "head_diameter": 2.5,
             "edge_width": 0.0,
             "blade_cut_ratio": 0.9,
-            "stab_cut_ratio": 0.85,
+            "stab_cut_ratio": 0.2,
             "melee_range": 0.8,
             "parts":
             [
@@ -308,7 +308,7 @@ static func _weapon_definitions_build() -> Dictionary:
             "head_diameter": 3.5,
             "edge_width": 0.0,
             "blade_cut_ratio": 0.85,
-            "stab_cut_ratio": 0.35,
+            "stab_cut_ratio": 0.55,
             "melee_range": 2.5,
             "depth_melee_eligible": true,
             "parts":
@@ -365,12 +365,13 @@ static func _archetype_definitions_build() -> Dictionary:
     return {
         ARCHETYPE_STAB:
         {
-            "velocity_factor": 1.0,
+            "velocity_factor": 1.08,
             "velocity_intensity_curve": 0.95,
             "cut_ratio": -1.0,  # use weapon stab_cut_ratio (falls back to blade_cut_ratio)
             "recovery_multiplier": 1.0,
             "windup_multiplier": 1.0,
-            "kinematic_delivery": KINEMATIC_DELIVERY_THRUST
+            "kinematic_delivery": KINEMATIC_DELIVERY_THRUST,
+            "strike_energy_mult": 1.25
         },
         ARCHETYPE_SLASH:
         {
@@ -411,8 +412,8 @@ static func _archetype_definitions_build() -> Dictionary:
         ARCHETYPE_HEAVY_BLUNT:
         {
             "velocity_factor": 1.0,
-            "velocity_intensity_curve": 1.12,
-            "cut_ratio": 0.05,
+            "velocity_intensity_curve": 0.95,
+            "cut_ratio": -1.0,  # blunt weapons route via get_damage_type -> MIN_CUT_RATIO floor (0.02), not 5%
             "recovery_multiplier": 1.15,
             "windup_multiplier": 1.1,
             "kinematic_delivery": KINEMATIC_DELIVERY_SWING

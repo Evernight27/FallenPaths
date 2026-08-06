@@ -425,6 +425,31 @@ static func get_dodge_chance(combatant: Dictionary) -> float:
 	return _get_combat_state().get_dodge_chance(combatant)
 
 
+## Parry capacity modifier: pain in arms + concussion balance impairment + limb crippling.
+static func get_parry_capacity_modifier(combatant: Dictionary) -> float:
+	return _get_combat_state().get_parry_capacity_modifier(combatant)
+
+
+## Dodge speed modifier: leg pain + concussion balance impairment.
+static func get_dodge_speed_modifier(combatant: Dictionary) -> float:
+	return _get_combat_state().get_dodge_speed_modifier(combatant)
+
+
+## Cumulative pain degradation across all body parts (0-1, higher = more degraded).
+static func get_cumulative_pain_degradation(combatant: Dictionary) -> float:
+	return _get_combat_state().get_cumulative_pain_degradation(combatant)
+
+
+## Limb crippling modifier for a specific part (1.0 = functional, <1.0 = impaired).
+static func get_limb_crippling_modifier(combatant: Dictionary, limb_part: String) -> float:
+	return _get_combat_state().get_limb_crippling_modifier(combatant, limb_part)
+
+
+## Cumulative penalty from all damaged limbs (0-1).
+static func get_cumulative_limb_penalty(combatant: Dictionary) -> float:
+	return _get_combat_state().get_cumulative_limb_penalty(combatant)
+
+
 static func get_blood_volume_from_node(node: Node) -> float:
 	return _get_combat_state().get_blood_volume_from_node(node)
 

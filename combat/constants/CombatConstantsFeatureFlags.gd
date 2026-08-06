@@ -32,8 +32,10 @@ const SURROUND_ARC_OVERLAP_TOLERANCE_DEG := 6.0
 const SURROUND_ARC_BLOCKED_THREAT_WEIGHT_MULT := 0.35
 const FEATURE_AMBIENT_PAIN_SHOCK := true
 const FEATURE_ARMOR_BURDEN := true
-const FORMATION_ARMOR_MASS_REF_KG := 28.0
-const FORMATION_ARMOR_MAX_SLOW_MULT := 1.35
+## IV-7: equipped armor mass. Full plate harness is 18-25 kg (Met Museum); 22 kg is representative average.
+const FORMATION_ARMOR_MASS_REF_KG := 22.0
+## Armor slows cooldown/readiness; 45% max penalty reflects historical reality of armored combat being exhausting work.
+const FORMATION_ARMOR_MAX_SLOW_MULT := 1.45
 const ARMOR_BURDEN_ACTION_READY_MAX_MULT := 1.28
 const ARMOR_BURDEN_PASSIVE_READINESS_FLOOR := 0.78
 const FEATURE_INITIATIVE_ORDER := true

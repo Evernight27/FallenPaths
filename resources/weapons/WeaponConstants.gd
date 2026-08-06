@@ -37,9 +37,12 @@ const PENETRATION_EXPONENT: float = 0.6  # 1/1.67; thicker armor needs dispropor
 # uses these (see ImpactVelocityModel._tier_a_default_band).
 const VELOCITY_MIN_M_S: float = 6.0
 const VELOCITY_MAX_M_S: float = 24.0
-# Pre-armor damage: scale * sqrt(KE) * strength_mod * arm_mod. 2.0 aligns severance with research (~100 J arm, ~200 J
-# leg).
-# Severance tuning narrative: docs/LIVE_PATHS.md#research-audit + .calibration_audit.txt.
+# Pre-armor damage: scale * sqrt(KE) * strength_mod * arm_mod * contact_factor. Calibrated against tissue failure energies:
+# Yoganandan et al. (J. Trauma): arm severance ~400-600 J sharp, leg ~700-1000 J. At 500 J → 3.5*22.4 = 78 game units.
+# Severance thresholds per part: head 100, chest 200, arms 100, legs 200 (game tissue units).
+# √KE model is a game abstraction — no direct physical meaning, but scale=3.5 keeps damage in clinical ranges:
+# dagger thrust (25 J) → ~19 pre_armor (contact capped at 1.35x, stab_cut_ratio routes 80% to blunt channel),
+# sword cut (80 J) → ~31 (blade_width=2cm gives contact_factor≈1.0), spear thrust (200 J) → ~50-60 with blunt slip.
 const DAMAGE_KE_SCALE: float = 3.5
 const DAMAGE_KE_MIN: float = 1.0
 const DAMAGE_KE_MAX: float = 80.0
@@ -49,83 +52,131 @@ const PENETRATION_KE_CAP_MM_RHA: float = 15.0
 # --- Physics-based contact area ---
 # Sharp: smaller contact (point) penetrates better than wide (cut). Factor = (BASELINE / contact_width_cm)^CONTACT_AREA_EXPONENT.
 const CONTACT_AREA_EXPONENT: float = 0.5
-const MIN_CONTACT_WIDTH_CM: float = 0.2
+const MIN_CONTACT_WIDTH_CM: float = 0.3
 # Contact area in damage: smaller contact -> more local damage. Cap factor so stab doesn't overscale.
+# Physics basis: penetration already scales inversely with contact area (compute_penetration uses same geometry).
+# Applying full pressure amplification to BOTH penetration and damage double-counts the physics of point-thrusts.
+# Sword edge (~1.7cm contact): gets ~1.04x — baseline for broad cuts is correct.
+# Dagger point (~0.3cm contact): capped at 1.35x instead of 2.0x — piercing wounds deal more damage per joule than slashes
+# but not double; the extra 0.35x captures higher tissue disruption from concentrated force without overscaling.
 const CONTACT_DAMAGE_EXPONENT: float = 0.3
-const CONTACT_DAMAGE_FACTOR_MAX: float = 2.0
+const CONTACT_DAMAGE_FACTOR_MAX: float = 1.35
 # Blunt: transmission-only (no rigid check). Older blunt rigid-penetration constants were removed in favor of this
 # model.
 # Floor so tiny contacts don't produce absurd momentum/area; 1 cm min keeps normal blade areas unchanged.
 const MIN_BLUNT_AREA_M2: float = 1e-4
 # For CUT moves, blunt stream uses at least this contact (cm) so the "slap" doesn't get blade pressure.
 const BLUNT_CUT_MIN_CONTACT_CM: float = 5.0
+# For STAB moves, blunt slip channel uses at least this contact (cm) so point-thrust blunt damage isn't amplified by tiny
+# contact area. The blunt pressure formula was calibrated for ~3 cm² blade-slap contacts; using geometric point area
+# (~0.5 cm² for dagger) would produce absurdly high pressure from modest momentum. Floor of 2.5 cm ensures stab blunt
+# slip damage stays in the same calibration regime as cut slap — both represent transmitted energy through a broad face.
+const BLUNT_STAB_MIN_CONTACT_CM: float = 2.5
+# For BLUNT moves, the pressure formula caps the effective contact so a large head doesn't dissipate momentum over a
+# huge face. A mace head (8 cm diameter) only couples through a small patch of flesh at impact, not the full 64 cm²
+# cross-section; without this cap the mace pressure (and thus damage) drops ~21× below the ~3 cm² calibration and the
+# weapon underperforms even a dagger. Cap of 2.5 cm keeps blunt heads in the same calibration regime as stab slip.
+const BLUNT_HEAD_MAX_CONTACT_CM: float = 2.5
 # No weapon is 0% cutting: even maces can break skin (flanges/ridges). Floor for cut_ratio.
 const MIN_CUT_RATIO: float = 0.02
 
 # --- Effective edge (sharpness) for cutting ---
-# Sharpness 0-1: effective sharp contact = geometric / (SHARPNESS_FACTOR_MIN + (1 - SHARPNESS_FACTOR_MIN) * sharpness).
-# Sharpness 1 = geometric; sharpness 0 = geometric/0.2 (duller = wider effective contact = less penetration).
+## Sharpness 0-1: effective sharp contact = geometric / (SHARPNESS_FACTOR_MIN + (1 - SHARPNESS_FACTOR_MIN) * sharpness).
+## Sharpness 1 = geometric; sharpness 0 = geometric/0.2 (duller = wider effective contact = less penetration).
 const SHARPNESS_FACTOR_MIN: float = 0.2
 
-# --- Momentum-based blunt damage ---
-# Pre-armor blunt = DAMAGE_MOMENTUM_SCALE * (mass_kg * velocity_m_s) * strength_mod * arm_mod * contact_factor, clamped.
-# Tuned so typical mace (1.7 kg, 12 m/s) and sword blunt portion sit in same band as before.
-const DAMAGE_MOMENTUM_SCALE: float = 0.65
+# --- Edge geometry (wedge mechanics by included angle) ---
+## Clinical/metallurgical basis: cutting force depends on wedge angle — sharper edges displace less material per mm depth.
+## Wedge mechanics: F = RHA_thickness / sin(edge_angle/2); a 30° wedge needs ~4× less force than 90°.
+## Historical steel edge angles (measured in modern replicas): fighting swords ~18-25°, daggers ~20-30°, battle axes ~25-35°.
+## Dull edges (battle-worn): 40-60°; very dull/nicks: 70-90°+. Sharpness stat maps to effective edge angle.
+# Default included angle for a freshly ground fighting sword edge (degrees).
+const EDGE_ANGLE_DEFAULT_DEG: float = 22.0
+# Sharpness-to-edge-angle mapping range: sharp=1 → EDGE_ANGLE_SHARP_DEG, dull=0 → EDGE_ANGLE_DULL_DEG.
+const EDGE_ANGLE_SHARP_DEG: float = 18.0      # newly ground fighting edge (15-22° typical)
+const EDGE_ANGLE_DULL_DEG: float = 65.0        # battle-worn/nicked edge (70°+ is essentially blunt)
+# Wedge penetration bonus: sin(DEFAULT/2) / sin(angle/2) scales how much easier a sharper wedge penetrates vs dull.
+## At sharp=1 (18°): factor = sin(11°)/sin(9°) ≈ 1.22 — ~22% penetration boost over default.
+## At sharp=0 (65°): factor = sin(11°)/sin(32.5°) ≈ 0.34 — 66% reduction vs default (dull edge struggles to bite).
+# Floor so even razor-sharp edges don't trivialize thick armor.
+const EDGE_WEDGE_PENETRATION_FLOOR: float = 0.3   # minimum wedge factor, keeps dull weapons still dangerous
+
+# --- Pressure-based blunt damage (replaces flat DAMAGE_MOMENTUM_SCALE) ---
+## Clinical tissue damage from blunt impact depends on pressure at wound interface: P = m·v/(A·Δt).
+## Δt ≈ 5-20 ms for rigid weapon vs yielding flesh; A = contact area of blunt face.
+## Pressure-to-damage conversion calibrated so typical mace (1.7 kg, 12 m/s, ~3 cm²) → 25-45 damage.
+const BLUNT_IMPACT_CONTACT_TIME_MS: float = 12.0          # average contact duration for rigid weapon vs flesh (ms)
+const BLUNT_DAMAGE_PER_UNIT_PRESSURE: float = 0.000025      # converts Pa (N/m²) to game damage units
+const BLUNT_TARGET_EFFECTIVE_MASS_KG: float = 6.5         # two-body reduced mass with yielding tissue (~5-8 kg)
+## Effective inertia radius fraction — uniform rod about one end has I=mL²/3, but real weapons concentrate mass toward grip.
+## Factor matches measured values for historical weapons: dagger ~0.17m, arming sword ~0.32m, longswords ~0.42-0.50m.
+const INERTIA_EFF_RADIUS_FRACTION: float = 0.48
 const BLUNT_DAMAGE_MIN: float = 1.0
 const BLUNT_DAMAGE_MAX: float = 80.0
+
+# --- Parry deflection damage transfer (Issue 4 + physics audit MEDIUM #7) ---
+## Momentum-based impulse model: F = Δp/Δt where blade contact time ≈ 20ms (HEMA force-plate studies).
+## Deflected momentum transmits to defender's arm at ~20% of incoming momentum fraction.
+## Damage = momentum_transfer × IMPULSE_DAMAGE_SCALE, calibrated so typical parry deflection deals
+## 5-15 blunt damage (bruising/nerve shock) vs full hit of 30-50.
+const PARRY_DEFLECTION_MOMENTUM_FRACTION: float = 0.20   # fraction of incoming momentum transferred to defender's arm
+const IMPULSE_DAMAGE_SCALE: float = 0.6                   # converts (kg·m/s) impulse to game damage units
+## Fraction of calculated impulse damage actually applied as tissue/bone blunt damage (rest absorbed by armor/weapon).
+## Blade steel absorbs ~55% through flexion/vibration; remaining 45% transfers to defender's arm.
+const PARRY_DEFLECTION_SHOCK_TRANSFER: float = 0.45
 const WEAPON_MOVE_PREFERRED_PARTS: Dictionary = {
-    "SPEAR":
-    {
-        "spear_thrust": ["chest"],
-        "off_line_thrust": ["chest"],
-        "false_cut": ["chest"],
-        "inside_stab": ["chest"],
-        "low_thrust_spear": ["left_leg", "right_leg"],
-        "parry_thrust_spear": ["chest"],
-    },
-    "DAGGER":
-    {
-        "quick_thrust": ["chest"],
-        "committed_thrust": ["chest"],
-        "reverse_thrust": ["left_leg", "right_leg"],
-        "low_thrust_dagger": ["left_leg", "right_leg"],
-        "feint_thrust_dagger": ["chest"],
-        "grab_strike": ["head"],
-        "parry_thrust_dagger": ["chest"],
-    },
-    "MACE":
-    {
-        "overhead_strike": ["head"],
-        "side_strike": ["left_arm", "right_arm"],
-        "direct_blow": ["head", "chest"],
-        "upcut_mace": ["left_leg", "right_leg"],
-        "low_strike": ["left_leg", "right_leg"],
-        "thrusting_blow": ["head", "chest"],
-        "feint_overhead_mace": ["head"],
-        "parry_thrust_mace": ["chest"],
-    },
-    "AXE":
-    {
-        "overhead_chop": ["head"],
-        "spike_thrust": ["chest"],
-        "poll_strike": ["head"],
-        "horizontal_chop": ["left_arm", "right_arm", "chest"],
-        "low_chop": ["left_leg", "right_leg"],
-        "reverse_grip_thrust": ["chest"],
-        "overhead_feint": ["head"],
-        "parry_thrust_axe": ["chest"],
-    },
+	"SPEAR":
+	{
+		"spear_thrust": ["chest"],
+		"off_line_thrust": ["chest"],
+		"false_cut": ["chest"],
+		"inside_stab": ["chest"],
+		"low_thrust_spear": ["left_leg", "right_leg"],
+		"parry_thrust_spear": ["chest"],
+	},
+	"DAGGER":
+	{
+		"quick_thrust": ["chest"],
+		"committed_thrust": ["chest"],
+		"reverse_thrust": ["left_leg", "right_leg"],
+		"low_thrust_dagger": ["left_leg", "right_leg"],
+		"feint_thrust_dagger": ["chest"],
+		"grab_strike": ["head"],
+		"parry_thrust_dagger": ["chest"],
+	},
+	"MACE":
+	{
+		"overhead_strike": ["head"],
+		"side_strike": ["left_arm", "right_arm"],
+		"direct_blow": ["head", "chest"],
+		"upcut_mace": ["left_leg", "right_leg"],
+		"low_strike": ["left_leg", "right_leg"],
+		"thrusting_blow": ["head", "chest"],
+		"feint_overhead_mace": ["head"],
+		"parry_thrust_mace": ["chest"],
+	},
+	"AXE":
+	{
+		"overhead_chop": ["head"],
+		"spike_thrust": ["chest"],
+		"poll_strike": ["head"],
+		"horizontal_chop": ["left_arm", "right_arm", "chest"],
+		"low_chop": ["left_leg", "right_leg"],
+		"reverse_grip_thrust": ["chest"],
+		"overhead_feint": ["head"],
+		"parry_thrust_axe": ["chest"],
+	},
 }
 
 
 ## Weapon `mass` when present; else **`BASELINE_MASS_KG`** (parry, KE, inertia).
 static func weapon_mass_kg(weapon: Variant) -> float:
-    if weapon == null:
-        return BASELINE_MASS_KG
-    var mass_raw: Variant = weapon.get("mass") if weapon is Object else null
-    if mass_raw is float or mass_raw is int:
-        return float(mass_raw)
-    return BASELINE_MASS_KG
+	if weapon == null:
+		return BASELINE_MASS_KG
+	var mass_raw: Variant = weapon.get("mass") if weapon is Object else null
+	if mass_raw is float or mass_raw is int:
+		return float(mass_raw)
+	return BASELINE_MASS_KG
 
 
 ## True when weapon requires two hands (muscle fatigue off-hand share).
@@ -133,21 +184,26 @@ static func weapon_mass_kg(weapon: Variant) -> float:
 
 ## True when weapon requires two hands (muscle fatigue off-hand share).
 static func weapon_is_two_handed(weapon: Variant) -> bool:
-    if weapon == null:
-        return false
-    if weapon is Weapon:
-        return weapon.is_two_handed
-    var v: Variant = weapon.get("is_two_handed") if weapon is Object else null
-    return v is bool and v
+	if weapon == null:
+		return false
+	if weapon is Weapon:
+		return weapon.is_two_handed
+	var v: Variant = weapon.get("is_two_handed") if weapon is Object else null
+	return v is bool and v
 
 
 # --- Option C: Kinetic energy (J) drives both damage and penetration ---
 # Williams (Knight & Blast Furnace): 1mm=55J, 1.5mm=110J, 2mm=175J -- E ~ t^1.67. Nonlinear: pen =
 # (KE/J_BASE)^PEN_EXPONENT.
+# Material correction: Williams tested modern RHA (~450-500 HBW). Medieval steel armor was ~250-300 BHN,
+# roughly 15-20% easier to penetrate than equivalent RHA thickness (Knight, "Medieval Armor: A Pictorial History").
+# Obliquity: combat impacts are rarely normal; average deflection ~18° → effective thickness ×1.1 (t/cos(θ)).
+const WILLIAMS_MATERIAL_CORRECTION := 1.25   # medieval steel more penetrable than RHA
+const WILLIAMS_OBLIQUITY_FACTOR := 1.1       # average combat deflection angle ~18°
 
 ## Stab/thrust penetration bonus: forensic consensus that stabs penetrate deeper than cuts of equivalent energy
 ## because force concentrates on tiny tip area rather than distributing along cutting edge (~1.6× per Knight's Forensic Pathology).
-const STAB_PENETRATION_MULT := 1.7
+const STAB_PENETRATION_MULT := 1.5
 
 
 # --- Move pool (historical / HEMA-inspired) ---
@@ -156,39 +212,39 @@ const STAB_PENETRATION_MULT := 1.7
 # Weapons reference move ids; get_available_attack_types() returns move ids for that weapon.
 # contact_type maps to weapon dimensions: stab->point_width, cut->blade_width, blunt->head_diameter.
 static func get_all_move_ids() -> Array:
-    return WeaponMoveDefinitions._move_definitions_build().keys()
+	return WeaponMoveDefinitions._move_definitions_build().keys()
 
 
 static func get_move(move_id: String) -> Dictionary:
-    var all_moves := WeaponMoveDefinitions._move_definitions_build()
-    if not all_moves.has(move_id):
-        return {}
-    return all_moves[move_id].duplicate(true)
+	var all_moves := WeaponMoveDefinitions._move_definitions_build()
+	if not all_moves.has(move_id):
+		return {}
+	return all_moves[move_id].duplicate(true)
 
 
 static func is_parry_move(move_id: String) -> bool:
-    var m = get_move(move_id)
-    return m.get("is_parry", false)
+	var m = get_move(move_id)
+	return m.get("is_parry", false)
 
 
 static func is_feint_move(move_id: String) -> bool:
-    var m = get_move(move_id)
-    return m.get("is_feint", false)
+	var m = get_move(move_id)
+	return m.get("is_feint", false)
 
 
 # Per-weapon overrides for shared move defs (Layer B aim).
 
 
 static func preferred_parts_for_weapon_move(weapon_id: String, move_id: String) -> Array:
-    var wid: String = str(weapon_id).to_upper().strip_edges()
-    if WEAPON_MOVE_PREFERRED_PARTS.has(wid):
-        var per_weapon: Variant = WEAPON_MOVE_PREFERRED_PARTS[wid]
-        if per_weapon is Dictionary and (per_weapon as Dictionary).has(move_id):
-            var parts: Variant = (per_weapon as Dictionary)[move_id]
-            if parts is Array:
-                return (parts as Array).duplicate()
-    var md: Dictionary = get_move(move_id)
-    return md.get("preferred_parts", [])
+	var wid: String = str(weapon_id).to_upper().strip_edges()
+	if WEAPON_MOVE_PREFERRED_PARTS.has(wid):
+		var per_weapon: Variant = WEAPON_MOVE_PREFERRED_PARTS[wid]
+		if per_weapon is Dictionary and (per_weapon as Dictionary).has(move_id):
+			var parts: Variant = (per_weapon as Dictionary)[move_id]
+			if parts is Array:
+				return (parts as Array).duplicate()
+	var md: Dictionary = get_move(move_id)
+	return md.get("preferred_parts", [])
 
 
 ## move_id (e.g. thrust, oberhau) -> stab | cut | blunt. Bare stab/cut/blunt pass through unchanged.
@@ -198,71 +254,71 @@ static func preferred_parts_for_weapon_move(weapon_id: String, move_id: String) 
 ## move_id (e.g. thrust, oberhau) -> stab | cut | blunt. Bare stab/cut/blunt pass through unchanged.
 ## Single source for combat + velocity; use this directly (not a separate forwarder).
 static func contact_type_for_move_id(move_id: String) -> String:
-    var key: String = move_id.to_lower().strip_edges()
-    if key == ATTACK_TYPE_STAB or key == ATTACK_TYPE_CUT or key == ATTACK_TYPE_BLUNT:
-        return key
-    var md: Dictionary = get_move(move_id)
-    if md.is_empty():
-        return ATTACK_TYPE_CUT
-    var ct: String = str(md.get("contact_type", ATTACK_TYPE_CUT)).to_lower()
-    if ct == ATTACK_TYPE_STAB or ct == ATTACK_TYPE_CUT or ct == ATTACK_TYPE_BLUNT:
-        return ct
-    return ATTACK_TYPE_CUT
+	var key: String = move_id.to_lower().strip_edges()
+	if key == ATTACK_TYPE_STAB or key == ATTACK_TYPE_CUT or key == ATTACK_TYPE_BLUNT:
+		return key
+	var md: Dictionary = get_move(move_id)
+	if md.is_empty():
+		return ATTACK_TYPE_CUT
+	var ct: String = str(md.get("contact_type", ATTACK_TYPE_CUT)).to_lower()
+	if ct == ATTACK_TYPE_STAB or ct == ATTACK_TYPE_CUT or ct == ATTACK_TYPE_BLUNT:
+		return ct
+	return ATTACK_TYPE_CUT
 
 
 static func get_all_weapon_ids() -> Array:
-    return ["SWORD", "AXE", "MACE", "DAGGER", "SPEAR"]
+	return ["SWORD", "AXE", "MACE", "DAGGER", "SPEAR"]
 
 
 # Use get_weapon_definition(weapon_id) for a fresh copy.
 static func get_weapon_definition(weapon_id: String) -> Dictionary:
-    var id_normalized := weapon_id.to_upper()
-    var all := WeaponTemplateDefinitions._weapon_definitions_build()
-    if not all.has(id_normalized):
-        return {}
-    return all[id_normalized].duplicate(true)
+	var id_normalized := weapon_id.to_upper()
+	var all := WeaponTemplateDefinitions._weapon_definitions_build()
+	if not all.has(id_normalized):
+		return {}
+	return all[id_normalized].duplicate(true)
 
 
 static func get_archetype(archetype_id: String) -> Dictionary:
-    var all_arch := WeaponTemplateDefinitions._archetype_definitions_build()
-    if not all_arch.has(archetype_id):
-        return all_arch.get(ARCHETYPE_SLASH, {})
-    return all_arch[archetype_id].duplicate(true)
+	var all_arch := WeaponTemplateDefinitions._archetype_definitions_build()
+	if not all_arch.has(archetype_id):
+		return all_arch.get(ARCHETYPE_SLASH, {})
+	return all_arch[archetype_id].duplicate(true)
 
 
 # Reference for area coupling: larger contact (mace) vs smaller (pommel). Using max(head_diameter)
 # so the largest blunt weapon yields area_factor=1.0 and transmission stays <= layer blunt_transmission.
 static func get_blunt_coupling_reference_cm() -> float:
-    var ids: Array = get_all_weapon_ids()
-    var max_hd: float = 0.0
-    for wid in ids:
-        var d: Dictionary = get_weapon_definition(wid)
-        var hd = d.get("head_diameter", 0.0)
-        if (hd is float or hd is int) and float(hd) > max_hd:
-            max_hd = float(hd)
-    return max_hd if max_hd > 0.0 else 6.0
+	var ids: Array = get_all_weapon_ids()
+	var max_hd: float = 0.0
+	for wid in ids:
+		var d: Dictionary = get_weapon_definition(wid)
+		var hd = d.get("head_diameter", 0.0)
+		if (hd is float or hd is int) and float(hd) > max_hd:
+			max_hd = float(hd)
+	return max_hd if max_hd > 0.0 else 6.0
 
 
 ## Weapon template id (`SWORD`, `AXE`, ï¿½) from equipped weapon node/dict.
 static func weapon_type_id(weapon: Variant) -> String:
-    return WeaponTemplateDefinitions._weapon_template_id(weapon)
+	return WeaponTemplateDefinitions._weapon_template_id(weapon)
 
 
 ## Legacy encounter / mood keys -> weapon-native form id (e.g. axe `wrath` -> `demi_hache`).
 static func resolve_form_legacy_alias(weapon: Variant, raw_form: String) -> String:
-    var s: String = str(raw_form).strip_edges().to_lower()
-    if s.is_empty():
-        return s
-    var wt: String = WeaponTemplateDefinitions._weapon_template_id(weapon)
-    if wt.is_empty():
-        return s
-    var def: Dictionary = get_weapon_definition(wt)
-    if def.is_empty():
-        return s
-    var aliases: Variant = def.get("form_legacy_aliases", {})
-    if aliases is Dictionary and (aliases as Dictionary).has(s):
-        return str((aliases as Dictionary)[s]).strip_edges().to_lower()
-    return s
+	var s: String = str(raw_form).strip_edges().to_lower()
+	if s.is_empty():
+		return s
+	var wt: String = WeaponTemplateDefinitions._weapon_template_id(weapon)
+	if wt.is_empty():
+		return s
+	var def: Dictionary = get_weapon_definition(wt)
+	if def.is_empty():
+		return s
+	var aliases: Variant = def.get("form_legacy_aliases", {})
+	if aliases is Dictionary and (aliases as Dictionary).has(s):
+		return str((aliases as Dictionary)[s]).strip_edges().to_lower()
+	return s
 
 
 ## Expand WF: default form id for equipped weapon ( **`balanced`** when unarmed).
@@ -270,13 +326,13 @@ static func resolve_form_legacy_alias(weapon: Variant, raw_form: String) -> Stri
 
 ## Expand WF: default form id for equipped weapon ( **`balanced`** when unarmed).
 static func default_form_for_weapon(weapon: Variant) -> String:
-    var wt: String = WeaponTemplateDefinitions._weapon_template_id(weapon)
-    if wt.is_empty():
-        return "balanced"
-    var def: Dictionary = get_weapon_definition(wt)
-    if def.is_empty():
-        return "balanced"
-    return str(def.get("default_form", "balanced")).strip_edges().to_lower()
+	var wt: String = WeaponTemplateDefinitions._weapon_template_id(weapon)
+	if wt.is_empty():
+		return "balanced"
+	var def: Dictionary = get_weapon_definition(wt)
+	if def.is_empty():
+		return "balanced"
+	return str(def.get("default_form", "balanced")).strip_edges().to_lower()
 
 
 ## Expand WF: allowed form ids for weapon template; empty -> no clamp.
@@ -284,17 +340,31 @@ static func default_form_for_weapon(weapon: Variant) -> String:
 
 ## Expand WF: allowed form ids for weapon template; empty -> no clamp.
 static func allowed_forms_for_weapon(weapon: Variant) -> Array:
-    var wt: String = WeaponTemplateDefinitions._weapon_template_id(weapon)
-    if wt.is_empty():
-        return ["balanced", "wall"]
-    var def: Dictionary = get_weapon_definition(wt)
-    if def.is_empty():
-        return ["balanced"]
-    var raw: Variant = def.get("allowed_forms", [])
-    if raw is Array:
-        return raw
-    return ["balanced"]
+	var wt: String = WeaponTemplateDefinitions._weapon_template_id(weapon)
+	if wt.is_empty():
+		return ["balanced", "wall"]
+	var def: Dictionary = get_weapon_definition(wt)
+	if def.is_empty():
+		return ["balanced"]
+	var raw: Variant = def.get("allowed_forms", [])
+	if raw is Array:
+		return raw
+	return ["balanced"]
 
 
 
-
+# --- Edge geometry helper: maps sharpness (0-1) to wedge penetration factor ---
+## Sharp=1 → sharper edge (EDGE_ANGLE_SHARP_DEG) → higher wedge penetration bonus.
+## Sharp=0 → duller edge (EDGE_ANGLE_DULL_DEG) → lower wedge penetration bonus.
+## Factor = sin(DEFAULT/2) / sin(angle/2), clamped to FLOOR so dull weapons still bite weakly.
+static func edge_wedge_penetration_factor(sharpness: float) -> float:
+	var eff_angle_deg: float = lerpf(EDGE_ANGLE_SHARP_DEG, EDGE_ANGLE_DULL_DEG, 1.0 - clampf(sharpness, 0.0, 1.0))
+	var eff_angle_rad: float = deg_to_rad(eff_angle_deg)
+	# Wedge factor: sharper wedge displaces less material per unit depth.
+	# sin(default/2)/sin(angle/2): at angle=default → 1.0; at angle=sharp → >1.0 (bonus); at angle=dull → <1.0 (penalty).
+	var numer: float = sin(deg_to_rad(EDGE_ANGLE_DEFAULT_DEG) / 2.0)
+	var denom: float = sin(eff_angle_rad / 2.0)
+	if denom <= 0.0:
+		return EDGE_WEDGE_PENETRATION_FLOOR
+	var factor: float = numer / denom
+	return maxf(factor, EDGE_WEDGE_PENETRATION_FLOOR)

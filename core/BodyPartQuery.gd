@@ -77,6 +77,18 @@ const _PART_OPERABILITY_CHANNEL_WEIGHTS: Dictionary = {
     "bone": 0.20,
 }
 
+## Minimum operability threshold for a part to be considered functional (raised from 0.10 to 0.15 then 0.20).
+## At 0.20: bone alone contributes 20% (if intact) but requires some tissue to drop below threshold.
+const PART_OPERABILITY_THRESHOLD: float = 0.20
+
+## Minimum tissue factor for an arm to retain grip strength and wield a weapon.
+## Clinical basis: <15% remaining tissue means insufficient muscle/tendon integrity for grip.
+## An arm at this level may still be targeted but cannot functionally attack.
+const ARM_GRIP_TISSUE_THRESHOLD: float = 0.15
+
+## Minimum bone health ratio for any limb to remain functional (below this, structural integrity fails).
+const LIMB_BONE_FUNCTIONAL_RATIO: float = 0.15
+
 
 static func get_part_operability(entity: Node, part: String) -> float:
     if not part in entity.body_cutting or not part in entity.body_blunt:
@@ -99,7 +111,7 @@ static func get_part_operability(entity: Node, part: String) -> float:
 
 static func is_part_physically_operable(entity: Node, part: String) -> bool:
     var operability: float = get_part_operability(entity, part)
-    return operability >= 0.15
+    return operability >= PART_OPERABILITY_THRESHOLD
 
 
 static func get_targetable_parts(entity: Node) -> Array:
@@ -149,6 +161,11 @@ static func get_arm_tissue_factor(entity: Node, part: String) -> float:
 static func is_arm_destroyed(entity: Node, part: String) -> bool:
     if not is_arm(part):
         return true
+    # Arm must have meaningful tissue left to grip/hold weapon — even with intact bone, a flayed/severed arm
+    # cannot wield a weapon. Tissue factor < ARM_GRIP_TISSUE_THRESHOLD means insufficient muscle/tendon for grip.
+    var tissue_factor: float = get_arm_tissue_factor(entity, part)
+    if tissue_factor < ARM_GRIP_TISSUE_THRESHOLD:
+        return true
     return not is_part_physically_operable(entity, part)
 
 
@@ -156,12 +173,16 @@ static func get_arm_functionality(entity: Node, part: String) -> float:
     if not is_arm(part):
         return 0.0
     var operability: float = get_part_operability(entity, part)
-    if operability < 0.15:
+    if operability < PART_OPERABILITY_THRESHOLD:
         return 0.0
     var tissue: float = get_arm_tissue_factor(entity, part)
     var bone_factor: float = get_bone_functionality_factor(entity, part)
+    # Below grip threshold, functionality drops sharply — can't effectively wield weapon even if technically operable.
+    var grip_penalty: float = 1.0
+    if tissue < ARM_GRIP_TISSUE_THRESHOLD:
+        grip_penalty = tissue / maxf(ARM_GRIP_TISSUE_THRESHOLD, 0.001)
     var combined: float = clampf(tissue * bone_factor, 0.0, 1.0)
-    return clampf(combined * operability / maxf(operability, 0.15), 0.0, 1.0)
+    return clampf(combined * operability / maxf(operability, PART_OPERABILITY_THRESHOLD) * grip_penalty, 0.0, 1.0)
 
 
 # --- Part-specific dodge modifier: attacked part's ability to get out of the way ---

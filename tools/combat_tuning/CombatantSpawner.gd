@@ -121,6 +121,12 @@ static func _heal_entity(e: Node) -> void:
 	e.effective_consciousness = 100.0
 	# Clear wounds
 	e.wounds = {}
+	# Reset tissue energy pools to match restored display values (prevents J/display mismatch after healing).
+	if "tissue_energy_remaining_j" in e and "tissue_energy_capacity_j" in e:
+		for part in _ConfigData.BODY_PARTS:
+			if part in e.tissue_energy_capacity_j:
+				var cap: float = e.tissue_energy_capacity_j[part]
+				e.tissue_energy_remaining_j[part] = cap
 	# Reset pain/shock
 	e._pain_shock_until_time = -1.0
 	e._last_hit_impact = 0.0

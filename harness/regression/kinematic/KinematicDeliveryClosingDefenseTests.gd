@@ -751,15 +751,15 @@ static func _run_kinematic_delivery_striker_stamina_strike_ke_matches_sqrt_stami
     var ke_low: float = KinematicDeliveryGuardMatrixTests._kin_striker_stamina_strike_ke_sample(st_ratio_low)
     if ke_full <= 0.5:
         CombatRegressionHarness._fail(failures, "kin_stam_ke: full ke too small %.4f" % ke_full)
-    var st_vel: float = sqrt(
-        lerpf(CombatConstants.STAMINA_AT_ZERO_DAMAGE_MULT, 1.0, CombatConstants.stamina_factor(st_ratio_low))
-    )
-    var want_ratio: float = st_vel * st_vel
+    # Fatigue velocity model: lerpf(FLOOR,1,pow(ratio,EXPONENT))^2 ratio.
+    var st_factor_low: float = pow(st_ratio_low, CombatConstantsStamina.FATIGUE_VELOCITY_POWER_EXPONENT)
+    var vel_low: float = lerpf(CombatConstantsStamina.FATIGUE_VELOCITY_FLOOR_AT_ZERO_STAMINA, 1.0, st_factor_low)
+    var want_ratio: float = vel_low * vel_low
     if absf(ke_low / ke_full - want_ratio) > 0.06:
         CombatRegressionHarness._fail(
             failures,
             (
-                "kin_stam_ke: ke ratio %.4f want stamina_vel2 %.4f (full=%.4f low=%.4f)"
+                "kin_stam_ke: ke ratio %.4f want fatigue_vel2 %.4f (full=%.4f low=%.4f)"
                 % [ke_low / ke_full, want_ratio, ke_full, ke_low]
             )
         )

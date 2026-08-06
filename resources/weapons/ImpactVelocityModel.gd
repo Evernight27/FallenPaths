@@ -21,15 +21,17 @@ const _REFERENCE_STRIKE_RADIUS_M := 0.52
 ## No geometry multiplier is applied — the rotational KE path converts v -> omega via actual lever arm.
 ## SWORD: I≈0.42, r=0.75, cut_band_max=19.4 → KE≈137J at committed
 ## AXE:   I≈1.07, r=1.11, band_max=20.0 → KE≈133J at committed
-## MACE:  I≈0.50, r=0.63, band_max=18.0 → KE≈135J at committed (raised to maintain blunt trauma dominance)
+## MACE:  I≈0.50, r=0.63, band_max=16.0 → KE≈230J at committed (reduced: heavy weapon swings slower; research says 8-14 m/s peak)
 ## DAGGER: I≈0.008, r=0.29, band_max=20.0 → KE≈16J at committed (hand-speed limited)
-## SPEAR: I≈2.75, r=2.13, thrust_band_max=18.0 → KE≈96J at committed (within 25-90J realism band for thrusts)
+## SPEAR: shaft mass dominates — both thrust and swing tip speeds capped at 14-16 m/s by physics.
+## Energy difference comes from delivery mode: thrust uses point-mass effective mass (~2 kg with body transfer),
+## swing uses full rotational inertia (~2.75 kg·m²). Same velocity band, different KE computation path.
 static var _default_bands: Dictionary = {
     "SWORD": {"stab": Vector2(5.5, 19.0), "cut": Vector2(7.5, 19.4), "blunt": Vector2(6.0, 20.0)},
-    "AXE": {"stab": Vector2(4.0, 15.0), "cut": Vector2(5.5, 20.0), "blunt": Vector2(5.5, 19.0)},
-    "MACE": {"stab": Vector2(6.0, 18.0), "cut": Vector2(7.0, 18.0), "blunt": Vector2(7.0, 18.0)},
+    "AXE": {"stab": Vector2(3.5, 14.0), "cut": Vector2(5.0, 18.5), "blunt": Vector2(5.0, 17.5)},
+    "MACE": {"stab": Vector2(5.5, 16.0), "cut": Vector2(6.5, 16.0), "blunt": Vector2(6.5, 16.0)},
     "DAGGER": {"stab": Vector2(4.0, 18.0), "cut": Vector2(5.5, 20.0), "blunt": Vector2(4.0, 14.0)},
-    "SPEAR": {"stab": Vector2(5.0, 18.0), "cut": Vector2(5.5, 22.0), "blunt": Vector2(5.5, 16.0)}
+    "SPEAR": {"stab": Vector2(5.0, 16.0), "cut": Vector2(5.0, 16.0), "blunt": Vector2(4.7, 16.0)}
 }
 
 

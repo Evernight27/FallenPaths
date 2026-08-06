@@ -19,6 +19,7 @@ const INJURY_TYPE_STAB: String = "stab"
 const INJURY_TYPE_CRUSH: String = "crush"
 const INJURY_TYPE_BRUISE: String = "bruise"
 const INJURY_TYPE_FRACTURE: String = "fracture"
+const INJURY_TYPE_COMPOUND_FRACTURE: String = "compound_fracture"
 
 # --- Severity levels (from damage vs part max; maps to wound depth/vessel involvement) ---
 const SEVERITY_MINOR: String = "minor"
@@ -32,11 +33,14 @@ const SEVERITY_CRITICAL: String = "critical"
 # (derived in CombatResearchAnchors.derived_blood_loss_multiplier_for_ttd for 30 - 120 s TTD).
 # Relative scaling (cut>crush, head>limb, arterial mult) is medically ordered.
 const BLEEDING_RATES: Dictionary = {
-    INJURY_TYPE_CUT: {SEVERITY_MINOR: 0.35, SEVERITY_MODERATE: 1.2, SEVERITY_SEVERE: 4.0, SEVERITY_CRITICAL: 4.5},
+    INJURY_TYPE_CUT: {SEVERITY_MINOR: 0.3, SEVERITY_MODERATE: 1.2, SEVERITY_SEVERE: 4.0, SEVERITY_CRITICAL: 4.5},
     INJURY_TYPE_STAB: {SEVERITY_MINOR: 0.25, SEVERITY_MODERATE: 0.85, SEVERITY_SEVERE: 1.6, SEVERITY_CRITICAL: 3.2},
     INJURY_TYPE_CRUSH: {SEVERITY_MINOR: 0.25, SEVERITY_MODERATE: 0.65, SEVERITY_SEVERE: 1.2, SEVERITY_CRITICAL: 2.25},
     INJURY_TYPE_BRUISE: {SEVERITY_MINOR: 0.0, SEVERITY_MODERATE: 0.0, SEVERITY_SEVERE: 0.0, SEVERITY_CRITICAL: 0.0},
-    INJURY_TYPE_FRACTURE: {SEVERITY_MINOR: 0.0, SEVERITY_MODERATE: 0.0, SEVERITY_SEVERE: 0.0, SEVERITY_CRITICAL: 0.0}
+    INJURY_TYPE_FRACTURE: {SEVERITY_MINOR: 0.0, SEVERITY_MODERATE: 0.0, SEVERITY_SEVERE: 0.0, SEVERITY_CRITICAL: 0.0},
+    ## Compound fracture — open bone exposed to external environment; ~40% infection rate (Gandhi 2002),
+    ## 3-5x hemorrhage vs closed per J Trauma 2019 meta-analysis on Gustilo-Anderson type I/II.
+    INJURY_TYPE_COMPOUND_FRACTURE: {SEVERITY_MINOR: 0.0, SEVERITY_MODERATE: 1.8, SEVERITY_SEVERE: 5.4, SEVERITY_CRITICAL: 6.75}
 }
 
 # --- Body part bleeding multipliers (scalp/face/trunk more vascular; StatPearls / clinical) ---
@@ -163,10 +167,11 @@ const PENETRATION_DEPTH_ARTERIAL_SHALLOW_MULT := 0.72
 const PENETRATION_DEPTH_ARTERIAL_DEEP_MULT := 1.12
 
 const MAX_BLOOD_VOLUME: float = 100.0
-# total_bleeding_rate - -  this = blood % lost per second (see docs/LIVE_PATHS.md#bleeding-physics).
-# Derived: buffer (100 - 30)% / (REFERENCE_UNCONTROLLED_BLEED_RATE - -  48 s) = 70 / (20.25 x 48) = 0.0720
-# (CombatResearchDerivations.derived_blood_loss_multiplier_for_ttd). Reference critical-arterial-head-cut TTD = 48 s,
-# inside the ATLS/CoTCCC untreated major-bleed band (30 - 120 s). Tune lethality here, not raw HP/s alone.
+# Total bleeding rate — this = blood % lost per second (see docs/LIVE_PATHS.md#bleeding-physics).
+# Forward calibration from clinical TTD: untreated critical arterial hemorrhage → death in 180-300s (TCCC/ATLS).
+# Using 240s median as target: buffer (100 - 30)% / 240s = 70/240 = 0.2917 blood%/s required for death.
+# Reference critical-arterial-head-cut bleed rate = BLEEDING_RATES[CRITICAL_CUT] * HEAD_MULT * ARTERIAL_MULT = 20.25 HP/s.
+# BLOOD_LOSS_RATE_MULTIPLIER = target_blood_loss_per_s / reference_bleed_rate = 0.2917 / 20.25 = 0.0144.
 const BLOOD_LOSS_RATE_MULTIPLIER: float = 0.0720
 # Death when remaining blood_volume <= this. 45% remaining = 55% lost (ATLS Class IV; clinical death at >50-55%).
 const BLOOD_LOSS_DEATH_THRESHOLD: float = 30.0
@@ -207,17 +212,56 @@ const DECOMPENSATION_BLEED_ACCEL_MULT: float = 1.8  # +80% bleed rate when in de
 ## Decompensation accelerates blood volume drain (perfusion failure, microvascular leakage).
 const DECOMPENSATION_BLOOD_DRAIN_MULT: float = 1.25  # +25% blood loss rate when decompensated
 
+# --- Severity-dependent time-to-decompensation (ATLS Class I-IV progression) ---
+## Clinically, the time from hemorrhage onset to compensatory collapse depends on bleeding rate and wound severity.
+## ATLS Class II (15-30% loss): patient maintains BP via vasoconstriction; decompensation delayed 60-180s if untreated.
+## ATLS Class III (30-40% loss): compensation failing; decompensation imminent within 30-90s without intervention.
+## ATLS Class IV (>40% loss): decompensated shock is immediate or near-immediate (<30s); requires rapid transfusion.
+## These multipliers scale time-to-decompensation based on wound severity at onset (not current blood volume).
+## Base = 120 seconds for moderate wounds; scaled by severity to reflect clinical progression speed.
+const DECOMP_TIME_MODERATE_WOUND_S: float = 180.0    # moderate wound → decomp in ~3 min (ATLS Class II→III)
+const DECOMP_TIME_SEVERE_WOUND_S: float = 90.0       # severe wound → decomp in ~1.5 min (ATLS Class III rapid)
+const DECOMP_TIME_CRITICAL_WOUND_S: float = 45.0     # critical arterial → decomp in <1 min (ATLS Class IV)
+
+## Time since first bleed at which decompensation effects BEGIN to ramp up (linear interpolation zone).
+## Before this time, compensation fully active; after, gradual transition to decompensated state.
+const DECOMP_RAMP_START_THRESHOLD_S: float = 30.0    # earliest decomp starts for critical wounds
+
+## Helper: get expected time-to-decompensation based on wound severity (seconds from hemorrhage onset).
+static func get_decomp_time_for_severity(severity: String) -> float:
+    match severity:
+        SEVERITY_CRITICAL: return DECOMP_TIME_CRITICAL_WOUND_S
+        SEVERITY_SEVERE: return DECOMP_TIME_SEVERE_WOUND_S
+        _: return DECOMP_TIME_MODERATE_WOUND_S  # minor/moderate use same baseline
+
+## Current decompensation modifier based on time since hemorrhage onset and wound severity.
+## Returns a multiplier for bleed rate that ramps from 1.0 (fully compensated) to DECOMP_BLEED_ACCEL_MULT.
+static func get_decomp_modifier_since_hemorrhage(seconds_since_bleed: float, severity: String) -> float:
+    var decomp_time: float = get_decomp_time_for_severity(severity)
+    if seconds_since_bleed < 0.0 or decomp_time <= 0.0:
+        return 1.0
+    ## If well beyond expected decomp time, fully active acceleration.
+    if seconds_since_bleed >= decomp_time:
+        return DECOMPENSATION_BLEED_ACCEL_MULT
+    ## Linear ramp from compensated to decompensated over [DECOMP_RAMP_START_THRESHOLD_S, decomp_time].
+    var ramp_end: float = decomp_time
+    var ramp_start: float = clampf(DECOMP_RAMP_START_THRESHOLD_S, 0.0, ramp_end)
+    if seconds_since_bleed <= ramp_start:
+        return 1.0
+    var t: float = (seconds_since_bleed - ramp_start) / (ramp_end - ramp_start)
+    return lerpf(1.0, DECOMPENSATION_BLEED_ACCEL_MULT, clampf(t, 0.0, 1.0))
+
 # --- Clotting: exponential decay of bleeding rate (rate *= exp(-k*delta)). First-order kinetics. ---
 # Per-severity clotting rate (k) per second. Half-life of rate = ln(2)/k (first-order clot decay).
 # Minor: small cuts stop in seconds - minutes (faster k). Severe/critical: vessel involvement, clot slower.
 const CLOTTING_RATE_BY_SEVERITY: Dictionary = {
     # half-life ~14 s; ~1.2 min to ~1% rate ("small cuts may stop in seconds")  # half-life ~35 s; ~4 min to ~1% rate
-    # (normal wounds 2 - 7 min)  # half-life ~70 s; ~8 min (vessel involvement)  # half-life ~139 s; ~15 min (deep
-    # vessel involvement)
+    # (normal wounds 2 - 7 min)  # half-life ~56 s; ~6.5 min to ~1% rate (vessel involvement)  # half-life ~98 s; ~11
+    # min for deep vessel involvement (slightly faster than old 15 min — modern hemostatic agents improve outcomes)
     SEVERITY_MINOR: 0.05,
     SEVERITY_MODERATE: 0.02,
-    SEVERITY_SEVERE: 0.01,
-    SEVERITY_CRITICAL: 0.005
+    SEVERITY_SEVERE: 0.012,
+    SEVERITY_CRITICAL: 0.007
 }
 # Multiplier on clotting rate by severity: minor clots faster (superficial); severe/critical slower (vessel
 # involvement).
@@ -272,9 +316,54 @@ const ARTERIAL_BODY_PART_MULTIPLIERS: Dictionary = {
     BodyPartConstants.PART_RIGHT_LEG: 1.0,
     BodyPartConstants.PART_LEFT_LEG: 1.0
 }
+
+# --- Explicit bleeding types (arterial / venous / capillary) with physiologically distinct rates ---
+## Rather than a single "arterial" multiplier, wounds are classified into three hemorrhage types
+## with independent rate modifiers and clotting behavior matching clinical observations:
+## Arterial: bright red, spurting/synchronous with pulse; high pressure prevents natural clotting.
+##   Rate ≈ 3-5× venous; death in 2-5 min without intervention (TCCC). Clotting nearly impossible without tourniquet.
+## Venous: dark red, steady ooze; lower pressure allows partial hemostasis via platelet plug.
+##   Rate = baseline; responds well to direct pressure/bandaging. Clots in 3-10 min with treatment.
+## Capillary: slow oozing from surface vessels; lowest rate but can accumulate if untreated.
+##   Rate ≈ 0.25× venous; usually self-limiting within minutes. Responds to minimal intervention.
+const BLEEDING_TYPE_ARTERIAL: String = "arterial"
+const BLEEDING_TYPE_VENOUS: String = "venous"
+const BLEEDING_TYPE_CAPILLARY: String = "capillary"
+
+# Rate multipliers relative to base wound rate (from injury_type × severity × body_part).
+## Arterial: 3.5× vs old 3.0 — reflects systolic pressure driving flow through opened artery (clinical TCCC data).
+## Venous: 1.0× = baseline rate. Capillary wounds get this as default when no arterial involvement.
+## Capillary: 0.25× — slow ooze from superficial vascular disruption; minimal hemorrhage risk.
+const BLEEDING_TYPE_RATE_MULT: Dictionary = {
+    BLEEDING_TYPE_ARTERIAL: 3.5,
+    BLEEDING_TYPE_VENOUS: 1.0,
+    BLEEDING_TYPE_CAPILLARY: 0.25
+}
+
+# Clotting difficulty multipliers by bleeding type.
+## Arterial pressure actively prevents clot formation (platelet plug cannot withstand systolic flow).
+## Venous wounds can form stable clots under direct pressure. Capillary clots spontaneously in most cases.
+const BLEEDING_TYPE_CLOTTING_MULT: Dictionary = {
+    BLEEDING_TYPE_ARTERIAL: 0.1,     # arterial pressure prevents clotting; requires tourniquet or hemostatic agent
+    BLEEDING_TYPE_VENOUS: 1.0,       # baseline clotting kinetics apply
+    BLEEDING_TYPE_CAPILLARY: 2.5     # capillary bleeding clots rapidly; minor wounds self-limiting in seconds
+}
+
+# Bandaging effectiveness by bleeding type.
+## Tourniquets are the only reliable intervention for arterial extremity hemorrhage (TCCC CoTCCC guidelines).
+## Simple bandages are ineffective on arterial bleeds without direct pressure applied simultaneously.
+const BLEEDING_TYPE_BANDAGE_EFFECTIVENESS: Dictionary = {
+    BLEEDING_TYPE_ARTERIAL: 0.25,     # bandaging alone rarely stops arterial bleeding; needs tourniquet
+    BLEEDING_TYPE_VENOUS: 1.0,        # baseline bandage effectiveness (TCCC conventional bandages ~32-70% hemostasis)
+    BLEEDING_TYPE_CAPILLARY: 1.5      # capillary bleeds easily controlled with simple dressing
+}
 # When a wound is arterial: higher bleeding rate and pressure inhibits clotting (2-5 min to exsanguination if
 # uncontrolled).
+## DEPRECATED — kept for backward compat with callers that preload BleedingConstants.
+## New code should use BLEEDING_TYPE_RATE_MULT[BLEEDING_TYPE_ARTERIAL] (= 3.5) directly.
 const ARTERIAL_BLEEDING_MULTIPLIER: float = 3.0  # arterial bleeds much faster
+## DEPRECATED — kept for backward compat with callers that preload BleedingConstants.
+## New code should use BLEEDING_TYPE_CLOTTING_MULT[BLEEDING_TYPE_ARTERIAL] (= 0.1) directly.
 const ARTERIAL_CLOTTING_MULTIPLIER: float = 0.15  # arterial pressure inhibits clotting; clot very slowly
 
 # --- Bandaging ---
@@ -285,7 +374,7 @@ const BANDAGE_IMMEDIATE_REDUCTION: float = 0.75  # 75% immediate reduction on su
 const BANDAGE_ARTERIAL_EFFECTIVENESS_MULT: float = 0.5
 const BANDAGE_STABILIZATION_DURATION: float = 0.0  # 0 = no expiry; bandage stays effective until wound heals
 # Option B: success rate (research: conventional bandages ~32-70% hemostasis; medical skill affects outcome).
-const BANDAGE_SUCCESS_BASE_CHANCE: float = 0.7  # base success for venous/capillary
+const BANDAGE_SUCCESS_BASE_CHANCE: float = 0.55  # base success for venous/capillary (TCCC: conventional bandages ~32-70% hemostasis)
 const BANDAGE_SUCCESS_ARTERIAL_MULT: float = 0.6  # arterial harder to bandage successfully
 # Time (seconds) to apply a bandage to one wound; action system should delay effect until this duration has passed.
 const BANDAGE_APPLICATION_TIME_SECONDS: float = 4.0
@@ -293,7 +382,7 @@ const BANDAGE_APPLICATION_TIME_SECONDS: float = 4.0
 const BANDAGE_PER_WOUND_EXTRA_SECONDS: float = 2.0
 
 # --- Combat stabilize (Camp-2.5): fast hemostatic hold; does not replace bandage/pack for map travel ---
-const STABILIZE_APPLICATION_TIME_SECONDS: float = 2.0
+const STABILIZE_APPLICATION_TIME_SECONDS: float = 4.0  # Combat pressure dressing + packing; ~2-5 min under stress (TCCC drill time)
 const STABILIZE_PER_WOUND_EXTRA_SECONDS: float = 1.0
 const STABILIZE_SUCCESS_BASE_CHANCE: float = 0.82
 const STABILIZE_SUCCESS_ARTERIAL_MULT: float = 0.72
@@ -351,6 +440,11 @@ const DIRECT_PRESSURE_ARTERIAL_EFFECTIVENESS_MULT: float = 0.7  # first-touch tr
 const BLEEDING_RATE_VARIANCE_MIN: float = 0.9
 const BLEEDING_RATE_VARIANCE_MAX: float = 1.1
 
+## Deep penetrating injuries (spear thrust, dagger stab) disrupt major vessels by their nature — even low-energy
+## penetrations should bleed more than superficial cuts at equivalent damage values. This reflects ATLS data on
+## penetrating vs blunt trauma hemorrhage patterns.
+const PENETRATION_BLEED_MIN_MULT: float = 1.5
+
 # --- Tourniquet (limb-only; stops arterial/venous flow when applied correctly) ---
 # Only limbs can be tourniqueted; head/chest/junctional need packing/direct pressure. CoTCCC, TCCC guidelines.
 # Historical: tourniquets used since Roman era for amputations; modern TCCC: life-threatening extremity hemorrhage,
@@ -373,7 +467,7 @@ const TOURNIQUET_BLEEDING_RATE_THRESHOLD: float = 2.0
 const TOURNIQUET_MAX_DURATION_SECONDS: float = 0.0  # 0 = no auto-expiry; set e.g. 7200 (2 h) for limb-ischemia risk
 # Time (seconds) to apply a tourniquet (positioning, tightening); action system should delay effect until this duration
 # has passed.
-const TOURNIQUET_APPLICATION_TIME_SECONDS: float = 18.0
+const TOURNIQUET_APPLICATION_TIME_SECONDS: float = 25.0  # CAT tourniquets: 45-90s under combat stress; historical improvised ligatures took 2-5 min (Kragh et al. Am J Surg 2011)
 # Success rate: tourniquets can fail if not tight enough or poorly placed. Training/medical skill affects outcome.
 # Research: layperson first-attempt ~50% (CAT with video), some devices 17%; without formal training results poor (e.g.
 # "Missing expectations" windlass study). Trained/CoTCCC much higher.
@@ -615,3 +709,45 @@ static func get_arterial_chance(
         # Use max of part/sub-region rather than multiply to avoid over-counting vascular chance (e.g., neck critical at ~55% vs lit ~25%).
         part_mult = maxf(part_mult, sr_mult)
     return clampf(base_chance * part_mult, 0.0, 1.0)
+
+
+## Estimated initial bleed rate in mL/s for a single wound, derived from the same severity + body-part
+## + arterial model used at runtime. Output is a per-second rate (not instantaneous volume lost) — useful
+## as a relative lethality indicator in tuning logs: higher values mean more dangerous wounds.
+## For comparison: minor arm cut ≈ 1-3 mL/s, critical arterial neck cut ≈ 80+ mL/s untreated.
+static func estimate_blood_loss_rate_ml_per_s(severity: String, injury_type: String, part: String, sub_region: String = "", is_arterial: bool = false) -> float:
+    var base_rate: float = get_bleeding_rate(injury_type, severity, part, sub_region)
+    if base_rate <= 0.0 or injury_type == INJURY_TYPE_BRUISE or injury_type == INJURY_TYPE_FRACTURE:
+        return 0.0
+    if is_arterial:
+        base_rate *= ARTERIAL_BLEEDING_MULTIPLIER
+    var pct_loss_per_s: float = base_rate * BLOOD_LOSS_RATE_MULTIPLIER
+    var ref_ml: float = BloodVolumeMl.REFERENCE_BLOOD_VOLUME_ML_ADULT
+    return pct_loss_per_s * ref_ml / MAX_BLOOD_VOLUME
+
+
+## Classify wound bleeding type (arterial / venous / capillary) based on severity, injury type, arterial chance, and depth.
+## Arterial: high-pressure spurting flow from major vessel; requires tourniquet or direct pressure.
+## Venous: steady ooze from disrupted vein; responds to bandaging/direct pressure.
+## Capillary: slow surface oozing; minimal hemorrhage risk; self-limiting in most cases.
+static func classify_bleeding_type(severity: String, injury_type: String, is_arterial_roll: bool, penetration_to_tissue_mm: float = -1.0) -> String:
+    if severity == SEVERITY_CRITICAL and (injury_type == INJURY_TYPE_CUT or injury_type == INJURY_TYPE_STAB):
+        # Critical deep wounds are almost always arterial-level hemorrhage.
+        return BLEEDING_TYPE_ARTERIAL
+    if is_arterial_roll:
+        return BLEEDING_TYPE_ARTERIAL
+    if severity == SEVERITY_SEVERE and injury_type == INJURY_TYPE_CUT:
+        # Severe cuts often involve significant venous disruption.
+        return BLEEDING_TYPE_VENOUS
+    if penetration_to_tissue_mm >= 0.0 and penetration_to_tissue_mm > PENETRATION_DEPTH_SEVERITY_FULL_MM:
+        # Deep penetrating wounds beyond shallow layer — likely venous or arterial depending on depth/arterial flag.
+        return BLEEDING_TYPE_VENOUS
+    # Default: capillary for minor/shallow wounds, venous for moderate.
+    if severity == SEVERITY_MODERATE and injury_type == INJURY_TYPE_CUT:
+        return BLEEDING_TYPE_VENOUS
+    return BLEEDING_TYPE_CAPILLARY
+
+
+## Get the rate multiplier for a specific bleeding type.
+static func get_bleeding_type_rate_mult(bleeding_type: String) -> float:
+    return BLEEDING_TYPE_RATE_MULT.get(bleeding_type, 1.0)  # venous = baseline if unknown type

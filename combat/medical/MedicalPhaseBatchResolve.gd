@@ -5,6 +5,7 @@ const INSTANT_FAST_FORWARD_MAX_SECONDS: float = 7200.0
 ## Harness-only cap for sim_cap termination tests (`instant_complete_on_early_exit(mgr, cap)`).
 const INSTANT_FAST_FORWARD_INTERACTIVE_MAX_SECONDS: float = 600.0
 ## Wall-clock budget per frame while interactive fast-forward runs on **`CombatManager`**.
+## 22,000 μs = 22 ms/frame targets ~45 FPS during medical phase processing, leaving ~18 ms for rendering in a 60 Hz loop.
 const INTERACTIVE_FAST_FORWARD_FRAME_BUDGET_US: int = 22000
 const INSTANT_FAST_FORWARD_STAGNANT_LIMIT: int = 48
 const INSTANT_FAST_FORWARD_MAX_ITERATIONS: int = 100000

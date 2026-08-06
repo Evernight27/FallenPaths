@@ -232,9 +232,13 @@ static func _incoming_parry_estimate(manager: Node, tgt: Dictionary, attacker_id
     out[DataKeys.PA_PARRY_PRIORITY_A] = p_a
     out[DataKeys.PA_PRIORITY_CD] = c_d
     if dc.get(DataKeys.PARRY_CHOICE_CAN_PARRY_IN_TIME, false) != true:
+        CombatDebug.combat_session("parry_est_nocan def=%s atk_id=%d type=%s p_a=%.1f c_d=%.1f can_in_time=%s" % [CombatantEntityAccess.get_display_name(tgt, -1), attacker_id, attack_type, p_a, c_d, dc.get(DataKeys.PARRY_CHOICE_CAN_PARRY_IN_TIME, false)])
         return out
-    if p_a <= c_d * CombatConstants.PARRY_DODGE_STRENGTH_RATIO:
+    var threshold: float = c_d * CombatConstants.PARRY_DODGE_STRENGTH_RATIO
+    if p_a <= threshold:
         out[DataKeys.PA_VIABLE] = true
+    else:
+        CombatDebug.combat_session("parry_est_nonviable def=%s atk_id=%d type=%s p_a=%.1f c_d=%.1f threshold=%.1f ratio=%.2f" % [CombatantEntityAccess.get_display_name(tgt, -1), attacker_id, attack_type, p_a, c_d, threshold, p_a / maxf(c_d, 0.01)])
     return out
 
 

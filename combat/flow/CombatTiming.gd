@@ -107,9 +107,10 @@ static func recovery_duration(
             )
         "glancing":
             var sev: float = clampf(glancing_severity, 0.0, 1.0) if glancing_severity >= 0.0 else 0.5
+            # Higher severity (closer to hit) → longer recovery; very glancing blows recover faster.
             extra = (
                 CombatConstants.RECOVERY_EXTRA_GLANCING_BASE_S
-                + (1.0 - sev) * CombatConstants.RECOVERY_GLANCING_SEVERITY_SCALE_S * commitment
+                + sev * CombatConstants.RECOVERY_GLANCING_SEVERITY_SCALE_S * commitment
             )
         "miss", "dodge":
             # Commitment scales miss penalty: light stab whiff = short recovery; heavy overhead whiff = long (momentum

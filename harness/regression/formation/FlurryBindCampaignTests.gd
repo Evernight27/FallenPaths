@@ -227,7 +227,7 @@ static func _run_tier7_parry_bind_riposte_gauge_bonus_on_deflect(failures: Packe
                 "action": "parry_deflect",
                 "target_id": p_id,
                 "recovery_duration": 0.45,
-                "parry_clash_context": {"parry_control": 0.41, "kinematic_delivery": "thrust"},
+                "parry_clash_context": {"parry_control": 0.39, "kinematic_delivery": "thrust"},
             }
         )
     )

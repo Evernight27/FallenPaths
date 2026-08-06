@@ -31,6 +31,9 @@ static func penetration_depth_mult(penetration_to_tissue_mm: float) -> float:
 
 
 ## Piecewise cut tissue damage from post-armor penetration (mm). `scale` tunes harness/audit rows.
+## Curve shape: 0→yield = 12% of ultimate (graze zone); yield→ultimate = linear ramp to 100%.
+## 0.12 graze multiplier models that a blade barely breaking skin does ~12% the damage of full penetration.
+## 0.18 start-of-ramp factor ensures smooth transition from graze zone into meaningful tissue damage.
 static func cut_tissue_damage_from_pen(pen_mm: float, part: String, scale: float = 1.0) -> float:
     if pen_mm <= 0.0:
         return 0.0
@@ -58,13 +61,15 @@ static func blunt_bone_damage_from_ke(ke_j: float, part: String, sub_region: Str
     return CombatDamageMechanism.j_excess_to_bone_damage(ke_j - j_anchor)
 
 
-## Cut-dominant bone gate in pen space (mm); mirrors `MFB_CUT_BONE_MIN_PENETRATION_MM` until M2 blend.
+## Cut-dominant bone gate — now uses tissue depth instead of RHA penetration for anatomical accuracy.
 static func cut_bone_damage_from_pen(pen_mm: float, part: String, _sub_region: String, scale: float = 1.0) -> float:
-    if pen_mm < CombatDamageMechanism.MFB_CUT_BONE_MIN_PENETRATION_MM:
+    ## Convert RHA-equivalent armor penetration to tissue depth; compare against clinical bone chip threshold.
+    var tissue_depth: float = CombatDamageMechanism.rha_penetration_to_tissue_depth_mm(pen_mm)
+    if tissue_depth < CombatDamageMechanism.CUT_BONE_MIN_TISSUE_DEPTH_MM:
         return 0.0
     var tissue: float = cut_tissue_damage_from_pen(pen_mm, part, scale)
     var bone_frac: float = 0.35
-    return tissue * bone_frac * penetration_depth_mult(pen_mm)
+    return tissue * bone_frac * penetration_depth_mult(tissue_depth)
 
 
 ## Committed oberhau reference KE (J) for audit/harness anchors.
@@ -105,6 +110,8 @@ static func allocate_bone_and_tissue(
             to_bone = cut_bone_damage_from_pen(pen_for_bone_mm, part, sub_region)
             if strike_ke_j >= 0.0:
                 to_bone = maxf(to_bone, blunt_bone_damage_from_ke(strike_ke_j, part, sub_region))
+            ## Sharp-dominant bone cap: bone damage cannot exceed 45% of total final damage.
+            ## Prevents cut weapons from dealing disproportionate bone vs tissue — clinically, clean cuts spare bone integrity.
             to_bone = minf(to_bone, total_final * 0.45)
         "blunt":
             to_bone = blunt_bone_damage_from_ke(ke_blunt, part, sub_region)

@@ -3,6 +3,11 @@ extends RefCounted
 
 const FeatureFlags := preload("res://combat/constants/CombatConstantsFeatureFlags.gd")
 
+## AI decision weight multipliers — tuned empirically via F5 soak tests and tier regression harness.
+## Each constant is a multiplicative modifier applied to an action's base weight in CombatAIActionWeights.
+## Values > 1.0 increase likelihood; < 1.0 decrease it. Range typically 0.15–2.5x.
+## Tuning rationale tracked in tools/ci/agent_prompts/ and F5 soak logs (gitignored).
+
 const AI_ATTEMPT_CLOSE_BIND_CLOSE_MULT := 1.28  # Mapped wing out of reach — close bind beats wait/shuffle
 
 const AI_ATTEMPT_CLOSE_LONG_CLOSE_ONLY_MULT := 0.82  # Mapped rank-0 LONG close-only — rotate can compete
@@ -57,6 +62,11 @@ const AI_WAIT_NO_STRIKE_MULT := 0.15  # No hostile strikes listed — prefer fle
 
 const AI_WAIT_SPARSE_ENGAGEMENT_LISTED_MULT := 0.45  # Post-flee sparse — wait below close/strike finish
 
+## Floor for stamina_ratio denominator in ai_offense_stamina_weight_mult to prevent division-by-zero when
+## stamina_ratio is exactly 0 (e.g. at exact zero-stamina frame). Value 0.001 produces negligible slope change
+## compared to a true 0-denominator crash; calibrated so that any ratio > 0 is distinguishable from exhaustion floor.
+const AI_STAMINA_RATIO_DENOM_FLOOR: float = 0.001
+
 const COWERING_FLEE_AI_WEIGHT := 1.55
 
 const COWERING_SOLO_FALL_BACK_AI_WEIGHT := 1.5
@@ -90,7 +100,7 @@ static func ai_offense_stamina_weight_mult(stamina_ratio: float) -> float:
         w = lerpf(
             AI_STAMINA_EXHAUSTION_DEEP_MULT,
             AI_STAMINA_ENGAGE_LOW_MULT,
-            stamina_ratio / maxf(AI_STAMINA_EXHAUSTION_DEEP_THRESHOLD, 0.001)
+            stamina_ratio / maxf(AI_STAMINA_EXHAUSTION_DEEP_THRESHOLD, AI_STAMINA_RATIO_DENOM_FLOOR)
         )
     return w
 

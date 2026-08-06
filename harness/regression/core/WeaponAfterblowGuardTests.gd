@@ -656,7 +656,10 @@ static func _run_kinematic_delivery_mace_weak_tap_pre_blunt_below_baseline_min(f
     var arch: Dictionary = {"kinematic_delivery": WeaponConstants.KINEMATIC_DELIVERY_SWING}
     var ai: AttackInstance = AttackInstance.new("direct_blow", 0.35)
     ai.archetype = arch
-    ai.velocity_m_s = 3.5
+    # Head contact is capped at BLUNT_HEAD_MAX_CONTACT_CM (2.5) for the damage pressure formula, so the mace
+    # produces ~10x more blunt pressure per unit momentum than the old full 8 cm face. A weak tap must therefore
+    # be far slower to stay below BLUNT_DAMAGE_MIN (threshold ~0.49 m/s at strength 52).
+    ai.velocity_m_s = 0.35
     var str_weak: float = 52.0
     var raw: float = WeaponDamageHelper.compute_pre_armor_blunt_momentum_raw(mace, ai, str_weak, 1.0)
     if raw >= WeaponConstants.BLUNT_DAMAGE_MIN:

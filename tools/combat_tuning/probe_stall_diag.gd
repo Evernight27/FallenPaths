@@ -114,5 +114,5 @@ func _dump_end_state(mgr: Node) -> void:
 			parts += " %s=%.2f(%.2f)" % [str(part).left(2), rem, max_hp]
 		var wounds := ""
 		for key in node.wounds:
-			wounds += " %s:%s" % [str(key).left(10), int(node.wounds[key])]
+			wounds += " %s:%s" % [str(key).left(10), str(node.wounds[key])]
 		print("STALL_DIAG_END %s cons=%.1f blood=%.1f parts:%s wounds:%s" % [sd, cons, blood, parts, wounds])

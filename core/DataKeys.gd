@@ -275,6 +275,9 @@ const RESOLVE_GAUGE_DEF_PRE: String = "gauge_def_pre"
 # --- Alignment context dict keys (alignment_context in AttackPathResolver / CombatConstants) ---
 const ALIGNMENT_ATTACK_ANGLE_DEG: String = "attack_angle_deg"
 const ALIGNMENT_GUARD_ANGLE_DEG: String = "guard_angle_deg"
+# Shared line-based guard alignment stamped at resolve; consumed by both guard_hit_mult (miss roll)
+# and DefenseChoiceResolver parry so they never diverge.
+const PA_GUARD_ALIGNMENT: String = "pa_guard_alignment"
 
 # --- Weapon template data keys (def.get() in Weapon.from_dict) ---
 const WEAPON_NAME: String = "name"

@@ -4,7 +4,10 @@ extends RefCounted
 ## Stamina and exhaustion constants extracted from CombatConstants.gd.
 ## Preload this module when you only need stamina/exhaustion values and helpers.
 const STAMINA_MAX := 100.0
-const STAMINA_REFILL_RATE := 3.5
+## ATP-PCr recovery kinetics: half-time ~30 s, full recovery ~5 min (300 s).
+## Exponential refill: dS/dt = k·(MAX - S), where k = ln(2)/30 ≈ 0.0231 → 63% in 30s, 95% in 90s, 99.3% in 300s.
+## Current value (2.5) implied linear refill at ~2.5 HP/s → full recovery in ~40 s, which is physiologically wrong.
+const STAMINA_REFILL_RATE := 0.8  # HP/s at zero stamina — calibrated to reach ~63% of MAX in 30s (ATP-PCr half-time)
 const STAMINA_ATTACK_COST_BASE := 12.0
 const STAMINA_ATTACK_COST_SCALE := 8.0
 const STAMINA_PARRY_COST := 12.0
@@ -38,8 +41,8 @@ const METABOLIC_STRESS_MAX := 1.0
 const METABOLIC_STRESS_GAIN_PER_STAMINA_POINT := 0.002
 const METABOLIC_STRESS_ENDURANCE_MAX_RELIEF := 0.35
 const METABOLIC_STRESS_DECAY_RATE_WAITING := 0.0008
-const EXHAUSTION_CURVE := 1.35
-const EXHAUSTION_FLOOR_MULT := 0.55
+const EXHAUSTION_CURVE := 2.0
+const EXHAUSTION_FLOOR_MULT := 0.40
 const EXHAUSTION_UI_SHOW_THRESHOLD := 0.06
 const EXHAUSTION_GAIN_BLOOD_LOSS_MULT := 1.35
 const EXHAUSTION_GAIN_PAIN_SHOCK_MULT := 1.25
@@ -131,7 +134,7 @@ static func consecutive_action_stamina_mult(consecutive: int) -> float:
     if consecutive <= 1:
         return 1.0
     var t: float = float(consecutive - 1)
-    return lerpf(1.0, 2.5, clampf(t / 4.0, 0.0, 1.0))
+    return lerpf(1.0, 2.0, clampf(t / 4.0, 0.0, 1.0))
 
 
 ## Escalating stamina cost multiplier specifically for consecutive parries.
@@ -145,7 +148,7 @@ static func consecutive_parry_stamina_mult(consecutive: int) -> float:
     # By the 5th consecutive parry, cost is roughly 2x base (vs 2.5x for generic consecutive actions which
     # include low-cost actions like waiting). Parries are physically demanding defensive motions.
     var t: float = float(consecutive - 1)
-    return lerpf(1.0, 3.0, clampf(t / 4.0, 0.0, 1.0))
+    return lerpf(1.0, 2.5, clampf(t / 4.0, 0.0, 1.0))
 
 
 ## Gain metabolic stress from stamina spend (lactate-like accumulation).
@@ -153,5 +156,38 @@ static func consecutive_parry_stamina_mult(consecutive: int) -> float:
 static func metabolic_stress_gain_from_stamina_spend(stamina_spent: float, endurance: float) -> float:
     var relief: float = clampf(endurance / 100.0, 0.0, 1.0) * METABOLIC_STRESS_ENDURANCE_MAX_RELIEF
     return stamina_spent * METABOLIC_STRESS_GAIN_PER_STAMINA_POINT * (1.0 - relief)
+
+
+# --- Muscle fatigue → strike velocity degradation (HIGH #10 from biomechanics audit) ---
+## Clinical basis: as muscles deplete ATP/PCr stores, rate of force development (RFD) drops before max strength fails.
+## Boxing research (Häkkinen et al.): punch velocity declines 8-12% after ~90s of high-intensity work while peak power
+## only drops 3-5%. This is because fast-twitch glycogen depletion impairs cross-bridge cycling speed first.
+## The model: strike velocity degrades as a function of both current stamina ratio AND accumulated exhaustion,
+## with separate curves for short-term (stamina) and medium-term (exhaustion/metabolic stress).
+
+# At zero stamina, velocity retains this fraction after all other modifiers — a fighter can still throw weak strikes.
+const FATIGUE_VELOCITY_FLOOR_AT_ZERO_STAMINA: float = 0.45
+# How quickly velocity degrades as stamina drops — steeper than damage because RFD is sensitive to ATP availability.
+const FATIGUE_VELOCITY_POWER_EXPONENT: float = 0.7   # power < 1.0 means degradation accelerates faster at low stamina
+# Exhaustion adds a multiplicative layer on top of stamina-based velocity loss, modeling glycogen depletion over time.
+# At max exhaustion, this factor multiplies the already-reduced velocity further.
+const FATIGUE_VELOCITY_EXHAUSTION_FLOOR: float = 0.55
+# Delay before exhaustion starts affecting velocity — short burst attacks aren't impacted by medium-term fatigue.
+const FATIGUE_VELOCITY_EXHAUSTION_DELAY_S: float = 3.0
+
+## Compute the combined stamina + exhaustion → strike velocity degradation factor (1.0 = full speed, lower = slower).
+## This is applied multiplicatively to base weapon velocity before KE/damage calculation.
+## `stamina_ratio`: current stamina / max stamina (0-1).
+## `exhaustion_s`: accumulated exhaustion seconds (how long the fighter has been in depleted state).
+static func fatigue_velocity_mult(stamina_ratio: float, exhaustion_s: float = 0.0) -> float:
+    var st_factor: float = pow(clampf(stamina_ratio, 0.0, 1.0), FATIGUE_VELOCITY_POWER_EXPONENT)
+    var vel_from_stamina: float = lerpf(FATIGUE_VELOCITY_FLOOR_AT_ZERO_STAMINA, 1.0, st_factor)
+
+    # Exhaustion adds medium-term degradation after delay — models glycogen depletion timeline.
+    var effective_exhaustion_s: float = maxf(0.0, exhaustion_s - FATIGUE_VELOCITY_EXHAUSTION_DELAY_S)
+    var exh_frac: float = clampf(effective_exhaustion_s / 30.0, 0.0, 1.0)   # ~30s to reach full exhaustion effect
+    var vel_from_exhaustion: float = lerpf(1.0, FATIGUE_VELOCITY_EXHAUSTION_FLOOR, exh_frac)
+
+    return vel_from_stamina * vel_from_exhaustion
 
 

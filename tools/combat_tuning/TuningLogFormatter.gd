@@ -474,7 +474,9 @@ static func format_cycle_hema_summary(
     aggregate_line: String = "",
     scenario_key: String = "",
     atk_cfg: Variant = null,
-    def_cfg: Variant = null
+    def_cfg: Variant = null,
+    atk_vitals: String = "",
+    def_vitals: String = ""
 ) -> String:
     var total_exchanges: int = 0
     for k in outcome_counts:
@@ -496,7 +498,7 @@ static func format_cycle_hema_summary(
         lines.push_back("  " + format_matchup_compact(atk_cfg, def_cfg))
     lines.push_back("  outcomes: %s" % _format_outcome_counts(outcome_counts))
     if total_exchanges > 0:
-        var hit_n: int = int(outcome_counts.get("hit", 0)) + int(outcome_counts.get("glancing", 0))
+        var hit_n: int = int(outcome_counts.get("hit", 0)) + int(outcome_counts.get("glancing", 0)) + int(outcome_counts.get("negligible", 0))
         var deflect_n: int = int(outcome_counts.get("parry_deflect", 0))
         var bind_n: int = int(outcome_counts.get("parry_bind", 0))
         var partial_n: int = int(outcome_counts.get("parry_partial", 0))
@@ -506,12 +508,13 @@ static func format_cycle_hema_summary(
             lines
             . push_back(
                 (
-                    "  rates: hit=%.1f%% parry=%.1f%% dodge=%.1f%% miss=%.1f%%"
+                    "  rates: hit=%.1f%% parry=%.1f%% dodge=%.1f%% miss=%.1f%% deflected=%.1f%%"
                     % [
                         float(hit_n) / float(total_exchanges) * 100.0,
                         float(total_parry_count) / float(total_exchanges) * 100.0,
                         float(outcome_counts.get("dodge", 0)) / float(total_exchanges) * 100.0,
                         float(outcome_counts.get("miss", 0)) / float(total_exchanges) * 100.0,
+                        float(int(outcome_counts.get("deflected", 0))) / float(total_exchanges) * 100.0,
                     ]
                 )
             )
@@ -534,6 +537,13 @@ static func format_cycle_hema_summary(
     lines.push_back("  damage: atk=%.1f def=%.1f" % [atk_dmg, def_dmg])
     lines.push_back("  " + _format_ke_aggregate(ke_samples))
     lines.push_back("  " + _format_ke_bucket_lines(ke_samples))
+    if not atk_vitals.is_empty() or not def_vitals.is_empty():
+        var vitals_bit := PackedStringArray()
+        if not atk_vitals.is_empty():
+            vitals_bit.append(atk_vitals)
+        if not def_vitals.is_empty():
+            vitals_bit.append(def_vitals)
+        lines.push_back("  " + " | ".join(vitals_bit))
     lines.push_back("  " + aggregate_line)
     return "\n".join(lines)
 

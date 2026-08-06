@@ -128,6 +128,11 @@ var _last_hit_impact: float = 0.0
 var _ambient_pain_shock_accum: float = 0.0  # Combat tick accumulator for sustained-pain shock rolls
 # Timestamp of last ambient pain shock trigger (for cooldown enforcement)
 var _last_ambient_pain_shock_time: float = -1.0
+## Adrenaline dump cycle — surge→plateau→crash model per exercise physiology (McArdle Katch & Katch Ch.12).
+## Onset triggered by pain shock or severe blood loss; surge boosts performance 10-30s, plateau holds then crashes.
+var _adrenaline_dump_until_time: float = -1.0  # game time when adrenaline dump ends; -1 = inactive
+var _adrenaline_phase: String = ""  # "surge", "plateau", "crash" during active dump
+var _adrenaline_cooldown_until: float = -1.0  # game time when next adrenaline dump is allowed
 var _consciousness_dirty: bool = true
 
 var _death_notified: bool = false
@@ -382,6 +387,34 @@ func _try_ambient_pain_shock_tick(delta: float) -> void:
 		_update_consciousness()
 
 
+func _get_adrenaline_dump_until_time() -> float:
+	return _adrenaline_dump_until_time
+
+
+func _set_adrenaline_dump_until_time(value: float) -> void:
+	_adrenaline_dump_until_time = value
+
+
+func _get_adrenaline_phase() -> String:
+	return _adrenaline_phase
+
+
+func _set_adrenaline_phase(value: String) -> void:
+	_adrenaline_phase = value
+
+
+func _get_adrenaline_cooldown_until() -> float:
+	return _adrenaline_cooldown_until
+
+
+func _set_adrenaline_cooldown_until(value: float) -> void:
+	_adrenaline_cooldown_until = value
+
+
+func _tick_adrenaline_dump() -> void:
+	EntityPainConsciousness.tick_adrenaline_dump(self)
+
+
 func _update_consciousness() -> void:
 	EntityPainConsciousness.update_consciousness(self)
 
@@ -442,8 +475,16 @@ func _get_dodge_chance() -> float:
 	return EntityPainConsciousness.get_dodge_chance(self)
 
 
+func get_parry_capacity_modifier() -> float:
+	return EntityPainConsciousness.get_parry_capacity_modifier(self)
+
+
+func get_dodge_speed_modifier() -> float:
+	return EntityPainConsciousness.get_dodge_speed_modifier(self)
+
+
 func is_dead() -> bool:
-	if blood_volume <= _get_blood_loss_death_threshold():
+	if blood_volume < _get_blood_loss_death_threshold():
 		return true
 	for part in _get_vital_parts():
 		if _is_part_destroyed(part):
@@ -467,8 +508,8 @@ func is_vital_part_critically_damaged() -> bool:
 # true.
 func _get_death_reason() -> String:
 	var death_thresh: float = _get_blood_loss_death_threshold()
-	if blood_volume <= death_thresh:
-		return "blood_loss (volume=%.1f <= threshold %.1f)" % [blood_volume, death_thresh]
+	if blood_volume < death_thresh:
+		return "blood_loss (volume=%.1f < threshold %.1f)" % [blood_volume, death_thresh]
 	for part in _get_vital_parts():
 		if _is_part_destroyed(part):
 			var sever_cut: float = body_cutting.get(part, 0.0)

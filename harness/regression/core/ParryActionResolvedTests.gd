@@ -320,7 +320,10 @@ static func _run_parry_partial_bind_riposte_flags_when_aligned(failures: PackedS
         _free_manager(mgr)
 
     apply_partial_bind.call(0.0, 0.9, true, "aligned_high_control", false, false)
-    apply_partial_bind.call(0.0, 0.5, false, "aligned_low_control", false, false)
+    # New parry_control curve (alignment^1.8): a thrust at align=1.0 yields ~0.84 control, so 0.65 is a
+    # modest-but-real bind; values below PARRY_BIND_CONTROL_THRESHOLD (0.55) must NOT bind.
+    apply_partial_bind.call(0.0, 0.65, true, "aligned_low_control", false, false)
+    apply_partial_bind.call(0.0, 0.45, false, "aligned_sub_threshold", false, false)
     apply_partial_bind.call(90.0, 0.9, false, "misaligned_high_control", false, true)
     apply_partial_bind.call(90.0, 0.9, false, "misaligned_clears_stale_bind", true, true)
 
@@ -360,7 +363,8 @@ static func _run_combat_end_enemy_win_stops_manager(failures: PackedStringArray)
     _free_manager(mgr)
 
 
-## Tier 5.0: full-stop **`duel_auto_end_detection`** — runs a seeded 1v1 SWORD duel for up to 60 s, asserts combat resolves (medical_phase or single survivor). Validates the auto-end chain (winner check -> phase end -> manager stop) under full AI-driven simulation.
+## Tier 5.0: full-stop **`duel_auto_end_detection`** — runs a seeded 1v1 SWORD duel for up to 120 s, asserts combat resolves (medical_phase or single survivor). Validates the auto-end chain (winner check -> phase end -> manager stop) under full AI-driven simulation.
+## Realism note: armored sword duels run longer than a minute (seeded SWORD duel resolves ~68 s, up to ~76 s across weapons), so the budget is 120 s — generous vs. real fight length while still bounded.
 
 
 static func _run_duel_auto_end_detection(failures: PackedStringArray) -> void:
@@ -370,7 +374,7 @@ static func _run_duel_auto_end_detection(failures: PackedStringArray) -> void:
     mgr.register(_new_entity("SWORD"), "enemy")
     mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
     var elapsed: float = 0.0
-    const MAX_TICKS := 1200
+    const MAX_TICKS := 2400
     for _i in MAX_TICKS:
         for c in mgr.combatants:
             if c is not Dictionary: continue

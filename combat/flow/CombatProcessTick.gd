@@ -76,6 +76,8 @@ static func tick(manager: Node, delta: float) -> void:
             adv_node.process_blood_loss(delta)
         if not fast_forward and adv_node.has_method("_try_ambient_pain_shock_tick"):
             adv_node._try_ambient_pain_shock_tick(delta)
+        if not fast_forward and adv_node.has_method("_tick_adrenaline_dump"):
+            adv_node._tick_adrenaline_dump()
         manager._refresh_combatant_stats(c)
     for c in manager.combatants:
         if not CombatantEntityAccess.alive_bool(c):
