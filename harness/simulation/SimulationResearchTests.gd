@@ -734,6 +734,70 @@ static func _run_research_material_curve_full_blend(failures: PackedStringArray)
         )
 
 
+## Research gate: severe grip-loss% per arm sub-region lands in the design table bands (plan_balance_tuning.md
+## lines 541-544): hand 20-50, forearm 15-40, upper_arm 10-30, elbow 25-60.
+static func _run_research_arm_grip_sub_region_bands(failures: PackedStringArray) -> void:
+    if not CombatConstants.FEATURE_ARM_WOUND_DEGRADATION:
+        SimulationCombatTests._fail(failures, "research_grip: FEATURE_ARM_WOUND_DEGRADATION must be on")
+    if not CombatResearchAnchors.arm_grip_sub_region_bands_ok():
+        SimulationCombatTests._fail(
+            failures,
+            (
+                (
+                    "research_grip_sub_region: severe loss%% hand=%.1f forearm=%.1f elbow=%.1f upper=%.1f outside "
+                    + "bands (hand 20-50, forearm 15-40, upper 10-30, elbow 25-60)"
+                )
+                % [
+                    CombatResearchAnchors.arm_grip_loss_pct("hand", BleedingConstants.SEVERITY_SEVERE),
+                    CombatResearchAnchors.arm_grip_loss_pct("forearm", BleedingConstants.SEVERITY_SEVERE),
+                    CombatResearchAnchors.arm_grip_loss_pct("elbow", BleedingConstants.SEVERITY_SEVERE),
+                    CombatResearchAnchors.arm_grip_loss_pct("upper_arm", BleedingConstants.SEVERITY_SEVERE),
+                ]
+            )
+        )
+
+
+## Research gate: severity loss% lands in the ATLS clinical table bands (lines 522-525): minor hand 10-20%,
+## severe hand 30-50% (tendon), critical hand + forearm 50-70% (nerve/artery).
+static func _run_research_arm_grip_severity_bands(failures: PackedStringArray) -> void:
+    if not CombatConstants.FEATURE_ARM_WOUND_DEGRADATION:
+        SimulationCombatTests._fail(failures, "research_grip: FEATURE_ARM_WOUND_DEGRADATION must be on")
+    if not CombatResearchAnchors.arm_grip_severity_bands_ok():
+        SimulationCombatTests._fail(
+            failures,
+            (
+                (
+                    "research_grip_severity: minor_hand=%.1f want 10-20, severe_hand=%.1f want 30-50, "
+                    + "critical_hand=%.1f critical_forearm=%.1f want 50-70"
+                )
+                % [
+                    CombatResearchAnchors.arm_grip_loss_pct("hand", BleedingConstants.SEVERITY_MINOR),
+                    CombatResearchAnchors.arm_grip_loss_pct("hand", BleedingConstants.SEVERITY_SEVERE),
+                    CombatResearchAnchors.arm_grip_loss_pct("hand", BleedingConstants.SEVERITY_CRITICAL),
+                    CombatResearchAnchors.arm_grip_loss_pct("forearm", BleedingConstants.SEVERITY_CRITICAL),
+                ]
+            )
+        )
+
+
+## Research gate: parry capacity applies the 10/15 penalty ratio (line 91 -15% attack / -10% parry) on the grip
+## mult, so parry stays gentler than attack at the same wound.
+static func _run_research_arm_grip_parry_ratio(failures: PackedStringArray) -> void:
+    if not CombatConstants.FEATURE_ARM_WOUND_DEGRADATION:
+        SimulationCombatTests._fail(failures, "research_grip: FEATURE_ARM_WOUND_DEGRADATION must be on")
+    if not CombatResearchAnchors.arm_grip_parry_ratio_applied():
+        SimulationCombatTests._fail(
+            failures,
+            (
+                (
+                    "research_grip_parry: parry mult must equal 1 - (1-grip)*%.3f (doc line 91 ratio), gentler "
+                    + "than attack"
+                )
+                % CombatResearchAnchors.LITERATURE_GRIP_PARRY_ATTACK_RATIO
+            )
+        )
+
+
 ## Research gate: registry count matches documented RESEARCH_HARNESS_GATE_IDS (drift guard).
 
 
@@ -743,7 +807,7 @@ static func _run_research_gate_registry_count(failures: PackedStringArray) -> vo
     if want < 1:
         SimulationCombatTests._fail(failures, "research_registry: RESEARCH_HARNESS_GATE_IDS is empty")
     # Meta-gate: when adding `_run_research_*`, append id to RESEARCH_HARNESS_GATE_IDS + checklist table.
-    var expected_research_gates: int = 37
+    var expected_research_gates: int = 40
     if want != expected_research_gates:
         SimulationCombatTests._fail(
             failures,

@@ -69,6 +69,26 @@ const LITERATURE_ARM_CAPACITY_J_TOLERANCE: float = 5.0
 const LITERATURE_ARM_DISPLAY_HALF_J: float = 10.0
 const LITERATURE_ARM_DISPLAY_HALF_TOLERANCE: float = 1.0
 const LITERATURE_ARM_BLUNT_KE_BUDGET_J: float = 22.0
+## Doc-10 Issue 2 sub-region weapon-degradation design table (plan_balance_tuning.md lines 541-544), severe loss %.
+const LITERATURE_GRIP_HAND_BAND_MIN: float = 20.0
+const LITERATURE_GRIP_HAND_BAND_MAX: float = 50.0
+const LITERATURE_GRIP_FOREARM_BAND_MIN: float = 15.0
+const LITERATURE_GRIP_FOREARM_BAND_MAX: float = 40.0
+const LITERATURE_GRIP_UPPER_BAND_MIN: float = 10.0
+const LITERATURE_GRIP_UPPER_BAND_MAX: float = 30.0
+const LITERATURE_GRIP_ELBOW_BAND_MIN: float = 25.0
+const LITERATURE_GRIP_ELBOW_BAND_MAX: float = 60.0
+## ATLS clinical grip-loss table (lines 522-525): superficial hand cut 10-20%; tendon severance 30-50%;
+## radial/ulnar artery+nerve 50-70%.
+const LITERATURE_GRIP_MINOR_HAND_MIN: float = 10.0
+const LITERATURE_GRIP_MINOR_HAND_MAX: float = 20.0
+const LITERATURE_GRIP_TENDON_MIN: float = 30.0
+const LITERATURE_GRIP_TENDON_MAX: float = 50.0
+const LITERATURE_GRIP_NERVE_ARTERY_MIN: float = 50.0
+const LITERATURE_GRIP_NERVE_ARTERY_MAX: float = 70.0
+## Parry penalty ratio from line 91: -10% parry over -15% attack = 10/15 (parry gentler than attack).
+const LITERATURE_GRIP_PARRY_ATTACK_RATIO: float = 10.0 / 15.0
+const LITERATURE_GRIP_RATIO_TOLERANCE: float = 0.02
 const HUMAN_ARM_TISSUE_BODY_MAX: int = CombatDesignAnchors.REFERENCE_HUMAN_ARM_TISSUE_DISPLAY
 ## Pain performance at NRS 4 (first effect): -8% per PainConsciousnessConstants.
 const LITERATURE_PAIN_PERF_AT_NRS4: float = 0.92
@@ -118,6 +138,9 @@ const RESEARCH_HARNESS_GATE_IDS: Array[String] = [
     "triage_danger_seconds_vs_ttd",
     "joule_sqrt_transmission",
     "material_curve_full_blend",
+    "arm_grip_sub_region_bands",
+    "arm_grip_severity_bands",
+    "arm_grip_parry_ratio",
 ]
 
 
@@ -702,3 +725,45 @@ static func material_curves_full_blend_when_on() -> bool:
     if not BleedingConstants.FEATURE_MATERIAL_FAILURE_CURVES:
         return true
     return is_equal_approx(BleedingConstants.MATERIAL_CURVE_BLEND_WEIGHT, 1.0)
+
+
+## Doc-10 Issue 2: weighted grip loss % for a sub-region/severity pair
+## (sub_region_weight * severity_weight * penalty_per_unit). Mirrors BodyPartQuery.get_arm_wound_function_mult.
+static func arm_grip_loss_pct(sub_region: String, severity: String) -> float:
+    var sub: float = float(CombatConstants.ARM_WOUND_GRIP_SUB_REGION_WEIGHT.get(sub_region, 0.0))
+    var sev: float = float(CombatConstants.ARM_WOUND_GRIP_SEVERITY_WEIGHT.get(severity, 0.0))
+    return 100.0 * sub * sev * CombatConstants.ARM_WOUND_GRIP_PENALTY_PER_UNIT
+
+
+static func _in_band(value: float, lo: float, hi: float) -> bool:
+    return value >= lo - 0.01 and value <= hi + 0.01
+
+
+## Severe-loss% per sub-region must land in the design table bands (plan_balance_tuning.md lines 541-544).
+static func arm_grip_sub_region_bands_ok() -> bool:
+    return (
+        _in_band(arm_grip_loss_pct("hand", BleedingConstants.SEVERITY_SEVERE), LITERATURE_GRIP_HAND_BAND_MIN, LITERATURE_GRIP_HAND_BAND_MAX)
+        and _in_band(arm_grip_loss_pct("forearm", BleedingConstants.SEVERITY_SEVERE), LITERATURE_GRIP_FOREARM_BAND_MIN, LITERATURE_GRIP_FOREARM_BAND_MAX)
+        and _in_band(arm_grip_loss_pct("upper_arm", BleedingConstants.SEVERITY_SEVERE), LITERATURE_GRIP_UPPER_BAND_MIN, LITERATURE_GRIP_UPPER_BAND_MAX)
+        and _in_band(arm_grip_loss_pct("elbow", BleedingConstants.SEVERITY_SEVERE), LITERATURE_GRIP_ELBOW_BAND_MIN, LITERATURE_GRIP_ELBOW_BAND_MAX)
+    )
+
+
+## Severity-loss% must land in the ATLS clinical table bands (lines 522-525): minor hand superficial 10-20%,
+## severe hand tendon severance 30-50%, critical hand + forearm nerve/artery 50-70%.
+static func arm_grip_severity_bands_ok() -> bool:
+    return (
+        _in_band(arm_grip_loss_pct("hand", BleedingConstants.SEVERITY_MINOR), LITERATURE_GRIP_MINOR_HAND_MIN, LITERATURE_GRIP_MINOR_HAND_MAX)
+        and _in_band(arm_grip_loss_pct("hand", BleedingConstants.SEVERITY_SEVERE), LITERATURE_GRIP_TENDON_MIN, LITERATURE_GRIP_TENDON_MAX)
+        and _in_band(arm_grip_loss_pct("hand", BleedingConstants.SEVERITY_CRITICAL), LITERATURE_GRIP_NERVE_ARTERY_MIN, LITERATURE_GRIP_NERVE_ARTERY_MAX)
+        and _in_band(arm_grip_loss_pct("forearm", BleedingConstants.SEVERITY_CRITICAL), LITERATURE_GRIP_NERVE_ARTERY_MIN, LITERATURE_GRIP_NERVE_ARTERY_MAX)
+    )
+
+
+## Parry capacity must apply the 10/15 penalty ratio from line 91 (-10% parry / -15% attack) on a severe hand grip,
+## keeping parry gentler than attack (parry mult > grip mult).
+static func arm_grip_parry_ratio_applied() -> bool:
+    var grip: float = maxf(0.1, 1.0 - CombatConstants.ARM_WOUND_GRIP_PENALTY_PER_UNIT)
+    var parry: float = DefenseChoiceResolver.arm_wound_parry_capacity_mult(grip)
+    var want: float = 1.0 - (1.0 - grip) * LITERATURE_GRIP_PARRY_ATTACK_RATIO
+    return absf(parry - want) <= LITERATURE_GRIP_RATIO_TOLERANCE and parry > grip

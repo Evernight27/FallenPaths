@@ -554,6 +554,30 @@ static func set_feature_fight_exhaustion_index_load(on: bool) -> void:
 	FeatureFlags.set_feature_fight_exhaustion_index_load(on)
 
 
+static func is_feature_arm_wound_degradation_enabled() -> bool:
+	return FeatureFlags.is_feature_arm_wound_degradation_enabled()
+
+
+static func set_feature_arm_wound_degradation_load(enabled: bool) -> void:
+	FeatureFlags.set_feature_arm_wound_degradation_load(enabled)
+
+
+static func arm_wound_degradation_doc_sync_line() -> String:
+	return FeatureFlags.arm_wound_degradation_doc_sync_line()
+
+
+static func is_feature_parry_counterstrike_window_enabled() -> bool:
+	return FeatureFlags.is_feature_parry_counterstrike_window_enabled()
+
+
+static func set_feature_parry_counterstrike_window_load(enabled: bool) -> void:
+	FeatureFlags.set_feature_parry_counterstrike_window_load(enabled)
+
+
+static func parry_counterstrike_doc_sync_line() -> String:
+	return FeatureFlags.parry_counterstrike_doc_sync_line()
+
+
 static func exhaustion_performance_mult(exhaustion: float) -> float:
 	return Stamina.exhaustion_performance_mult(exhaustion)
 

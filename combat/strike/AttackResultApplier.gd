@@ -14,7 +14,9 @@ extends RefCounted
 ## **`parry_clash_context`** is copied onto the **attacker** dict and onto the emitted payload when present. When the
 ## defender meets the same blade-alignment gate used for guard updates and clash **`parry_control`** crosses the bind
 ## threshold (**`PARRY_BIND_CONTROL_THRESHOLD`**), set **`parry_was_bind`**, **`parry_against_id`**,
-## **`parry_bonus_until`** on the defender like **`parry_deflect`** so bind-riposte wind-up can apply; aligned but
+## **`parry_bonus_until`** on the defender like **`parry_deflect`** so bind-riposte wind-up can apply; the bind also
+## grants the riposte counterstrike window (**`CounterTempo.grant_riposte_chain`**, `FEATURE_PARRY_COUNTERSTRIKE_WINDOW`)
+## like a full deflect; aligned but
 ## sub-threshold control sets **`parry_was_bind`** false; misaligned partial **`erase`**s those keys (clears stale bind
 ## state).
 ## Manager must have: emit_signal, _get_by_id, _check_for_winner, _end_combat_phase, _execute_attack.
@@ -572,6 +574,12 @@ static func apply_result(manager: Node, attacker_id: int, result: Dictionary) ->
                         CombatTiming.now_seconds() + CombatConstants.PARRY_BONUS_AFTER_DEFLECT_S
                     )
                     CombatFlurryBind.open_pair_after_bind(manager, target_id, attacker_id)
+                    # Doc-9: a successful bind (blade locked) opens the same counterstrike window a full deflect does.
+                    if (
+                        CombatConstants.is_feature_parry_counterstrike_window_enabled()
+                        and not CombatMobilityRetreat.cannot_commit_melee(tgt)
+                    ):
+                        CounterTempo.grant_riposte_chain(manager, tgt, attacker_id)
                 else:
                     tgt.erase(DataKeys.PA_PARRY_AGAINST_ID)
                     tgt.erase(DataKeys.PA_PARRY_BONUS_UNTIL)

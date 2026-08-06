@@ -23,7 +23,7 @@ Agents: one §9c row per PR; gate `PHASE0: PASS`.
 | Bleed retune / BMI F1 | — | User ask + [`LIVE_PATHS` §12](LIVE_PATHS.md#12-tuning-order-keep-research-chain) |
 | WF-T1/T2 evidence | Combat · Playtest | [`LIVE_PATHS#wf-footing-improvement-backlog`](LIVE_PATHS.md#wf-footing-improvement-backlog) |
 
-**Shipped (maintain only):** Exp-0…3 · XCamp-3.1–3.8 · IV-2…13 (except open IV-9) · WF-1…4 · MS-L5–L7 · Camp-5 EA.
+**Shipped (maintain only):** Exp-0…3 · XCamp-3.1–3.8 · IV-2…13 (except open IV-9) · WF-1…4 · MS-L5–L7 · Camp-5 EA · Doc-10 Issue 2 arm-grip (`FEATURE_ARM_WOUND_DEGRADATION`) · Doc-9 parry counterstrike (`FEATURE_PARRY_COUNTERSTRIKE_WINDOW`).
 
 <a id="exp-0-stabilize"></a>
 <a id="exp-1-session--cognition"></a>

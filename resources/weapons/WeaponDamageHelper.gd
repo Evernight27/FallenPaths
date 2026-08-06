@@ -7,9 +7,12 @@ const INTENSITY_VELOCITY_FLOOR_FACTOR := 0.50
 ## Floor for effective delivery intensity (intensity - -  extension commit).
 const DELIVERY_INTENSITY_FLOOR := 0.05
 const DELIVERY_COMMIT_FLOOR := 0.05
-## R5: Sub-band energy penalty — if KE is below 20% of band-minimum expected KE, scale damage by sqrt(ke_ratio).
-## Prevents low-energy glancing strikes from dealing full damage despite being well below meaningful energy.
+## R5: Sub-band energy penalty — if KE is below 20% of band-minimum expected KE, scale damage by a smooth ramp.
+## Replaces the harsh sqrt(ratio) floor (which zeroed out low-energy hits at ratio<0.04).
+## New model: linear interpolation from ratio=1.0 (full damage) to ratio=ratio_floor (50% minimum),
+## with a hard cutoff below ratio_floor so strikes genuinely below band minimum deal 0 damage.
 const SUB_BAND_MINIMUM_RATIO := 0.20
+const SUB_BAND_RAMP_FLOOR := 0.50    # minimum damage fraction at the ramp floor (ratio=0.20 → 50% damage)
 
 
 ## The point-mass cap (m_strike * r²) was double-counting geometry because the velocity bands
@@ -334,7 +337,10 @@ static func compute_kinetic_energy_j(weapon: RefCounted, attack_instance: RefCou
                 ke_at_band_min = _ke_swing_rotational(weapon, attack_instance, band.x, e_mult)
         if ke_at_band_min > 0.0 and ke_j < SUB_BAND_MINIMUM_RATIO * ke_at_band_min:
             var ratio: float = ke_j / ke_at_band_min
-            ke_j *= sqrt(ratio)
+            ## Smooth ramp from full damage (ratio=1.0) to SUB_BAND_RAMP_FLOOR (ratio=SUB_BAND_MINIMUM_RATIO).
+            ## Below SUB_BAND_MINIMUM_RATIO, strikes are genuinely below minimum band energy — scale by linear ramp.
+            var ramp: float = clampf((ratio - 0.0) / (SUB_BAND_MINIMUM_RATIO - 0.0), 0.0, 1.0)
+            ke_j *= lerpf(SUB_BAND_RAMP_FLOOR, 1.0, ramp)
     return ke_j
 
 

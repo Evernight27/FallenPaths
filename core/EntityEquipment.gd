@@ -99,4 +99,5 @@ static func get_attack_damage_modifier(entity: Node) -> float:
         arm_pain_mod = PainConsciousnessConstants.get_pain_performance_modifier(
             entity._get_effective_pain_for_region("arms")
         )
-    return base * arm_func * arm_pain_mod
+    var grip_mult: float = BodyPartQuery.get_arm_wound_function_mult(entity, arm)
+    return base * arm_func * arm_pain_mod * grip_mult

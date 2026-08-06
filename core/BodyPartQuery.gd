@@ -185,6 +185,34 @@ static func get_arm_functionality(entity: Node, part: String) -> float:
     return clampf(combined * operability / maxf(operability, PART_OPERABILITY_THRESHOLD) * grip_penalty, 0.0, 1.0)
 
 
+# --- Arm-only: sub-region + severity weapon-function (grip) degradation from localized wounds ---
+## Doc-10 Issue 2 (plan_balance_tuning.md): a whole-arm tissue/bone measure cannot see a *localized* hand/forearm
+## wound. This folds sub-region + severity into a weapon-function mult stacked on top of the whole-arm measure.
+## Only wounds with a sub_region contribute (legacy no-sub-region wounds are already captured by the whole-arm
+## `get_arm_functionality`). Feature-gated: returns 1.0 when `FEATURE_ARM_WOUND_DEGRADATION` is off.
+
+
+static func get_arm_wound_function_mult(entity: Node, part: String) -> float:
+    if not is_arm(part) or entity == null or not CombatConstants.is_feature_arm_wound_degradation_enabled():
+        return 1.0
+    if not entity.get("wounds") is Dictionary or not entity.wounds.has(part):
+        return 1.0
+    var penalties: float = 0.0
+    for injury in entity.wounds[part]:
+        if not injury is Dictionary:
+            continue
+        var sub: String = str(injury.get("sub_region", ""))
+        if sub.is_empty():
+            continue
+        var sub_weight: float = float(CombatConstants.ARM_WOUND_GRIP_SUB_REGION_WEIGHT.get(sub, 0.0))
+        if sub_weight <= 0.0:
+            continue
+        var sev: String = str(injury.get(DataKeys.INJURY_SEVERITY, BleedingConstants.SEVERITY_MODERATE))
+        var sev_weight: float = float(CombatConstants.ARM_WOUND_GRIP_SEVERITY_WEIGHT.get(sev, 0.0))
+        penalties += sub_weight * sev_weight * CombatConstants.ARM_WOUND_GRIP_PENALTY_PER_UNIT
+    return clampf(1.0 - penalties, CombatConstants.ARM_WOUND_GRIP_FLOOR, 1.0)
+
+
 # --- Part-specific dodge modifier: attacked part's ability to get out of the way ---
 # Legs/arms: move that limb. Head/chest: bone factor (injury = harder to duck/twist).
 static func get_part_dodge_modifier(entity: Node, part: String) -> float:

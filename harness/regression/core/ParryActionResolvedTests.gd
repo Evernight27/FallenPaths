@@ -291,7 +291,26 @@ static func _run_parry_partial_bind_riposte_flags_when_aligned(failures: PackedS
                 )
             if not p.has("parry_bonus_until"):
                 _fail(failures, "parry_partial_bind %s: expected parry_bonus_until set" % label)
+            var chain_until: float = float(p.get(CombatConstants.COMBATANT_KEY_RIPOSTE_CHAIN_UNTIL, -1.0))
+            var chain_tid: int = int(p.get(CombatConstants.COMBATANT_KEY_RIPOSTE_CHAIN_TARGET_ID, -1))
+            if chain_until <= 0.0 or chain_tid != e_id:
+                _fail(
+                    failures,
+                    (
+                        "parry_partial_bind %s: bind should grant counterstrike window "
+                        + "got until=%f tid=%d"
+                        % [label, chain_until, chain_tid]
+                    )
+                )
         else:
+            if p.has(CombatConstants.COMBATANT_KEY_RIPOSTE_CHAIN_UNTIL):
+                _fail(
+                    failures,
+                    (
+                        "parry_partial_bind %s: no bind should not grant counterstrike window got %s"
+                        % [label, str(p.get(CombatConstants.COMBATANT_KEY_RIPOSTE_CHAIN_UNTIL))]
+                    )
+                )
             if p.has("parry_against_id"):
                 _fail(
                     failures,
@@ -326,6 +345,52 @@ static func _run_parry_partial_bind_riposte_flags_when_aligned(failures: PackedS
     apply_partial_bind.call(0.0, 0.45, false, "aligned_sub_threshold", false, false)
     apply_partial_bind.call(90.0, 0.9, false, "misaligned_high_control", false, true)
     apply_partial_bind.call(90.0, 0.9, false, "misaligned_clears_stale_bind", true, true)
+
+
+## **`parry_partial`** bind still sets **`parry_was_bind`** when `FEATURE_PARRY_COUNTERSTRIKE_WINDOW` is disabled, but
+## must NOT grant the riposte chain (counterstrike) window.
+static func _run_parry_partial_bind_skips_counterstrike_window_when_flag_off(
+    failures: PackedStringArray
+) -> void:
+    var saved: bool = CombatConstants.is_feature_parry_counterstrike_window_enabled()
+    CombatConstants.set_feature_parry_counterstrike_window_load(false)
+    var mgr: Node = MgrScript.new()
+    mgr.register(_new_entity("SWORD"), "player")
+    mgr.register(_new_entity("SWORD"), "enemy")
+    mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+    var p: Dictionary = mgr.combatants[0]
+    var e: Dictionary = mgr.combatants[1]
+    var p_id: int = EntityAccess.id_int(p)
+    var e_id: int = EntityAccess.id_int(e)
+    p.state = CombatConstants.STATE_WAITING
+    p["guard"] = 1.0
+    p["guard_line"] = "high"
+    p.pending_attack = {}
+    e.state = CombatConstants.STATE_WIND_UP
+    e.pending_attack = {
+        "target_id": p_id,
+        "attack_type": "thrust",
+        "effective_attack_line": "high",
+        "attack_angle_deg": 0.0,
+        "intensity": 0.5,
+        "parry_remaining_ratio": 0.05,
+    }
+    var pclash: Dictionary = {"parry_control": 0.9, "archetype_id": "stab"}
+    AttackResultApplier.apply_result(
+        mgr, e_id, {"action": "parry_partial", "target_id": p_id, "parry_clash_context": pclash}
+    )
+    if not bool(p.get("parry_was_bind", false)):
+        _fail(failures, "counterstrike_flag_off: expected bind established")
+    if p.has(CombatConstants.COMBATANT_KEY_RIPOSTE_CHAIN_UNTIL):
+        _fail(
+            failures,
+            (
+                "counterstrike_flag_off: riposte chain must NOT be granted when feature off got %s"
+                % str(p.get(CombatConstants.COMBATANT_KEY_RIPOSTE_CHAIN_UNTIL))
+            )
+        )
+    CombatConstants.set_feature_parry_counterstrike_window_load(saved)
+    _free_manager(mgr)
 
 
 static func _harness_counter_tempo_set_incoming_progress(mgr: Node, attacker_id: int, fraction: float) -> void:

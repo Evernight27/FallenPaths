@@ -221,7 +221,7 @@ Editor play session (`OperationalLog.begin_play_session`) layers diagnostics. Gr
 <a id="enable-per-hit-research_feel-lines"></a>
 <a id="f5-optional-crosswalk-feel-vs-headless"></a>
 
-**Research audit:** `.calibration_audit.txt` · `CombatResearchAnchors.gd` · `_run_research_*` (`RESEARCH_HARNESS_GATE_IDS`, 35 gates). Fail → fix constants/anchors + [`AGENTS_ENTRY` decision log](AGENTS_ENTRY.md#decision-log). **`note`** rows: ignore (`cut_bone_pen_gate_mm`, `forearm_blunt_fracture_anchor_J`, `layer_rupture_subcut_bleed_mult`, `blunt_fracture_scaling`, `human_head_tissue_pct`). **Footing / stances / PA offsets / form weights:** **not** in research audit — harness + F5 soak per [#wf-footing-improvement-backlog](#wf-footing-improvement-backlog). F5: [#playtest-q1](#playtest-q1-research-feel-duel) · `dev_research_feel`+ii2b · [#enable-per-hit-research_feel-lines](#enable-per-hit-research_feel-lines). **§1/§6/§10:** [#bleeding-physics](#bleeding-physics). **Edit:** `BleedingConstants` · `CombatResearchAnchors` · `resources/species/*.tres` · `CombatCalibrationAudit` · [#production-flags](#production-flags). One `FEATURE_*` per PR.
+**Research audit:** `.calibration_audit.txt` · `CombatResearchAnchors.gd` · `_run_research_*` (`RESEARCH_HARNESS_GATE_IDS`, 40 gates). Fail → fix constants/anchors + [`AGENTS_ENTRY` decision log](AGENTS_ENTRY.md#decision-log). **`note`** rows: ignore (`cut_bone_pen_gate_mm`, `forearm_blunt_fracture_anchor_J`, `layer_rupture_subcut_bleed_mult`, `blunt_fracture_scaling`, `human_head_tissue_pct`, `riposte_chain_window`). **Footing / stances / PA offsets / form weights:** **not** in research audit — harness + F5 soak per [#wf-footing-improvement-backlog](#wf-footing-improvement-backlog). F5: [#playtest-q1](#playtest-q1-research-feel-duel) · `dev_research_feel`+ii2b · [#enable-per-hit-research_feel-lines](#enable-per-hit-research_feel-lines). **§1/§6/§10:** [#bleeding-physics](#bleeding-physics). **Edit:** `BleedingConstants` · `CombatResearchAnchors` · `resources/species/*.tres` · `CombatCalibrationAudit` · [#production-flags](#production-flags). One `FEATURE_*` per PR.
 
 <a id="tier-6--medical--flee"></a>
 <a id="bleeding-units"></a>
@@ -447,6 +447,8 @@ Mapped opposition · Skirmish compact/rotate · L4+close · mop-up **3e**. Track
 | WF-1…4 | ☑ maintain — [#wf-implementation-status](#wf-implementation-status) |
 | MS-L5–L7 | ☑ |
 | Tier 4.4 PA | ☑ octant pilot |
+| Doc-10 Issue 2 arm-grip | ☑ `FEATURE_ARM_WOUND_DEGRADATION` — sub-region/severity → weapon-function grip mult |
+| Doc-9 parry counterstrike | ☑ `FEATURE_PARRY_COUNTERSTRIKE_WINDOW` — partial-parry bind grants riposte-chain window |
 
 Open queue: [`EXPANSION_PLAN`](EXPANSION_PLAN.md). Policy: [`SHIP_PLAN` §9c](SHIP_PLAN.md#combat-expand-registry).
 

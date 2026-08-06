@@ -777,6 +777,65 @@ static func append_research_benchmark_lines(lines: PackedStringArray) -> void:
             )
         )
     )
+    (
+        lines
+        . append(
+            (
+                (
+                    "arm_grip_sub_region_severe_loss_pct hand=%.1f forearm=%.1f elbow=%.1f upper=%.1f "
+                    + "literature_bands hand[20-50] forearm[15-40] upper[10-30] elbow[25-60] verdict=%s"
+                )
+                % [
+                    arm_grip_loss_pct("hand", BleedingConstants.SEVERITY_SEVERE),
+                    arm_grip_loss_pct("forearm", BleedingConstants.SEVERITY_SEVERE),
+                    arm_grip_loss_pct("elbow", BleedingConstants.SEVERITY_SEVERE),
+                    arm_grip_loss_pct("upper_arm", BleedingConstants.SEVERITY_SEVERE),
+                    "pass" if arm_grip_sub_region_bands_ok() else "warn",
+                ]
+            )
+        )
+    )
+    (
+        lines
+        . append(
+            (
+                (
+                    "arm_grip_severity_loss_pct minor_hand=%.1f severe_hand=%.1f critical_hand=%.1f "
+                    + "critical_forearm=%.1f literature clinical 10-20/30-50/50-70 verdict=%s"
+                )
+                % [
+                    arm_grip_loss_pct("hand", BleedingConstants.SEVERITY_MINOR),
+                    arm_grip_loss_pct("hand", BleedingConstants.SEVERITY_SEVERE),
+                    arm_grip_loss_pct("hand", BleedingConstants.SEVERITY_CRITICAL),
+                    arm_grip_loss_pct("forearm", BleedingConstants.SEVERITY_CRITICAL),
+                    "pass" if arm_grip_severity_bands_ok() else "warn",
+                ]
+            )
+        )
+    )
+    lines.append(
+        (
+            "arm_grip_parry_ratio=%.3f literature 10/15_parry_ratio doc_line_91 verdict=%s"
+            % [
+                LITERATURE_GRIP_PARRY_ATTACK_RATIO,
+                "pass" if arm_grip_parry_ratio_applied() else "warn",
+            ]
+        )
+    )
+    lines.append(
+        (
+            (
+                "riposte_chain_window_s=%.1f == counter_tempo_windup_max_s=%.1f < full_deflect_bonus=%.1fs "
+                + "windup_mult=%.1f indes_in_the_bind_immediacy_qualitative_only verdict=note"
+            )
+            % [
+                CombatConstants.RIPOSTE_CHAIN_WINDOW_S,
+                CombatConstants.COUNTER_TEMPO_WINDUP_MAX_S,
+                CombatConstants.PARRY_BONUS_AFTER_DEFLECT_S,
+                CombatConstants.RIPOSTE_CHAIN_WINDUP_MULT,
+            ]
+        )
+    )
     append_research_verdict_summary(lines)
     lines.append("[research_sources]")
 
@@ -815,3 +874,6 @@ static func append_research_verdict_summary(lines: PackedStringArray) -> void:
     lines.append("production_stack=P3b_S11_full_headless_gate_documented_in_audit")
     lines.append("joule_armor=sqrt_ke_remaining_over_strike_ke_gameplay_transmission")
     lines.append("blunt_J_vs_Nm=rank_order_only_cadaver_bending_uses_Nm_not_1to1_J")
+    lines.append("arm_grip=plan_balance_tuning_md_Issue2_sub_region_design_table_541-544_ATLS_clinical_522-525")
+    lines.append("arm_grip_parry_ratio=plan_balance_tuning_md_line_91_minus15_attack_minus10_parry")
+    lines.append("riposte_chain_window=HEMA_bind_indes_immediacy_window_equals_counter_tempo_windup")

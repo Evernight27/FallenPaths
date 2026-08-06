@@ -73,6 +73,38 @@ const DEBUG_BACK_RANK_DEPTH_POLEARM_LOADOUT := false
 const FEATURE_FIGHT_EXHAUSTION_INDEX := true
 ## Vitals-finish exploit: attackers press an already-damaged head/chest (targeting realism).
 const FEATURE_WOUNDED_VITALS_EXPLOIT := true
+## Doc-10 Issue 2 (plan_balance_tuning.md): arm sub-region + severity degrade weapon function (grip).
+const FEATURE_ARM_WOUND_DEGRADATION := true
+## Doc-9 (yomi_transitions): a partial-parry **bind** opens the defender counterstrike (riposte chain) window.
+const FEATURE_PARRY_COUNTERSTRIKE_WINDOW := true
+## Grip penalty per weighted wound unit: total loss% = sub_region_weight * severity_weight * 0.45. Derived so a
+## severe wound (severity weight 1.0) lands in each plan_balance_tuning.md sub-region band (lines 541-544):
+## hand 45% in [20-50], forearm 38.25% in [15-40], upper_arm 27% in [10-30], elbow 51.75% in [25-60].
+const ARM_WOUND_GRIP_PENALTY_PER_UNIT := 0.45
+## Floor on weapon-function grip mult (matches the 0.1 parry/attack floors elsewhere).
+const ARM_WOUND_GRIP_FLOOR := 0.1
+## Localized grip impact per arm sub-region, scaled so severe loss% hits the design table bands (lines 541-544):
+## hand precision aim [20-50], forearm grip/power [15-40], upper_arm swing power [10-30], elbow combined [25-60].
+const ARM_WOUND_GRIP_SUB_REGION_WEIGHT: Dictionary = {
+    "hand": 1.0,
+    "forearm": 0.85,
+    "elbow": 1.15,
+    "upper_arm": 0.6,
+}
+## Severity escalates grip loss against the ATLS clinical table (lines 522-525): minor hand 11.25% in [10-20]
+## (superficial hand cut), severe hand 45% in [30-50] (tendon severance), critical hand/forearm 60.75%/51.6% in
+## [50-70] (radial/ulnar artery+nerve). Critical upper_arm brachial severance (~80-100%) is the arterial/ischemia
+## event handled by the bleeding system (ARTERIAL_CHANCE_BY_SEVERITY), not this tissue grip mult.
+const ARM_WOUND_GRIP_SEVERITY_WEIGHT: Dictionary = {
+    BleedingConstants.SEVERITY_MINOR: 0.25,
+    BleedingConstants.SEVERITY_MODERATE: 0.55,
+    BleedingConstants.SEVERITY_SEVERE: 1.0,
+    BleedingConstants.SEVERITY_CRITICAL: 1.35,
+}
+## Parry-penalty ratio: plan_balance_tuning.md line 91 anchors "-15% attack / -10% parry" = 10/15. Parry mult =
+## 1 - (1 - grip) * this, so parry capacity stays gentler than attack at the same wound (ratio < 1) while scaling
+## with the same severity-scaled grip mult.
+const ARM_WOUND_GRIP_PARRY_PENALTY_RATIO := 10.0 / 15.0
 
 ## Tier 4.3 combat attention (default on; harness may toggle).
 static var _feature_combat_attention_enabled: bool = true
@@ -104,6 +136,8 @@ static var _feature_t44_spatial_band_pa_load: int = -1
 static var _feature_t44_spatial_file_dodge_bias_load: int = -1
 static var _feature_t44_spatial_flurry_pa_load: int = -1
 static var _feature_fight_exhaustion_index: bool = FEATURE_FIGHT_EXHAUSTION_INDEX
+static var _feature_arm_wound_degradation_load: int = -1
+static var _feature_parry_counterstrike_window_load: int = -1
 
 
 static func is_feature_combat_attention_enabled() -> bool:
@@ -583,10 +617,68 @@ static func set_feature_fight_exhaustion_index_load(on: bool) -> void:
     _feature_fight_exhaustion_index = on
 
 
+## Arm wound degradation (plan_balance_tuning.md Issue 2): sub-region + severity -> weapon function grip mult.
+
+
+static func is_feature_arm_wound_degradation_enabled() -> bool:
+    if _feature_arm_wound_degradation_load >= 0:
+        return _feature_arm_wound_degradation_load != 0
+    return FEATURE_ARM_WOUND_DEGRADATION
+
+
+static func set_feature_arm_wound_degradation_load(enabled: bool) -> void:
+    _feature_arm_wound_degradation_load = 1 if enabled else 0
+
+
+static func arm_wound_degradation_doc_sync_line() -> String:
+    return (
+        "arm wound degradation: feature=%s penalty_per_unit=%.2f floor=%.2f "
+        + "sub=hand%.2f/forearm%.2f/elbow%.2f/upper_arm%.2f "
+        + "sev=minor%.2f/moderate%.2f/severe%.2f/critical%.2f "
+        + "parry_ratio=%.2f "
+        + "slice1=get_arm_wound_function_mult"
+    ) % [
+        "on" if FEATURE_ARM_WOUND_DEGRADATION else "off",
+        ARM_WOUND_GRIP_PENALTY_PER_UNIT,
+        ARM_WOUND_GRIP_FLOOR,
+        float(ARM_WOUND_GRIP_SUB_REGION_WEIGHT["hand"]),
+        float(ARM_WOUND_GRIP_SUB_REGION_WEIGHT["forearm"]),
+        float(ARM_WOUND_GRIP_SUB_REGION_WEIGHT["elbow"]),
+        float(ARM_WOUND_GRIP_SUB_REGION_WEIGHT["upper_arm"]),
+        float(ARM_WOUND_GRIP_SEVERITY_WEIGHT[BleedingConstants.SEVERITY_MINOR]),
+        float(ARM_WOUND_GRIP_SEVERITY_WEIGHT[BleedingConstants.SEVERITY_MODERATE]),
+        float(ARM_WOUND_GRIP_SEVERITY_WEIGHT[BleedingConstants.SEVERITY_SEVERE]),
+        float(ARM_WOUND_GRIP_SEVERITY_WEIGHT[BleedingConstants.SEVERITY_CRITICAL]),
+        ARM_WOUND_GRIP_PARRY_PENALTY_RATIO,
+    ]
+
+
+## Parry counterstrike window: partial-parry **bind** grants the riposte chain (counterstrike) window.
+
+
+static func is_feature_parry_counterstrike_window_enabled() -> bool:
+    if _feature_parry_counterstrike_window_load >= 0:
+        return _feature_parry_counterstrike_window_load != 0
+    return FEATURE_PARRY_COUNTERSTRIKE_WINDOW
+
+
+static func set_feature_parry_counterstrike_window_load(enabled: bool) -> void:
+    _feature_parry_counterstrike_window_load = 1 if enabled else 0
+
+
+static func parry_counterstrike_doc_sync_line() -> String:
+    return (
+        "parry counterstrike window: feature=%s slice1=bind_grants_riposte_chain_until "
+        + "window=riposte_chain_window_s windup_mult=riposte_chain_windup_mult"
+    ) % ("on" if FEATURE_PARRY_COUNTERSTRIKE_WINDOW else "off")
+
+
 ## Headless harness: clear all set_feature_*_load overrides.
 static func reset_harness_feature_load_overrides() -> void:
     _feature_ambient_pain_shock = FEATURE_AMBIENT_PAIN_SHOCK
     _feature_fight_exhaustion_index = FEATURE_FIGHT_EXHAUSTION_INDEX
+    _feature_arm_wound_degradation_load = -1
+    _feature_parry_counterstrike_window_load = -1
     _feature_ms_feint_resistance_load = -1
     _feature_ms_post_strike_load = -1
     _feature_ms_positional_awareness_load = -1

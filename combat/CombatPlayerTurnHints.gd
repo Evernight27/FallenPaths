@@ -361,8 +361,6 @@ static func surround_arc_overlap_hint_if_applicable(manager: Node, c: Dictionary
 static func _log_cowering_fall_back_listed_if_applicable(c: Dictionary, actions: Array) -> void:
     if not OperationalLog.is_play_session_active() or c.is_empty():
         return
-    if not CombatantEntityAccess.is_player_side(c):
-        return
     if CombatantEntityAccess.state_str(c) != CombatConstants.STATE_COWERING:
         return
     if not CombatantEntityAccess.can_flee_or_fall_back(c):

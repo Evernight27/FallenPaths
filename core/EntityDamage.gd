@@ -258,6 +258,9 @@ static func apply_damage_split(
 					blunt_from_deflection = deflected_raw
 			blunt_from_direct = blunt_pre_val
 			if deflected_raw > 0.0 and blunt_pre_val > 0.0:
+				## Both sharp was deflected AND there is direct blunt — process them through armor separately,
+				## but cap the combined result so total blunt cannot exceed (deflected + direct) before armor.
+				## This prevents armor degradation from creating mech_post_armor > pre_armor on blended hits.
 				var result_deflected: Dictionary = armor_var.apply_damage(
 					deflected_raw,
 					CombatConstants.DAMAGE_TYPE_BLUNT,
@@ -274,9 +277,13 @@ static func apply_damage_split(
 					blunt_contact_cm,
 					0
 				)
-				final_blunt = (
-					maxf(0.0, result_deflected.get("damage", 0.0)) + maxf(0.0, result_direct.get("damage", 0.0))
-				)
+				var blunt_after_deflected: float = maxf(0.0, result_deflected.get("damage", 0.0))
+				var blunt_after_direct: float = maxf(0.0, result_direct.get("damage", 0.0))
+				## Cap combined blunt so it cannot exceed the sum of pre-armor inputs (physics constraint).
+				## Armor degradation + mechanical resistance can cause additive amplification; this clamp
+				## enforces that post-armor blunt <= pre-armor blunt when both channels are present.
+				var max_allowed_blunt: float = deflected_raw + blunt_pre_val
+				final_blunt = minf(blunt_after_deflected + blunt_after_direct, max_allowed_blunt)
 			elif deflected_raw > 0.0:
 				var result_blunt: Dictionary = armor_var.apply_damage(
 					deflected_raw,

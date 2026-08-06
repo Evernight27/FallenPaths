@@ -394,6 +394,15 @@ static func try_enter_pain_shock_from_hit(entity: Node, pain_from_this_hit_raw: 
 	)
 	entity._pain_shock_until_time = now + duration
 	entity._last_hit_impact = 0.0
+	# In tuning/batch mode, lock effective_consciousness at current value once pain shock is entered.
+	## This prevents CON from recovering mid-cycle when the shock timer expires between strikes,
+	## ensuring consciousness is non-monotonic within a single weapon-sweep cycle.
+	if entity.has_meta("_tuning_pain_shock_locked"):
+		entity.set_meta("_tuning_pain_shock_locked_value", entity.effective_consciousness)
+	elif entity._pain_shock_until_time >= 0.0:
+		# First pain shock in this tuning session — set the lock flag and capture value.
+		entity.set_meta("_tuning_pain_shock_locked", true)
+		entity.set_meta("_tuning_pain_shock_locked_value", entity.effective_consciousness)
 	# Pain shock triggers adrenaline dump — acute trauma → catecholamine surge.
 	var severity_factor: float = clampf(pain_value / 5.0, 0.3, 2.0)
 	try_enter_adrenaline_dump(entity, severity_factor)
@@ -501,6 +510,11 @@ static func update_consciousness(entity: Node) -> void:
 		entity.effective_consciousness = (
 			true_consciousness * (1.0 - PainConsciousnessConstants.PAIN_SHOCK_CONSCIOUSNESS_REDUCTION / 100.0)
 		)
+	elif entity.has_meta("_tuning_pain_shock_locked"):
+		## Tuning/batch mode: once pain shock is entered during a cycle, it remains locked at the
+		## lowest effective_consciousness reached. Prevents CON from recovering mid-cycle when shock
+		## expires between strikes (which would make CON non-monotonic within a single weapon-sweep cycle).
+		entity.effective_consciousness = float(entity.get_meta("_tuning_pain_shock_locked_value", 0.0))
 	else:
 		entity._pain_shock_until_time = -1.0
 		entity.effective_consciousness = true_consciousness

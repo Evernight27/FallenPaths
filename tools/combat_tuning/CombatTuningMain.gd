@@ -847,6 +847,13 @@ func _spawn_combatants() -> void:
 	_in_medical_phase = false
 	_cycle_start_strikes = _strike_count
 	_reset_cycle_exchange_stats()
+	# Clear tuning pain-shock lock so each cycle starts fresh (CON monotonicity per-cycle).
+	if attacker_entity != null and is_instance_valid(attacker_entity):
+		attacker_entity.erase_meta("_tuning_pain_shock_locked")
+		attacker_entity.erase_meta("_tuning_pain_shock_locked_value")
+	if defender_entity != null and is_instance_valid(defender_entity):
+		defender_entity.erase_meta("_tuning_pain_shock_locked")
+		defender_entity.erase_meta("_tuning_pain_shock_locked_value")
 	_log_line(_Formatter.format_calibration_preamble(), "#aaccff")
 	_log_line(_Formatter.format_matchup_banner(attacker_config, defender_config), "#88ff88")
 	_populate_move_dropdown()
@@ -914,6 +921,8 @@ func _infer_end_cause(winner_side: String) -> String:
 		return "flee"
 	var atk_node = _get_entity_access().node_variant(atk_c) if not atk_c.is_empty() else null
 	var def_node = _get_entity_access().node_variant(def_c) if not def_c.is_empty() else null
+
+	# Determine incapacitation cause with body-part specificity.
 	if not atk_c.is_empty() and not _get_entity_access().alive_bool(atk_c):
 		if atk_node != null and is_instance_valid(atk_node) and atk_node.has_method("_get_blood_loss_death_threshold"):
 			var death_thresh = float(atk_node._get_blood_loss_death_threshold())
@@ -926,10 +935,55 @@ func _infer_end_cause(winner_side: String) -> String:
 			if float(def_node.blood_volume) <= death_thresh:
 				return "bled_out"
 		return "kill"
+
+	# Incapacitation cause determination — check mechanism specificity.
+	var incapacitated_entity: Node = null
+	var incapacitated_side: String = ""
 	if not atk_c.is_empty() and _get_entity_access().is_incapacitated(atk_c):
+		incapacitated_entity = atk_node
+		incapacitated_side = "attacker"
+	elif not def_c.is_empty() and _get_entity_access().is_incapacitated(def_c):
+		incapacitated_entity = def_node
+		incapacitated_side = "defender"
+
+	if incapacitated_entity != null and is_instance_valid(incapacitated_entity):
+		incapacitated_entity.ensure_consciousness_current()
+		var cons: float = incapacitated_entity.consciousness
+		var blood_pct: float = float(incapacitated_entity.blood_volume) if incapacitated_entity.has_method("blood_volume") else 100.0
+
+		# Check head trauma first — head tissue destruction directly causes unconsciousness.
+		var head_cut: float = incapacitated_entity.body_cutting.get(BodyPartConstants.PART_HEAD, 0.0)
+		var head_blunt: float = incapacitated_entity.body_blunt.get(BodyPartConstants.PART_HEAD, 0.0)
+		var head_max: int = incapacitated_entity.body_max.get(BodyPartConstants.PART_HEAD, 1)
+		var head_total: float = head_cut + head_blunt
+		if head_max > 0 and float(head_total) / (head_max * 2.0) >= 0.85:
+			return "head trauma"
+
+		# Check blood loss — Class III/IV hemorrhage causes unconsciousness.
+		if BloodVolumeMl.entity_uses_ml(incapacitated_entity):
+			pass  # uses ml; need to check remaining
+		var atls_remaining: float = (blood_pct / 100.0) * BleedingConstants.MAX_BLOOD_VOLUME if blood_pct > 0 else 0.0
+		var atls_class: int = BleedingConstants.atls_hemorrhage_class_from_remaining_pct(atls_remaining / BleedingConstants.MAX_BLOOD_VOLUME) if BleedingConstants.MAX_BLOOD_VOLUME > 0 else 4
+		if atls_class >= 3 and blood_pct < 70.0:
+			return "blood loss"
+
+		# Check leg functionality — destroyed legs cause inability to maintain position.
+		var right_leg_bone: float = incapacitated_entity.bone_health.get(BodyPartConstants.PART_RIGHT_LEG, 8.0)
+		var left_leg_bone: float = incapacitated_entity.bone_health.get(BodyPartConstants.PART_LEFT_LEG, 8.0)
+		if right_leg_bone <= 0.0 and left_leg_bone <= 0.0:
+			return "leg breaks"
+
+		# Check arm functionality — destroyed attacking arm triggers cowering.
+		var right_arm_severed: bool = incapacitated_entity.body_cutting.get(BodyPartConstants.PART_RIGHT_ARM, 10.0) <= 0.0 and incapacitated_entity.bone_health.get(BodyPartConstants.PART_RIGHT_ARM, 8.0) <= 0.0
+		var left_arm_severed: bool = incapacitated_entity.body_cutting.get(BodyPartConstants.PART_LEFT_ARM, 10.0) <= 0.0 and incapacitated_entity.bone_health.get(BodyPartConstants.PART_LEFT_ARM, 8.0) <= 0.0
+		if right_arm_severed or left_arm_severed:
+			var attacking_arm = incapacitated_entity.get_attacking_arm() if incapacitated_entity.has_method("get_attacking_arm") else "right"
+			if not attacking_arm.is_empty():
+				return "arm destruction"
+
+		# Default incapacitation without body-part specificity.
 		return "incapacitate"
-	if not def_c.is_empty() and _get_entity_access().is_incapacitated(def_c):
-		return "incapacitate"
+
 	if winner_side.is_empty():
 		return "draw"
 	return "standing"
@@ -1076,11 +1130,21 @@ func _batch_run_cycle_to_completion():
 	for _cycle in range(max_cycles):
 		if manager == null or not is_instance_valid(manager):
 			return
-		if manager != null and is_instance_valid(manager) and manager.combat_resolution_closed:
-			break
 
 		var atk_c = eac.manager_get_combatant(manager, attacker_id)
 		var def_c = eac.manager_get_combatant(manager, defender_id)
+
+		# Guard: if combat resolved but both combatants still actively exchanging,
+		# keep pumping until actual resolution (both idle or one eliminated).
+		if manager != null and is_instance_valid(manager) and manager.combat_resolution_closed:
+			var atk_alive = eac.alive_bool(atk_c) if not atk_c.is_empty() else false
+			var def_alive = eac.alive_bool(def_c) if not def_c.is_empty() else false
+			if (atk_alive or def_alive):
+				# Combat resolved but living combatants still have pending events — process remaining.
+				pass
+			else:
+				break
+
 		if atk_c.is_empty() or def_c.is_empty():
 			break
 		if not eac.alive_bool(atk_c) or not eac.alive_bool(def_c):
@@ -1439,6 +1503,14 @@ func _resolve_tuning_matchup_winner(atk_c: Dictionary, def_c: Dictionary) -> Str
 			return "attacker"
 		if atk_con <= PainConsciousnessConstants.INCAPACITATION_CONSCIOUSNESS_THRESHOLD and def_con <= PainConsciousnessConstants.INCAPACITATION_CONSCIOUSNESS_THRESHOLD:
 			return "mutual"
+	var atk_incap_final = _get_entity_access().is_incapacitated(atk_c) if not atk_c.is_empty() else false
+	var def_incap_final = _get_entity_access().is_incapacitated(def_c) if not def_c.is_empty() else false
+	if atk_incap_final and not def_incap_final:
+		return "defender"
+	if def_incap_final and not atk_incap_final:
+		return "attacker"
+	if atk_incap_final and def_incap_final:
+		return "mutual"
 	# Stalemate resolution tiebreaker: remaining HP, then blood volume.
 	if atk_node != null and is_instance_valid(atk_node) and def_node != null and is_instance_valid(def_node):
 		var atk_hp := 0.0
@@ -2427,5 +2499,5 @@ func _run_batch(
 		for line in _batch_csv_lines:
 			print(line)
 
-	if reset_batch_ui:
+	if reset_batch_ui and not _batch_running:
 		_auto_enabled = true

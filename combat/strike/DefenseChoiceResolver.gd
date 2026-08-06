@@ -713,6 +713,17 @@ static func _get_effective_redirect(tgt: Dictionary) -> float:
     return redirect_attempt * (0.75 + agi_scale * clampf(agi_d_attempt / 100.0, 0.0, 1.5))
 
 
+## Doc-10 Issue 2: a localized arm wound degrades blade delivery (attack) more than blade-on-blade parry contact.
+## plan_balance_tuning.md line 91 anchors "-15% attack / -10% parry" -> parry penalty = grip penalty * 10/15, so
+## parry capacity stays gentler than attack at the same wound while scaling with the severity-scaled grip mult.
+## Feature-gated.
+static func arm_wound_parry_capacity_mult(arm_mod: float) -> float:
+    if not CombatConstants.is_feature_arm_wound_degradation_enabled() or arm_mod >= 1.0:
+        return arm_mod
+    var grip_penalty: float = 1.0 - arm_mod
+    return maxf(0.1, 1.0 - grip_penalty * CombatConstants.ARM_WOUND_GRIP_PARRY_PENALTY_RATIO)
+
+
 static func _compute_parry_c_d(def_weapon, tgt: Dictionary, contact_type: String = "") -> float:
     var m_parry_part: float = CombatantEntityAccess.weapon_parry_part_mass_kg(def_weapon)
     var m_total: float = CombatantEntityAccess.weapon_mass_kg(def_weapon)
@@ -737,7 +748,9 @@ static func _compute_parry_c_d(def_weapon, tgt: Dictionary, contact_type: String
     ) if CombatantEntityAccess.scene_node(tgt) != null and \
        CombatantEntityAccess.scene_node(tgt).has_method("_get_vital_parts") else 1.0
     c_d_full *= maxf(CombatConstants.PERF_MOD_MIN, def_parry_mod)
-    c_d_full *= maxf(0.1, CombatantEntityAccess.get_attack_damage_modifier(tgt))
+    c_d_full *= arm_wound_parry_capacity_mult(
+        maxf(0.1, CombatantEntityAccess.get_attack_damage_modifier(tgt))
+    )
     if CombatantEntityAccess.weapon_has_parts(def_weapon):
         var pct: String = CombatantEntityAccess.weapon_parry_contact_type(def_weapon)
         c_d_full *= CombatConstants.PARRY_CONTACT_MODIFIERS.get(pct, 1.0)
