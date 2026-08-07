@@ -202,6 +202,11 @@ static func _enrich_payload_for_tuning(
     if not atk.is_empty():
         if str(payload.get(DataKeys.ACTION_MOVE_ID, "")).is_empty():
             payload[DataKeys.RESULT_MOVE_ID] = str(atk.get(DataKeys.PA_LAST_MOVE_ID, atk.get(DataKeys.ATTACK_LAST_MOVE_ID, "")))
+        if not payload.has(DataKeys.PA_GAUGE_ATK_PRE) and atk.has(DataKeys.PA_GAUGE_ATK_PRE):
+            # Hit path: pending_attack was already cleared, but AttackResolver preserves the wind-up
+            # gauge context on the combatant dict alongside last_move_id — read it from there.
+            payload[DataKeys.PA_GAUGE_ATK_PRE] = float(atk[DataKeys.PA_GAUGE_ATK_PRE])
+            payload["gauge_def_pre"] = float(atk.get(DataKeys.PA_GAUGE_DEF_PRE, -1.0))
         payload["atk_guard"] = str(atk.get(DataKeys.ATTACK_GUARD_LINE, ""))
         payload["atk_form"] = str(atk.get(DataKeys.PA_WEAPON_FORM, atk.get(DataKeys.COMBATANT_FORM_STR, "")))
         if CombatantEntityAccess.has_weapon(atk):

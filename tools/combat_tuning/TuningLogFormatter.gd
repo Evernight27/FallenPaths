@@ -87,7 +87,10 @@ static func format_entity_tissue_oneline(entity: Node) -> String:
         var max_hp: float = float(entity.body_max.get(part, 1.0))
         var bone: float = float(entity.bone_health.get(part, 0.0))
         var bone_max_val: float = float(entity.bone_max.get(part, 1.0))
-        var hp_ratio: float = (cut + blunt) / max_hp if max_hp > 0.0 else 0.0
+        # body_cutting/body_blunt are REMAINING pools (each init to body_max, damage subtracts).
+        # Total pool is 2x max (cut + blunt); remaining fraction must be clamped to 100%.
+        var hp_ratio: float = (cut + blunt) / (max_hp * 2.0) if max_hp > 0.0 else 0.0
+        hp_ratio = clampf(hp_ratio, 0.0, 1.0)
         var bone_ratio: float = bone / bone_max_val if bone_max_val > 0.0 else 0.0
         tissue_bits.append("%s=%.0f%%" % [part, hp_ratio * 100.0])
         bone_bits.append("%s=%.0f%%" % [part, bone_ratio * 100.0])
@@ -117,6 +120,16 @@ static func strike_ke_from_result(result: Dictionary) -> float:
 
 
 static func ke_sample_from_result(result: Dictionary) -> Dictionary:
+    var sample: Dictionary = _ke_sample_meta(result)
+    var rd: Dictionary = _resolved_payload(result)
+    if result.has("parry_control"):
+        sample["parry_control"] = float(result["parry_control"])
+    elif rd.has("parry_control"):
+        sample["parry_control"] = float(rd["parry_control"])
+    return sample
+
+
+static func _ke_sample_meta(result: Dictionary) -> Dictionary:
     var rd: Dictionary = _resolved_payload(result)
     var sample: Dictionary = {
         "ke_j": _strike_ke_j(rd),
@@ -124,17 +137,8 @@ static func ke_sample_from_result(result: Dictionary) -> Dictionary:
         "weapon_id": str(result.get("weapon_id", rd.get("weapon_id", ""))),
         "kinematic_delivery": str(result.get("kinematic_delivery", rd.get("kinematic_delivery", ""))),
     }
-    if result.has("parry_control"):
-        sample["parry_control"] = float(result["parry_control"])
-    elif rd.has("parry_control"):
-        sample["parry_control"] = float(rd["parry_control"])
     var delivery: String = str(sample.get("kinematic_delivery", ""))
     if delivery.is_empty():
-        var move_id: String = str(sample.get("move_id", ""))
-        if not move_id.is_empty():
-            sample["kinematic_delivery"] = _WeaponDamageHelper.kinematic_delivery({}, move_id)
-    # Ensure the delivered kinematic_delivery is used for band annotation.
-    if sample.has("kinematic_delivery") and str(sample["kinematic_delivery"]).is_empty():
         var move_id: String = str(sample.get("move_id", ""))
         if not move_id.is_empty():
             sample["kinematic_delivery"] = _WeaponDamageHelper.kinematic_delivery({}, move_id)
@@ -208,6 +212,43 @@ static func format_hema_ke_tag(ke_j: float) -> String:
     return format_ke_tag_for_sample({"ke_j": ke_j, "weapon_id": "SWORD"})
 
 
+## Space-separated, CSV-safe attribution of a strike's KE multipliers so weak
+## strikes from injured/exhausted combatants are explainable at a glance.
+static func format_attack_perf(rd: Dictionary) -> String:
+    var perf: Variant = rd.get("attack_perf", {})
+    if perf is not Dictionary or (perf as Dictionary).is_empty():
+        return ""
+    var d: Dictionary = perf as Dictionary
+    var items := PackedStringArray()
+    if d.has("str"):
+        items.append("str=%.0f" % float(d["str"]))
+    for key in ["arm", "fat", "pow", "wuf", "close"]:
+        if d.has(key):
+            items.append("%s=%.2f" % [key, float(d[key])])
+    if d.has("intensity"):
+        items.append("i=%.2f" % float(d["intensity"]))
+    return "perf=[%s]" % " ".join(items)
+
+
+## Compact list of which KE multipliers dragged the strike below band.
+static func _format_ke_low_cause(rd: Dictionary) -> String:
+    var perf: Variant = rd.get("attack_perf", {})
+    if perf is not Dictionary:
+        return ""
+    var d: Dictionary = perf as Dictionary
+    var culprits := PackedStringArray()
+    for key in ["arm", "fat", "pow", "wuf"]:
+        if d.has(key):
+            var val: float = float(d[key])
+            if val > 0.0 and val < 0.98:
+                culprits.append("%s:%.2f" % [key, val])
+    if d.has("close"):
+        var close: float = float(d["close"])
+        if close < 0.98:
+            culprits.append("close:%.2f" % close)
+    return " ".join(culprits)
+
+
 static func atls_class_label(remaining_blood_pct: float) -> String:
     var cls: int = _Bleeding.atls_hemorrhage_class_from_remaining_pct(remaining_blood_pct)
     return "ATLS-%s" % ["0", "I", "II", "III", "IV"][clampi(cls, 0, 4)]
@@ -219,7 +260,7 @@ static func format_vitals_suffix(entity: Node) -> String:
     entity.ensure_consciousness_current()
     var blood: float = float(entity.blood_volume)
     var atls: String = atls_class_label(blood)
-    return "blood=%.0f%% %s con=%.0f" % [blood, atls, float(entity.consciousness)]
+    return "blood=%.0f%% %s consc=%.0f" % [blood, atls, float(entity.consciousness)]
 
 
 ## One grep-friendly line per exchange (replaces production combat log in tuning).
@@ -309,19 +350,14 @@ static func format_exchange_line(
 
     var ke_j: float = _strike_ke_j(rd)
     if ke_j > 0.0:
-        (
-            bits
-            . append(
-                format_ke_tag_for_sample(
-                    {
-                        "ke_j": ke_j,
-                        "weapon_id": str(result.get("weapon_id", rd.get("weapon_id", ""))),
-                        "kinematic_delivery": str(result.get("kinematic_delivery", rd.get("kinematic_delivery", ""))),
-                        "move_id": _move_id_from_result(result),
-                    }
-                )
-            )
-        )
+        bits.append(format_ke_tag_for_sample(_ke_sample_meta(result)))
+        var perf_bit: String = format_attack_perf(rd)
+        if not perf_bit.is_empty():
+            bits.append(perf_bit)
+        if ke_band_tag_for_sample(_ke_sample_meta(result)) == "low":
+            var low_cause: String = _format_ke_low_cause(rd)
+            if not low_cause.is_empty():
+                bits.append("ke_low_by=%s" % low_cause)
     else:
         bits.append("KE=n/a")
 
@@ -337,7 +373,16 @@ static func format_exchange_line(
         bits.append("dmg=%d phys=%.3f cut=%.2f blunt=%.2f bone=%.2f" % [dmg, phys, cut, blunt, bone])
         var pre_armor: float = float(rd.get("pre_armor", -1.0))
         var mech: float = float(rd.get("mechanical_post_armor", -1.0))
-        bits.append("pre_armor=%.1f mech=%.1f" % [maxf(pre_armor, 0.0), maxf(mech, 0.0)])
+        var mech_bit: String = "pre_armor=%.1f mech=%.1f" % [maxf(pre_armor, 0.0), maxf(mech, 0.0)]
+        if mech > pre_armor + 0.5:
+            var amplif := PackedStringArray()
+            if rd.has("mech_trauma_mult") and absf(float(rd["mech_trauma_mult"]) - 1.0) > 0.01:
+                amplif.append("trauma x%.2f" % float(rd["mech_trauma_mult"]))
+            if rd.has("mech_subregion_mult") and absf(float(rd["mech_subregion_mult"]) - 1.0) > 0.01:
+                amplif.append("subregion x%.2f" % float(rd["mech_subregion_mult"]))
+            if not amplif.is_empty():
+                mech_bit += " (mech>pre: %s)" % " ".join(amplif)
+        bits.append(mech_bit)
         var hb: float = float(rd.get("health_before", 0.0))
         var ha: float = float(rd.get("health_after", 0.0))
         if hb > 0.0 or ha > 0.0:
@@ -480,7 +525,7 @@ static func format_cycle_hema_summary(
 ) -> String:
     var total_exchanges: int = 0
     for k in outcome_counts:
-        if k != "reject":
+        if k != "reject" and k != "parry_bind":
             total_exchanges += int(outcome_counts[k])
     var lines := PackedStringArray()
     # Backward compat: if only one strike arg was passed, use it for both.
@@ -709,7 +754,9 @@ static func format_entity_health(entity: Node) -> String:
         var max_hp: float = entity.body_max.get(part, 1.0)
         var bone: float = entity.bone_health.get(part, 0.0)
         var bone_max_val: float = entity.bone_max.get(part, 1.0)
-        var hp_ratio: float = (cut + blunt) / max_hp if max_hp > 0.0 else 0.0
+        # Remaining-fraction scale matching format_entity_tissue_oneline (pool = 2x max).
+        var hp_ratio: float = (cut + blunt) / (max_hp * 2.0) if max_hp > 0.0 else 0.0
+        hp_ratio = clampf(hp_ratio, 0.0, 1.0)
         var bone_ratio: float = bone / bone_max_val if bone_max_val > 0.0 else 0.0
         lines.push_back("  %s: tissue=%.0f%% bone=%.0f%%" % [part, hp_ratio * 100.0, bone_ratio * 100.0])
     lines.push_back("  %s" % format_vitals_suffix(entity))
@@ -736,7 +783,7 @@ static func csv_header() -> String:
         "strike_index,outcome,move_id,part,intensity,power,follow_through,wind_up_s,"
         + "attack_line,atk_guard,def_guard,strike_ke_j,hema_ke_band,pen_mm,"
         + "dmg,phys,cut,blunt,bone,pre_armor,mech_post_armor,recovery_s,"
-        + "gauge_atk,gauge_def,health_before,health_after,note"
+        + "gauge_atk,gauge_def,health_before,health_after,note,perf"
     )
 
 
@@ -759,19 +806,7 @@ static func csv_row(
     parts.push_back(str(result.get("atk_guard", "")))
     parts.push_back(str(result.get("def_guard", "")))
     parts.push_back("%.2f" % ke_j)
-    (
-        parts
-        . push_back(
-            ke_band_tag_for_sample(
-                {
-                    "ke_j": ke_j,
-                    "weapon_id": str(result.get("weapon_id", rd.get("weapon_id", ""))),
-                    "kinematic_delivery": str(result.get("kinematic_delivery", rd.get("kinematic_delivery", ""))),
-                    "move_id": _move_id_from_result(result),
-                }
-            )
-        )
-    )
+    parts.push_back(ke_band_tag_for_sample(_ke_sample_meta(result)))
     parts.push_back("%.3f" % float(rd.get("penetration_sharp_applied", rd.get("penetration", 0.0))))
     parts.push_back(str(int(rd.get("dmg", 0))))
     parts.push_back("%.4f" % float(rd.get("total_physical", rd.get("dmg", 0.0))))
@@ -786,4 +821,6 @@ static func csv_row(
     parts.push_back("%.0f" % float(rd.get("health_before", 0.0)))
     parts.push_back("%.0f" % float(rd.get("health_after", 0.0)))
     parts.push_back(note.replace(",", ";"))
+    var perf_bit: String = format_attack_perf(rd)
+    parts.push_back(perf_bit.replace(",", " ") if not perf_bit.is_empty() else "")
     return ",".join(parts)

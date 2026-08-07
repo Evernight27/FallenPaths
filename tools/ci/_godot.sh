@@ -71,6 +71,11 @@ fp_godot_bin() {
 
 fp_godot_import_warmup() {
 	local root="$1"
+	# Callers that already ran `--import` once (full/fast phase0 gate) skip the
+	# redundant re-import + settle sleep; each warmup costs ~7s import + 2s sleep.
+	if [[ "${FP_SKIP_IMPORT_WARMUP:-0}" == "1" ]]; then
+		return 0
+	fi
 	local godot
 	godot="$(fp_godot_bin)" || return 1
 	"$godot" --headless --path "$root" --import >/dev/null 2>&1 || true

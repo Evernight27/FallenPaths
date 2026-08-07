@@ -329,7 +329,7 @@ static func _weapon_definitions_build() -> Dictionary:
                 }
             ],
             "parry_part_id": "shaft",
-            "impact_velocity_bands": {"stab": {"min": 4.0, "max": 16.0}},
+            "impact_velocity_bands": {"stab": {"min": 5.0, "max": 9.5}},
             "strike_physics":
             {
                 "station_mean": 0.48,

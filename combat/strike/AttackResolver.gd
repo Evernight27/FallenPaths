@@ -68,6 +68,7 @@ static func compute_and_apply_damage(
 	var pre_cut: float = 0.0
 	var pre_blunt: float = 0.0
 	var strike_ke_j: float = -1.0
+	var attack_perf: Dictionary = {}
 	var tgt_n: Node = CombatantEntityAccess.scene_node(tgt)
 	if tgt_n == null:
 		CombatDebug.log("compute_and_apply_damage %s->%s target scene node freed, skip" % [atk_name, tgt_name])
@@ -91,7 +92,8 @@ static func compute_and_apply_damage(
 			else WeaponDamageHelper.velocity_m_s_from_intensity(delivery_intensity, archetype, weapon, attack_type)
 		)
 		attack_instance.velocity_m_s = v_base
-		attack_instance.velocity_m_s *= StrikePhysics.closing_speed_multiplier(manager, atk, tgt, strike_physics_ctx)
+		var closing_speed_mult: float = StrikePhysics.closing_speed_multiplier(manager, atk, tgt, strike_physics_ctx)
+		attack_instance.velocity_m_s *= closing_speed_mult
 		var atk_st_ratio_w: float = CombatantEntityAccess.stamina_ratio(atk)
 		# Muscle fatigue → strike velocity degradation (HIGH #10 biomechanics audit).
 		# ATP-PCr depletion reduces rate of force development before max strength fails.
@@ -154,6 +156,20 @@ static func compute_and_apply_damage(
 		if pen_blunt_momentum_per_area >= 0.0:
 			pen_blunt_momentum_per_area *= sm.get(DataKeys.ATK_BLUNT_MOMENTUM_PA_MULT, 1.0)
 		strike_ke_j = WeaponDamageHelper.compute_kinetic_energy_j(weapon, attack_instance)
+		attack_perf = {
+			"str": atk_str,
+			"arm": arm_mod,
+			"fat": fatigue_vel,
+			"pow": power_m,
+			"wuf": wuf,
+			"close": closing_speed_mult,
+			"stm": atk_st_ratio_w,
+			"exh": exhaustion_s,
+			"intensity": intensity,
+			"ke_j": strike_ke_j,
+			"v_final": attack_instance.velocity_m_s,
+			"v_base": v_base,
+		}
 		CombatDebug.log(
 			(
 				"dmg %s->%s part=%s pre_armor=%.1f cut=%.1f blunt=%.1f pen=%.2f ke_j=%.1f v_final=%.2f v_base=%.2f ovr=%.1f i=%.2f st=%.2f pwr=%.2f exh=%.2f w=%s wuf=%.2f wdur=%.2f"
@@ -346,9 +362,12 @@ static func compute_and_apply_damage(
 		"was_glancing": outcome == "glancing",
 		"was_negligible": outcome == "negligible",
 		"mechanical_post_armor": take_result.get(DataKeys.RESULT_MECHANICAL_POST_ARMOR, 0.0),
+		"mech_trauma_mult": take_result.get("mech_trauma_mult", 1.0),
+		"mech_subregion_mult": take_result.get("mech_subregion_mult", 1.0),
 		"rounded_zero_chip": rounded_zero_chip,
 		"tissue_dmg": tissue_dmg,
 		"pre_armor": pre_armor,
+		"attack_perf": attack_perf,
 	}
 	result_dict[DataKeys.RESULT_DAMAGE_RESOLVE_NOTE] = CombatLogFormatter.damage_resolve_note(result_dict)
 	result_dict[DataKeys.RESULT_HEALTH_BEFORE] = int(roundf(health_before_cut + health_before_blunt))
@@ -369,9 +388,13 @@ static func compute_and_apply_damage(
 		tgt.state = CombatConstants.STATE_DEAD
 		CombatStateHandlers.cancel_events_for_dead_combatant(manager, tgt)
 		result_dict[DataKeys.RESULT_DIED] = true
+		var death_reason: String = CombatantEntityAccess.get_death_reason(tgt)
+		result_dict["death_reason"] = death_reason
 		# F5: `hit_resolve` + combat log carry strike outcome; skip redundant DEATH line.
-		if not (OperationalLog.is_play_session_active() and CombatConstants.combat_hit_summary_active()):
-			CombatDebug.combat_session("DEATH %s -- %s" % [tgt_name, CombatantEntityAccess.get_death_reason(tgt)])
+		# Tuning duel defers the line to `action_resolved` so the killing strike's HEMA line prints first.
+		var defer_death_log: bool = manager != null and bool(manager.get_meta("_tuning_defer_death_log", false))
+		if not (OperationalLog.is_play_session_active() and CombatConstants.combat_hit_summary_active()) and not defer_death_log:
+			CombatDebug.combat_session("DEATH %s -- %s" % [tgt_name, death_reason])
 
 	var rec_dur: float = CombatTiming.recovery_duration(
 		intensity,
@@ -692,6 +715,8 @@ static func resolve_attack(manager: Node, attacker_id: int) -> Dictionary:
 	atk[DataKeys.ATTACK_LAST_MOVE_ID] = pa.get(CombatConstants.PA_KEY_ATTACK_TYPE, "")
 	atk[DataKeys.PA_LAST_MOVE_ID] = atk[DataKeys.ATTACK_LAST_MOVE_ID]
 	atk[DataKeys.ATTACK_EFFECTIVE_ATTACK_LINE] = pa.get(CombatConstants.PA_KEY_EFFECTIVE_ATTACK_LINE, "")
+	atk[DataKeys.PA_GAUGE_ATK_PRE] = pa.get(DataKeys.PA_GAUGE_ATK_PRE, 0.0)
+	atk[DataKeys.PA_GAUGE_DEF_PRE] = pa.get(DataKeys.PA_GAUGE_DEF_PRE, 0.0)
 	var strike_mods: Dictionary = {}
 	if atk_wep != null:
 		strike_mods = StrikeRealismProfile.compute_strike_modifiers(

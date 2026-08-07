@@ -634,6 +634,8 @@ static func apply_damage_split(
 		"final_bone": to_bone,
 		"was_deflected": blunt_from_deflection > 0.0,
 		"mechanical_post_armor": mechanical_post_armor,
+		"mech_trauma_mult": trauma_mult,
+		"mech_subregion_mult": combat_mult,
 		"early_severed": early_severed,
 	}
 	if not joule_ke.is_empty():

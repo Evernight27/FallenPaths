@@ -22,6 +22,9 @@ func start(player_preset: Dictionary = {}, enemy_preset: Dictionary = {}) -> voi
 	set_meta("tuning_expose_strike_context", true)
 	set_meta("_harness_expose_penetration_applied", true)
 	set_meta("_harness_expose_damage_kinematics", true)
+	# Strike-caused death lines are deferred to the tuning scene so the killing
+	# strike's HEMA/exchange line prints before `[Combat] DEATH ...`.
+	set_meta("_tuning_defer_death_log", true)
 	super.start(player_preset, enemy_preset)
 	if tuning_wait_for_player:
 		set_process(false)

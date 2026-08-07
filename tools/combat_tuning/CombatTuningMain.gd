@@ -46,6 +46,20 @@ const _Config := _ConfigData
 const _Spawner := preload("res://tools/combat_tuning/CombatantSpawner.gd")
 const _Formatter := preload("res://tools/combat_tuning/TuningLogFormatter.gd")
 
+# Outcomes that are NOT strike exchanges: death ticks, status/setup events, and formations.
+# They still log as exchange lines (visibility) but must not advance the strike counter or skew
+# exchange rates — otherwise "strikes" drifts from the actual number of attacks resolved.
+# (reject stays in outcome_counts for visibility; the formatter already excludes it from totals.)
+const _NON_STRIKE_OUTCOMES: Dictionary = {
+	"bled_out": true,
+	"focus_line": true,
+	"yielded": true,
+	"fled": true,
+	"skip": true,
+	"close_success": true,
+	"close_failed": true,
+}
+
 # --- State ---
 var manager: Node = null
 var attacker_entity: Node = null
@@ -73,11 +87,9 @@ var _cycle_defender_wins: int = 0
 var _cycle_total_strikes: int = 0
 var _cycle_attacker_dmg_dealt: float = 0.0
 var _cycle_defender_dmg_dealt: float = 0.0
-var _cycle_start_strikes: int = 0
 var _cycle_outcome_counts: Dictionary = {}
 var _cycle_ke_samples: Array = []
 var _last_end_cause: String = ""
-var _cycle_contact_strikes: int = 0
 
 # Override state: maps combatant_id -> {move_id, target_id, intensity}
 var _tuning_override: Dictionary = {}
@@ -325,14 +337,28 @@ func _on_action_resolved(attacker_id_sig: int, target_id_sig: int, result: Dicti
 		_log_line(reject_line)
 		return
 
+	# Non-strike events (bled_out, focus_line, …) never advance _strike_count, so reusing it here would
+	# duplicate the last real strike's index. Show them without an exchange index instead.
+	var strike_display_index: int = _strike_count if not _NON_STRIKE_OUTCOMES.has(outcome) else 0
 	var gauge_atk: float = float(log_result.get(DataKeys.PA_GAUGE_ATK_PRE, 0.0))
 	var gauge_def: float = float(log_result.get(DataKeys.PA_GAUGE_DEF_PRE, 0.0))
 	if _batch_running and _batch_csv_lines.size() > 0:
-		_batch_csv_lines.append(_Formatter.csv_row(_strike_count, "", log_result, gauge_atk, gauge_def))
+		_batch_csv_lines.append(_Formatter.csv_row(strike_display_index, "", log_result, gauge_atk, gauge_def))
 	var exchange_line: String = _Formatter.format_exchange_line(
-		atk_name, tgt_name, log_result, atk_ent, tgt_ent, _strike_count, gauge_atk, gauge_def
+		atk_name, tgt_name, log_result, atk_ent, tgt_ent, strike_display_index, gauge_atk, gauge_def
 	)
 	_log_line(exchange_line)
+
+	# `AttackResolver` defers its `[Combat] DEATH` line for tuning matches
+	# (`_tuning_defer_death_log`); re-emit it here, after the killing strike's
+	# HEMA line, so the log reads cause-then-result rather than result-then-cause.
+	var death_reason: String = str(log_result.get("death_reason", "")).strip_edges()
+	if death_reason.is_empty():
+		var rd_inner: Variant = log_result.get("result_dict", null)
+		if rd_inner is Dictionary:
+			death_reason = str((rd_inner as Dictionary).get("death_reason", "")).strip_edges()
+	if not death_reason.is_empty():
+		print("[Combat] DEATH %s -- %s" % [tgt_name, death_reason])
 
 	if outcome in ["hit", "glancing", "negligible"]:
 		var rd: Dictionary = log_result
@@ -845,15 +871,14 @@ func _spawn_combatants() -> void:
 	_auto_waiting_for_death = false
 	_auto_respawn_delay = 0.0
 	_in_medical_phase = false
-	_cycle_start_strikes = _strike_count
 	_reset_cycle_exchange_stats()
 	# Clear tuning pain-shock lock so each cycle starts fresh (CON monotonicity per-cycle).
 	if attacker_entity != null and is_instance_valid(attacker_entity):
-		attacker_entity.erase_meta("_tuning_pain_shock_locked")
-		attacker_entity.erase_meta("_tuning_pain_shock_locked_value")
+		attacker_entity.remove_meta("_tuning_pain_shock_locked")
+		attacker_entity.remove_meta("_tuning_pain_shock_locked_value")
 	if defender_entity != null and is_instance_valid(defender_entity):
-		defender_entity.erase_meta("_tuning_pain_shock_locked")
-		defender_entity.erase_meta("_tuning_pain_shock_locked_value")
+		defender_entity.remove_meta("_tuning_pain_shock_locked")
+		defender_entity.remove_meta("_tuning_pain_shock_locked_value")
 	_log_line(_Formatter.format_calibration_preamble(), "#aaccff")
 	_log_line(_Formatter.format_matchup_banner(attacker_config, defender_config), "#88ff88")
 	_populate_move_dropdown()
@@ -866,22 +891,38 @@ func _reset_cycle_exchange_stats() -> void:
 	_last_end_cause = ""
 	if manager != null:
 		manager.set_meta("tuning_strike_count", 0)
-	_cycle_contact_strikes = 0
+
+
+func _cycle_strike_total() -> int:
+	var total: int = 0
+	for outcome_key in _cycle_outcome_counts:
+		if outcome_key != "reject" and outcome_key != "parry_bind":
+			total += int(_cycle_outcome_counts[outcome_key])
+	return total
+
+
+func _cycle_contact_total() -> int:
+	var total: int = 0
+	for outcome_key in _cycle_outcome_counts:
+		if outcome_key in ["hit", "glancing", "negligible"]:
+			total += int(_cycle_outcome_counts[outcome_key])
+	return total
 
 
 func _record_exchange_outcome(outcome: String, result: Dictionary) -> void:
 	if outcome.is_empty() or outcome == "?":
 		return
-	# Rejects are guard-line invalidations — never counted as strikes.
+	# Rejects are guard-line invalidations — never counted as strikes, but stay visible.
 	if outcome == "reject":
 		_cycle_outcome_counts[outcome] = int(_cycle_outcome_counts.get(outcome, 0)) + 1
+		return
+	# Non-strike events (death ticks, focus_line, yields, formation close) are logged as exchange
+	# lines but never counted as strikes or fed into exchange rates.
+	if _NON_STRIKE_OUTCOMES.has(outcome):
 		return
 	_strike_count += 1
 	if manager != null:
 		manager.set_meta("tuning_strike_count", _strike_count)
-	# Count only contact hits (not misses/dodges/parries) for meaningful strike stats.
-	if outcome in ["hit", "glancing", "negligible"]:
-		_cycle_contact_strikes += 1
 	_cycle_outcome_counts[outcome] = int(_cycle_outcome_counts.get(outcome, 0)) + 1
 	# Track bind as a subset annotation on its parent parry outcome.
 	if outcome in ["parry_deflect", "parry_partial"] and bool(result.get("parry_bind", false)):
@@ -923,16 +964,18 @@ func _infer_end_cause(winner_side: String) -> String:
 	var def_node = _get_entity_access().node_variant(def_c) if not def_c.is_empty() else null
 
 	# Determine incapacitation cause with body-part specificity.
+	# Strict `<` mirrors CoreEntity.is_dead / _get_death_reason so a combatant sitting exactly ON the
+	# threshold (blood_volume == threshold) is not mislabeled bled_out before the next tick drops them below.
 	if not atk_c.is_empty() and not _get_entity_access().alive_bool(atk_c):
 		if atk_node != null and is_instance_valid(atk_node) and atk_node.has_method("_get_blood_loss_death_threshold"):
 			var death_thresh = float(atk_node._get_blood_loss_death_threshold())
-			if float(atk_node.blood_volume) <= death_thresh:
+			if float(atk_node.blood_volume) < death_thresh:
 				return "bled_out"
 		return "kill"
 	if not def_c.is_empty() and not _get_entity_access().alive_bool(def_c):
 		if def_node != null and is_instance_valid(def_node) and def_node.has_method("_get_blood_loss_death_threshold"):
 			var death_thresh = float(def_node._get_blood_loss_death_threshold())
-			if float(def_node.blood_volume) <= death_thresh:
+			if float(def_node.blood_volume) < death_thresh:
 				return "bled_out"
 		return "kill"
 
@@ -951,23 +994,29 @@ func _infer_end_cause(winner_side: String) -> String:
 		var cons: float = incapacitated_entity.consciousness
 		var blood_pct: float = float(incapacitated_entity.blood_volume) if incapacitated_entity.has_method("blood_volume") else 100.0
 
-		# Check head trauma first — head tissue destruction directly causes unconsciousness.
-		var head_cut: float = incapacitated_entity.body_cutting.get(BodyPartConstants.PART_HEAD, 0.0)
-		var head_blunt: float = incapacitated_entity.body_blunt.get(BodyPartConstants.PART_HEAD, 0.0)
-		var head_max: int = incapacitated_entity.body_max.get(BodyPartConstants.PART_HEAD, 1)
-		var head_total: float = head_cut + head_blunt
-		if head_max > 0 and float(head_total) / (head_max * 2.0) >= 0.85:
-			return "head trauma"
+		# Unconscious (blood/head trauma dropped true consciousness): the cause is a
+		# consciousness-drop mechanism. Conscious cowering (destroyed limbs) is mechanical.
+		if cons <= PainConsciousnessConstants.INCAPACITATION_CONSCIOUSNESS_THRESHOLD:
+			# Check head trauma first — head tissue destruction directly causes unconsciousness.
+			# body_cutting/body_blunt are REMAINING pools (init to body_max, damage subtracts), so
+			# destruction >= 85% means remaining <= 15% of the 2x max pool.
+			var head_cut: float = incapacitated_entity.body_cutting.get(BodyPartConstants.PART_HEAD, 0.0)
+			var head_blunt: float = incapacitated_entity.body_blunt.get(BodyPartConstants.PART_HEAD, 0.0)
+			var head_max: int = incapacitated_entity.body_max.get(BodyPartConstants.PART_HEAD, 1)
+			var head_remaining_frac: float = float(head_cut + head_blunt) / float(head_max * 2) if head_max > 0 else 1.0
+			if head_remaining_frac <= 0.15:
+				return "head trauma"
 
-		# Check blood loss — Class III/IV hemorrhage causes unconsciousness.
-		if BloodVolumeMl.entity_uses_ml(incapacitated_entity):
-			pass  # uses ml; need to check remaining
-		var atls_remaining: float = (blood_pct / 100.0) * BleedingConstants.MAX_BLOOD_VOLUME if blood_pct > 0 else 0.0
-		var atls_class: int = BleedingConstants.atls_hemorrhage_class_from_remaining_pct(atls_remaining / BleedingConstants.MAX_BLOOD_VOLUME) if BleedingConstants.MAX_BLOOD_VOLUME > 0 else 4
-		if atls_class >= 3 and blood_pct < 70.0:
-			return "blood loss"
+			# Check blood loss — Class III/IV hemorrhage causes unconsciousness.
+			var atls_remaining: float = (blood_pct / 100.0) * BleedingConstants.MAX_BLOOD_VOLUME if blood_pct > 0 else 0.0
+			var atls_class: int = BleedingConstants.atls_hemorrhage_class_from_remaining_pct(atls_remaining / BleedingConstants.MAX_BLOOD_VOLUME) if BleedingConstants.MAX_BLOOD_VOLUME > 0 else 4
+			if atls_class >= 3 and blood_pct < 70.0:
+				return "blood loss"
 
-		# Check leg functionality — destroyed legs cause inability to maintain position.
+			# Unconscious without head trauma or severe hemorrhage — surface the consciousness value.
+			return "unconscious (consc=%.0f)" % cons
+
+		# Conscious but incapacitated — cowering from destroyed limbs.
 		var right_leg_bone: float = incapacitated_entity.bone_health.get(BodyPartConstants.PART_RIGHT_LEG, 8.0)
 		var left_leg_bone: float = incapacitated_entity.bone_health.get(BodyPartConstants.PART_LEFT_LEG, 8.0)
 		if right_leg_bone <= 0.0 and left_leg_bone <= 0.0:
@@ -981,8 +1030,8 @@ func _infer_end_cause(winner_side: String) -> String:
 			if not attacking_arm.is_empty():
 				return "arm destruction"
 
-		# Default incapacitation without body-part specificity.
-		return "incapacitate"
+		# Default incapacitation without body-part specificity — name the incapacitated side.
+		return "incapacitated (%s)" % incapacitated_side
 
 	if winner_side.is_empty():
 		return "draw"
@@ -1553,8 +1602,8 @@ func _get_total_blood(combatant: Dictionary) -> float:
 
 func _log_cycle_summary() -> void:
 	_cycle_count += 1
-	var strikes_this_cycle: int = _strike_count - _cycle_start_strikes
-	var contacts_this_cycle: int = _cycle_contact_strikes
+	var strikes_this_cycle: int = _cycle_strike_total()
+	var contacts_this_cycle: int = _cycle_contact_total()
 	_cycle_total_strikes += strikes_this_cycle
 
 	var atk_c = _get_entity_access().manager_get_combatant(manager, attacker_id) if manager != null else {}
@@ -1650,12 +1699,10 @@ func _log_batch_cycle_summary(
 	total_cycles: int,
 	atk_cfg_snap: Variant,
 	def_cfg_snap: Variant,
-	scenario_key_snap: String,
-	start_strikes: int,
-	cycle_contacts: int = 0
+	scenario_key_snap: String
 ) -> void:
-	var strikes_this_cycle: int = _strike_count - start_strikes
-	var contacts_this_cycle: int = cycle_contacts
+	var strikes_this_cycle: int = _cycle_strike_total()
+	var contacts_this_cycle: int = _cycle_contact_total()
 	var atk_c = _get_entity_access().manager_get_combatant(manager, attacker_id) if manager != null else {}
 	var def_c = _get_entity_access().manager_get_combatant(manager, defender_id) if manager != null else {}
 	var atk_node = _get_entity_access().node_variant(atk_c) if not atk_c.is_empty() else null
@@ -2293,6 +2340,7 @@ func _run_weapon_sweep_batch(
 		cancel_btn.disabled = true
 	if is_instance_valid(close_btn):
 		close_btn.disabled = false
+	_auto_waiting_for_death = true
 	_auto_enabled = true
 	_log_line("[Weapon sweep] %d weapon types complete" % sweep_keys.size(), "#88ff88")
 
@@ -2382,8 +2430,6 @@ func _run_batch(
 		if not is_instance_valid(manager):
 			break
 
-		var start_strikes: int = _strike_count
-
 		# Fast-forward the AI-driven battle to completion (no real-time waiting)
 		_batch_run_cycle_to_completion()
 
@@ -2403,22 +2449,18 @@ func _run_batch(
 			"attacker":
 				b_atk_wins += 1
 
-		var strikes_this: int = _strike_count - start_strikes
+		var strikes_this: int = _cycle_strike_total()
 		b_total_strikes += strikes_this
 		# Capture per-cycle data before _log_batch_cycle_summary resets them
 		var cycle_atk_dmg: float = _cycle_attacker_dmg_dealt
 		var cycle_def_dmg: float = _cycle_defender_dmg_dealt
-		var cycle_outcomes: Dictionary = _cycle_outcome_counts.duplicate()
-		var cycle_contacts: int = 0
-		for outcome_key in cycle_outcomes:
-			if outcome_key in ["hit", "glancing", "negligible"]:
-				cycle_contacts += int(cycle_outcomes[outcome_key])
 		b_atk_dmg += cycle_atk_dmg
 		b_def_dmg += cycle_def_dmg
 		b_total_cycles += 1
 
 		var cycle_end_cause: String = _last_end_cause if not _last_end_cause.is_empty() else "end"
-		_log_batch_cycle_summary(cycle + 1, num_cycles, cycle_atk_cfg, cycle_def_cfg, scenario_key, start_strikes, cycle_contacts)
+		var cycle_outcomes: Dictionary = _cycle_outcome_counts.duplicate()
+		_log_batch_cycle_summary(cycle + 1, num_cycles, cycle_atk_cfg, cycle_def_cfg, scenario_key)
 
 		if is_instance_valid(result_label):
 			var w_name: String = cycle_atk_cfg.display_name if cycle_winner == "attacker" else (cycle_def_cfg.display_name if cycle_winner == "defender" else "draw")
@@ -2500,4 +2542,5 @@ func _run_batch(
 			print(line)
 
 	if reset_batch_ui and not _batch_running:
+		_auto_waiting_for_death = true
 		_auto_enabled = true

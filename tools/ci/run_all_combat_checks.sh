@@ -62,6 +62,9 @@ fi
 echo ""
 echo "=== Godot import warmup ==="
 fp_godot_import_warmup "$ROOT" || true
+# Company checks run right after this warmup and nothing changes between them;
+# skip its internal re-import + settle sleep (saves ~9s per gate).
+export FP_SKIP_IMPORT_WARMUP=1
 echo ""
 
 echo "=== CompanyStateChecks ==="

@@ -53,6 +53,8 @@ if [[ $FAIL -eq 0 ]]; then
 	echo "=== CompanyStateChecks ==="
 	echo "=== Godot import warmup ==="
 	fp_godot_import_warmup "$ROOT" || true
+	# Company checks run right after this warmup; skip its internal re-import.
+	export FP_SKIP_IMPORT_WARMUP=1
 	set +e
 	COMPANY_OUT="$(bash "$SCRIPT_DIR/run_company_state_checks.sh" 2>&1)"
 	COMPANY_EXIT=$?

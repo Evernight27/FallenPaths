@@ -158,8 +158,12 @@ static func try_enter_adrenaline_dump(entity: Node, severity_factor: float = 1.0
 	# Check if already active
 	if entity.has_method("_get_adrenaline_dump_until_time") and entity._get_adrenaline_dump_until_time() >= entity._game_time_seconds:
 		return
+	# Blood-volume gate: adrenaline is a hemorrhage/acute-stress response. Routine pain-shock triggers
+	# (~NRS 7.5-10, severity 1.5-2.0) fire on the first serious exchange of every fight, and the dump lasts
+	# 60-180s — covering the whole duel. Gate it on meaningful blood loss (<= trigger), so adrenaline is a
+	# late-fight response instead of always-on from the first hit.
 	var blood_pct: float = entity.blood_volume if entity.has_method("blood_volume") else 100.0
-	if blood_pct > ADRENALINE_BLOOD_VOLUME_TRIGGER and severity_factor < 0.5:
+	if blood_pct > ADRENALINE_BLOOD_VOLUME_TRIGGER:
 		return
 	# Single sustained duration — no surge/plateau/crash phases per clinical data.
 	var duration: float = randf_range(ADRENALINE_DURATION_MIN_S, ADRENALINE_DURATION_MAX_S) * severity_factor

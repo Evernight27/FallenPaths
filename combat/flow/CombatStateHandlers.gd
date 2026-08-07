@@ -67,6 +67,7 @@ static func process_death_tick(manager: Node, c: Dictionary) -> String:
             "part": "",
             "damage_type": "",
             "outcome": "bled_out",
+            "move_id": "bled_out",
             "health_before": 0,
             "health_after": 0,
             "final_cut": 0,

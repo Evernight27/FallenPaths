@@ -157,6 +157,14 @@ static func strike_mass_kg(weapon: RefCounted, attack_instance: RefCounted) -> f
         return 0.40
     var move_id: String = move_id_from_attack_instance(attack_instance)
     var ct: String = WeaponConstants.contact_type_for_move_id(move_id)
+    ## Body-coupled thrust mass: a linear thrust drives the point with the whole weapon plus body
+    ## transfer behind it. The isolated striking-part mass (spear head ≈0.27 kg) understates thrust KE
+    ## (tune log: spear thrusts read 4-20 J vs 25-90 J reference). Take precedence over part geometry so
+    ## the calibrated spear value (~2 kg, body transfer; also referenced in DefenseResolutionHandler) is used.
+    if ct == WeaponConstants.ATTACK_TYPE_STAB:
+        var wt0: String = str(weapon.weapon_type).to_upper() if "weapon_type" in weapon else ""
+        if wt0 == "SPEAR":
+            return 2.0
     if weapon.has_method("get_striking_part_mass_kg"):
         return maxf(0.02, float(weapon.get_striking_part_mass_kg(ct)))
     # Velocity band is tip speed; effective mass is the part mass at contact point.
@@ -362,7 +370,11 @@ static func compute_pre_armor_cut(
     )
     contact_factor = minf(contact_factor, WeaponConstants.CONTACT_DAMAGE_FACTOR_MAX)
     raw *= contact_factor
-    return clampf(raw, WeaponConstants.DAMAGE_KE_MIN, WeaponConstants.DAMAGE_KE_MAX)
+    # Zero-KE strikes (fully defused parry follow-throughs at ~0 m/s) carry no edge energy to cut — skip the
+    # DAMAGE_KE_MIN floor so they cannot score damage out of thin air. The AttackResolver contact floor still
+    # prevents genuine contact hits from rounding to zero HP.
+    var min_cut: float = WeaponConstants.DAMAGE_KE_MIN if ke_j > 0.0 else 0.0
+    return clampf(raw, min_cut, WeaponConstants.DAMAGE_KE_MAX)
 
 
 # Pre-armor BLUNT from momentum: scale * (mass * velocity) * strength_mod * arm_mod * contact_factor (unclamped).
