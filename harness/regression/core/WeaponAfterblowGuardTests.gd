@@ -228,6 +228,13 @@ static func _afterblow_harness_seed_pending_cut(mgr: Node, attacker_index: int, 
     atk["state_timer"] = 0.0
     atk["state_duration"] = 0.5
     atk["pending_attack"] = pa
+    defc.erase("off_balance_until")
+    # Afterblow: attacker (index) executes against defender (index). The guard value must be set on the
+    # combatant that will DEFEND during _execute_attack — i.e. the defender. In the harness tests,
+    # _afterblow_harness_seed_pending_cut(mgr, 1, 0) sets up combatant 1 as initial attacker and
+    # combatant 0 as initial defender. But afterblow reverses roles: combatant 0 attacks, combatant 1 defends.
+    # Set guard=0 on the actual defender (combatant at defender_index from caller's perspective = mgr.combatants[defender_index]).
+    mgr.combatants[defender_index]["guard"] = 0.0
 
 
 ## Tier 3.3: **`outcome` == `"deflected"`** -> **`_execute_afterblow`** (**hindrance 0**) ->
@@ -256,6 +263,7 @@ static func _run_afterblow_deflected_triggers_full_resolve_hit(failures: PackedS
         "final_blunt": 0.0,
         "final_bone": 0.0,
     }
+    print("[AFTERBLOW_DEBUG] deflected: tgt_state=%s tgt_guard=%s" % [EntityAccess.state_str(atk), str(mgr.combatants[0].get("guard","?"))])
     if not AfterblowHandler.try_afterblow(mgr, 0, tid, rd, 1.0):
         _fail(failures, "afterblow_deflected_hit: try_afterblow false (seed=%d)" % _AFTERBLOW_EXECUTE_HIT_SEED)
         mgr.remove_meta(HARNESS_META_RECORD_AFTERBLOW_MULT)

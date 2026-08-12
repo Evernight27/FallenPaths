@@ -79,13 +79,13 @@ static func _batch_outcome_for_method(
 ## Returns the medical item type multiplier for batch resolve proficiency gains.
 static func _get_batch_item_mult(move_id: String) -> float:
     match move_id:
-        CombatConstantsScript.MOVE_ID_BANDAGE_SELF, CombatConstantsScript.MOVE_TARGET_APPLY_BANDAGE:
+        CombatConstantsScript.MOVE_ID_BANDAGE_SELF, CombatConstantsScript.MOVE_ID_BANDAGE_ALLY, CombatConstantsScript.MOVE_TARGET_APPLY_BANDAGE:
             return Proficiency.get_medical_item_mult("bandage")
-        CombatConstantsScript.MOVE_ID_PACK_WOUND, CombatConstantsScript.MOVE_TARGET_APPLY_PACKING:
+        CombatConstantsScript.MOVE_ID_PACK_WOUND, CombatConstantsScript.MOVE_ID_PACK_ALLY, CombatConstantsScript.MOVE_TARGET_APPLY_PACKING:
             return Proficiency.get_medical_item_mult("pack")
-        CombatConstantsScript.MOVE_TARGET_APPLY_STABILIZE, CombatConstantsScript.MOVE_ID_STABILIZE_WOUND:
+        CombatConstantsScript.MOVE_TARGET_APPLY_STABILIZE, CombatConstantsScript.MOVE_ID_STABILIZE_WOUND, CombatConstantsScript.MOVE_ID_STABILIZE_ALLY:
             return Proficiency.get_medical_item_mult("pack")
-        CombatConstantsScript.MOVE_ID_APPLY_TOURNIQUET:
+        CombatConstantsScript.MOVE_ID_APPLY_TOURNIQUET, CombatConstantsScript.MOVE_ID_APPLY_TOURNIQUET_ALLY:
             return Proficiency.get_medical_item_mult("tourniquet")
         _:
             return 1.0

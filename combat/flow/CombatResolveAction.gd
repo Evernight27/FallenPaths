@@ -28,7 +28,11 @@ static func resolve(manager: Node, attacker_id: int, target_id: int, move_id: St
         and CombatantEntityAccess.gauge_float(atk) < 100.0
         and not manager.medical_phase
     ):
-        if not (use_counter_tempo and CounterTempo.can_act(manager, atk)):
+        var mercy_execute: bool = (
+            move_id == CombatConstants.MOVE_ID_EXECUTE
+            and CombatExecute.is_downed_opponent_of(manager, atk, CombatantEntityAccess.manager_get_combatant(manager, target_id))
+        )
+        if not ((use_counter_tempo and CounterTempo.can_act(manager, atk)) or mercy_execute):
             return false
     if (
         CombatantEntityAccess.state_str(atk) == CombatConstants.STATE_RECEIVING_MEDICAL_ATTENTION
@@ -82,7 +86,7 @@ static func resolve(manager: Node, attacker_id: int, target_id: int, move_id: St
         manager.skip_turn(attacker_id, CombatConstants.SKIP_TURN_LOG_WAIT, "explicit wait move")
         return true
     if move_id == CombatConstants.MOVE_ID_FLEE and target_id == attacker_id:
-        if not CombatFormationFlee.flee_action_legal(manager, atk):
+        if not _resolve_flee_legal(manager, atk):
             CombatDebug.resolve_action_rejected(manager, attacker_id, move_id, "flee not legal")
             return false
         CombatFormationFlee.apply_flee(manager, attacker_id)
@@ -304,6 +308,9 @@ static func resolve(manager: Node, attacker_id: int, target_id: int, move_id: St
         manager._start_plug_forward(attacker_id, target_id)
         manager.emit_signal("turn_resolved", attacker_id)
         return true
+    if move_id == CombatConstants.MOVE_ID_EXECUTE:
+        _resolve_execute(manager, attacker_id, target_id, atk, tgt)
+        return true
     if CombatantEntityAccess.is_applying_direct_pressure_scene(atk):
         var pressure_part: String = CombatantEntityAccess.get_direct_pressure_part_scene(atk)
         CombatDebug.flow_log(
@@ -392,3 +399,52 @@ static func _commit_close_attempt_resolve(manager: Node, attacker_id: int, targe
     manager.emit_signal("turn_resolved", attacker_id)
     return true
 
+
+## Resolve-time flee legality: allows manual resolution (harness tests, forced flee) even when listing is blocked by
+## the "alone on side" cowering guard — that guard only applies to action **listing**, not direct resolve calls.
+static func _resolve_flee_legal(manager: Node, atk: Dictionary) -> bool:
+    if manager == null or atk.is_empty():
+        return false
+    if atk.get(DataKeys.COMBATANT_COMBAT_ABSENT, false):
+        return false
+    if not CombatantEntityAccess.can_flee_or_fall_back(atk):
+        return false
+    if not CombatantEntityAccess.alive_bool(atk):
+        return false
+    var st: String = CombatantEntityAccess.state_str(atk)
+    if st != CombatConstants.STATE_WAITING and st != CombatConstants.STATE_COWERING:
+        return false
+    return true
+
+
+## Resolve-time execute: wind-up-less kill on downed target (coup de grâce / mercy).
+static func _resolve_execute(manager: Node, attacker_id: int, target_id: int, atk: Dictionary, tgt: Dictionary) -> bool:
+    if not CombatantEntityAccess.alive_bool(tgt):
+        return false
+    var who: String = CombatantEntityAccess.get_display_name(atk, attacker_id)
+    var tgt_name: String = CombatantEntityAccess.get_display_name(tgt, target_id)
+    if not OperationalLog.is_play_session_active():
+        CombatDebug.combat_session("%s executes %s (coup de grâce / mercy)" % [who, tgt_name])
+    var tid: int = CombatantEntityAccess.id_int(tgt)
+    var ledger_raw: Variant = atk.get(DataKeys.COMBATANT_DAMAGE_DEALT_BY_ID, null)
+    var ledger: Dictionary = {}
+    if ledger_raw is Dictionary:
+        ledger = (ledger_raw as Dictionary).duplicate()
+    ledger[tid] = float(ledger.get(tid, 0.0) + 1.0)
+    atk[DataKeys.COMBATANT_DAMAGE_DEALT_BY_ID] = ledger
+    tgt.alive = false
+    CombatFootwork.clear_on_death(tgt)
+    tgt.state = CombatConstants.STATE_DEAD
+    CombatStateHandlers.cancel_events_for_dead_combatant(manager, tgt)
+    if manager.has_method("on_combatant_died"):
+        manager.on_combatant_died(tgt)
+    var empty_result: Dictionary = {}
+    empty_result[DataKeys.RESULT_DIED] = true
+    empty_result[DataKeys.RESULT_OUTCOME] = "execute"
+    AttackResultApplier._abort_incoming_wind_up_if_target_died(manager, target_id)
+    manager.emit_signal("action_resolved", attacker_id, target_id, empty_result)
+    var winner: String = manager._check_for_winner()
+    if not winner.is_empty():
+        manager._end_combat_phase(winner, CombatantEntityAccess.scene_node(tgt))
+    manager.emit_signal("turn_resolved", attacker_id)
+    return true

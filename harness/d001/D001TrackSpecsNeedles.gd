@@ -96,7 +96,11 @@ static func _headless_preset_checks(preset_id: String) -> Array:
             return [
                 {"id": "soak_setup", "needle": "soak_setup ii5", "min": 1},
                 {"id": "cowering_listed", "needle": "cowering_fall_back listed", "min": 1},
-                {"id": "cowering_executed", "needle": "cowering_fall_back executed", "min": 1},
+                {
+                    "id": "no_solo_fall_back_alone",
+                    "needle": "solo fall_back blocked: cowering unit alone on side",
+                    "min": 1,
+                },
             ]
         SoakEncounterPresets.PRESET_II6_AMBIENT_SHOCK:
             return [
@@ -247,7 +251,7 @@ static func _validator_f5_trace_tracks() -> Array:
         },
         {
             "id": "gauge_stm_ready",
-            "regex": "turn_ready_gauge .* label=.*Stm .*Ready",
+            "regex": "turn_ready_gauge .* label=.*Ready",
             "min": 1,
             "profiles": [PROFILE_7V7, PROFILE_PRESET_II8],
         },
@@ -392,12 +396,10 @@ static func _validator_ii5_tracks() -> Array:
             "profiles": [PROFILE_PRESET_II5],
         },
         {
-            "id": "ii5_cowering_executed",
-            "needle": "cowering_fall_back executed",
+            "id": "ii5_no_solo_fall_back_alone",
+            "needle": "solo fall_back blocked: cowering unit alone on side",
             "min": 1,
             "profiles": [PROFILE_PRESET_II5],
-            "optional": true,
-            "alt_needles": ["fall_back pick", "cowering_fall_back pick"],
         },
     ]
 

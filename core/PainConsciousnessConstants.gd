@@ -68,6 +68,9 @@ const PAIN_COGNITIVE_BASELINE_FLOOR: float = 0.3      # at max pain, cognitive d
 # --- Conciousness: direct scale (effective_consciousness / 100 = performance scale). ---
 # Incapacitation when true consciousness < this (no longer able to act).
 const INCAPACITATION_CONSCIOUSNESS_THRESHOLD: float = 5.0
+# Leg functionality below this threshold triggers cowering (both legs destroyed).
+# Single-leg destruction returns ~0.35-0.55, above this threshold — fighter can still hobble and fight.
+const LEG_COWER_THRESHOLD: float = 0.15
 # Leg functionality below this '**' cannot walk for formation retreat (flee / fall_back). Tier 6.1.
 const MOBILITY_FLEE_THRESHOLD: float = 0.2
 

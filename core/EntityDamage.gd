@@ -7,8 +7,11 @@ extends RefCounted
 ## _last_hit_impact, _try_enter_pain_shock_from_hit(pain), _update_consciousness(), EntityWounds.emit_death_once.
 
 # Damage resistance and severance (CoreEntity-aligned).
-const ENDURANCE_DAMAGE_RESISTANCE_PER_POINT: float = 0.0001
-const ENDURANCE_DAMAGE_RESISTANCE_MAX: float = 0.05
+## Damage resistance per END point: 0.2% per point (150 END = 30% reduction, capped at 25%).
+## Clinical basis: muscle mass and tissue density provide meaningful blunt trauma dissipation;
+## previous value (0.01%/point) was biomechanically negligible — a 150-END character got only 0.75% mitigation.
+const ENDURANCE_DAMAGE_RESISTANCE_PER_POINT: float = 0.002
+const ENDURANCE_DAMAGE_RESISTANCE_MAX: float = 0.25
 ## Base minimum damage required for any severance attempt — raised from 10 to 28 based on clinical data:
 ## Traumatic blade amputation is biomechanically impossible; real dismemberment requires bone fracture + massive force.
 const MIN_DAMAGE_TO_SEVER: int = 28
@@ -20,6 +23,7 @@ const SEVERANCE_EARLY_LIMBS_ONLY: bool = true
 ## Head is most fragile (thin bone, vital structures); extremities are nearly impossible to amputate with blades alone.
 ## Clinical basis: traumatic dismemberment requires >200J cutting energy + sustained force; real battlefield amputations
 ## are almost always from blast/impaction trauma, not blade wounds. Values tuned for gameplay pacing while maintaining realism.
+## Reference values scale against human tissue budgets (head=10, chest=30, arms=12, legs=16).
 const SEVERANCE_MIN_DAMAGE_BY_PART: Dictionary = {
 	"head": 25,                 # Thin skull + vital structures — most fragile region
 	"chest": 30,                # Rib cage + thoracic musculature — very difficult to sever through armor/bone
@@ -29,6 +33,16 @@ const SEVERANCE_MIN_DAMAGE_BY_PART: Dictionary = {
 	"left_arm": 35,             # Same as right arm (non-dominant)
 	"right_leg": 40,            # Femur is strongest bone in body; quadriceps/hamstrings provide massive tissue resistance
 	"left_leg": 40,             # Same as right leg
+}
+const SEVERANCE_REFERENCE_TISSUE_BY_PART: Dictionary = {
+	"head": 10.0,
+	"chest": 30.0,
+	"abdomen": 30.0,
+	"neck": 10.0,
+	"right_arm": 12.0,
+	"left_arm": 12.0,
+	"right_leg": 16.0,
+	"left_leg": 16.0,
 }
 
 # Severance ease: full-health limb resists dismemberment; already wounded/bone-damaged parts give way more easily.
@@ -167,6 +181,7 @@ static func apply_damage_split(
 	extras: Dictionary = {}
 ) -> Dictionary:
 	var impact_ke: float = extras.get("strike_ke_j", -1.0)
+	var weapon_type: String = extras.get("weapon_type", "")
 	if part not in entity.body_cutting or part not in entity.body_blunt or part not in entity.bone_health:
 		return {
 			"final_cut": 0.0,
@@ -335,6 +350,16 @@ static func apply_damage_split(
 			CombatDebug.log(
 				"[Armor] %s %s: no armor => post cut=%.1f blunt=%.1f" % [entity.name, part, final_cut, final_blunt]
 			)
+	# Weapon-type-specific armor interaction (e.g., mace scales UP against armored targets).
+	if weapon_type == "MACE" and armor_var != null:
+		var target_rha: float = 0.0
+		if armor_var is ArmorPiece:
+			target_rha = armor_var.get_outer_layer_sharp_resistance_rha_mm()
+		elif armor_var is Dictionary:
+			target_rha = float(armor_var.get(ArmorConstants.ARMOR_LAYER_KEY_SHARP_RESISTANCE_RHA_MM, 0.0))
+		if target_rha > CombatArmorDoctrine.ARMOR_TIER_NONE_THRESHOLD:
+			var interaction_mult: float = CombatArmorDoctrine.mace_armor_interaction_multiplier(target_rha)
+			final_blunt *= interaction_mult
 	var total_final: float = final_cut + final_blunt
 	# Cumulative tissue trauma — repeated strikes to the same body region degrade tissue beyond single-hit damage.
 	## Each prior hit within CUMULATIVE_TRAUMA_WINDOW_S adds ~6% damage (tissue fatigue / microstructural breakdown).
@@ -388,7 +413,7 @@ static func apply_damage_split(
 		pen_for_mfb = float(layer_meta.get("penetration_to_bone_mm", pen_to_tissue))
 	var ke_blunt_bone: float = CombatLayerTissue.blunt_ke_reaching_bone(part, impact_ke)
 	var mfb_alloc: Dictionary = CombatDamageMechanism.allocate_bone_and_tissue(
-		final_cut, final_blunt, total_final, part, sub_region, pen_for_mfb, impact_ke, ke_blunt_bone
+		final_cut, final_blunt, total_final, part, sub_region, pen_for_mfb, impact_ke, ke_blunt_bone, entity.bone_max.get(part, 0)
 	)
 	var alloc: Dictionary = mfb_alloc
 	var force_curves: bool = extras.get("force_material_curves", false)
@@ -431,12 +456,13 @@ static func apply_damage_split(
 	to_bone = minf(entity._round_tissue(to_bone * bone_ease), cur_bone)
 	var total_damage_this_hit: float = to_cut + to_blunt + to_bone
 	if (
-		total_damage_this_hit < _get_severance_threshold_for_part(part)
+		total_damage_this_hit < _get_severance_threshold_for_part_entity_aware(entity, part)
 		and (cur_cut - to_cut) <= 0.0
 		and (cur_bone - to_bone) <= 0.0
 		and cur_bone > 0.0
 	):
-		to_bone = maxf(0.0, cur_bone - 1.0)
+		var bone_floor: float = maxf(0.1, float(entity.bone_max.get(part, 6)) * 0.15)
+		to_bone = maxf(0.0, cur_bone - entity._round_tissue(bone_floor))
 	var force_energy_pool: bool = extras.get("force_tissue_energy_pool", false)
 	var use_energy_pool: bool = (
 		TissueEnergyCapacity.is_active(force_energy_pool) and not extras.get("disable_tissue_energy_pool", false)
@@ -522,9 +548,10 @@ static func apply_damage_split(
 		)
 	# Concussion from head bone damage (Issue 1).
 	if to_bone > 0.0 and part == BodyPartConstants.PART_HEAD:
-		EntityPainConsciousness.try_enter_concussion_from_head_bone_damage(entity, to_bone)
+		var head_bone_max: float = maxf(1.0, float(entity.bone_max.get(part, 8)))
+		EntityPainConsciousness.try_enter_concussion_from_head_bone_damage(entity, to_bone / head_bone_max)
 	var early_severed: bool = false
-	var part_sever_threshold: float = _get_severance_threshold_for_part(part)
+	var part_sever_threshold: float = _get_severance_threshold_for_part_entity_aware(entity, part)
 	if not entity._is_part_severed(part) and total_damage_this_hit >= part_sever_threshold:
 		if not SEVERANCE_EARLY_LIMBS_ONLY or part not in entity._get_vital_parts():
 			var max_cut: int = entity.body_max.get(part, 1)
@@ -673,3 +700,17 @@ static func _get_severance_threshold_for_part(part: String) -> float:
 	if SEVERANCE_MIN_DAMAGE_BY_PART.has(part):
 		return float(SEVERANCE_MIN_DAMAGE_BY_PART[part])
 	return float(MIN_DAMAGE_TO_SEVER)
+
+
+static func _get_severance_threshold_for_part_entity_aware(entity: Node, part: String) -> float:
+	"""Returns minimum damage to attempt severance for a specific body part, scaled by species tissue budget.
+	Scales thresholds proportionally so smaller species don't require human-scale damage to trigger severance."""
+	var base_threshold: float = _get_severance_threshold_for_part(part)
+	if entity == null or not entity.has_method("body_max"):
+		return base_threshold
+	var ref_tissue: float = SEVERANCE_REFERENCE_TISSUE_BY_PART.get(part, 10.0)
+	var cur_tissue: float = float(entity.body_max.get(part, int(ref_tissue)))
+	if ref_tissue <= 0.0:
+		return base_threshold
+	var scale: float = cur_tissue / ref_tissue
+	return base_threshold * scale

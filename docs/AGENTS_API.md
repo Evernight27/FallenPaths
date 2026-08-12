@@ -22,7 +22,7 @@ Use these names in new code — avoid duplicating membership tests, manager priv
 | Rolling contract deck (post-tutorial) | `ContractSpawner.try_refresh_contract_deck` · `count_paid_contract_markers` · `CompanyState.get_contract_deck_index` |
 | Post-victory afflictions | `CampaignAfflictions.apply_after_victory` · `format_scar_line` · `CompanyState.apply_post_victory_afflictions` |
 | Tutorial contract (no pay / soft defeat) | `CompanyState.is_tutorial_contract` · `defeat_should_end_company_run` (paid R3 loss ends run) |
-| Persistence gate (EA P1) | `CompanyState.read_stub_persistence_mode` — `CampaignPersistence.clear_slot` on campaign boot / run-end reload |
+| Persistence gate (P2 shipped) | `CompanyState.read_stub_persistence_mode` — boot restores autosave (`load_campaign_autosave_for_boot`); `clear_slot` only on new company / invalid save |
 | P2 save restore (harness / post-EA) | `CampaignPersistence.normalize_marker_kind_for_restore` · `apply_save` · `save_slot` · harness: `begin_harness_isolated_save` |
 | Overworld tile | `CampaignEncounterBridge.overworld_tile_from_position` / `overworld_tile_center` |
 | Overworld grid (XCamp-3.2) | `OverworldMap.MAP_TILES` · `map_tiles_for_world` · `is_tile_in_bounds` · `tile_coords_from_pos` · `tile_center` |
@@ -49,7 +49,7 @@ Use these names in new code — avoid duplicating membership tests, manager priv
 | Strike-time defense | `DefenseChoiceResolver.choose_defense` (not turn pick) |
 | Medical wind-up | `MedicalActionStarter.start` — complete: `MedicalWindUpHandler.complete` |
 | Flee / rout warranted | `CombatantEntityAccess.flee_abandonment_warranted` — `CombatFormationRout.abandonment_warranted` |
-| Zone geometry context | `ZoneOfControl.zone_geometry_line_context` — `opponent_formation_for_listing` — `pair_formations_for_targeting` |
+| Zone geometry context | `ZoneOfControl.zone_geometry_line_context` — `opponent_formation_for_listing` — `zone_geometry_for_pair` / `zone_geometry_*_from_pair_pack` |
 | Combat milestone log | `CombatDebug.combat_session` — medical: `CombatDebug.medical_session` |
 | Action resolve | `CombatResolveAction.resolve` |
 | Formation diagram vitals | `PartyRowFormatter.total_body_health_ratio` — `body_functionality_ratio` — bars in `FormationDiagramBuilder` |
@@ -59,14 +59,13 @@ Use these names in new code — avoid duplicating membership tests, manager priv
 | Tier 4.2 / III-8 recovery cause | **`CombatConstants.normalize_recovery_cause`** · **`readiness_curve_for_cause`** · **`defense_footwork_recovering_dodge_mult_for_cause`** |
 | L3 guard line for UI / parry step | `CombatUiHints.active_line_for_ui` · live **`guard_line`** on dict (writers per **`GuardLineUpdater`**) |
 | Wait / focus form bias | `CombatWeaponForm.wait_action_weight_mult` · `preferred_guards` · `CombatConstants.AI_FOCUS_LINE_FORM_PREFERRED_MULT` |
-| Composure (gauge) fill | `CombatConstants.COMPOSURE_FILL_WAITING` (25/s) · `COMPOSURE_FILL_RECOVERING` (8/s) — set in `CombatStateHandlers.process_waiting` / `process_recovering` |
-| Composure cost deduction | `AttackWindUpStarter._resolve_composure_cost(move_id)` at wind-up start — `gauge = maxf(0, gauge_pre - cost)` · [`COMPOSURE_PLAN`](COMPOSURE_PLAN.md#3c--cost-deduction-at-wind-up-start) |
-| Composure-based quality | `CombatTiming.gd` quality scaling: `1.5 - 0.5 × (gauge_pre / 100)` on wind-up duration · `DefenseChoiceResolver` parry_p_a scaling `0.6 + 0.4 × (gauge_pre / 100)` |
+| Composure (gauge) | `gauge` 0–100 (`DataKeys.COMBATANT_GAUGE`) — **event-driven**: `CombatEventDispatch.handle_action_ready` sets 100; wind-up / recovery / medical / form-switch set 0; cowering idle fills 0.5/s (`CombatStateHandlers.process_cowering_idle`); persist via `CampaignComposureSync` |
+| Composure thresholds | counter-tempo ready ≥ `CombatConstants.COUNTER_TEMPO_GAUGE_THRESHOLD` (50) · AI/action-list gate `< GAUGE_FULL_THRESHOLD` (99) — **no** wind-up cost deduction, **no** quality/parry scaling |
 | Parry lockout | `CombatConstantsParry.OFF_BALANCE_DURATION_S` (0.4s) — set on parry_deflect in `AttackResultApplier`, gated in `DefenseChoiceResolver` |
-| Under attack check | `CombatantEntityAccess.is_combatant_threatened(manager, id)` — scans WIND_UP combatants for pending_attack targeting this id |
+| Under attack check | `CombatIncomingParryChoice.incoming_attacker_ids_on_defender(manager, defender_id)` — scans WIND_UP combatants for `pending_attack` targeting this id |
 | Two-handed weapon | `resources/weapons/Weapon.gd` `is_two_handed` flag · `WeaponConstants.weapon_is_two_handed(weapon)` helper |
 | Breath / stamina | Keys `"breath"` + `"stamina"` · `stamina_factor()` (canonical) · `breath_factor()` alias · `CombatExhaustion.effective_breath_refill_rate` |
-| Wait (no gauge reset) | `CombatResolveAction.gd` — wait resolves directly (not via `skip_turn`), no gauge change, schedules action_ready at 0.1s |
+| Wait (no gauge reset) | `CombatResolveAction.resolve` → `manager.skip_turn(..., SKIP_TURN_LOG_WAIT)` — zeroes gauge, schedules action_ready at `READY_DELAY_SKIP_DEFAULT_S` (0.5s) |
 
 Implementation hubs: `combat/access/CombatantEntityAccess.gd` · `combat/access/CombatantRegister.gd` · `combat/access/CombatantView.gd` · `combat/CombatConstants.gd` · `combat/medical/MedicalPhaseController.gd` · `world/CampaignEncounterBridge.gd`
 
@@ -116,7 +115,7 @@ Use when tracing a cross-cutting concern. Open **only** the owning file(s) for y
 | Inline gate literals | `CompanyState.read_stub_*` / `gate_*()` |
 | Local `_tile_coords` / tile math | `_CampaignBridge.overworld_tile_*` |
 | Duplicate untreated-wound checks on entity | `CombatantEntityAccess.entity_has_untreated_wounds` |
-| Duplicate zone geometry pack helpers at call sites | `ZoneOfControl.opponent_formation_for_listing` / `pair_formations_for_targeting` |
+| Duplicate zone geometry pack helpers at call sites | `ZoneOfControl.opponent_formation_for_listing` / `zone_geometry_for_pair` + `zone_geometry_*_from_pair_pack` |
 | Conflate **weapon form** (WF) with **`guard_line`**, formation **doctrine**, or formation **`engagement_posture`** (LINE/OPEN/DUEL) | [`LIVE_PATHS#wf-footing-guards-stances`](LIVE_PATHS.md#wf-footing-guards-stances) |
 | Conflate **`CombatFootwork`** (Tier 4.4 PA step) with tier-4.2 **`defense_footwork_*`** or formation **`rotate_file`** | [`LIVE_PATHS#wf-footing-guards-stances`](LIVE_PATHS.md#wf-footing-guards-stances) |
 | Conflate **`ZoneOfControl.get_footing_duration_multiplier`** with WF / PA / **`guard_line`** | [`#wf-layer-labels`](LIVE_PATHS.md#wf-layer-labels) |
@@ -129,9 +128,7 @@ Use when tracing a cross-cutting concern. Open **only** the owning file(s) for y
 | Fold auto-switch into **`evaluate_automatic_doctrine`** or hook WF-3 on **`process_waiting`** **and** **`pick`** | **`evaluate_automatic_form`** in **`CombatAIActionPicker.pick`** only |
 | New `FEATURE_*` · bleed retune · closed IV-1,3,5–13 | User must ask; Expand one row per PR per [§9c](SHIP_PLAN.md#combat-expand-registry) |
 | Harness literal strings copied into production | Literals OK in harness `*Tail.gd` / fixtures; production uses constants |
-| `c.gauge = 0.0` in wind-up/recovery/complete_recovery handlers | Cost deduction at wind-up start; fill during WAITING/RECOVERING |
 | Read `c.stamina` without `c.breath` fallback | Both keys set — `"breath"` canonical in new code |
-| `move_id in COST_TABLE` in production | `AttackWindUpStarter._resolve_composure_cost(move_id)` |
 | New breath-only call sites | `stamina_factor()` / `breath_factor()` alias |
 
 **Layers (do not conflate):** menu/resolver **move IDs** · CoreEntity **method names** (`apply_bandage`) · formation flow **`FORMATION_MOVE_KIND_*`** — see `CombatFormationFlow.gd` header.

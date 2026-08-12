@@ -190,7 +190,7 @@ Economy defaults in `CompanyState.init_from_defaults()` — [guide §12](CAMPAIG
 
 ## 13. Persistence
 
-**P1** EA (session-only). **P2** post-ship — [D-persistence](CAMPAIGN_DECISION_GUIDE.md#d-persistence).
+**P1** EA (session-only). **P2** shipped (single-slot autosave) — [D-persistence](CAMPAIGN_DECISION_GUIDE.md#d-persistence).
 
 <a id="roster-casualties"></a>
 
@@ -238,7 +238,7 @@ const MED_BATTLE_MODE := "hybrid"
 const SUPPLY_FACTOR_AT_ZERO_MED := 0.5
 const AFFLICTIONS_ENABLED := true
 const BANKRUPT_MODE := "desertion"
-const PERSISTENCE_MODE := "P1"
+const PERSISTENCE_MODE := "P2"
 ```
 
 Branch via `read_stub_*()`. New gates: const + reader + [decision log](#decision-log) line.

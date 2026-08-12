@@ -31,6 +31,7 @@ static var _last_formation_move_pick_line: String = ""
 static var _last_medical_pack_listed_line: String = ""
 static var _last_research_feel_line: String = ""
 static var _last_cowering_fall_back_listed_line: String = ""
+static var _last_cowering_no_fall_back_alone_line: String = ""
 static var _last_fall_back_pick_line: String = ""
 static var _last_medical_action_pick_line: String = ""
 
@@ -155,6 +156,7 @@ static func reset_fight_trace_buffer() -> void:
     _last_medical_pack_listed_line = ""
     _last_research_feel_line = ""
     _last_cowering_fall_back_listed_line = ""
+    _last_cowering_no_fall_back_alone_line = ""
     _last_fall_back_pick_line = ""
     _last_medical_action_pick_line = ""
     _last_cowering_fall_back_executed_line = ""
@@ -408,7 +410,7 @@ static func note_cowering_fall_back_executed(who: String, file: int) -> void:
 
 ## F5 soak (**II-6**): grep **`ambient_pain_shock`**.
 static func note_death_tick(who: String, death_reason: String) -> void:
-    if not OperationalLog.play_session_is_editor_f5():
+    if not OperationalLog.is_play_session_active():
         return
     var line: String = "DEATH (tick) %s  -  %s" % [who.strip_edges(), death_reason.strip_edges()]
     if line == _last_death_tick_line:
@@ -418,7 +420,7 @@ static func note_death_tick(who: String, death_reason: String) -> void:
 
 
 static func note_exhaustion_crossing(who: String, band_pct: int, index_pct: float, perf_pct: int) -> void:
-    if not OperationalLog.play_session_is_editor_f5():
+    if not OperationalLog.is_play_session_active():
         return
     var line: String = (
         "exhaustion %s crossed %d%% (index %.0f%% perf %d%%)" % [who.strip_edges(), band_pct, index_pct, perf_pct]
@@ -430,7 +432,7 @@ static func note_exhaustion_crossing(who: String, band_pct: int, index_pct: floa
 
 
 static func note_ambient_pain_shock(who: String, effective_pain: float, duration_s: float) -> void:
-    if not OperationalLog.play_session_is_editor_f5():
+    if not OperationalLog.is_play_session_active():
         return
     var line: String = (
         "ambient_pain_shock %s effective_pain=%.1f duration=%.1fs" % [who.strip_edges(), effective_pain, duration_s]
@@ -442,7 +444,7 @@ static func note_ambient_pain_shock(who: String, effective_pain: float, duration
 
 
 static func note_concussion_entry(who: String, bone_damage_ratio: float, total_recovery_s: float) -> void:
-    if not OperationalLog.play_session_is_editor_f5():
+    if not OperationalLog.is_play_session_active():
         return
     var line: String = (
         "concussion_entered %s bone_damage=%.2f recovery=%.1fs" % [who.strip_edges(), bone_damage_ratio, total_recovery_s]
@@ -475,6 +477,16 @@ static func note_cowering_fall_back_listed(who: String) -> void:
     if line == _last_cowering_fall_back_listed_line:
         return
     _last_cowering_fall_back_listed_line = line
+    OperationalLog.play_combat(line)
+
+
+static func note_cowering_no_fall_back_alone(who: String) -> void:
+    if not OperationalLog.is_play_session_active():
+        return
+    var line: String = "solo fall_back blocked: cowering unit alone on side (%s)" % who.strip_edges()
+    if line == _last_cowering_no_fall_back_alone_line:
+        return
+    _last_cowering_no_fall_back_alone_line = line
     OperationalLog.play_combat(line)
 
 

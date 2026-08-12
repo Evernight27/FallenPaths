@@ -393,6 +393,19 @@ static func _solo_fall_back_listing_eligible(
     return solo_fall_back_action_legal(manager, c, zone_geometry_line_context_cache)
 
 
+static func _is_cowering_alone_on_side(manager: Node, c: Dictionary) -> bool:
+    var side: String = CombatantEntityAccess.side_str(c)
+    if not side.is_empty():
+        for other in manager.combatants:
+            if other is not Dictionary:
+                continue
+            if CombatantEntityAccess.id_int(other) == CombatantEntityAccess.id_int(c):
+                continue
+            if CombatantEntityAccess.is_living_same_side(c, other):
+                return false
+    return true
+
+
 ## Appends swap / paired retreat / solo fall_back. Returns context for flow logs; **`cowering_early_exit`** when build
 ## should return after wait.
 static func append_formation_move_actions(

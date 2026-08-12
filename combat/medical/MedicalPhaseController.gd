@@ -181,8 +181,43 @@ static func halt_losing_side_combat(manager: Node) -> void:
 ## Same threshold as bleed-out death (`CoreEntity._get_blood_loss_death_threshold` / `EntityWounds`).
 
 
-## True when no one on the winning side is in medical danger AND all wounds are comprehensively treated.
+## True when no one on the winning side is in medical danger AND all wounds are comprehensively treated; plus (post-
+## victory) no unresolved losing-side downed combatants — each must be executed or stabilized as a prisoner.
 static func can_end_medical_phase(manager: Node) -> bool:
+    if not manager.medical_phase:
+        return false
+    for c in manager.combatants:
+        if (
+            not CombatantEntityAccess.is_living_on_side(c, str(manager.medical_phase_winner))
+            or CombatantEntityAccess.scene_node(c) == null
+        ):
+            continue
+        if is_in_medical_danger(manager, c):
+            return false
+        if has_untreated_wounds(manager, c):
+            return false
+    # Stage-2: losing-side downed must all be resolved (dead or stabilized). A living opponent that hasn't left the
+    # battlefield and isn't standing needs treatment first.
+    var winner_side: String = str(manager.medical_phase_winner)
+    for c in manager.combatants:
+        if not CombatantEntityAccess.is_living_opponent_of_by_side(c, winner_side):
+            continue
+        if CombatantEntityAccess.has_left_battlefield(c):
+            continue
+        if not CombatantEntityAccess.is_standing_combatant(c):
+            if CombatConstantsFeatureFlags.is_feature_mercy_execute_enabled():
+                return false
+            else:
+                var entity: Node = CombatantEntityAccess.get_entity_from_manager(manager, c)
+                if entity != null and entity.has_method("_get_total_bleeding_rate"):
+                    if entity._get_total_bleeding_rate() > BleedingConstants.BLEEDING_RATE_EPSILON:
+                        return false
+    return true
+
+
+## Stage-1 complete: winner-side fighters need no more medical care. This gates the appearance of prisoner triage
+## actions (execute / spare-stabilize) before requiring all downed enemies are resolved.
+static func winner_triage_complete(manager: Node) -> bool:
     if not manager.medical_phase:
         return false
     for c in manager.combatants:
@@ -572,8 +607,6 @@ static func get_ally_medical_actions(manager: Node, performer: Dictionary, ally:
         MedicalPhaseFastForward._append_pressure_action_if_needed(
             manager, performer, ally, part, has_pressure, actively_bleeding, out
         )
-        if not out.is_empty():
-            return CombatMedicalCoordination.filter_ally_medical_actions(manager, performer, ally, out)
 
     # Default menu: pressure before dressings while actively bleeding (TCCC); pack/bandage once compression is held.
     if not has_pressure:

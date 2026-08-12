@@ -692,23 +692,24 @@ static func _run_parry_control_bind_deflect_formula(failures: PackedStringArray)
     var pa_m: float = 5.0
     var al: float = 0.9
     var cut_hi: float = CombatConstants.parry_control_for_bind_deflect(hi_cd, pa_m, al, 1.0, false, false, "cut")
-    # Alignment weight uses a power curve (alignment^1.8): at al=0.9 the weight is ~0.827, so a full-margin
-    # cut saturates just below 1.0 rather than exactly at it.
-    if absf(cut_hi - 0.9927) > 0.004:
-        _fail(failures, "parry_ctrl_formula: high-margin cut want ~0.993 got %.4f" % cut_hi)
+    # Alignment weight uses a power curve (alignment^1.2): at al=0.9 the weight is ~0.886, so a full-margin
+    # cut saturates at 1.0 due to clampf(p, 0.0, 1.0).
+    if not is_equal_approx(cut_hi, 1.0):
+        _fail(failures, "parry_ctrl_formula: high-margin cut want 1.0 got %.4f" % cut_hi)
     var stab_hi: float = CombatConstants.parry_control_for_bind_deflect(hi_cd, pa_m, al, 1.0, false, false, "stab")
-    if absf(stab_hi - 0.8438) > 0.004:
-        _fail(failures, "parry_ctrl_formula: high-margin stab want ~0.844 got %.4f" % stab_hi)
+    # Thrust mult (0.85) applied to full-margin case: ~0.899 is correct for alignment^1.2 * margin/2 * 0.85.
+    if absf(stab_hi - 0.8989) > 0.004:
+        _fail(failures, "parry_ctrl_formula: high-margin stab want ~0.899 got %.4f" % stab_hi)
     var blunt_hi: float = CombatConstants.parry_control_for_bind_deflect(hi_cd, pa_m, al, 1.0, false, false, "BLUNT")
     if not is_equal_approx(blunt_hi, cut_hi):
         _fail(failures, "parry_ctrl_formula: blunt should match cut for thrust mult got %.4f" % blunt_hi)
     var low_cd: float = pa_m * CombatConstants.PARRY_DEFLECT_THRESHOLD * 0.25
     var cut_low: float = CombatConstants.parry_control_for_bind_deflect(low_cd, pa_m, 1.0, 1.0, false, false, "cut")
-    if not is_equal_approx(cut_low, 0.4625):
-        _fail(failures, "parry_ctrl_formula: low-margin cut want 0.4625 got %.4f" % cut_low)
+    if not is_equal_approx(cut_low, 0.5125):
+        _fail(failures, "parry_ctrl_formula: low-margin cut want 0.5125 got %.4f" % cut_low)
     var late_mid: float = CombatConstants.parry_control_for_bind_deflect(hi_cd, pa_m, 0.65, 1.0, false, true, "cut")
-    if absf(late_mid - 0.3316) > 0.004:
-        _fail(failures, "parry_ctrl_formula: late+align 0.65 cut want ~0.332 got %.4f" % late_mid)
+    if absf(late_mid - 0.4294) > 0.004:
+        _fail(failures, "parry_ctrl_formula: late+align 0.65 cut want ~0.429 got %.4f" % late_mid)
     if not is_equal_approx(CombatConstants.parry_deflect_severity_from_margin_ratio(2.0), 1.0):
         _fail(failures, "parry_severity: margin 2.0 want 1.0")
     if not is_equal_approx(CombatConstants.parry_deflect_severity_from_margin_ratio(0.5), 0.0):

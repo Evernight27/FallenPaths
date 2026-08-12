@@ -89,7 +89,7 @@ func _ready():
     var boot_save: Dictionary = {}
     var restoring_campaign_save: bool = false
     if soak_id.is_empty():
-        if CompanyState.read_stub_persistence_mode() == "P1":
+        if not CompanyState.persistence_uses_disk_autosave():
             CampaignPersistence.clear_slot()
         boot_save = CompanyState.load_campaign_autosave_for_boot()
         restoring_campaign_save = not boot_save.is_empty()

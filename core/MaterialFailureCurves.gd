@@ -41,7 +41,7 @@ static func cut_tissue_damage_from_pen(pen_mm: float, part: String, scale: float
     var depth_mult: float = penetration_depth_mult(pen_mm)
     if pen_mm <= CUT_TISSUE_YIELD_PEN_MM:
         var graze_frac: float = pen_mm / CUT_TISSUE_YIELD_PEN_MM
-        return ultimate_damage * 0.12 * graze_frac * depth_mult
+        return ultimate_damage * 0.18 * graze_frac * depth_mult
     var ultimate_pen: float = cut_tissue_ultimate_pen_mm()
     if pen_mm >= ultimate_pen:
         return ultimate_damage * depth_mult
@@ -58,18 +58,18 @@ static func blunt_bone_damage_from_ke(ke_j: float, part: String, sub_region: Str
     var j_anchor: float = CombatDamageMechanism.blunt_fracture_j_anchor(part, sub_region)
     if ke_j < j_anchor:
         return 0.0
-    return CombatDamageMechanism.j_excess_to_bone_damage(ke_j - j_anchor)
+    return maxf(CombatDamageMechanism.MFB_BLUNT_FRACTURE_GAME_DAMAGE_FLOOR, CombatDamageMechanism.j_excess_to_bone_damage(ke_j - j_anchor))
 
 
 ## Cut-dominant bone gate — now uses tissue depth instead of RHA penetration for anatomical accuracy.
-static func cut_bone_damage_from_pen(pen_mm: float, part: String, _sub_region: String, scale: float = 1.0) -> float:
+static func cut_bone_damage_from_pen(pen_mm: float, part: String, sub_region: String, scale: float = 1.0) -> float:
     ## Convert RHA-equivalent armor penetration to tissue depth; compare against clinical bone chip threshold.
     var tissue_depth: float = CombatDamageMechanism.rha_penetration_to_tissue_depth_mm(pen_mm)
     if tissue_depth < CombatDamageMechanism.CUT_BONE_MIN_TISSUE_DEPTH_MM:
         return 0.0
     var tissue: float = cut_tissue_damage_from_pen(pen_mm, part, scale)
-    var bone_frac: float = 0.35
-    return tissue * bone_frac * penetration_depth_mult(tissue_depth)
+    var bone_frac: float = BodyPartConstants.get_bone_damage_fraction(part, sub_region if sub_region else "")
+    return tissue * bone_frac
 
 
 ## Committed oberhau reference KE (J) for audit/harness anchors.

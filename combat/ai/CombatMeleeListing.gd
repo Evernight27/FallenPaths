@@ -238,3 +238,82 @@ static func append_melee_actions_for_combatant(
     if not CombatMeleeRankTargeting.any_living_enemy_rank0_target(manager, c, combatants):
         append_melee_vs_enemy_line_rank(manager, c, combatants, actions, move_ids, melee_range, 1, ctx_self, opp_zone)
     strip_redundant_attempt_close_for_finish(manager, c, actions)
+    append_execute_actions_for_combatant(manager, c, combatants, actions)
+
+
+## Mercy execute listing: one entry per downed opponent in reach — bypasses living-hostile
+## and rank gates (the target has already been beaten down; only reach + attacking arm apply).
+static func append_execute_actions_for_combatant(
+    manager: Node,
+    c: Dictionary,
+    combatants: Array,
+    actions: Array
+) -> void:
+    if not CombatConstantsFeatureFlags.is_feature_mercy_execute_enabled():
+        return
+    if manager == null or c.is_empty() or combatants.is_empty() or actions == null:
+        return
+    if CombatantEntityAccess.get_attacking_arm(c).is_empty():
+        return
+    var weapon = CombatantEntityAccess.get_weapon(c)
+    if not CombatantEntityAccess.weapon_has_attack_types(weapon):
+        return
+    var melee_range: float = float(weapon.melee_range)
+    for raw in combatants:
+        if raw is not Dictionary:
+            continue
+        var opp: Dictionary = raw as Dictionary
+        if not CombatExecute.is_downed_opponent_of(manager, c, opp):
+            continue
+        if not execute_target_in_reach(manager, c, opp, melee_range):
+            continue
+        var opp_id: int = CombatantEntityAccess.id_int(opp)
+        var already: bool = false
+        for existing in actions:
+            if existing is not Dictionary:
+                continue
+            if str(existing.get("move_id", "")) == CombatConstants.MOVE_ID_EXECUTE and int(existing.get("target_id", -1)) == opp_id:
+                already = true
+                break
+        if already:
+            continue
+        actions.append({
+            "target_id": opp_id,
+            "move_id": CombatConstants.MOVE_ID_EXECUTE,
+        })
+
+
+## Whether any downed opponent is in execute reach. Used by the action-build counter-tempo gate to keep the
+## mercy/execute option listed even at sub-100 gauge (coup de grâce on a lone beaten-down target).
+static func downed_opponent_in_reach(manager: Node, c: Dictionary, combatants: Array) -> bool:
+    if manager == null or c.is_empty() or combatants.is_empty():
+        return false
+    if CombatantEntityAccess.get_attacking_arm(c).is_empty():
+        return false
+    var weapon = CombatantEntityAccess.get_weapon(c)
+    if weapon == null or not CombatantEntityAccess.weapon_has_attack_types(weapon):
+        return false
+    var melee_range: float = float(weapon.melee_range)
+    for raw in combatants:
+        if raw is not Dictionary:
+            continue
+        var opp: Dictionary = raw as Dictionary
+        if not CombatExecute.is_downed_opponent_of(manager, c, opp):
+            continue
+        if execute_target_in_reach(manager, c, opp, melee_range):
+            return true
+    return false
+
+
+## Reach check for an execute (downed target): mop-up band or geometric reach covering eff dist.
+static func execute_target_in_reach(manager: Node, attacker: Dictionary, defender: Dictionary, melee_range: float) -> bool:
+    if manager == null or attacker.is_empty() or defender.is_empty():
+        return false
+    var dist: String = CombatantEntityAccess.distance_to_opponent_band(attacker, CombatantEntityAccess.id_int(defender))
+    if envelop_mop_up_strike_at_band(manager, attacker, dist):
+        return true
+    if dist != CombatConstants.DISTANCE_CLOSE and dist != CombatConstants.DISTANCE_MID:
+        return false
+    var eff_dist: float = CombatPairGeometry.effective_pair_eff_dist(manager, attacker, defender)
+    var reach_for_threaten: float = melee_range + ZoneOfControl.weapon_reach_zoc_bonus_m(manager, attacker, defender)
+    return CombatPairGeometry.melee_reach_covers_eff_dist(reach_for_threaten, eff_dist)

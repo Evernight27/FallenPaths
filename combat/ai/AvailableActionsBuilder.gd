@@ -23,8 +23,11 @@ static func build(manager: Node, combatant_id: int) -> Array:
         return []
     var counter_tempo: bool = false
     if CombatantEntityAccess.gauge_float(c) < 100.0:
-        if _counter_tempo().call("can_act", manager, c):
+        if bool(_counter_tempo().call("can_act", manager, c)):
             counter_tempo = true
+        elif not manager.medical_phase and CombatMeleeListing.downed_opponent_in_reach(manager, c, manager.combatants):
+            # Mercy/execute: a beaten-down opponent in reach keeps the coup de grâce listed even at partial gauge.
+            pass
         else:
             return []
     var state: String = CombatantEntityAccess.state_str(c)

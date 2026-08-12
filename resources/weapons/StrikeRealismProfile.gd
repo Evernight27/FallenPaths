@@ -151,6 +151,8 @@ static func compute_strike_modifiers(
     var contact: String = WeaponConstants.contact_type_for_move_id(move_id)
     var phys: Dictionary = _phys(weapon)
     var station: float = blade_station_from_pa(pa, weapon, move_id, intensity)
+    var move_def: Dictionary = WeaponConstants.get_move(move_id)
+    var is_feint: bool = move_def.get("is_feint", false) if move_def is Dictionary else false
     var eff_ov: float = -1.0
     if not pa.is_empty():
         var ve: Variant = pa.get("effective_pair_eff_dist", null)
@@ -188,6 +190,14 @@ static func compute_strike_modifiers(
         else clampf(lerpf(0.96, 1.028, sin(station * PI)), 0.9, 1.08)
     )
     var sharp_pen_mult: float = pen_station * lerpf(0.75, 1.0, sharpness)
+    # velocity^2 scales KE; coup couples energy into the target; commit gates extension follow-through.
+    # Minimum ratio of 0.65 prevents sub-band strikes from being suppressed below realistic energy floors
+    # (e.g., axe thrusts at low intensity should still deliver meaningful impact energy).
+    var computed_e: float = maxf(0.65, vel_m * vel_m * coup * clampf(commit_frac, 0.3, 1.0))
+    if is_feint:
+        computed_e = maxf(0.15, computed_e * 0.2)
+    var arch_e: float = _archetype.get("strike_energy_mult", -1.0) if _archetype is Dictionary else -1.0
+    var strike_energy: float = computed_e if arch_e < 0.0 or arch_e < computed_e else arch_e
     return {
         "blade_station": station,
         "measure_ratio": meas,
@@ -197,9 +207,6 @@ static func compute_strike_modifiers(
         "blunt_damage_mult": blunt_m,
         "sharp_penetration_mult": sharp_pen_mult,
         "blunt_momentum_pa_mult": obliq * _blunt_pressure_mult(weapon, phys),
-        # velocity^2 scales KE; coup couples energy into the target; commit gates extension follow-through.
-        # Minimum ratio of 0.65 prevents sub-band strikes from being suppressed below realistic energy floors
-        # (e.g., axe thrusts at low intensity should still deliver meaningful impact energy).
-        "strike_energy_mult": maxf(0.65, vel_m * vel_m * coup * clampf(commit_frac, 0.3, 1.0)),
+        "strike_energy_mult": strike_energy,
         "strike_momentum_mult": vel_m * coup
     }

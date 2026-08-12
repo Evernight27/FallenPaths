@@ -234,13 +234,21 @@ static func get_part_dodge_modifier(entity: Node, part: String) -> float:
 
 
 static func get_leg_functionality(entity: Node) -> float:
-    if (
-        not is_part_physically_operable(entity, BodyPartConstants.PART_LEFT_LEG)
-        or not is_part_physically_operable(entity, BodyPartConstants.PART_RIGHT_LEG)
-    ):
+    var left_op = is_part_physically_operable(entity, BodyPartConstants.PART_LEFT_LEG)
+    var right_op = is_part_physically_operable(entity, BodyPartConstants.PART_RIGHT_LEG)
+
+    # Both legs destroyed — total immobilization (wheeled crawl only).
+    if not left_op and not right_op:
         return 0.08
+
+    # One leg destroyed — significant mobility loss but can still hobble/shuffle (~40-55%).
+    # Historical evidence shows fighters with one damaged leg continue fighting at reduced capacity.
+    if not left_op or not right_op:
+        var surviving = BodyPartConstants.PART_LEFT_LEG if left_op else BodyPartConstants.PART_RIGHT_LEG
+        var bone_factor = get_bone_functionality_factor(entity, surviving)
+        return clampf(0.35 + bone_factor * 0.20, 0.35, 0.55)
+
+    # Both legs functional — geometric mean of bone factors when both damaged.
     var left: float = get_bone_functionality_factor(entity, BodyPartConstants.PART_LEFT_LEG)
     var right: float = get_bone_functionality_factor(entity, BodyPartConstants.PART_RIGHT_LEG)
-    if left <= 0.0 or right <= 0.0:
-        return 0.08
     return sqrt(left * right)

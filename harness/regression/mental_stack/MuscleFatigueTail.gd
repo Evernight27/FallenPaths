@@ -1,5 +1,7 @@
 class_name CombatRegressionHarnessMuscleFatigueTail
 extends RefCounted
+const _CombatRegressionHarness := preload("res://harness/regression/CombatRegressionHarness.gd")
+
 ## Phase 2 per-limb muscle fatigue harness (FEATURE_MUSCLE_GROUP_FATIGUE).
 
 ## Harness assertion tolerance tiers.

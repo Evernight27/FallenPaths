@@ -23,7 +23,7 @@ Playtest stream ≠ script `-Track Q1`. Expand stream ≠ backlog id `IV-2`.
 | [Combat](#stream-combat) | Default maintain | `combat/*`, `harness/*` |
 | [Expand](#stream-expand) | User reopens §9c | One FEATURE/row + harness |
 | [Playtest](#stream-playtest) | F5 / validator | `.f5_soak_in.txt` exclusive |
-| [Campaign](#stream-campaign) | Economy UX / P2 | `world/*`, company UI |
+| [Campaign](#stream-campaign) | Economy UX / persistence | `world/*`, company UI |
 
 Session: Gate → one Combat fix → optional Expand/Playtest → Campaign on demand.
 
@@ -63,7 +63,7 @@ Camp-2 bridge ☑ — Campaign leads map↔sim; Combat on stabilize listing. Mer
 
 ## Closed gates
 
-[User bundle](CAMPAIGN_DECISION_GUIDE.md#user-bundle-2026-05-22) · [§19](SHIP_PLAN.md#implementation-stubs). Optional [P2](CAMPAIGN_DECISION_GUIDE.md#d-persistence).
+[User bundle](CAMPAIGN_DECISION_GUIDE.md#user-bundle-2026-05-22) · [§19](SHIP_PLAN.md#implementation-stubs). Optional [P2](CAMPAIGN_DECISION_GUIDE.md#d-persistence) shipped.
 
 <a id="milestone-tracking"></a>
 

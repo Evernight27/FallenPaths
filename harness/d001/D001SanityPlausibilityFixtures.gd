@@ -7,18 +7,18 @@ static func _run_plausibility_fixture_tests() -> PackedStringArray:
 	var failures: PackedStringArray = PackedStringArray()
 
 	# --- II-5 plausibility fixtures ---
-	var missing_exec: PackedStringArray = PackedStringArray(
+	var missing_blocked: PackedStringArray = PackedStringArray(
 		[
 			"cowering_fall_back listed for Leader",
 		]
 	)
-	if D001SanityProbeTests._ii5_plausibility_failures(missing_exec).is_empty():
-		failures.append("fixture_ii5: should require executed line")
+	if D001SanityProbeTests._ii5_plausibility_failures(missing_blocked).is_empty():
+		failures.append("fixture_ii5: should require blocked line")
 
 	var good_ii5: PackedStringArray = PackedStringArray(
 		[
 			"cowering_fall_back listed for Leader",
-			"cowering_fall_back executed Leader rank 0->1 file 0",
+			"solo fall_back blocked: cowering unit alone on side (Leader)",
 		]
 	)
 	if not D001SanityProbeTests._ii5_plausibility_failures(good_ii5).is_empty():

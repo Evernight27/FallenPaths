@@ -5,7 +5,14 @@
 ## with tuning controls layered on top for debugging.
 
 # --- Preloads (production dependencies) ---
-const _MgrScript := preload("res://tools/combat_tuning/TuningCombatManager.gd")
+static var _MgrScript: Variant = null
+
+
+static func _get_mgr_script() -> GDScript:
+	if _MgrScript == null:
+		_MgrScript = load("res://tools/combat_tuning/TuningCombatManager.gd")
+	return _MgrScript
+
 static var _EntityAccess: Variant = null
 
 
@@ -334,6 +341,7 @@ func _on_action_resolved(attacker_id_sig: int, target_id_sig: int, result: Dicti
 		if atk_name == "?" and tgt_name == "?" and mid in ["", "?"]:
 			return
 		var reject_line: String = "[HEMA] %s %s | outcome=reject" % [atk_name, mid if not mid.is_empty() else "?"]
+		reject_line = _Formatter.annotate_with_performance_states(reject_line, atk_ent, tgt_ent)
 		_log_line(reject_line)
 		return
 
@@ -347,6 +355,7 @@ func _on_action_resolved(attacker_id_sig: int, target_id_sig: int, result: Dicti
 	var exchange_line: String = _Formatter.format_exchange_line(
 		atk_name, tgt_name, log_result, atk_ent, tgt_ent, strike_display_index, gauge_atk, gauge_def
 	)
+	exchange_line = _Formatter.annotate_with_performance_states(exchange_line, atk_ent, tgt_ent)
 	_log_line(exchange_line)
 
 	# `AttackResolver` defers its `[Combat] DEATH` line for tuning matches
@@ -816,7 +825,7 @@ func _spawn_combatants() -> void:
 	_auto_medical_ff = false
 	_cleanup_manager()
 
-	manager = _MgrScript.new()
+	manager = _get_mgr_script().new()
 	manager.tuning_skip_medical = true
 	manager.tuning_wait_for_player = true
 	add_child(manager)
@@ -1021,6 +1030,12 @@ func _infer_end_cause(winner_side: String) -> String:
 		var left_leg_bone: float = incapacitated_entity.bone_health.get(BodyPartConstants.PART_LEFT_LEG, 8.0)
 		if right_leg_bone <= 0.0 and left_leg_bone <= 0.0:
 			return "leg breaks"
+
+		# Single-leg destruction — leg is non-operable but bone check alone won't catch it.
+		var right_leg_op: bool = BodyPartQuery.is_part_physically_operable(incapacitated_entity, BodyPartConstants.PART_RIGHT_LEG)
+		var left_leg_op: bool = BodyPartQuery.is_part_physically_operable(incapacitated_entity, BodyPartConstants.PART_LEFT_LEG)
+		if not right_leg_op or not left_leg_op:
+			return "leg destruction"
 
 		# Check arm functionality — destroyed attacking arm triggers cowering.
 		var right_arm_severed: bool = incapacitated_entity.body_cutting.get(BodyPartConstants.PART_RIGHT_ARM, 10.0) <= 0.0 and incapacitated_entity.bone_health.get(BodyPartConstants.PART_RIGHT_ARM, 8.0) <= 0.0
@@ -1341,7 +1356,7 @@ func _log_line(plain: String, color: String = "", mirror: bool = true) -> void:
 
 
 func _bbcode_escape(text: String) -> String:
-	"""Escape [ and ] for BBCode-enabled RichTextLabel."""
+	## Escape [ and ] for BBCode-enabled RichTextLabel.
 	return text.replace("[", "\\[").replace("]", "\\]")
 
 

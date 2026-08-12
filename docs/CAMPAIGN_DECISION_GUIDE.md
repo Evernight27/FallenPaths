@@ -2,7 +2,7 @@
 
 **Start:** [User bundle](#user-bundle-2026-05-22) · [`CompanyState`](../world/CompanyState.gd) · [§19](SHIP_PLAN.md#implementation-stubs) · [decision log](SHIP_PLAN.md#decision-log).
 
-Closed-gate defaults, §12 economy, or **new gates** (const + `read_stub_*` + decision-log line). Optional: [**P2** save](#d-persistence).
+Closed-gate defaults, §12 economy, or **new gates** (const + `read_stub_*` + decision-log line). Persistence: [**P2** save](#d-persistence).
 
 ---
 
@@ -11,8 +11,8 @@ Closed-gate defaults, §12 economy, or **new gates** (const + `read_stub_*` + de
 | Anchor | Value |
 |--------|-------|
 | Untreated TTD | ~48 s (CoTCCC/ATLS 30–120 s) |
-| Death threshold | 35% blood remaining |
-| Triage danger / peril | 55% / 42% @ 90 s / 45 s |
+| Death threshold | 30% blood remaining |
+| Triage danger / peril | 55% / 47% @ 60 s / 30 s |
 | Map step | 60 s |
 | Direct pressure | ~2× TTD |
 
@@ -36,7 +36,7 @@ Consts in `CompanyState`; `read_stub_*()` forwards ([SHIP_PLAN §19](SHIP_PLAN.m
 | **D-supply-battle** | E3 | `MED_BATTLE_MODE`, `SUPPLY_FACTOR_AT_ZERO_MED` |
 | **D-affliction** | Tier RNG | `AFFLICTIONS_ENABLED` |
 | **D-bankrupt** | B3 desertion | `BANKRUPT_MODE` |
-| **D-persistence** | P1 EA · P2 post-ship | `PERSISTENCE_MODE` |
+| **D-persistence** | P1 EA → **P2 shipped** | `PERSISTENCE_MODE` |
 
 <a id="camp-heal-rates-on-move-vs-camp"></a>
 
@@ -72,8 +72,8 @@ Each D-* choice is closed in the [user bundle](#user-bundle-2026-05-22); consts 
 
 | Mode | Behavior |
 |------|----------|
-| **P1** (EA) | Session-only; `clear_slot` on campaign boot / run-end reload |
-| **P2** | Single-slot autosave — user ask only |
+| **P1** (legacy EA) | Session-only; `clear_slot` on campaign boot / run-end reload |
+| **P2** (shipped) | Single-slot autosave; `PERSISTENCE_MODE := "P2"` in `CompanyState` / `CompanyEconomy` |
 
 <a id="ea-tuning"></a>
 

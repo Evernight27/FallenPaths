@@ -67,12 +67,6 @@ static func _commit_fraction_for_weapon_extension(pa: Dictionary) -> float:
         return commit_fraction_from_move_def(WeaponConstants.get_move(mid))
     return CombatConstants.WEAPON_EXTENDED_COMMIT_FRACTION
 
-
-## Deprecated — use `_commit_fraction_for_weapon_extension` directly. Kept for external callers.
-static func delivery_commit_fraction_from_pa(pa: Dictionary) -> float:
-    return _commit_fraction_for_weapon_extension(pa)
-
-
 ## Multiplier on defender **`parry_c_d`** when the blade is extended (recovering from own attack, etc.).
 static func parry_capacity_mult_for_defender(defender: Dictionary) -> float:
     if is_weapon_near_body(defender):

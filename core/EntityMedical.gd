@@ -683,8 +683,8 @@ static func _apply_tourniquet(entity: Node, part: String, effectiveness: float =
     success_chance = clampf(success_chance, 0.0, 1.0)
     var success: bool = randf() < success_chance
     if success:
-        clear_direct_pressure(entity)
         var eff_clamped: float = clampf(effectiveness, 0.0, 1.0)
+        clear_direct_pressure(entity)
         entity.tourniquet_applied[part] = {"applied_at": entity._get_game_time_seconds(), "effectiveness": eff_clamped}
         if fail_count > 0:
             if entity.has_method("_get_tourniquet_failures"):

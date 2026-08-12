@@ -23,7 +23,11 @@ static func flee_action_legal(manager: Node, c: Dictionary) -> bool:
     if CombatFormationMoveListing.in_pair_abort_cooldown(manager, c):
         return false
     if CombatMobilityRetreat.formation_retreat_only_for(c):
-        return true
+        var no_attacking_arm: bool = CombatantEntityAccess.get_attacking_arm(c).is_empty()
+        var alone: bool = _is_cowering_alone_on_side(manager, c)
+        if no_attacking_arm and alone:
+            CombatF5SoakTrace.note_cowering_no_fall_back_alone(CombatantEntityAccess.get_display_name(c))
+            return false
     if not CombatantEntityAccess.flee_abandonment_warranted(c, manager):
         return false
     return not CombatFormationMoveListing.solo_fall_back_action_legal(manager, c)
@@ -92,7 +96,7 @@ static func apply_flee(manager: Node, combatant_id: int) -> void:
                         CombatantEntityAccess.get_display_name(c, combatant_id),
                         fid,
                         ctx.get(DataKeys.FORMATION_LINE_COHESION, 0.0),
-                        ctx.get(DataKeys.FLEE_CTX_CASUALTY_RATIO, 0.0),
+                        ctx.get(DataKeys.FLEE_CTX_CASUALTY_RATIO, 0.0) * 100.0,
                         str(ctx.get(DataKeys.FLEE_CTX_FORMATION_STRESSED, false)),
                         str(ctx.get(DataKeys.FLEE_CTX_SIDE_HOLDING_FIELD, false)),
                     ]
@@ -132,11 +136,16 @@ static func apply_flee(manager: Node, combatant_id: int) -> void:
         manager._end_combat_phase(winner, null)
 
 
-
-
-
-
-
-
-
-
+static func _is_cowering_alone_on_side(manager: Node, c: Dictionary) -> bool:
+    if manager == null or c.is_empty():
+        return false
+    var side: String = CombatantEntityAccess.side_str(c)
+    if not side.is_empty():
+        for other in manager.combatants:
+            if other is not Dictionary:
+                continue
+            if CombatantEntityAccess.id_int(other) == CombatantEntityAccess.id_int(c):
+                continue
+            if CombatantEntityAccess.is_living_same_side(c, other):
+                return false
+    return true

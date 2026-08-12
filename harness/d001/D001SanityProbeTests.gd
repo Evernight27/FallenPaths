@@ -60,36 +60,20 @@ static func _common_log_plausibility_failures(preset_id: String, lines: PackedSt
 
 static func _ii5_plausibility_failures(lines: PackedStringArray) -> PackedStringArray:
     var failures: PackedStringArray = PackedStringArray()
-    var pick_at: int = -1
     var listed_n: int = 0
-    var executed_n: int = 0
+    var blocked_n: int = 0
     for i in lines.size():
         var line: String = D001SanityProbeTests._combat_line(lines[i])
         if D001SanityProbeTests._is_grep_hint_line(line):
             continue
         if "cowering_fall_back listed" in line:
             listed_n += 1
-        if "cowering_fall_back executed" in line:
-            executed_n += 1
-        if "cowering_fall_back pick" in line:
-            pick_at = i
+        if "solo fall_back blocked" in line:
+            blocked_n += 1
     if listed_n < 1:
         failures.append("ii5: want cowering_fall_back listed (got %d)" % listed_n)
-    if executed_n < 1:
-        failures.append("ii5: want cowering_fall_back executed (got %d)" % executed_n)
-    if pick_at >= 0:
-        var pick_line: String = D001SanityProbeTests._combat_line(lines[pick_at])
-        if "target_id=" not in pick_line:
-            failures.append("ii5: cowering_fall_back pick missing target_id")
-    if executed_n > 0:
-        var exec_line: String = ""
-        for raw in lines:
-            var s: String = D001SanityProbeTests._combat_line(raw)
-            if "cowering_fall_back executed" in s:
-                exec_line = s
-                break
-        if not exec_line.contains("rank 0->") and not exec_line.contains("rank 0->"):
-            failures.append("ii5: executed line should mention rear rank shift (rank 0->)")
+    if blocked_n < 1:
+        failures.append("ii5: want solo fall_back blocked (got %d)" % blocked_n)
     return failures
 
 

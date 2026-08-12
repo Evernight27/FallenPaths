@@ -139,9 +139,15 @@ static func _compute_failed_part_retry_weight(
 ## Compute out-of-peril dampening for stabilize/dressing moves.
 static func _compute_out_of_peril_dampening(tgt: Dictionary, mid: String, manager: Node, w: float) -> float:
     if not tgt.is_empty() and not CombatantEntityAccess.is_in_immediate_peril(manager, tgt):
-        if mid == CombatConstants.MOVE_ID_STABILIZE_WOUND:
+        var entity: Node = CombatantEntityAccess.get_entity_from_manager(manager, tgt)
+        var total_bleed_r: float = 0.0
+        if entity != null and entity.has_method("_get_total_bleeding_rate"):
+            total_bleed_r = entity._get_total_bleeding_rate()
+        if mid == CombatConstants.MOVE_ID_STABILIZE_WOUND or mid == CombatConstants.MOVE_ID_STABILIZE_ALLY:
             return w * MedicalPhaseBatchResolve.MEDICAL_AI_WEIGHT_STABILIZE_OUT_OF_PERIL
-        if mid == CombatConstants.MOVE_ID_BANDAGE_SELF or mid == CombatConstants.MOVE_ID_PACK_WOUND:
+        if mid == CombatConstants.MOVE_ID_BANDAGE_SELF or mid == CombatConstants.MOVE_ID_PACK_WOUND or mid == CombatConstants.MOVE_ID_BANDAGE_ALLY or mid == CombatConstants.MOVE_ID_PACK_ALLY:
+            if total_bleed_r > BleedingConstants.BLEEDING_RATE_EPSILON and total_bleed_r < BleedingConstants.TOURNIQUET_BLEEDING_RATE_THRESHOLD:
+                return w  # Don't dampen — slow bleeds need attention
             return w * MedicalPhaseBatchResolve.MEDICAL_AI_WEIGHT_DRESSING_OUT_OF_PERIL
     return w
 
@@ -150,15 +156,14 @@ static func _compute_out_of_peril_dampening(tgt: Dictionary, mid: String, manage
 static func _compute_tourniquet_indication_weight(
     tgt: Dictionary, part: String, mid: String, manager: Node, w: float
 ) -> float:
-    if not tgt.is_empty() and not part.is_empty() and CombatantEntityAccess.is_in_immediate_peril(manager, tgt):
-        var health: Node = CombatantEntityAccess.get_health_entity_from_node(
-            manager, CombatantEntityAccess.scene_node(tgt)
-        )
-        if CombatantEntityAccess.entity_is_tourniquet_indicated_for_part(health, tgt, part):
-            if mid == CombatConstants.MOVE_ID_APPLY_TOURNIQUET:
-                return w * MedicalPhaseBatchResolve.MEDICAL_AI_WEIGHT_TOURNIQUET_INDICATED
-            if CombatConstants.is_dressing_medical_move(mid):
-                return w * MedicalPhaseBatchResolve.MEDICAL_AI_WEIGHT_BANDAGE_BEFORE_HEMOSTASIS
+    if not tgt.is_empty() and not part.is_empty():
+        var entity: Node = CombatantEntityAccess.get_entity_from_manager(manager, tgt)
+        if entity != null and entity.has_method("_is_tourniquet_indicated_for_part"):
+            if entity._is_tourniquet_indicated_for_part(part):
+                if mid == CombatConstants.MOVE_ID_APPLY_TOURNIQUET:
+                    return w * MedicalPhaseBatchResolve.MEDICAL_AI_WEIGHT_TOURNIQUET_INDICATED
+                if CombatConstants.is_dressing_medical_move(mid):
+                    return w * MedicalPhaseBatchResolve.MEDICAL_AI_WEIGHT_BANDAGE_BEFORE_HEMOSTASIS
     return w
 
 
@@ -168,12 +173,9 @@ static func _compute_bleeding_interaction(
     combatant_id: int, tgt: Dictionary, tgt_id: int, part: String, mid: String, manager: Node, w: float
 ) -> float:
     if not tgt.is_empty() and not part.is_empty():
-        var health: Node = CombatantEntityAccess.get_health_entity_from_node(
-            manager, CombatantEntityAccess.scene_node(tgt)
-        )
-        var bleed_r: float = CombatantEntityAccess.entity_bleeding_rate_for_part(health, tgt, part)
+        var bleed_r: float = CombatantEntityAccess.entity_bleeding_rate_for_part(manager, tgt, part)
         var active_bleed: bool = bleed_r > BleedingConstants.BLEEDING_RATE_EPSILON
-        var held: bool = CombatantEntityAccess.entity_has_direct_pressure_on_part(health, tgt, part)
+        var held: bool = CombatantEntityAccess.entity_has_direct_pressure_on_part(manager, tgt, part)
         if (
             mid == CombatConstants.MOVE_ID_APPLY_DIRECT_PRESSURE
             and CombatMedicalCoordination.can_stack_assist_pressure(manager, combatant_id, tgt_id, part)

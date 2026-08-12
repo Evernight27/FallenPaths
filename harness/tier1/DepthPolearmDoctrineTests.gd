@@ -1,5 +1,7 @@
 class_name Tier1DepthPolearmDoctrineTests
 extends CombatRegressionHarnessCore
+const _CombatRegressionHarness := preload("res://harness/regression/CombatRegressionHarness.gd")
+
 ## Tier 1 depth / engagement / targeting / surround / doctrine tests (compile split).
 ## Footing: not WF/PA owner  -  may call strike/listing paths that read **`form_str`**. Spec: LIVE_PATHS
 ## **`#wf-footing-doc-map`**.

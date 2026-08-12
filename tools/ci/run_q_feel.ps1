@@ -105,7 +105,7 @@ elseif ($Track -eq "Q1") {
 	Write-Host "4. Output grep: research_feel, hit_resolve reason=, strike_avoided reason=, soak_fight_end"
 	Write-Host "5. Copy Output -> .f5_soak_in.txt -> .\tools\ci\validate_f5_soak_log.ps1"
 	Write-Host ""
-	Write-Host "Docs: docs/LIVE_PATHS.md#track-q1--research-feel-duel"
+	Write-Host "Docs: docs/LIVE_PATHS.md#playtest-q1-research-feel-duel"
 	Write-Host "Headless: .\tools\ci\run_q_audit.ps1 -Track Q1 -> .q1_research_feel_audit.txt"
 	$logPath = Join-Path $Root ".f5_soak_in.txt"
 	if (Test-Path $logPath) {

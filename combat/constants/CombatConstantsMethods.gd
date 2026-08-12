@@ -61,6 +61,10 @@ static func is_dressing_medical_move(move_id: String) -> bool:
 	return Moves.is_dressing_medical_move(move_id)
 
 
+static func is_execute_move(move_id: String) -> bool:
+	return Moves.is_execute_move(move_id)
+
+
 static func is_focus_line_move(move_id: String) -> bool:
 	return Moves.is_focus_line_move(move_id)
 

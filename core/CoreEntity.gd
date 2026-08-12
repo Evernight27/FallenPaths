@@ -149,14 +149,6 @@ func _set_training_pending_value(stat: String, value: float) -> void:
 # BleedingConstants is class_name in core/BleedingConstants.gd; preload for linter/standalone parse
 
 
-func _get_weapon_proficiency() -> Dictionary:
-	return _weapon_proficiency
-
-
-func _get_form_proficiency() -> Dictionary:
-	return _form_proficiency
-
-
 ## Camp rest clears local limb exertion pools (FEATURE_MUSCLE_GROUP_FATIGUE campaign bridge).
 func _restore_muscle_fatigue_at_camp() -> void:
 	muscle_fatigue = {}
@@ -423,12 +415,25 @@ func is_cowering() -> bool:
 	if get_attacking_arm().is_empty():
 		return true
 	var leg_func: float = _get_leg_functionality()
-	if leg_func <= 0.08:
+	if leg_func <= PainConsciousnessConstants.LEG_COWER_THRESHOLD:
 		return true
 	var blood_pct: float = blood_volume
 	if blood_pct < 40.0 and is_unconscious():
 		return true
 	return false
+
+
+## Returns a string describing the cowering cause: "arms", "legs", or "".
+## Used by AttackResultApplier to show accurate incapacitation reason.
+func get_cowering_reason() -> String:
+	if not is_cowering():
+		return ""
+	if get_attacking_arm().is_empty():
+		return "arms"
+	var leg_func: float = _get_leg_functionality()
+	if leg_func <= PainConsciousnessConstants.LEG_COWER_THRESHOLD:
+		return "legs"
+	return ""
 
 
 ## True when blood/head trauma has dropped true consciousness below the incapacitation floor (cannot act or move).
@@ -484,12 +489,14 @@ func get_dodge_speed_modifier() -> float:
 
 
 func is_dead() -> bool:
-	if blood_volume < _get_blood_loss_death_threshold():
+	if blood_volume <= _get_blood_loss_death_threshold():
 		return true
 	for part in _get_vital_parts():
 		if _is_part_destroyed(part):
 			return true
-		if body_cutting.get(part, 0.0) <= 0.0 and body_blunt.get(part, 0.0) <= 0.0:
+		var cur_cut: float = body_cutting.get(part, 0.0)
+		var cur_blunt: float = body_blunt.get(part, 0.0)
+		if cur_cut <= 0.0 and cur_blunt <= 0.0:
 			return true
 	return false
 
@@ -508,7 +515,7 @@ func is_vital_part_critically_damaged() -> bool:
 # true.
 func _get_death_reason() -> String:
 	var death_thresh: float = _get_blood_loss_death_threshold()
-	if blood_volume < death_thresh:
+	if blood_volume <= death_thresh:
 		return "blood_loss (volume=%.1f < threshold %.1f)" % [blood_volume, death_thresh]
 	for part in _get_vital_parts():
 		if _is_part_destroyed(part):
@@ -591,7 +598,7 @@ func _get_bandage_application_time_seconds_for_part(part: String) -> float:
 
 func _get_medical_effectiveness() -> float:
 	var effective_int: float = float(intelligence)
-	if CompanyState.read_stub_proficiency_enabled() and "_proficiency_bonus" in self:
+	if CompanyState.read_stub_proficiency_enabled():
 		effective_int += float(_proficiency_bonus.get("intelligence", 0))
 	var base: float = clampf(effective_int / 100.0, 0.5, 1.5)
 	return base * clampf(_campaign_supply_factor, 0.25, 1.5)
@@ -607,7 +614,7 @@ func _get_campaign_supply_factor() -> float:
 
 func _get_endurance_blood_volume_mult() -> float:
 	var effective_end: float = float(endurance)
-	if CompanyState.read_stub_proficiency_enabled() and "_proficiency_bonus" in self:
+	if CompanyState.read_stub_proficiency_enabled():
 		effective_end += float(_proficiency_bonus.get("endurance", 0))
 	return 1.0 + (effective_end - 100) / 400.0
 
@@ -621,7 +628,7 @@ func _get_endurance_healing_speed_mult() -> float:
 
 func _get_intelligence_contract_bonus_mult() -> float:
 	var effective_int: float = float(intelligence)
-	if CompanyState.read_stub_proficiency_enabled() and "_proficiency_bonus" in self:
+	if CompanyState.read_stub_proficiency_enabled():
 		effective_int += float(_proficiency_bonus.get("intelligence", 0))
 	return 1.0 + clampf((effective_int - 100) / 500.0, 0.0, 0.15)
 
@@ -814,6 +821,9 @@ func _apply_species():
 	tourniquet_failures.clear()
 	bandaged_parts.clear()
 	packed_parts.clear()
+	campaign_afflictions.clear()
+	_weapon_proficiency.clear()
+	_form_proficiency.clear()
 	linen_strips_remaining = BleedingConstants.PACKING_LINEN_PARTY_START
 	direct_pressure_part = ""
 	self_direct_pressure_part = ""
@@ -871,6 +881,12 @@ func _apply_species():
 		remove_meta("_cumulative_concussion_count")
 	if has_meta("_last_concussion_time"):
 		remove_meta("_last_concussion_time")
+	if has_meta("_tuning_pain_shock_locked"):
+		remove_meta("_tuning_pain_shock_locked")
+	if has_meta("_tuning_pain_shock_locked_value"):
+		remove_meta("_tuning_pain_shock_locked_value")
+	if has_meta("_cumulative_trauma_timestamps"):
+		remove_meta("_cumulative_trauma_timestamps")
 	_apply_common_seed_defaults()
 
 
@@ -889,26 +905,4 @@ func apply_species_harness_deterministic():
 	offhand_functionality = 1.0
 
 
-func _seed_body_parts_from_species(species_resource: Resource) -> void:
-	for p in _get_body_part_list():
-		var m = species_resource.get_body_part_max(p) if species_resource.has_method("get_body_part_max") else 10
-		var b = species_resource.get_bone_max(p) if species_resource.has_method("get_bone_max") else maxi(1, m / 2)
-		body_max[p] = m
-		body_cutting[p] = _round_tissue(float(m))
-		body_blunt[p] = _round_tissue(float(m))
-		bone_max[p] = b
-		bone_health[p] = _round_tissue(float(b))
-
-
-func _seed_body_parts_generic() -> void:
-	for p in _get_body_part_list():
-		body_max[p] = CombatDesignAnchors.REFERENCE_HUMAN_ARM_TISSUE_DISPLAY
-		body_cutting[p] = _round_tissue(12.0)
-		body_blunt[p] = _round_tissue(12.0)
-		bone_max[p] = 8
-		bone_health[p] = _round_tissue(8.0)
-
-
 ## Camp rest: clear muscle fatigue so it doesn't persist across campaigns.
-func restore_muscle_fatigue_at_camp() -> void:
-	muscle_fatigue.clear()

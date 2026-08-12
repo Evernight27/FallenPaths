@@ -18,21 +18,22 @@ const _REFERENCE_STRIKE_RADIUS_M := 0.52
 
 ## Calibrated bands: max produces realistic KE at committed intensity with full rotational inertia.
 ## Band values represent achievable tip speed (m/s) at _REFERENCE_STRIKE_RADIUS_M for each weapon type.
+## Band MAX = peak velocity at full commitment (i≈1.0 + extension); typical exchanges produce lower effective speeds (~70-85% of max).
 ## No geometry multiplier is applied — the rotational KE path converts v -> omega via actual lever arm.
-## SWORD: I≈0.42, r=0.75, cut_band_max=19.4 → KE≈137J at committed
-## AXE:   I≈1.07, r=1.11, band_max=20.0 → KE≈133J at committed
-## MACE:  I≈0.50, r=0.63, band_max=16.0 → KE≈230J at committed (reduced: heavy weapon swings slower; research says 8-14 m/s peak)
-## DAGGER: I≈0.008, r=0.29, band_max=20.0 → KE≈16J at committed (hand-speed limited)
-## SPEAR: shaft mass dominates. Swing tip speeds (cut/blunt) capped ~16 m/s by physics; THRUST tip
-## speed is far lower (5-9.5 m/s — a linear push, not a lever arc), so thrust KE (½·2kg·v² with body
-## transfer) lands in the 25-90 J reference band. Swing uses full rotational inertia (~2.75 kg·m²);
-## thrust uses ~2 kg body-transfer point mass. Same band source, different KE computation path.
+## SWORD: I≈0.42 (approx; actual computed from weapon geometry), r=0.75, cut_band_max=16.0 → KE≈93J at committed (mass=1.30 kg; HEMA force-plate shows typical cuts 8-14 m/s)
+## AXE:   I≈1.07 (approx; actual computed from weapon geometry), r=1.11, band_max=14.0 → KE≈82J at committed (heavy head swings slower)
+## MACE:  I≈0.50 (approx; actual computed from weapon geometry), r=0.63, band_max=14.0 → KE≈123J at committed (heavy weapon; peak combat velocities ~8-14 m/s per Lehmann HEMA studies)
+## DAGGER: I≈0.013 (blade 20cm×0.55 + handle 12cm×0.45 at mass=0.45 kg), r=0.29, band_max=18.0 → KE≈13J at committed (hand-speed limited)
+## SPEAR: shaft mass dominates. Swing tip speeds (cut/blunt) capped ~12 m/s by physics; THRUST tip
+## speed is far lower (5-8.5 m/s — a linear push, not a lever arc), so thrust KE (½·3.5kg·v² with body
+## transfer) lands in the 40-130 J band at full commitment (audit band Vector2(40,130)). Swing uses full rotational inertia (~3.05 kg·m² after parts);
+## thrust uses ~3.5 kg body-transfer effective mass (braced linear thrust: 3-6 kg torso/shoulder drive).
 static var _default_bands: Dictionary = {
-    "SWORD": {"stab": Vector2(5.5, 19.0), "cut": Vector2(7.5, 19.4), "blunt": Vector2(6.0, 20.0)},
-    "AXE": {"stab": Vector2(3.5, 14.0), "cut": Vector2(5.0, 18.5), "blunt": Vector2(5.0, 17.5)},
-    "MACE": {"stab": Vector2(5.5, 16.0), "cut": Vector2(6.5, 16.0), "blunt": Vector2(6.5, 16.0)},
-    "DAGGER": {"stab": Vector2(4.0, 18.0), "cut": Vector2(5.5, 20.0), "blunt": Vector2(4.0, 14.0)},
-    "SPEAR": {"stab": Vector2(5.0, 9.5), "cut": Vector2(5.0, 16.0), "blunt": Vector2(4.7, 16.0)}
+    "SWORD": {"stab": Vector2(5.5, 15.0), "cut": Vector2(7.5, 16.0), "blunt": Vector2(6.0, 14.0)},
+    "AXE": {"stab": Vector2(3.5, 14.0), "cut": Vector2(5.0, 14.0), "blunt": Vector2(5.0, 14.0)},
+    "MACE": {"stab": Vector2(5.5, 14.0), "cut": Vector2(6.5, 14.0), "blunt": Vector2(6.5, 15.0)},
+    "DAGGER": {"stab": Vector2(4.0, 14.0), "cut": Vector2(5.5, 14.0), "blunt": Vector2(4.0, 14.0)},
+    "SPEAR": {"stab": Vector2(5.0, 8.5), "cut": Vector2(4.0, 12.0), "blunt": Vector2(3.5, 12.0)}
 }
 
 

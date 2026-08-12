@@ -912,7 +912,7 @@ static func _kin_fixtures_cut_swing() -> Array:
         {"wid": "SWORD", "move": "oberhau", "tag": "sw"},
         {"wid": "AXE", "move": "diagonal_chop", "tag": "ax"},
         # Light blade: pinned v high enough for measurable blunt slip (see strike_momentum_mult harness).
-        {"wid": "DAGGER", "move": "quick_slash", "tag": "dg", "vo": 20.0},
+        {"wid": "DAGGER", "move": "quick_slash", "tag": "dg", "vo": 18.0},
     ]
 
 

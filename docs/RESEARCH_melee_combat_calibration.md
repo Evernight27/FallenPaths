@@ -292,9 +292,11 @@ These three form a positive feedback loop: acidosis -> impaired coagulation -> m
 
 **At 50%+ blood loss:** Comatose, pulseless, death within minutes without immediate intervention.
 
-### 3d) Current System Death Threshold - FIX REQUIRED
+### 3d) Current System Death Threshold - FIX REQUIRED (RESOLVED 2026-08)
 
-Current behavior: death at blood_volume=34.8 when threshold is 35.0 and blood_percent=35%.
+> **Resolved:** The defect below was fixed. Shipped `core/BleedingConstants.gd` uses `BLOOD_LOSS_DEATH_THRESHOLD = 30.0` (% remaining = 70% lost, Class IV). This section is the historical record of the pre-fix analysis; do not act on it as current state.
+
+Current behavior (pre-fix): death at blood_volume=34.8 when threshold is 35.0 and blood_percent=35%.
 
 **Problems identified:**
 1. **Death occurs at Class III (35%), not Class IV.** A fighter at 35% blood loss is confused and lethargic but NOT dead -- they are very much alive, just severely impaired. Death from exsanguination requires ~45-50%+ blood loss (Class IV), or immediate severance of a central vessel.

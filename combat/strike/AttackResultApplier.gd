@@ -54,6 +54,8 @@ static func _log_fp_parry_outcome(
         CombatDebug.combat_session(
             "%s %s vs %s ctrl=%.3f reason=%s%s" % [tag, tgt_n, atk_n, ctrl, reason, interpose_suffix]
         )
+        if OperationalLog.is_play_session_active():
+            OperationalLog.play_combat("%s %s vs %s ctrl=%.3f reason=%s%s" % [tag, tgt_n, atk_n, ctrl, reason, interpose_suffix])
     elif outcome == "parry_partial":
         var rem: float = 0.0
         if clash.has(DataKeys.RESULT_REMAINING_RATIO):
@@ -66,6 +68,8 @@ static func _log_fp_parry_outcome(
                 % [tag, tgt_n, atk_n, ctrl, rem, reason, interpose_suffix]
             )
         )
+        if OperationalLog.is_play_session_active():
+            OperationalLog.play_combat("%s %s vs %s ctrl=%.3f remaining_ratio=%.2f reason=%s%s" % [tag, tgt_n, atk_n, ctrl, rem, reason, interpose_suffix])
 
 
 static func _consume_stamina(manager: Node, c: Dictionary, amount: float) -> void:
@@ -491,6 +495,7 @@ static func apply_result(manager: Node, attacker_id: int, result: Dictionary) ->
                 tgt[DataKeys.PA_PARRY_AGAINST_ID] = attacker_id
                 if tgt.get(DataKeys.PA_PARRY_WAS_BIND, false):
                     CombatConstants.apply_parry_bind_riposte_gauge_bonus(tgt)
+                    CombatBindPressure.set_after_parry_bind(tgt, manager, attacker_id, float(clash.get(CombatConstants.CLASH_KEY_PARRY_CONTROL, CombatConstants.DEFAULT_PARRY_CONTROL)))
                     CombatFlurryBind.open_pair_after_bind(manager, target_id, attacker_id)
             else:
                 tgt.erase(DataKeys.PA_PARRY_WAS_BIND)
@@ -578,6 +583,11 @@ static func apply_result(manager: Node, attacker_id: int, result: Dictionary) ->
                     tgt[DataKeys.PA_PARRY_BONUS_UNTIL] = (
                         CombatTiming.now_seconds() + CombatConstants.PARRY_BONUS_AFTER_DEFLECT_S
                     )
+                    CombatBindPressure.set_after_parry_bind(tgt, manager, attacker_id, float(
+                            clash_bind.get(
+                                CombatConstants.CLASH_KEY_PARRY_CONTROL, CombatConstants.DEFAULT_PARRY_CONTROL
+                            )
+                        ))
                     CombatFlurryBind.open_pair_after_bind(manager, target_id, attacker_id)
                     # Doc-9: a successful bind (blade locked) opens the same counterstrike window a full deflect does.
                     if (
@@ -714,7 +724,14 @@ static func apply_result(manager: Node, attacker_id: int, result: Dictionary) ->
             if tgt != null and CombatantEntityAccess.is_incapacitated(tgt):
                 var reason: String = "consciousness < 10%%"
                 if CombatantEntityAccess.is_cowering(tgt):
-                    reason = "cowering (no functional arms)"
+                    var cower_reason: String = ""
+                    var tgt_entity: Node = CombatantEntityAccess.scene_node(tgt)
+                    if tgt_entity != null and tgt_entity.has_method("get_cowering_reason"):
+                        cower_reason = tgt_entity.get_cowering_reason()
+                    if cower_reason == "legs":
+                        reason = "cowering (leg destruction)"
+                    elif not cower_reason.is_empty():
+                        reason = "cowering (no functional arms)"
                 var suppress_log = (
                     OperationalLog.is_play_session_active() and CombatConstants.combat_hit_summary_active()
                 )

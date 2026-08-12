@@ -77,6 +77,9 @@ const FEATURE_WOUNDED_VITALS_EXPLOIT := true
 const FEATURE_ARM_WOUND_DEGRADATION := true
 ## Doc-9 (yomi_transitions): a partial-parry **bind** opens the defender counterstrike (riposte chain) window.
 const FEATURE_PARRY_COUNTERSTRIKE_WINDOW := true
+## Mercy & execution: standing units may finish downed opponents (MOVE_ID_EXECUTE), weighted by personality
+## (ruthlessness) x mood x situation (see docs/plan_mercy_execute.md).
+const FEATURE_MERCY_EXECUTE := true
 ## Grip penalty per weighted wound unit: total loss% = sub_region_weight * severity_weight * 0.45. Derived so a
 ## severe wound (severity weight 1.0) lands in each plan_balance_tuning.md sub-region band (lines 541-544):
 ## hand 45% in [20-50], forearm 38.25% in [15-40], upper_arm 27% in [10-30], elbow 51.75% in [25-60].
@@ -138,6 +141,7 @@ static var _feature_t44_spatial_flurry_pa_load: int = -1
 static var _feature_fight_exhaustion_index: bool = FEATURE_FIGHT_EXHAUSTION_INDEX
 static var _feature_arm_wound_degradation_load: int = -1
 static var _feature_parry_counterstrike_window_load: int = -1
+static var _feature_mercy_execute_load: int = -1
 
 
 static func is_feature_combat_attention_enabled() -> bool:
@@ -673,6 +677,19 @@ static func parry_counterstrike_doc_sync_line() -> String:
     ) % ("on" if FEATURE_PARRY_COUNTERSTRIKE_WINDOW else "off")
 
 
+## Mercy & execution (docs/plan_mercy_execute.md): execute-vs-spare decisions are feature-gated for harness toggling.
+
+
+static func is_feature_mercy_execute_enabled() -> bool:
+    if _feature_mercy_execute_load >= 0:
+        return _feature_mercy_execute_load != 0
+    return FEATURE_MERCY_EXECUTE
+
+
+static func set_feature_mercy_execute_load(enabled: bool) -> void:
+    _feature_mercy_execute_load = 1 if enabled else 0
+
+
 ## Headless harness: clear all set_feature_*_load overrides.
 static func reset_harness_feature_load_overrides() -> void:
     _feature_ambient_pain_shock = FEATURE_AMBIENT_PAIN_SHOCK
@@ -697,3 +714,4 @@ static func reset_harness_feature_load_overrides() -> void:
     _feature_hema_eight_guard_lines_load = -1
     _feature_arm_interpose_load = -1
     _feature_iv6_attack_path_octant_load = -1
+    _feature_mercy_execute_load = -1

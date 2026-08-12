@@ -5,6 +5,7 @@ extends RefCounted
 
 
 const TICK_DT := 0.05
+const _CombatRegressionHarness := preload("res://harness/regression/CombatRegressionHarness.gd")
 
 
 ## III-4 **3e** + post-flee sparse: rank-0 survivor picks offense, `engagement_debug fight_finish=true`.
@@ -211,7 +212,7 @@ static func _register_players(mgr: Node, player_n: int, use_7v7_names: bool) -> 
         var w := HarnessFixtures.get_cached_weapon("SWORD")
         if w != null:
             pe.equip_weapon(w)
-        CombatRegressionHarness._track_harness_node(pe)
+        _CombatRegressionHarness._track_harness_node(pe)
         mgr.register(pe, "player")
 
 

@@ -84,7 +84,9 @@ static func compute_and_apply_damage(
 		var attack_instance = AttackInstance.new(attack_type, intensity)
 		attack_instance.archetype = archetype
 		attack_instance.delivery_commit_fraction = commit_frac
-		attack_instance.strike_energy_mult = sm.get(DataKeys.ATK_MOD_STRIKE_ENERGY_MULT, 1.0)
+		var arch_e_mult: float = archetype.get("strike_energy_mult", -1.0) if archetype is Dictionary else -1.0
+		var move_e_override: Variant = WeaponConstants.get_move(attack_type).get("strike_energy_mult_override", -1.0)
+		attack_instance.strike_energy_mult = _resolve_strike_energy_mult(move_e_override, arch_e_mult, sm)
 		attack_instance.strike_momentum_mult = sm.get(DataKeys.ATK_STRIKE_MOMENTUM_MULT, 1.0)
 		var v_base: float = (
 			velocity_override
@@ -108,8 +110,6 @@ static func compute_and_apply_damage(
 			if wind_up_factor_override > 0.0
 			else CombatTiming.wind_up_factor(pa.get(DataKeys.PA_WIND_UP_DURATION, CombatTiming.WIND_UP_FACTOR_OPTIMAL_S))
 		)
-		if wuf < 1.0:
-			attack_instance.velocity_m_s *= wuf
 		attack_instance.velocity_m_s = ImpactVelocityModel.clamp_velocity_m_s(attack_instance.velocity_m_s)
 		var arm_mod: float = CombatantEntityAccess.get_attack_damage_modifier(atk)
 		var target_mass: float = WeaponDamageHelper.effective_blunt_target_mass_kg(tgt, part)
@@ -123,10 +123,10 @@ static func compute_and_apply_damage(
 		var atk_str: float = float(
 			atk_stats.get(DataKeys.ENTITY_STRENGTH, CombatConstants.DEFAULT_STAT_VALUE)
 		)
-		pre_cut = WeaponDamageHelper.compute_pre_armor_cut(weapon, attack_instance, atk_str, arm_mod) * cut_ratio
+		pre_cut = WeaponDamageHelper.compute_pre_armor_cut(weapon, attack_instance, atk_str, arm_mod) * cut_ratio * wuf
 		pre_blunt = WeaponDamageHelper.compute_blunt_slip_pre_armor(
 			weapon, attack_instance, atk_str, arm_mod, cut_ratio, target_mass, sm.get(DataKeys.ATK_BLUNT_DAMAGE_MULT, 1.0)
-		)
+		) * wuf
 		pre_cut *= sm.get(DataKeys.ATK_MOD_CUT_DAMAGE_MULT, 1.0)
 		pre_armor = pre_cut + pre_blunt
 		var pen_sharp_dict: Dictionary = WeaponDamageHelper.compute_penetration(
@@ -240,6 +240,9 @@ static func compute_and_apply_damage(
 		dmg_extras[DataKeys.RESULT_HIT_SUB_REGION] = hit_sub
 	if strike_physics_ctx.has(DataKeys.STRIKE_CTX_HIT_SUB_REGION_SEED):
 		dmg_extras[DataKeys.RESULT_HIT_SUB_REGION_SEED] = int(strike_physics_ctx[DataKeys.STRIKE_CTX_HIT_SUB_REGION_SEED])
+	var wt: String = str(weapon.weapon_type).to_upper() if weapon != null and "weapon_type" in weapon else ""
+	if not wt.is_empty():
+		dmg_extras["weapon_type"] = wt
 	var take_result: Dictionary = tgt_n.take_damage_split(
 		pre_cut, pre_blunt, part, pen_sharp, pen_blunt_momentum_per_area, blunt_contact_cm, dmg_extras
 	)
@@ -267,9 +270,26 @@ static func compute_and_apply_damage(
 	if total_physical < _floor_threshold and outcome in ["hit", "glancing"]:
 		total_physical = _floor_threshold
 		actual_dmg = int(roundf(total_physical))
+
+	# Detect when armor/tissue reduced damage to a value that rounds to zero — mark as negligible unless floors apply below.
 	var rounded_zero_chip: bool = actual_dmg == 0 and total_physical > CombatConstants.PHYSICAL_DAMAGE_ZERO_EPS
 	if rounded_zero_chip and outcome == "hit":
 		outcome = "negligible"
+
+	# Low-KE band enforcement: strikes below combat-realistic minimum (35J) that are fully unparried receive
+	# a double-floor to ensure they never round to zero damage. Partially-parried weak strikes get the single
+	# floor above, ensuring parried strikes always do <= unparried ones at equivalent KE. Glancing strikes below
+	# 35J already received the 0.5 glancing floor — no additional enforcement needed (glancing by definition is reduced).
+	if strike_ke_j > 0.0 and strike_ke_j < CombatDesignAnchors.COMBAT_REALISTIC_KE_J_MIN:
+		if parry_remaining_ratio >= 1.0:
+			var low_ke_floor: float = PHYSICAL_DAMAGE_MIN_FLOOR * 2.0
+			if total_physical < low_ke_floor:
+				total_physical = maxf(total_physical, low_ke_floor)
+				actual_dmg = int(roundf(total_physical))
+				# If outcome was "negligible" due to rounding but KE band says otherwise, upgrade to glancing.
+				if outcome == "negligible":
+					outcome = "glancing"
+					glancing_severity = clampf(tissue_dmg / maxf(low_ke_floor * CombatConstants.GLANCING_DAMAGE_RATIO, CombatConstants.GLANCING_DAMAGE_ABSOLUTE_FLOOR), 0.0, 1.0)
 
 	## Record armor degradation on target — absorbed damage contributes to layer wear.
 	var absorbed_armor_damage: float = maxf(0.0, pre_armor - total_physical)
@@ -550,6 +570,11 @@ static func resolve_attack(manager: Node, attacker_id: int) -> Dictionary:
 		CombatConstants.HIT_CHANCE_PERCEPTION_MIN,
 		CombatConstants.HIT_CHANCE_PERCEPTION_MAX
 	)
+	var melee_skill_factor: float = clampf(
+		float(atk_stats.get(DataKeys.ENTITY_MELEE_SKILL, CombatConstants.DEFAULT_STAT_VALUE)) / 100.0,
+		0.5,
+		1.3
+	)
 	var measure_ratio: float = pa.get(DataKeys.PA_STRIKE_MEASURE_RATIO, 1.0)
 	# Only penalize when attacker is overextended (ratio > 1.0). Reach advantage (ratio < 1.0) gives no bonus —
 	# the baseline hit chance already accounts for optimal range; only exceeding it degrades accuracy.
@@ -573,15 +598,13 @@ static func resolve_attack(manager: Node, attacker_id: int) -> Dictionary:
 		pa[DataKeys.ATTACK_EFFECTIVE_ATTACK_LINE] = atk_line_base
 	elif not pa.has(DataKeys.ATTACK_EFFECTIVE_ATTACK_LINE):
 		pa[DataKeys.ATTACK_EFFECTIVE_ATTACK_LINE] = atk_line_base
-	# Guard alignment modifier: being in the correct guard line makes attacks harder to land cleanly.
-	# Models HEMA reality — a properly held guard forces bind/disengage/feint rather than clean strikes.
-	# High alignment = attack line matches the covered guard line → mult 0.85 (harder to land clean);
-	# open line → mult 1.0. Stamped on pa so DefenseChoiceResolver parry shares the same source (G2).
+	# Guard alignment modifier: stamped on pa so DefenseChoiceResolver parry shares the same source (G2).
+	# Note: alignment affects parry resolution via _get_contact_geometry — it does not degrade base hit chance.
+	# An attack aimed at a held guard doesn't miss more often; the defender intercepts it with a parry instead.
 	var eff_atk_line: String = pa.get(DataKeys.ATTACK_EFFECTIVE_ATTACK_LINE, atk_line_base)
 	var guard_align: float = CombatConstants.get_line_alignment_with_deflect(eff_atk_line, tgt, {})
 	pa[DataKeys.PA_GUARD_ALIGNMENT] = guard_align
-	var guard_hit_mult: float = lerp(1.0, 0.85, clampf(guard_align, 0.0, 1.0))
-	var effective_hit_chance: float = (1.0 - CombatConstants.MISS_CHANCE_BASE) * perf_mod * perception_factor * measure_hit_mult * guard_hit_mult
+	var effective_hit_chance: float = (1.0 - CombatConstants.MISS_CHANCE_BASE) * perf_mod * perception_factor * melee_skill_factor * measure_hit_mult
 	var miss_chance: float = 1.0 - effective_hit_chance
 	var miss_roll: float = randf()
 	if miss_roll < miss_chance:
@@ -734,7 +757,7 @@ static func resolve_attack(manager: Node, attacker_id: int) -> Dictionary:
 		DataKeys.PA_DEPTH_POLEARM_ATTACK: pa.get(DataKeys.PA_DEPTH_POLEARM_ATTACK, false),
 		"depth_polearm_lane_type": pa.get(DataKeys.PA_DEPTH_POLEARM_LANE, ""),
 		DataKeys.PA_DEPTH_POLEARM_ALLOWS_LOW: pa.get(DataKeys.PA_DEPTH_POLEARM_ALLOWS_LOW, true),
-		"weapon_extension_commit_fraction": CombatWeaponPosition.delivery_commit_fraction_from_pa(pa),
+		"weapon_extension_commit_fraction": CombatWeaponPosition._commit_fraction_for_weapon_extension(pa),
 		"hit_sub_region": hit_sub_region,
 		"hit_sub_region_seed": target_id * CombatConstantsAttackPath.HIT_SUB_REGION_SEED_MULTIPLIER + attacker_id,
 	}
@@ -779,6 +802,8 @@ static func resolve_attack(manager: Node, attacker_id: int) -> Dictionary:
 		rd_out[DataKeys.PROF_OCC_MULT] = EntityProficiency.proficiency_occurrence_mult(
 			ent_aim, CombatantEntityAccess.weapon_type_id(atk), CombatantEntityAccess.form_str(atk), attack_type
 		)
+	var strike_dmg: float = float(rd_out.get(DataKeys.RESULT_DMG, rd_out.get("dmg", 0.0)))
+	_record_close_quarters_exchange(atk, tgt, strike_dmg)
 	return {
 		"action": "hit",
 		"target_id": target_id,
@@ -787,3 +812,118 @@ static func resolve_attack(manager: Node, attacker_id: int) -> Dictionary:
 		"outcome": res.outcome,
 		"intensity": intensity
 	}
+
+
+## Check if repeated low-damage exchanges between close-quarters combatants should escalate to grappling/clinch.
+## Historical basis: Fiore's dagger treatises show that blade clashes at close range quickly transition to
+## body grabs and throws — real fights don't sustain 50+ exchanges of minor cuts when fighters are within
+## arm-reach of each other. This implements "close quarters engagement escalation" (CQEE).
+static func check_close_quarters_grapple_escalation(
+	manager: Node,
+	attacker_id: int,
+	target_id: int,
+	strike_damage: float,
+	outcome: String
+) -> Dictionary:
+	if outcome not in ["hit", "glancing"]:
+		return {}
+	var dmg_val: float = strike_damage if strike_damage > 0.0 else float(strike_damage)
+	if dmg_val >= CombatConstants.CLOSE_QUARTERS_GRAPPLE_MAX_DAMAGE_FOR_TRIGGER:
+		return {}
+
+	var atk: Dictionary = CombatantEntityAccess.manager_get_combatant(manager, attacker_id)
+	var tgt: Dictionary = CombatantEntityAccess.manager_get_combatant(manager, target_id)
+	if atk.is_empty() or tgt.is_empty():
+		return {}
+
+	var band: String = CombatantEntityAccess.distance_to_opponent_band(atk, target_id)
+	if band != CombatConstants.DISTANCE_CLOSE:
+		return {}
+
+	var now: float = CombatTiming.now_seconds()
+
+	# Check cooldown — don't trigger grapple more than once per cooldown period.
+	var atk_grap_cooldown: float = atk.get(DataKeys.CLOSE_QUARTERS_GRAPPLE_COOLDOWN, -1.0)
+	if atk_grap_cooldown > 0.0 and now < atk_grap_cooldown:
+		return {}
+
+	# Count recent exchanges between this pair (both directions).
+	var exchange_count: int = _get_close_quarters_exchange_count(atk, tgt)
+	var avg_damage: float = _get_close_quarters_avg_damage(atk, tgt)
+
+	# Blade-bind escalation: if either combatant has "hard" bind pressure from parry binds, reduce strike threshold.
+	var clk: float = now
+	var atk_bind_state: String = CombatBindPressure.get_bind_state(atk, clk)
+	var tgt_bind_state: String = CombatBindPressure.get_bind_state(tgt, clk)
+	var bind_escalation: bool = (atk_bind_state == "hard" or tgt_bind_state == "hard")
+
+	if exchange_count >= CombatConstants.CLOSE_QUARTERS_GRAPPLE_TRIGGER_STRIKE_COUNT and avg_damage <= CombatConstants.CLOSE_QUARTERS_GRAPPLE_MAX_DAMAGE_FOR_TRIGGER:
+		# Trigger grappling resolution — record the escalation.
+		atk[DataKeys.CLOSE_QUARTERS_GRAPPLE_COOLDOWN] = now + CombatConstants.CLOSE_QUARTERS_GRAPPLE_COOLDOWN_S
+		tgt[DataKeys.CLOSE_QUARTERS_GRAPPLE_COOLDOWN] = now + CombatConstants.CLOSE_QUARTERS_GRAPPLE_COOLDOWN_S
+		return {
+			"outcome": "close_quarters_grapple",
+			"exchange_count": exchange_count,
+			"avg_damage": avg_damage,
+		}
+
+	if bind_escalation and exchange_count >= 2 and avg_damage <= CombatConstants.CLOSE_QUARTERS_GRAPPLE_MAX_DAMAGE_FOR_TRIGGER:
+		atk[DataKeys.CLOSE_QUARTERS_GRAPPLE_COOLDOWN] = now + CombatConstants.CLOSE_QUARTERS_GRAPPLE_COOLDOWN_S
+		tgt[DataKeys.CLOSE_QUARTERS_GRAPPLE_COOLDOWN] = now + CombatConstants.CLOSE_QUARTERS_GRAPPLE_COOLDOWN_S
+		return {
+			"outcome": "close_quarters_grapple",
+			"exchange_count": exchange_count,
+			"avg_damage": avg_damage,
+			"bind_escalation": true,
+		}
+
+	return {}
+
+
+static func _get_close_quarters_exchange_count(atk: Dictionary, tgt: Dictionary) -> int:
+	var pair_key: String = _make_pair_key(atk, tgt)
+	var exchanges: Variant = atk.get(DataKeys.CLOSE_QUARTERS_EXCHANGES, {})
+	if exchanges is Dictionary and exchanges.has(pair_key):
+		return int(exchanges.get("count", 0))
+	return 0
+
+
+static func _get_close_quarters_avg_damage(atk: Dictionary, tgt: Dictionary) -> float:
+	var pair_key: String = _make_pair_key(atk, tgt)
+	var exchanges: Variant = atk.get(DataKeys.CLOSE_QUARTERS_EXCHANGES, {})
+	if exchanges is Dictionary and exchanges.has(pair_key):
+		var data: Variant = exchanges[pair_key]
+		if data is Dictionary:
+			return data.get("avg_damage", 99.0)
+	return 99.0
+
+
+static func _record_close_quarters_exchange(atk: Dictionary, tgt: Dictionary, damage: float) -> void:
+	var pair_key: String = _make_pair_key(atk, tgt)
+	if not atk.has(DataKeys.CLOSE_QUARTERS_EXCHANGES):
+		atk[DataKeys.CLOSE_QUARTERS_EXCHANGES] = {}
+	var exchanges: Dictionary = atk[DataKeys.CLOSE_QUARTERS_EXCHANGES]
+
+	if not exchanges.has(pair_key):
+		exchanges[pair_key] = {"count": 0, "total_damage": 0.0, "avg_damage": 99.0}
+	var data: Dictionary = exchanges[pair_key]
+	data["count"] = int(data.get("count", 0)) + 1
+	data["total_damage"] = float(data.get("total_damage", 0.0)) + damage
+	if data["count"] > 0:
+		data["avg_damage"] = data["total_damage"] / data["count"]
+
+
+static func _make_pair_key(atk: Dictionary, tgt: Dictionary) -> String:
+	var id_a: int = CombatantEntityAccess.id_int(atk)
+	var id_b: int = CombatantEntityAccess.id_int(tgt)
+	if id_a < id_b:
+		return "%d-%d" % [id_a, id_b]
+	return "%d-%d" % [id_b, id_a]
+
+
+static func _resolve_strike_energy_mult(move_e_override: Variant, arch_e_mult: float, sm: Dictionary) -> float:
+	if (move_e_override is float or move_e_override is int) and float(move_e_override) > 0.0:
+		return float(move_e_override)
+	if arch_e_mult >= 0.0:
+		return sm.get(DataKeys.ATK_MOD_STRIKE_ENERGY_MULT, arch_e_mult)
+	return sm.get(DataKeys.ATK_MOD_STRIKE_ENERGY_MULT, 1.0)

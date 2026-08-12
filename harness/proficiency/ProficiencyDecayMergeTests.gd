@@ -1,5 +1,7 @@
 class_name ProficiencyDecayMergeTests
 extends CombatRegressionHarnessCore
+const _CombatRegressionHarness := preload("res://harness/regression/CombatRegressionHarness.gd")
+
 ## XCamp-4: use-based stat proficiency system tests.
 ## All tests are gated by CompanyState.read_stub_proficiency_enabled() — stub is false by default.
 

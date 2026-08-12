@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
-"""Doc link + tombstone gate + optional res:// path audit.
+"""Doc link + tombstone gate + optional res:// path audit + constants-parity gate.
 
 Canonical implementation for check_doc_links.ps1 / .sh (Phase 0).
 Standalone res-path audit: python3 tools/ci/check_doc_links.py --res-paths-only
 
 Scans: docs/*.md, AGENTS.md, README.md, tools/ci/**/*.md.
 Optional anchor check for a small allowlist of agent-critical ids.
+Constants parity: documented tuning values vs shipped .gd constants (doc/code drift gate).
 """
 from __future__ import annotations
 
@@ -180,6 +181,125 @@ def check_doc_links() -> tuple[int, list[str]]:
     return 0, broken
 
 
+CONST_DECL_RE = re.compile(r"^\s*const\s+(\w+)\s*(?::\s*[\w]+)?\s*(?::=|=)\s*(.+?)\s*(?:#.*)?$", re.MULTILINE)
+STRING_LITERAL_RE = re.compile(r'^"(.*)"$')
+
+# Documented tuning values vs shipped .gd constants. A row changes only together with the doc + code
+# change (source column points at the canonical doc claim).
+CONSTANT_PARITY_CHECKS = [
+    # (rel_path, kind, target, expected, doc source)
+    ("combat/constants/CombatConstantsParry.gd", "const", "PARRY_DEFLECT_THRESHOLD", 0.75,
+     "LIVE_PATHS Tier-3 parry"),
+    ("combat/constants/CombatConstantsParry.gd", "const", "PARRY_BIND_CONTROL_THRESHOLD", 0.55,
+     "LIVE_PATHS Tier-3 parry"),
+    ("combat/constants/CombatConstantsMentalStack.gd", "const",
+     "MENTAL_STACK_EXHAUSTION_TUNNEL_THRESHOLD", 0.55, "LIVE_PATHS MXm-3"),
+    ("core/BleedingConstants.gd", "const", "BLOOD_LOSS_DEATH_THRESHOLD", 30.0,
+     "LIVE_PATHS / CAMPAIGN_DECISION_GUIDE physics anchors"),
+    ("core/BleedingConstants.gd", "const", "MEDICAL_TRIAGE_DANGER_BLOOD_REMAINING", 55.0,
+     "CAMPAIGN_DECISION_GUIDE physics anchors"),
+    ("core/BleedingConstants.gd", "const", "MEDICAL_TRIAGE_PERIL_BLOOD_REMAINING", 47.0,
+     "CAMPAIGN_DECISION_GUIDE physics anchors"),
+    ("core/BleedingConstants.gd", "const", "MEDICAL_TRIAGE_DANGER_SECONDS", 60.0,
+     "CAMPAIGN_DECISION_GUIDE physics anchors"),
+    ("core/BleedingConstants.gd", "const", "MEDICAL_TRIAGE_PERIL_SECONDS", 30.0,
+     "CAMPAIGN_DECISION_GUIDE physics anchors"),
+    ("core/BleedingConstants.gd", "contains",
+     r"INJURY_TYPE_CUT:\s*\{[^}]*SEVERITY_CRITICAL:\s*([\d.]+)", 4.5,
+     "LIVE_PATHS ref bleed = 23.625 = 4.5 x 1.5 x 3.5"),
+    ("core/BleedingConstants.gd", "contains", r"PART_HEAD:\s*([\d.]+)", 1.5,
+     "LIVE_PATHS ref bleed = 23.625 = 4.5 x 1.5 x 3.5"),
+    ("combat/constants/CombatConstantsCounterTempo.gd", "const", "COUNTER_TEMPO_GAUGE_THRESHOLD", 50.0,
+     "LIVE_PATHS Composure (shipped)"),
+    ("combat/constants/CombatConstantsTuning.gd", "const", "GAUGE_FULL_THRESHOLD", 99.0,
+     "LIVE_PATHS Composure (shipped)"),
+    ("world/CompanyState.gd", "const", "PERSISTENCE_MODE", "P2",
+     "CAMPAIGN_DECISION_GUIDE D-persistence"),
+]
+
+# Model fragments the docs no longer describe. Reintroducing one requires a conscious model + doc
+# change in the same PR (they were documented as shipped but never implemented).
+FORBIDDEN_PATTERNS = [
+    ("combat/CombatConstants.gd", r"const\s+COMPOSURE_FILL_WAITING"),
+    ("combat/CombatConstants.gd", r"const\s+COMPOSURE_FILL_RECOVERING"),
+    ("combat/strike/AttackWindUpStarter.gd", r"func\s+_resolve_composure_cost"),
+]
+
+
+def _parse_const_value(raw: str):
+    raw = raw.strip()
+    m = STRING_LITERAL_RE.match(raw)
+    if m:
+        return m.group(1)
+    try:
+        return float(raw)
+    except ValueError:
+        return None
+
+
+def _parity_values_match(expected, got) -> bool:
+    if isinstance(expected, str):
+        return got == expected
+    return isinstance(got, float) and abs(got - expected) <= 1e-6
+
+
+def check_constants_parity() -> tuple[int, list[str]]:
+    broken: list[str] = []
+    cache: dict[str, str] = {}
+
+    def _text(rel: str) -> str:
+        if rel not in cache:
+            p = ROOT / rel
+            cache[rel] = p.read_text(encoding="utf-8", errors="replace") if p.is_file() else ""
+        return cache[rel]
+
+    for rel, kind, target, expected, source in CONSTANT_PARITY_CHECKS:
+        text = _text(rel)
+        if not text:
+            broken.append(f"missing file: {rel} (doc: {source})")
+            continue
+        if kind == "const":
+            got = None
+            for m in CONST_DECL_RE.finditer(text):
+                if m.group(1) == target:
+                    got = _parse_const_value(m.group(2))
+                    break
+            if got is None:
+                broken.append(f"missing const: {rel} {target} (doc: {source})")
+            elif not _parity_values_match(expected, got):
+                broken.append(
+                    f"drift: {rel} {target} = {got!r} vs documented {expected!r} ({source})"
+                )
+        elif kind == "contains":
+            m = re.search(target, text)
+            if not m:
+                broken.append(f"pattern not found: {rel} {target!r} (doc: {source})")
+                continue
+            try:
+                got = float(m.group(1))
+            except ValueError:
+                broken.append(f"pattern not numeric: {rel} {target!r} (doc: {source})")
+                continue
+            if not _parity_values_match(expected, got):
+                broken.append(f"drift: {rel} {target!r} = {got} vs documented {expected} ({source})")
+
+    for rel, pattern in FORBIDDEN_PATTERNS:
+        if re.search(pattern, _text(rel)):
+            broken.append(f"forbidden pattern reintroduced: {rel} {pattern!r}")
+
+    if broken:
+        print(f"CONSTANTS_PARITY: FAIL ({len(broken)} issues)")
+        for line in sorted(set(broken)):
+            print(f"  {line}")
+        return 1, broken
+
+    print(
+        f"CONSTANTS_PARITY: PASS ({len(CONSTANT_PARITY_CHECKS)} checks, "
+        f"{len(FORBIDDEN_PATTERNS)} forbidden patterns)"
+    )
+    return 0, broken
+
+
 def _res_path_valid(res_path: str) -> bool:
     if res_path in RES_ALLOW_MISSING or res_path.rstrip("/") in RES_ALLOW_MISSING:
         return True
@@ -229,7 +349,7 @@ def check_res_paths() -> int:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Doc link + res:// path gate")
+    parser = argparse.ArgumentParser(description="Doc link + res:// path + constants-parity gate")
     parser.add_argument(
         "--skip-res-paths",
         action="store_true",
@@ -249,6 +369,8 @@ def main() -> int:
     if run_docs:
         doc_code, _ = check_doc_links()
         code = max(code, doc_code)
+        parity_code, _ = check_constants_parity()
+        code = max(code, parity_code)
     if run_res:
         code = max(code, check_res_paths())
     return code

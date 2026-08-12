@@ -474,8 +474,16 @@ static func _run_camp_2_bridge_spot_checks(failures: PackedStringArray) -> void:
     for attempt in range(48):
         CompanyState.set_medical_supplies(retry_world, 2)
         retry_ent.bandaged_parts.erase("chest")
+        if not retry_ent.wounds.has("chest") or retry_ent.wounds["chest"].is_empty():
+            retry_ent.wounds["chest"] = [{"current_bleeding_rate": 1.2, "is_arterial": true, "severity": "severe"}]
+        else:
+            for inj in retry_ent.wounds["chest"]:
+                inj["current_bleeding_rate"] = 1.2
+                inj.erase("is_stabilized")
+                inj.erase("stabilized_remaining_seconds")
         if retry_ent.self_direct_pressure_part != "chest":
             retry_ent.apply_direct_pressure("chest")
+        var press_before_try: bool = EntityMedical.has_direct_pressure_on_part(retry_ent, "chest")
         retry_member = PartyMemberSnapshot.snapshot_from_member({"name": "RetryBand", "node_ref": retry_ent})
         seed(88000 + attempt)
         var med_before: int = CompanyState.get_medical_supplies(retry_world)

@@ -649,12 +649,6 @@ static func _run_ii5_cowering(preset_id: String) -> Dictionary:
         leader.state = CombatConstants.STATE_COWERING
         CombatMobilityRetreat.sync_cowering_state_if_no_functional_arm(leader)
         leader.gauge = 100.0
-        var lid: int = CombatantEntityAccess.id_int(leader)
-        var acts: Array = mgr.get_available_actions(lid)
-        CombatPlayerTurnHints.emit_turn_ready_hints(mgr, leader, acts)
-        if D001RunnerHelpers._try_force_fall_back(mgr, lid, acts):
-            D001RunnerHelpers._drain_until_capture_needle(mgr, "cowering_fall_back executed", 18.0)
-            D001RunnerHelpers._ensure_ii5_cowering_fall_back_executed(mgr, lid)
     if mgr.has_meta("_d001_suppress_winner_check"):
         mgr.remove_meta("_d001_suppress_winner_check")
     D001RunnerHelpers._simulate_fight(mgr, 25.0, preset_id)

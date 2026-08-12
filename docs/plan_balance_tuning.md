@@ -1,8 +1,8 @@
 # Combat Balance Tuning Plan
 
 **Date:** 2026-07-11
-**Last Updated:** 2026-07-13 — Fabricated sources audit and replacement with verifiable data
-**Status:** PROPOSAL (pending approval)
+**Last Updated:** 2026-08-01 — Wounded-vitals exploit implemented; read-guard added
+**Status:** PROPOSAL (pending approval) — **Read-guard:** "Current:" baselines below are pre-ship history, not shipped values; shipped bleeding/death live in `core/BleedingConstants.gd`. Code anchors: line 91, §Issue 2 (lines 522-544).
 
 ## Implemented: Wounded-Vitals Exploit (2026-08-01)
 

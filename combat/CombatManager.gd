@@ -787,11 +787,37 @@ func _execute_attack(attacker_id: int) -> void:
 	if atk_exec != null and CombatMobilityRetreat.cannot_commit_melee(atk_exec):
 		return
 	var result: Dictionary = AttackResolver.resolve_attack(self, attacker_id)
+	# Close-quarters engagement escalation (CQEE): check for grappling trigger after strike resolves.
+	var cqee_atk = _get_by_id(attacker_id)
+	var tgt_id: int = result.get(DataKeys.ACTION_TARGET_ID, -1)
+	if cqee_atk != null and not cqee_atk.is_empty() and tgt_id >= 0:
+		var tgt_exec = _get_by_id(tgt_id)
+		if tgt_exec != null and not tgt_exec.is_empty():
+			var strike_dmg: float = float(result.get("dmg", result.get(DataKeys.RESULT_DMG, 0.0)))
+			var cqee: Dictionary = AttackResolver.check_close_quarters_grapple_escalation(
+				self, attacker_id, tgt_id, strike_dmg, result.get(DataKeys.RESULT_ACTION, "")
+			)
+			if not cqee.is_empty() and cqee.has("outcome") and cqee["outcome"] == "close_quarters_grapple":
+				# Emit a grapple resolution event — fighters transition to clinch/throw.
+				var cq_result: Dictionary = {
+					"outcome": "grapple_resolution",
+					"dmg": 0,
+					"died": false,
+					"reason": "close_quarters_stalemate",
+					"exchange_count": cqee.get("exchange_count", 0),
+					"avg_damage": cqee.get("avg_damage", 0.0),
+				}
+				emit_signal("action_resolved", attacker_id, tgt_id, cq_result)
+				CombatDebug.combat_session(
+					"CQEE grapple trigger: %d vs %d (%d exchanges, avg=%.1f dmg)" % [
+						attacker_id, tgt_id, cqee.get("exchange_count", 0), cqee.get("avg_damage", 0.0)
+					]
+				)
 	AttackResultApplier.apply_result(self, attacker_id, result)
 	# Phase 3: Plug on death  -  when target died, update formation (slot_obstacles, promote rank 1 if rank 0 died).
-	var tgt_id: int = result.get(DataKeys.ACTION_TARGET_ID, -1)
-	if tgt_id >= 0:
-		var tgt = _get_by_id(tgt_id)
+	var _tgt_id_2: int = result.get(DataKeys.ACTION_TARGET_ID, -1)
+	if _tgt_id_2 >= 0:
+		var tgt = _get_by_id(_tgt_id_2)
 		if tgt != null and not CombatantEntityAccess.alive_bool(tgt):
 			on_combatant_died(tgt)
 	# Option D: CombatManager owns flow. After parry, defender gets EVENT_ACTION_READY.

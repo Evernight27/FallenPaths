@@ -169,9 +169,7 @@ const PENETRATION_DEPTH_ARTERIAL_DEEP_MULT := 1.12
 const MAX_BLOOD_VOLUME: float = 100.0
 # Total bleeding rate — this = blood % lost per second (see docs/LIVE_PATHS.md#bleeding-physics).
 # Forward calibration from clinical TTD: untreated critical arterial hemorrhage → death in 180-300s (TCCC/ATLS).
-# Using 240s median as target: buffer (100 - 30)% / 240s = 70/240 = 0.2917 blood%/s required for death.
-# Reference critical-arterial-head-cut bleed rate = BLEEDING_RATES[CRITICAL_CUT] * HEAD_MULT * ARTERIAL_MULT = 20.25 HP/s.
-# BLOOD_LOSS_RATE_MULTIPLIER = target_blood_loss_per_s / reference_bleed_rate = 0.2917 / 20.25 = 0.0144.
+# Harness derivation: buffer(70) / (ref_rate * ttd_48s) = 70 / (23.62 * 48) ≈ 0.0617; shipped 0.072 within tolerance.
 const BLOOD_LOSS_RATE_MULTIPLIER: float = 0.0720
 # Death when remaining blood_volume <= this. 45% remaining = 55% lost (ATLS Class IV; clinical death at >50-55%).
 const BLOOD_LOSS_DEATH_THRESHOLD: float = 30.0
@@ -357,14 +355,7 @@ const BLEEDING_TYPE_BANDAGE_EFFECTIVENESS: Dictionary = {
     BLEEDING_TYPE_VENOUS: 1.0,        # baseline bandage effectiveness (TCCC conventional bandages ~32-70% hemostasis)
     BLEEDING_TYPE_CAPILLARY: 1.5      # capillary bleeds easily controlled with simple dressing
 }
-# When a wound is arterial: higher bleeding rate and pressure inhibits clotting (2-5 min to exsanguination if
-# uncontrolled).
-## DEPRECATED — kept for backward compat with callers that preload BleedingConstants.
-## New code should use BLEEDING_TYPE_RATE_MULT[BLEEDING_TYPE_ARTERIAL] (= 3.5) directly.
-const ARTERIAL_BLEEDING_MULTIPLIER: float = 3.0  # arterial bleeds much faster
-## DEPRECATED — kept for backward compat with callers that preload BleedingConstants.
-## New code should use BLEEDING_TYPE_CLOTTING_MULT[BLEEDING_TYPE_ARTERIAL] (= 0.1) directly.
-const ARTERIAL_CLOTTING_MULTIPLIER: float = 0.15  # arterial pressure inhibits clotting; clot very slowly
+
 
 # --- Bandaging ---
 # Research: arterial wounds need direct pressure / tourniquets; simple bandages less effective (pressure inhibits clot).
@@ -452,14 +443,6 @@ const PENETRATION_BLEED_MIN_MULT: float = 1.5
 # hemorrhage.
 # Tourniquet indicated when: (1) limb bleeding rate >= this threshold (severe), (2) severed limb (stump), or (3) heavily
 # damaged (severe/critical wounds).
-## Deprecated  -  use `BodyPartQuery.is_limb(part)` instead. Kept for backward compat with callers that preload
-## BleedingConstants.
-const LIMB_PARTS: Array = [
-    BodyPartConstants.PART_RIGHT_ARM,
-    BodyPartConstants.PART_LEFT_ARM,
-    BodyPartConstants.PART_RIGHT_LEG,
-    BodyPartConstants.PART_LEFT_LEG
-]
 # Bleeding rate (abstract HP/s) above which tourniquet is appropriate. Severe cut base = 2.25; moderate = 1.2.
 const TOURNIQUET_BLEEDING_RATE_THRESHOLD: float = 2.0
 # Optional: max duration (seconds) before tourniquet should be released to assess limb; 0 = no expiry. Real-world ~2 h
@@ -496,7 +479,7 @@ const FEATURE_ABSOLUTE_SEVERITY_PCT_CAP: bool = false
 const SEVERITY_ABSOLUTE_CRITICAL: float = 10.0
 const SEVERITY_ABSOLUTE_SEVERE: float = 5.0
 const SEVERITY_ABSOLUTE_MODERATE: float = 2.0
-const SEVERITY_ABSOLUTE_BONE_CRITICAL: float = 6.0
+const SEVERITY_ABSOLUTE_BONE_CRITICAL: float = 8.0
 const SEVERITY_ABSOLUTE_BONE_SEVERE: float = 3.0
 const SEVERITY_ABSOLUTE_BONE_MODERATE: float = 1.0
 
@@ -505,7 +488,7 @@ const SEVERITY_ABSOLUTE_BONE_MODERATE: float = 1.0
 const REFERENCE_UNCONTROLLED_BLEED_RATE: float = (
     BLEEDING_RATES[INJURY_TYPE_CUT][SEVERITY_CRITICAL]
     * BODY_PART_BLEEDING_MULTIPLIERS[BodyPartConstants.PART_HEAD]
-    * ARTERIAL_BLEEDING_MULTIPLIER
+    * BLEEDING_TYPE_RATE_MULT[BLEEDING_TYPE_ARTERIAL]
 )
 
 
@@ -591,7 +574,7 @@ static func blood_consciousness_modifier_from_remaining(
 
 ## Blood volume % lost per second from summed wound bleed rates (game units).
 static func blood_volume_loss_per_second(total_bleeding_rate: float, loss_mult: float = 1.0) -> float:
-    return total_bleeding_rate * BLOOD_LOSS_RATE_MULTIPLIER * clampf(loss_mult, 0.0, 1.0)
+    return total_bleeding_rate * BLOOD_LOSS_RATE_MULTIPLIER * maxf(loss_mult, 0.0)
 
 
 ## Seconds until `blood_volume` reaches a given death threshold at constant bleed (no clotting, no treatment).
@@ -643,9 +626,6 @@ static func get_stump_bleeding_rate(part: String, sub_region: String = "") -> fl
     return base * level_mult
 
 
-static func get_body_part_multiplier(part: String) -> float:
-    return BODY_PART_BLEEDING_MULTIPLIERS.get(part, 1.0)
-
 
 ## Fraction of wound bleed rate still lost while direct pressure is held (per injury).
 static func direct_pressure_held_flow_retained(is_arterial: bool) -> float:
@@ -667,10 +647,6 @@ static func get_random_sub_region(part: String) -> String:
     return WeightedSample.pick_random(weights)
 
 
-static func get_sub_regions(part: String) -> Array:
-    return SUB_REGIONS.get(part, []).duplicate()
-
-
 # Effective damage multiplier for severity mapping (thin tissue / exposed bone = higher effective depth).
 static func get_severity_modifier(part: String, sub_region: String) -> float:
     if sub_region.is_empty():
@@ -678,7 +654,7 @@ static func get_severity_modifier(part: String, sub_region: String) -> float:
     return SUB_REGION_SEVERITY_MODIFIERS.get(part, {}).get(sub_region, 1.0)
 
 
-# Per-severity clotting rate (k per second). Use when not stabilized; arterial applies ARTERIAL_CLOTTING_MULTIPLIER on
+# Per-severity clotting rate (k per second). Use when not stabilized; arterial applies BLEEDING_TYPE_CLOTTING_MULT[BLEEDING_TYPE_ARTERIAL] on
 # top.
 static func get_clotting_rate(severity: String) -> float:
     return CLOTTING_RATE_BY_SEVERITY.get(severity, 0.02)  # 0.02 = moderate default
@@ -710,44 +686,3 @@ static func get_arterial_chance(
         part_mult = maxf(part_mult, sr_mult)
     return clampf(base_chance * part_mult, 0.0, 1.0)
 
-
-## Estimated initial bleed rate in mL/s for a single wound, derived from the same severity + body-part
-## + arterial model used at runtime. Output is a per-second rate (not instantaneous volume lost) — useful
-## as a relative lethality indicator in tuning logs: higher values mean more dangerous wounds.
-## For comparison: minor arm cut ≈ 1-3 mL/s, critical arterial neck cut ≈ 80+ mL/s untreated.
-static func estimate_blood_loss_rate_ml_per_s(severity: String, injury_type: String, part: String, sub_region: String = "", is_arterial: bool = false) -> float:
-    var base_rate: float = get_bleeding_rate(injury_type, severity, part, sub_region)
-    if base_rate <= 0.0 or injury_type == INJURY_TYPE_BRUISE or injury_type == INJURY_TYPE_FRACTURE:
-        return 0.0
-    if is_arterial:
-        base_rate *= ARTERIAL_BLEEDING_MULTIPLIER
-    var pct_loss_per_s: float = base_rate * BLOOD_LOSS_RATE_MULTIPLIER
-    var ref_ml: float = BloodVolumeMl.REFERENCE_BLOOD_VOLUME_ML_ADULT
-    return pct_loss_per_s * ref_ml / MAX_BLOOD_VOLUME
-
-
-## Classify wound bleeding type (arterial / venous / capillary) based on severity, injury type, arterial chance, and depth.
-## Arterial: high-pressure spurting flow from major vessel; requires tourniquet or direct pressure.
-## Venous: steady ooze from disrupted vein; responds to bandaging/direct pressure.
-## Capillary: slow surface oozing; minimal hemorrhage risk; self-limiting in most cases.
-static func classify_bleeding_type(severity: String, injury_type: String, is_arterial_roll: bool, penetration_to_tissue_mm: float = -1.0) -> String:
-    if severity == SEVERITY_CRITICAL and (injury_type == INJURY_TYPE_CUT or injury_type == INJURY_TYPE_STAB):
-        # Critical deep wounds are almost always arterial-level hemorrhage.
-        return BLEEDING_TYPE_ARTERIAL
-    if is_arterial_roll:
-        return BLEEDING_TYPE_ARTERIAL
-    if severity == SEVERITY_SEVERE and injury_type == INJURY_TYPE_CUT:
-        # Severe cuts often involve significant venous disruption.
-        return BLEEDING_TYPE_VENOUS
-    if penetration_to_tissue_mm >= 0.0 and penetration_to_tissue_mm > PENETRATION_DEPTH_SEVERITY_FULL_MM:
-        # Deep penetrating wounds beyond shallow layer — likely venous or arterial depending on depth/arterial flag.
-        return BLEEDING_TYPE_VENOUS
-    # Default: capillary for minor/shallow wounds, venous for moderate.
-    if severity == SEVERITY_MODERATE and injury_type == INJURY_TYPE_CUT:
-        return BLEEDING_TYPE_VENOUS
-    return BLEEDING_TYPE_CAPILLARY
-
-
-## Get the rate multiplier for a specific bleeding type.
-static func get_bleeding_type_rate_mult(bleeding_type: String) -> float:
-    return BLEEDING_TYPE_RATE_MULT.get(bleeding_type, 1.0)  # venous = baseline if unknown type

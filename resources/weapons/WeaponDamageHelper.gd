@@ -2,7 +2,7 @@ class_name WeaponDamageHelper
 extends RefCounted
 
 ## Physics-leaning intensity mapping: low commitment stays near lower band, full commitment still reaches cap.
-## Floor 0.50 keeps polearm thrusts above the 25 J thrust KE floor at realistic exchange intensity (i≈0.6).
+## Floor 0.50 keeps polearm thrusts above the ~44J thrust KE floor at realistic exchange intensity (i≈0.6).
 const INTENSITY_VELOCITY_FLOOR_FACTOR := 0.50
 ## Floor for effective delivery intensity (intensity - -  extension commit).
 const DELIVERY_INTENSITY_FLOOR := 0.05
@@ -13,6 +13,9 @@ const DELIVERY_COMMIT_FLOOR := 0.05
 ## with a hard cutoff below ratio_floor so strikes genuinely below band minimum deal 0 damage.
 const SUB_BAND_MINIMUM_RATIO := 0.20
 const SUB_BAND_RAMP_FLOOR := 0.50    # minimum damage fraction at the ramp floor (ratio=0.20 → 50% damage)
+## Hard cap for cut ratio on blunt-damage weapons (mace, pollarm). Prevents archetype overrides from giving
+## these weapons significant cutting capability — they can nick skin but remain primarily blunt tools.
+const CUT_RATIO_BLUNT_WEAPON_MAX := 0.15
 
 
 ## The point-mass cap (m_strike * r²) was double-counting geometry because the velocity bands
@@ -26,14 +29,16 @@ const DEFAULT_BLUNT_TARGET_MASS_KG := 6.5
 const _REFERENCE_SPECIES_TISSUE_SUM := float(CombatDesignAnchors.REFERENCE_HUMAN_TISSUE_SUM)
 ## Reference adult mass (kg) when tissue sum matches _REFERENCE_SPECIES_TISSUE_SUM.
 const _REFERENCE_ADULT_BODY_MASS_KG := CombatDesignAnchors.REFERENCE_ADULT_MASS_KG
-## Segment mass as fraction of body mass (Plagenhoef / de Leva style; single-side limb, head, trunk slice).
+## Segment mass as fraction of body mass (de Leva 1996; single-side full limbs).
+## head=6.8%, chest=upper+lower torso lumped, each arm=full limb (humerus+radius/ulna+hand),
+## each leg=full limb (femur+tibia/fibula+foot). Fractions sum to ~0.87 leaving 13% for pelvis/spine/etc.
 const _PART_BODY_MASS_FRACTION := {
     "head": 0.068,
     "chest": 0.28,
-    "right_arm": 0.052,
-    "left_arm": 0.052,
-    "right_leg": 0.161,
-    "left_leg": 0.161,
+    "right_arm": 0.077,
+    "left_arm": 0.077,
+    "right_leg": 0.197,
+    "left_leg": 0.197,
 }
 ## Fist/hand effective mass - -  nominal hand speed - -  coupling â same abstract scale as previous (strength/100)*8
 ## at ~100 STR.
@@ -153,18 +158,28 @@ static func _attack_float_or_default(attack_instance: RefCounted, prop: String, 
 ## When weapon has no explicit striking-part mass data, use the weapon's own mass fraction at the striking point.
 ## The velocity bands encode tip-speed kinematics; the effective mass is the part mass, not a bare-hand value.
 static func strike_mass_kg(weapon: RefCounted, attack_instance: RefCounted) -> float:
+    ## Move-level override takes priority (e.g. spear shaft_thrust needs higher blunt strike mass).
+    var move_id: String = move_id_from_attack_instance(attack_instance)
     if weapon == null:
         return 0.40
-    var move_id: String = move_id_from_attack_instance(attack_instance)
     var ct: String = WeaponConstants.contact_type_for_move_id(move_id)
+    var raw_mass: Variant = attack_instance.get("strike_mass_override_kg")
+    if raw_mass is float or raw_mass is int:
+        return maxf(float(raw_mass), 0.02)
     ## Body-coupled thrust mass: a linear thrust drives the point with the whole weapon plus body
-    ## transfer behind it. The isolated striking-part mass (spear head ≈0.27 kg) understates thrust KE
-    ## (tune log: spear thrusts read 4-20 J vs 25-90 J reference). Take precedence over part geometry so
-    ## the calibrated spear value (~2 kg, body transfer; also referenced in DefenseResolutionHandler) is used.
+    ## transfer behind it. The isolated striking-part mass (spear head ≈0.27 kg) understates thrust KE.
+    ## Calibrated for 44-158 J band at i=0→1 (3.5 kg body-transfer; ImpactVelocityModel comment §27-30).
     if ct == WeaponConstants.ATTACK_TYPE_STAB:
         var wt0: String = str(weapon.weapon_type).to_upper() if "weapon_type" in weapon else ""
-        if wt0 == "SPEAR":
-            return 2.0
+        match wt0:
+            "SPEAR":
+                return 3.5
+            "MACE":
+                return 2.5
+            "AXE":
+                return 2.0
+            "SWORD":
+                return 1.5
     if weapon.has_method("get_striking_part_mass_kg"):
         return maxf(0.02, float(weapon.get_striking_part_mass_kg(ct)))
     # Velocity band is tip speed; effective mass is the part mass at contact point.
@@ -174,12 +189,8 @@ static func strike_mass_kg(weapon: RefCounted, attack_instance: RefCounted) -> f
     if is_thrust:
         var wt: String = str(weapon.weapon_type).to_upper() if "weapon_type" in weapon else ""
         match wt:
-            "SPEAR":
-                return 2.0
             "MACE":
-                return 1.0
-            _:
-                return 4.5
+                return 2.5
     return 0.55 if is_blunt else 0.40
 
 
@@ -295,10 +306,10 @@ static func _ke_swing_rotational(weapon: RefCounted, attack_instance: RefCounted
     var ct: String = WeaponConstants.contact_type_for_move_id(move_id)
     if weapon.has_method("has_parts") and weapon.has_parts():
         var inertia_full: float = WeaponSwingPhysics.inertia_about_grip_kg_m2(weapon)
-        var r: float = WeaponSwingPhysics.strike_lever_arm_m(weapon, ct)
-        var r_tip: float = WeaponSwingPhysics.tip_radius_m(weapon)
-        var v_impact: float = v * (r / maxf(r_tip, 0.01))
-        var omega: float = WeaponSwingPhysics.omega_from_tip_speed(v_impact, r)
+        var r: float = maxf(WeaponSwingPhysics.MIN_LEVER_M, WeaponSwingPhysics.strike_lever_arm_m(weapon, ct))
+        ## Velocity bands are tip-speed at the strike lever; omega = v/r converts to angular velocity.
+        ## Previous code rescaled via r_tip (v * r / r_tip / r) which introduced geometry-dependent error when lever ≠ tip length.
+        var omega: float = v / r
         return WeaponSwingPhysics.rotational_ke_j(inertia_full, omega) * maxf(0.05, e_mult)
     return _ke_thrust_point_mass(weapon, attack_instance, v, e_mult)
 
@@ -347,8 +358,8 @@ static func compute_kinetic_energy_j(weapon: RefCounted, attack_instance: RefCou
             var ratio: float = ke_j / ke_at_band_min
             ## Smooth ramp from full damage (ratio=1.0) to SUB_BAND_RAMP_FLOOR (ratio=SUB_BAND_MINIMUM_RATIO).
             ## Below SUB_BAND_MINIMUM_RATIO, strikes are genuinely below minimum band energy — scale by linear ramp.
-            var ramp: float = clampf((ratio - 0.0) / (SUB_BAND_MINIMUM_RATIO - 0.0), 0.0, 1.0)
-            ke_j *= lerpf(SUB_BAND_RAMP_FLOOR, 1.0, ramp)
+            var t: float = clampf(1.0 - ratio / SUB_BAND_MINIMUM_RATIO, 0.0, 1.0)
+            ke_j *= lerpf(SUB_BAND_RAMP_FLOOR, 0.0, t)
     return ke_j
 
 
@@ -400,7 +411,7 @@ static func compute_pre_armor_blunt_momentum_raw(
     ## Contact area A derived from contact_cm (already computed below); Δt = BLUNT_IMPACT_CONTACT_TIME_MS.
     var contact_cm: float = _get_blunt_contact_for_damage(weapon, attack_instance)
     contact_cm = maxf(contact_cm, WeaponConstants.MIN_CONTACT_WIDTH_CM)
-    var contact_area_m2: float = contact_cm * contact_cm * 0.0001   # cm² → m² (approximate square face)
+    var contact_area_m2: float = PI * (contact_cm / 200.0) * (contact_cm / 200.0)   # diameter in cm → radius in m → circular area
     var delta_t_s: float = WeaponConstants.BLUNT_IMPACT_CONTACT_TIME_MS / 1000.0
     var pressure_pa: float = momentum / (maxf(contact_area_m2, 0.0001) * maxf(delta_t_s, 0.001))
     var raw: float = pressure_pa * WeaponConstants.BLUNT_DAMAGE_PER_UNIT_PRESSURE * strength_mod * arm_mod
@@ -464,7 +475,8 @@ static func compute_penetration(
         var area_factor: float = pow(
             WeaponConstants.BASELINE_CONTACT_CM / contact_cm, WeaponConstants.CONTACT_AREA_EXPONENT
         )
-        ## Effective KE adjusted for historical steel (1.25× more penetrable than RHA) and average combat angle (÷1.1 effective armor thickness).
+        ## Effective KE adjusted for historical steel (1.6× more penetrable than RHA) and average combat angle (÷1.1 effective armor thickness).
+        ## Since pen ∝ KE^0.67, the 1.45× net KE multiplier yields ~1.27× penetration increase — consistent with softer medieval steel vs RHA.
         var ke_effective: float = ke_j * WeaponConstants.WILLIAMS_MATERIAL_CORRECTION / WeaponConstants.WILLIAMS_OBLIQUITY_FACTOR
         var pen_mm_rha: float = (
             pow(ke_effective / WeaponConstants.J_PER_MM_BASE, WeaponConstants.PENETRATION_EXPONENT) * area_factor
@@ -544,7 +556,7 @@ static func _compute_blunt_momentum_per_area_with_contact(
     if weapon == null or contact_cm <= 0.0:
         return -1.0
     var d_m: float = contact_cm / 100.0 if contact_cm > 0 else 0.01
-    var area_m2: float = PI * (d_m / 2.0) * (d_m / 2.0)
+    var area_m2: float = PI * (d_m / 2.0) * (d_m / 2.0)   # diameter in m → radius → circular area
     area_m2 = maxf(area_m2, WeaponConstants.MIN_BLUNT_AREA_M2)
     var mass_kg: float = strike_mass_kg(weapon, attack_instance)
     if target_effective_mass_kg > 0.0:
@@ -562,7 +574,7 @@ static func compute_blunt_pressure_damage(
     if weapon == null or contact_cm <= 0.0:
         return 0.0
     var d_m: float = contact_cm / 100.0
-    var area_m2: float = PI * (d_m / 2.0) * (d_m / 2.0)
+    var area_m2: float = PI * (d_m / 2.0) * (d_m / 2.0)   # diameter in m → radius → circular area
     area_m2 = maxf(area_m2, WeaponConstants.MIN_BLUNT_AREA_M2)
     var mass_kg: float = strike_mass_kg(weapon, attack_instance)
     if target_effective_mass_kg > 0.0:
@@ -677,6 +689,7 @@ static func _get_contact_width_for_damage(weapon: RefCounted, attack_instance: R
 
 # Cut ratio 0.0 - 1.0 for this move (rest blunt). From archetype or weapon blade_cut_ratio / stab_cut_ratio.
 # No weapon has 0% cutting: even maces can break skin (flanges/ridges); floor is MIN_CUT_RATIO.
+# Blunt-damage weapons (mace, pollarm) hard-capped at CUT_RATIO_BLUNT_WEAPON_MAX so they remain primarily blunt tools.
 static func get_cut_ratio(weapon: RefCounted, attack_type: String, archetype_dict: Dictionary) -> float:
     var cr: float = 0.75
     if archetype_dict.has("cut_ratio") and float(archetype_dict.cut_ratio) >= 0.0:
@@ -688,6 +701,11 @@ static func get_cut_ratio(weapon: RefCounted, attack_type: String, archetype_dic
             cr = _weapon_cut_ratio_for_attack(weapon, attack_type)
     elif weapon != null:
         cr = _weapon_cut_ratio_for_attack(weapon, attack_type)
+    # Hard cap for blunt-damage weapons maces and pollarms can nick skin but should not deal significant cut damage.
+    if weapon is Object and weapon.has_method("get_damage_type"):
+        var dtype: String = weapon.get_damage_type(attack_type)
+        if dtype == WeaponConstants.DAMAGE_TYPE_BLUNT:
+            cr = minf(cr, CUT_RATIO_BLUNT_WEAPON_MAX)
     return maxf(cr, WeaponConstants.MIN_CUT_RATIO)
 
 

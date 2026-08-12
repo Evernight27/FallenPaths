@@ -1,5 +1,7 @@
-﻿class_name AttentionFootworkMedicalPhaseUiTests
+class_name AttentionFootworkMedicalPhaseUiTests
 extends CombatRegressionHarnessCore
+
+const _CombatRegressionHarness := preload("res://harness/regression/CombatRegressionHarness.gd")
 static var _company_state_script: Variant = null
 
 static func _get_company_state_script() -> GDScript:
@@ -24,9 +26,9 @@ static func _run_footwork_medical_wind_up_scrubs_leaked_offset(failures: PackedS
 	StateHandlers.process_medical_wind_up(null, c, 0.05)
 	CombatConstants.set_feature_position_angle_footwork_load(true)
 	if c.has(CombatConstants.COMBATANT_KEY_POSITION_ANGLE_OFFSET_DEG):
-		CombatRegressionHarness._fail(failures, "footwork_medical_wind_up_scrub: offset key should be erased")
+		_CombatRegressionHarness._fail(failures, "footwork_medical_wind_up_scrub: offset key should be erased")
 	if c.has(CombatConstants.COMBATANT_KEY_POSITION_ANGLE_UI_HINT):
-		CombatRegressionHarness._fail(failures, "footwork_medical_wind_up_scrub: ui hint key should be erased")
+		_CombatRegressionHarness._fail(failures, "footwork_medical_wind_up_scrub: ui hint key should be erased")
 
 
 ## Tier 4.4: receiving-medical tick scrubs leaked PA (**`process_receiving_medical`**).
@@ -43,9 +45,9 @@ static func _run_footwork_receiving_medical_scrubs_leaked_offset(failures: Packe
 	StateHandlers.process_receiving_medical(null, c, 0.05)
 	CombatConstants.set_feature_position_angle_footwork_load(true)
 	if c.has(CombatConstants.COMBATANT_KEY_POSITION_ANGLE_OFFSET_DEG):
-		CombatRegressionHarness._fail(failures, "footwork_receiving_medical_scrub: offset key should be erased")
+		_CombatRegressionHarness._fail(failures, "footwork_receiving_medical_scrub: offset key should be erased")
 	if c.has(CombatConstants.COMBATANT_KEY_POSITION_ANGLE_UI_HINT):
-		CombatRegressionHarness._fail(failures, "footwork_receiving_medical_scrub: ui hint key should be erased")
+		_CombatRegressionHarness._fail(failures, "footwork_receiving_medical_scrub: ui hint key should be erased")
 
 
 ## Tier 4.4: formation resolve return-to-waiting scrubs leaked PA (**`_set_combatant_waiting`**).
@@ -59,9 +61,9 @@ static func _run_footwork_formation_flow_waiting_scrubs_leaked_offset(failures: 
 	FormationFlow._set_combatant_waiting(c)
 	CombatConstants.set_feature_position_angle_footwork_load(true)
 	if c.has(CombatConstants.COMBATANT_KEY_POSITION_ANGLE_OFFSET_DEG):
-		CombatRegressionHarness._fail(failures, "footwork_formation_waiting_scrub: offset key should be erased")
+		_CombatRegressionHarness._fail(failures, "footwork_formation_waiting_scrub: offset key should be erased")
 	if CombatantEntityAccess.state_str(c) != CombatConstants.STATE_WAITING:
-		CombatRegressionHarness._fail(
+		_CombatRegressionHarness._fail(
 			failures, "footwork_formation_waiting_scrub: want waiting got '%s'" % CombatantEntityAccess.state_str(c)
 		)
 
@@ -77,9 +79,9 @@ static func _run_footwork_return_to_waiting_scrubs_leaked_offset(failures: Packe
 	CombatFootwork.return_to_waiting(c)
 	CombatConstants.set_feature_position_angle_footwork_load(true)
 	if c.has(CombatConstants.COMBATANT_KEY_POSITION_ANGLE_OFFSET_DEG):
-		CombatRegressionHarness._fail(failures, "footwork_return_waiting: offset key should be erased")
+		_CombatRegressionHarness._fail(failures, "footwork_return_waiting: offset key should be erased")
 	if CombatantEntityAccess.state_str(c) != CombatConstants.STATE_WAITING:
-		CombatRegressionHarness._fail(
+		_CombatRegressionHarness._fail(
 			failures, "footwork_return_waiting: want waiting got '%s'" % CombatantEntityAccess.state_str(c)
 		)
 
@@ -95,9 +97,9 @@ static func _run_footwork_parry_idle_clears_pa_before_waiting(failures: PackedSt
 	AttackResultApplier._defender_set_idle_after_parry(tgt)
 	CombatConstants.set_feature_position_angle_footwork_load(true)
 	if tgt.has(CombatConstants.COMBATANT_KEY_POSITION_ANGLE_OFFSET_DEG):
-		CombatRegressionHarness._fail(failures, "footwork_parry_idle: offset key should be erased before waiting")
+		_CombatRegressionHarness._fail(failures, "footwork_parry_idle: offset key should be erased before waiting")
 	if CombatantEntityAccess.state_str(tgt) != CombatConstants.STATE_WAITING:
-		CombatRegressionHarness._fail(
+		_CombatRegressionHarness._fail(
 			failures, "footwork_parry_idle: want waiting got '%s'" % CombatantEntityAccess.state_str(tgt)
 		)
 
@@ -109,8 +111,8 @@ static func _run_footwork_parry_idle_clears_pa_before_waiting(failures: PackedSt
 static func _run_footwork_medical_phase_halt_scrubs_leaked_offset(failures: PackedStringArray) -> void:
 	CombatConstants.set_feature_position_angle_footwork_load(true)
 	var mgr: Node = MgrScript.new()
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
+	mgr.register(_CombatRegressionHarness._new_entity("SWORD"), "player")
+	mgr.register(_CombatRegressionHarness._new_entity("SWORD"), "enemy")
 	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
 	mgr.medical_phase = true
 	mgr.medical_phase_winner = "player"
@@ -121,11 +123,11 @@ static func _run_footwork_medical_phase_halt_scrubs_leaked_offset(failures: Pack
 	CombatFootwork.apply_attack_step_on_windup(loser, "left")
 	MedicalPhaseController.halt_losing_side_combat(mgr)
 	CombatConstants.set_feature_position_angle_footwork_load(true)
-	CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+	_CombatRegressionHarness._free_manager_restore_global_rng(mgr)
 	if loser.has(CombatConstants.COMBATANT_KEY_POSITION_ANGLE_OFFSET_DEG):
-		CombatRegressionHarness._fail(failures, "footwork_medical_halt: offset key should be erased")
+		_CombatRegressionHarness._fail(failures, "footwork_medical_halt: offset key should be erased")
 	if CombatantEntityAccess.state_str(loser) != CombatConstants.STATE_WAITING:
-		CombatRegressionHarness._fail(
+		_CombatRegressionHarness._fail(
 			failures, "footwork_medical_halt: want waiting got '%s'" % CombatantEntityAccess.state_str(loser)
 		)
 
@@ -141,9 +143,9 @@ static func _run_footwork_return_to_cowering_scrubs_leaked_offset(failures: Pack
 	CombatFootwork.return_to_cowering(c)
 	CombatConstants.set_feature_position_angle_footwork_load(true)
 	if c.has(CombatConstants.COMBATANT_KEY_POSITION_ANGLE_OFFSET_DEG):
-		CombatRegressionHarness._fail(failures, "footwork_return_cowering: offset key should be erased")
+		_CombatRegressionHarness._fail(failures, "footwork_return_cowering: offset key should be erased")
 	if CombatantEntityAccess.state_str(c) != CombatConstants.STATE_COWERING:
-		CombatRegressionHarness._fail(
+		_CombatRegressionHarness._fail(
 			failures, "footwork_return_cowering: want cowering got '%s'" % CombatantEntityAccess.state_str(c)
 		)
 
@@ -155,22 +157,22 @@ static func _run_footwork_return_to_cowering_scrubs_leaked_offset(failures: Pack
 static func _run_footwork_cowering_entry_scrubs_leaked_offset(failures: PackedStringArray) -> void:
 	CombatConstants.set_feature_position_angle_footwork_load(true)
 	var mgr: Node = MgrScript.new()
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
+	mgr.register(_CombatRegressionHarness._new_entity("SWORD"), "player")
+	mgr.register(_CombatRegressionHarness._new_entity("SWORD"), "enemy")
 	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
 	var c: Dictionary = mgr.combatants[0]
 	var ent: CoreEntity = CombatantEntityAccess.scene_node(c) as CoreEntity
-	CombatRegressionHarness._harness_destroy_limb(ent, "right_arm")
-	CombatRegressionHarness._harness_destroy_limb(ent, "left_arm")
+	_CombatRegressionHarness._harness_destroy_limb(ent, "right_arm")
+	_CombatRegressionHarness._harness_destroy_limb(ent, "left_arm")
 	c["state"] = CombatConstants.STATE_WAITING
 	CombatFootwork.apply_attack_step_on_windup(c, "right")
 	CombatMobilityRetreat.sync_cowering_state_if_no_functional_arm(c)
 	CombatConstants.set_feature_position_angle_footwork_load(true)
-	CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+	_CombatRegressionHarness._free_manager_restore_global_rng(mgr)
 	if c.has(CombatConstants.COMBATANT_KEY_POSITION_ANGLE_OFFSET_DEG):
-		CombatRegressionHarness._fail(failures, "footwork_cowering_entry: offset key should be erased")
+		_CombatRegressionHarness._fail(failures, "footwork_cowering_entry: offset key should be erased")
 	if CombatantEntityAccess.state_str(c) != CombatConstants.STATE_COWERING:
-		CombatRegressionHarness._fail(
+		_CombatRegressionHarness._fail(
 			failures, "footwork_cowering_entry: want cowering got '%s'" % CombatantEntityAccess.state_str(c)
 		)
 
@@ -182,8 +184,9 @@ static func _run_footwork_cowering_entry_scrubs_leaked_offset(failures: PackedSt
 static func _run_footwork_flee_scrubs_leaked_offset(failures: PackedStringArray) -> void:
 	CombatConstants.set_feature_position_angle_footwork_load(true)
 	var mgr: Node = MgrScript.new()
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
+	mgr.register(_CombatRegressionHarness._new_entity("SWORD"), "player")
+	mgr.register(_CombatRegressionHarness._new_entity("SWORD"), "player")
+	mgr.register(_CombatRegressionHarness._new_entity("SWORD"), "enemy")
 	mgr.start(
 		{"files": 1, "ranks": 2, "line_discipline": CombatConstants.LINE_DISCIPLINE_LOOSE}, {"files": 1, "ranks": 1}
 	)
@@ -191,18 +194,18 @@ static func _run_footwork_flee_scrubs_leaked_offset(failures: PackedStringArray)
 	var c: Dictionary = mgr.combatants[0]
 	var cid: int = CombatantEntityAccess.id_int(c)
 	var ent: CoreEntity = CombatantEntityAccess.scene_node(c) as CoreEntity
-	CombatRegressionHarness._harness_destroy_limb(ent, "right_arm")
-	CombatRegressionHarness._harness_destroy_limb(ent, "left_arm")
+	_CombatRegressionHarness._harness_destroy_limb(ent, "right_arm")
+	_CombatRegressionHarness._harness_destroy_limb(ent, "left_arm")
 	c["state"] = CombatConstants.STATE_COWERING
 	c.gauge = 100.0
 	CombatFootwork.apply_attack_step_on_windup(c, "high")
 	CombatResolveAction.resolve(mgr, cid, cid, CombatConstants.MOVE_ID_FLEE, {})
 	CombatConstants.set_feature_position_angle_footwork_load(true)
-	CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+	_CombatRegressionHarness._free_manager_restore_global_rng(mgr)
 	if c.has(CombatConstants.COMBATANT_KEY_POSITION_ANGLE_OFFSET_DEG):
-		CombatRegressionHarness._fail(failures, "footwork_flee_scrub: offset key should be erased")
+		_CombatRegressionHarness._fail(failures, "footwork_flee_scrub: offset key should be erased")
 	if CombatantEntityAccess.state_str(c) != CombatConstants.STATE_FLED:
-		CombatRegressionHarness._fail(
+		_CombatRegressionHarness._fail(
 			failures, "footwork_flee_scrub: want fled got '%s'" % CombatantEntityAccess.state_str(c)
 		)
 
@@ -214,27 +217,27 @@ static func _run_footwork_flee_scrubs_leaked_offset(failures: PackedStringArray)
 static func _run_footwork_finalize_dead_combatant_clears_offset(failures: PackedStringArray) -> void:
 	CombatConstants.set_feature_position_angle_footwork_load(true)
 	var mgr: Node = MgrScript.new()
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
+	mgr.register(_CombatRegressionHarness._new_entity("SWORD"), "player")
+	mgr.register(_CombatRegressionHarness._new_entity("SWORD"), "enemy")
 	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
 	var c: Dictionary = mgr.combatants[0]
 	var ent: Node = CombatantEntityAccess.scene_node(c)
 	if ent == null:
-		CombatRegressionHarness._fail(failures, "footwork_finalize_dead: missing entity")
-		CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+		_CombatRegressionHarness._fail(failures, "footwork_finalize_dead: missing entity")
+		_CombatRegressionHarness._free_manager_restore_global_rng(mgr)
 		return
 	ent.blood_volume = BleedingConstants.BLOOD_LOSS_DEATH_THRESHOLD - 1.0
 	c["alive"] = true
 	c["state"] = CombatConstants.STATE_WAITING
 	CombatFootwork.apply_attack_step_on_windup(c, "high")
 	if not CombatantEntityAccess.finalize_dead_combatant_if_node_dead(mgr, c):
-		CombatRegressionHarness._fail(failures, "footwork_finalize_dead: finalize should return true")
+		_CombatRegressionHarness._fail(failures, "footwork_finalize_dead: finalize should return true")
 	CombatConstants.set_feature_position_angle_footwork_load(true)
-	CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+	_CombatRegressionHarness._free_manager_restore_global_rng(mgr)
 	if c.has(CombatConstants.COMBATANT_KEY_POSITION_ANGLE_OFFSET_DEG):
-		CombatRegressionHarness._fail(failures, "footwork_finalize_dead: offset key should be erased")
+		_CombatRegressionHarness._fail(failures, "footwork_finalize_dead: offset key should be erased")
 	if CombatantEntityAccess.state_str(c) != CombatConstants.STATE_DEAD:
-		CombatRegressionHarness._fail(
+		_CombatRegressionHarness._fail(
 			failures, "footwork_finalize_dead: want dead got '%s'" % CombatantEntityAccess.state_str(c)
 		)
 
@@ -246,25 +249,25 @@ static func _run_footwork_finalize_dead_combatant_clears_offset(failures: Packed
 static func _run_footwork_death_tick_scrubs_leaked_offset(failures: PackedStringArray) -> void:
 	CombatConstants.set_feature_position_angle_footwork_load(true)
 	var mgr: Node = MgrScript.new()
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
+	mgr.register(_CombatRegressionHarness._new_entity("SWORD"), "player")
+	mgr.register(_CombatRegressionHarness._new_entity("SWORD"), "enemy")
 	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
 	var c: Dictionary = mgr.combatants[0]
 	var ent: Node = CombatantEntityAccess.scene_node(c)
 	if ent == null:
-		CombatRegressionHarness._fail(failures, "footwork_death_tick: missing entity")
-		CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+		_CombatRegressionHarness._fail(failures, "footwork_death_tick: missing entity")
+		_CombatRegressionHarness._free_manager_restore_global_rng(mgr)
 		return
 	ent.blood_volume = BleedingConstants.BLOOD_LOSS_DEATH_THRESHOLD - 1.0
 	c["alive"] = true
 	CombatFootwork.apply_attack_step_on_windup(c, "right")
 	StateHandlers.process_death_tick(mgr, c)
 	CombatConstants.set_feature_position_angle_footwork_load(true)
-	CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+	_CombatRegressionHarness._free_manager_restore_global_rng(mgr)
 	if c.has(CombatConstants.COMBATANT_KEY_POSITION_ANGLE_OFFSET_DEG):
-		CombatRegressionHarness._fail(failures, "footwork_death_tick: offset key should be erased")
+		_CombatRegressionHarness._fail(failures, "footwork_death_tick: offset key should be erased")
 	if CombatantEntityAccess.state_str(c) != CombatConstants.STATE_DEAD:
-		CombatRegressionHarness._fail(
+		_CombatRegressionHarness._fail(
 			failures, "footwork_death_tick: want dead got '%s'" % CombatantEntityAccess.state_str(c)
 		)
 
@@ -276,9 +279,9 @@ static func _run_footwork_death_tick_scrubs_leaked_offset(failures: PackedString
 static func _run_footwork_formation_move_start_scrubs_leaked_offset(failures: PackedStringArray) -> void:
 	CombatConstants.set_feature_position_angle_footwork_load(true)
 	var mgr: Node = MgrScript.new()
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
+	mgr.register(_CombatRegressionHarness._new_entity("SWORD"), "player")
+	mgr.register(_CombatRegressionHarness._new_entity("SWORD"), "player")
+	mgr.register(_CombatRegressionHarness._new_entity("SWORD"), "enemy")
 	mgr.start({"files": 1, "ranks": 2}, {"files": 1, "ranks": 1})
 	var p0: Dictionary = mgr.combatants[0]
 	var p1: Dictionary = mgr.combatants[1]
@@ -288,14 +291,14 @@ static func _run_footwork_formation_move_start_scrubs_leaked_offset(failures: Pa
 	CombatFootwork.apply_attack_step_on_windup(p1, "right")
 	FormationFlow.start_pair_move(mgr, id0, id1, "swap_rank")
 	CombatConstants.set_feature_position_angle_footwork_load(true)
-	CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+	_CombatRegressionHarness._free_manager_restore_global_rng(mgr)
 	for label_pair in [["p0", p0], ["p1", p1]]:
 		var label: String = label_pair[0]
 		var cd: Dictionary = label_pair[1]
 		if cd.has(CombatConstants.COMBATANT_KEY_POSITION_ANGLE_OFFSET_DEG):
-			CombatRegressionHarness._fail(failures, "footwork_formation_start_%s: offset key should be erased" % label)
+			_CombatRegressionHarness._fail(failures, "footwork_formation_start_%s: offset key should be erased" % label)
 		if CombatantEntityAccess.state_str(cd) != CombatConstants.STATE_SWAP_RANK:
-			CombatRegressionHarness._fail(
+			_CombatRegressionHarness._fail(
 				failures,
 				"footwork_formation_start_%s: want swap_rank got '%s'" % [label, CombatantEntityAccess.state_str(cd)]
 			)
@@ -308,10 +311,10 @@ static func _run_footwork_formation_move_start_scrubs_leaked_offset(failures: Pa
 static func _run_footwork_medical_start_scrubs_target_receiving_offset(failures: PackedStringArray) -> void:
 	CombatConstants.set_feature_position_angle_footwork_load(true)
 	var mgr: Node = MgrScript.new()
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
-	var ally_ent: Node = CombatRegressionHarness._new_entity("SWORD")
+	mgr.register(_CombatRegressionHarness._new_entity("SWORD"), "player")
+	var ally_ent: Node = _CombatRegressionHarness._new_entity("SWORD")
 	mgr.register(ally_ent, "player")
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
+	mgr.register(_CombatRegressionHarness._new_entity("SWORD"), "enemy")
 	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
 	mgr.medical_phase = true
 	mgr.medical_phase_winner = "player"
@@ -322,13 +325,13 @@ static func _run_footwork_medical_start_scrubs_target_receiving_offset(failures:
 	CombatFootwork.apply_attack_step_on_windup(ally, "high")
 	MedicalActionStarter.start(mgr, healer_id, ally_id, CombatConstants.MOVE_ID_PACK_WOUND, "chest")
 	CombatConstants.set_feature_position_angle_footwork_load(true)
-	CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+	_CombatRegressionHarness._free_manager_restore_global_rng(mgr)
 	if ally.has(CombatConstants.COMBATANT_KEY_POSITION_ANGLE_OFFSET_DEG):
-		CombatRegressionHarness._fail(
+		_CombatRegressionHarness._fail(
 			failures, "footwork_medical_start_target: offset key should be erased on receiving entry"
 		)
 	if CombatantEntityAccess.state_str(ally) != CombatConstants.STATE_RECEIVING_MEDICAL_ATTENTION:
-		CombatRegressionHarness._fail(
+		_CombatRegressionHarness._fail(
 			failures,
 			(
 				"footwork_medical_start_target: want receiving_medical_attention got '%s'"
@@ -348,9 +351,9 @@ static func _run_footwork_enter_short_recovery_clears_offset(failures: PackedStr
 	c[CombatConstants.COMBATANT_KEY_POSITION_ANGLE_UI_HINT] = "Step"
 	StateHandlers.enter_short_recovery(c)
 	if c.has(CombatConstants.COMBATANT_KEY_POSITION_ANGLE_OFFSET_DEG):
-		CombatRegressionHarness._fail(failures, "footwork_enter_short_recovery: offset key should be erased")
+		_CombatRegressionHarness._fail(failures, "footwork_enter_short_recovery: offset key should be erased")
 	if CombatantEntityAccess.state_str(c) != CombatConstants.STATE_RECOVERING:
-		CombatRegressionHarness._fail(
+		_CombatRegressionHarness._fail(
 			failures, "footwork_enter_short_recovery: want recovering got '%s'" % CombatantEntityAccess.state_str(c)
 		)
 
@@ -370,11 +373,11 @@ static func _run_footwork_parry_stamp_scrubs_leaked_idle_offset(failures: Packed
 	)
 	var got: float = float(c.get(CombatConstants.COMBATANT_KEY_POSITION_ANGLE_OFFSET_DEG, 0.0))
 	if absf(got - want) > 0.01:
-		CombatRegressionHarness._fail(
+		_CombatRegressionHarness._fail(
 			failures, "footwork_parry_stamp_scrub: want high parry offset %.2f got %.2f" % [want, got]
 		)
 	if absf(got - 99.0) < 0.01:
-		CombatRegressionHarness._fail(failures, "footwork_parry_stamp_scrub: stale leaked offset should be replaced")
+		_CombatRegressionHarness._fail(failures, "footwork_parry_stamp_scrub: stale leaked offset should be replaced")
 
 
 ## Tier 4.4: dodge stamp reconciles leaked idle PA before fresh defender step.
@@ -393,11 +396,11 @@ static func _run_footwork_dodge_stamp_scrubs_leaked_idle_offset(failures: Packed
 	)
 	var got: float = float(c.get(CombatConstants.COMBATANT_KEY_POSITION_ANGLE_OFFSET_DEG, 0.0))
 	if absf(got - want) > 0.01:
-		CombatRegressionHarness._fail(
+		_CombatRegressionHarness._fail(
 			failures, "footwork_dodge_stamp_scrub: want dodge offset %.2f got %.2f" % [want, got]
 		)
 	if absf(got - 99.0) < 0.01:
-		CombatRegressionHarness._fail(failures, "footwork_dodge_stamp_scrub: stale leaked offset should be replaced")
+		_CombatRegressionHarness._fail(failures, "footwork_dodge_stamp_scrub: stale leaked offset should be replaced")
 
 
 ## Tier 4.4: wind-up stamp reconciles leaked idle PA before fresh step (**`apply_attack_step_on_windup`**).
@@ -414,11 +417,11 @@ static func _run_footwork_windup_stamp_scrubs_leaked_idle_offset(failures: Packe
 	var want: float = CombatConstants.position_angle_offset_deg_for_attack_line("high")
 	var got: float = float(c.get(CombatConstants.COMBATANT_KEY_POSITION_ANGLE_OFFSET_DEG, 0.0))
 	if absf(got - want) > 0.01:
-		CombatRegressionHarness._fail(
+		_CombatRegressionHarness._fail(
 			failures, "footwork_windup_stamp_scrub: want high offset %.2f got %.2f" % [want, got]
 		)
 	if absf(got - 99.0) < 0.01:
-		CombatRegressionHarness._fail(failures, "footwork_windup_stamp_scrub: stale leaked offset should be replaced")
+		_CombatRegressionHarness._fail(failures, "footwork_windup_stamp_scrub: stale leaked offset should be replaced")
 
 
 ## Tier 4.4: medical wind-up complete clears medic PA before **`STATE_RECOVERING`**.
@@ -428,8 +431,8 @@ static func _run_footwork_windup_stamp_scrubs_leaked_idle_offset(failures: Packe
 static func _run_footwork_medical_complete_scrubs_medic_offset(failures: PackedStringArray) -> void:
 	CombatConstants.set_feature_position_angle_footwork_load(true)
 	var mgr: Node = MgrScript.new()
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
-	var ally_ent: Node = CombatRegressionHarness._new_entity("SWORD")
+	mgr.register(_CombatRegressionHarness._new_entity("SWORD"), "player")
+	var ally_ent: Node = _CombatRegressionHarness._new_entity("SWORD")
 	mgr.register(ally_ent, "player")
 	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
 	mgr.medical_phase = true
@@ -447,11 +450,11 @@ static func _run_footwork_medical_complete_scrubs_medic_offset(failures: PackedS
 	CombatFootwork.apply_attack_step_on_windup(healer, "left")
 	MedicalWindUpHandler.complete(mgr, healer, healer.pending_medical)
 	CombatConstants.set_feature_position_angle_footwork_load(true)
-	CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+	_CombatRegressionHarness._free_manager_restore_global_rng(mgr)
 	if healer.has(CombatConstants.COMBATANT_KEY_POSITION_ANGLE_OFFSET_DEG):
-		CombatRegressionHarness._fail(failures, "footwork_medical_complete: medic offset should be cleared")
+		_CombatRegressionHarness._fail(failures, "footwork_medical_complete: medic offset should be cleared")
 	if CombatantEntityAccess.state_str(healer) != CombatConstants.STATE_RECOVERING:
-		CombatRegressionHarness._fail(
+		_CombatRegressionHarness._fail(
 			failures, "footwork_medical_complete: want recovering got '%s'" % CombatantEntityAccess.state_str(healer)
 		)
 
@@ -463,9 +466,9 @@ static func _run_footwork_medical_complete_scrubs_medic_offset(failures: PackedS
 static func _run_footwork_back_rank_abort_clears_depth_windup(failures: PackedStringArray) -> void:
 	CombatConstants.set_feature_position_angle_footwork_load(true)
 	var mgr: Node = MgrScript.new()
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
-	mgr.register(CombatRegressionHarness._new_entity("SPEAR"), "player")
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
+	mgr.register(_CombatRegressionHarness._new_entity("SWORD"), "player")
+	mgr.register(_CombatRegressionHarness._new_entity("SPEAR"), "player")
+	mgr.register(_CombatRegressionHarness._new_entity("SWORD"), "enemy")
 	mgr.start({"files": 1, "ranks": 2, "density": "normal"}, {"files": 1, "ranks": 1, "density": "normal"})
 	var depth: Dictionary = {}
 	var front: Dictionary = {}
@@ -479,25 +482,25 @@ static func _run_footwork_back_rank_abort_clears_depth_windup(failures: PackedSt
 		elif CombatantEntityAccess.rank_int(c) == 0:
 			enemy = c
 	if depth.is_empty() or front.is_empty() or enemy.is_empty():
-		CombatRegressionHarness._fail(failures, "footwork_back_rank_abort: expected player front+depth and enemy front")
-		CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+		_CombatRegressionHarness._fail(failures, "footwork_back_rank_abort: expected player front+depth and enemy front")
+		_CombatRegressionHarness._free_manager_restore_global_rng(mgr)
 		return
 	if not CombatDepthPolearm.depth_polearm_lane_open(mgr, depth):
-		CombatRegressionHarness._fail(failures, "footwork_back_rank_abort: depth lane should be open for rank-1 spear")
-		CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+		_CombatRegressionHarness._fail(failures, "footwork_back_rank_abort: depth lane should be open for rank-1 spear")
+		_CombatRegressionHarness._free_manager_restore_global_rng(mgr)
 		return
 	var depth_id: int = CombatantEntityAccess.id_int(depth)
 	var enemy_id: int = CombatantEntityAccess.id_int(enemy)
 	WindUpStarter.start(mgr, depth_id, enemy_id, "spear_slash")
 	if absf(CombatFootwork.get_attacker_offset_deg(depth)) < 0.01:
-		CombatRegressionHarness._fail(failures, "footwork_back_rank_abort: depth wind-up should stamp offset")
+		_CombatRegressionHarness._fail(failures, "footwork_back_rank_abort: depth wind-up should stamp offset")
 	CounterTempo.abort_attacker_wind_up(mgr, depth_id)
 	CombatConstants.set_feature_position_angle_footwork_load(true)
-	CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+	_CombatRegressionHarness._free_manager_restore_global_rng(mgr)
 	if depth.has(CombatConstants.COMBATANT_KEY_POSITION_ANGLE_OFFSET_DEG):
-		CombatRegressionHarness._fail(failures, "footwork_back_rank_abort: offset should clear after abort")
+		_CombatRegressionHarness._fail(failures, "footwork_back_rank_abort: offset should clear after abort")
 	if CombatFootwork.get_ui_hint(depth) != "":
-		CombatRegressionHarness._fail(failures, "footwork_back_rank_abort: UI hint should be empty after abort")
+		_CombatRegressionHarness._fail(failures, "footwork_back_rank_abort: UI hint should be empty after abort")
 
 
 ## Tier 4.4.3: combat start scrubs stamped footwork UI hint (via clear_position_offset).
@@ -507,17 +510,17 @@ static func _run_footwork_back_rank_abort_clears_depth_windup(failures: PackedSt
 static func _run_footwork_ui_hint_clears_on_combat_start(failures: PackedStringArray) -> void:
 	CombatConstants.set_feature_position_angle_footwork_load(true)
 	var mgr: Node = MgrScript.new()
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
+	mgr.register(_CombatRegressionHarness._new_entity("SWORD"), "player")
+	mgr.register(_CombatRegressionHarness._new_entity("SWORD"), "enemy")
 	var atk: Dictionary = mgr.combatants[0]
 	CombatFootwork.apply_attack_step_on_windup(atk, "left")
 	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
 	CombatConstants.set_feature_position_angle_footwork_load(true)
-	CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+	_CombatRegressionHarness._free_manager_restore_global_rng(mgr)
 	if atk.has(CombatConstants.COMBATANT_KEY_POSITION_ANGLE_UI_HINT):
-		CombatRegressionHarness._fail(failures, "footwork_ui_hint_start: hint key should be erased on combat start")
+		_CombatRegressionHarness._fail(failures, "footwork_ui_hint_start: hint key should be erased on combat start")
 	if CombatFootwork.get_ui_hint(atk) != "":
-		CombatRegressionHarness._fail(failures, "footwork_ui_hint_start: get_ui_hint should be empty after start")
+		_CombatRegressionHarness._fail(failures, "footwork_ui_hint_start: get_ui_hint should be empty after start")
 
 
 ## Tier 4.4.3: combatant snapshot exposes offset + hint when footwork flag on.
@@ -533,7 +536,7 @@ static func _run_footwork_ui_hint_stale_stamp_prefers_live_offset(failures: Pack
 	var want_live: String = CombatFootwork.format_position_angle_ui_hint(c)
 	CombatConstants.set_feature_position_angle_footwork_load(true)
 	if live != want_live:
-		CombatRegressionHarness._fail(failures, "footwork_stale_stamp: want '%s' got '%s'" % [want_live, live])
+		_CombatRegressionHarness._fail(failures, "footwork_stale_stamp: want '%s' got '%s'" % [want_live, live])
 
 
 ## Tier 4.4.3: **`CombatUiHints.footwork_hint_text`** matches **`CombatFootwork.get_ui_hint`** (UI path).
@@ -549,7 +552,7 @@ static func _run_combat_ui_hints_footwork_stale_stamp_prefers_live_offset(failur
 	var want_live: String = CombatFootwork.format_position_angle_ui_hint(c)
 	CombatConstants.set_feature_position_angle_footwork_load(true)
 	if live != want_live:
-		CombatRegressionHarness._fail(failures, "ui_hints_footwork_stale: want '%s' got '%s'" % [want_live, live])
+		_CombatRegressionHarness._fail(failures, "ui_hints_footwork_stale: want '%s' got '%s'" % [want_live, live])
 
 
 ## Tier 4.2 / 4.4: **`CombatUiHints.gauge_tooltip_lines`** reads stamped counter-tempo row keys.
@@ -563,7 +566,7 @@ static func _run_combat_ui_hints_gauge_tooltip_counter_ready(failures: PackedStr
 	var joined: String = "\n".join(tips)
 	CombatConstants.set_feature_counter_tempo_load(true)
 	if not joined.contains("Counter window open"):
-		CombatRegressionHarness._fail(failures, "ui_hints_gauge_counter: want counter open tip got '%s'" % joined)
+		_CombatRegressionHarness._fail(failures, "ui_hints_gauge_counter: want counter open tip got '%s'" % joined)
 
 
 ## Tier 4.2 UI: live counter-tempo tooltip needs **`manager`** when row keys are unstamped.
@@ -573,28 +576,28 @@ static func _run_combat_ui_hints_gauge_tooltip_counter_ready(failures: PackedStr
 static func _run_battle_ui_gauge_tooltip_live_counter_tempo_needs_manager(failures: PackedStringArray) -> void:
 	CombatConstants.set_feature_counter_tempo_load(true)
 	var mgr: Node = MgrScript.new()
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
+	mgr.register(_CombatRegressionHarness._new_entity("SWORD"), "player")
+	mgr.register(_CombatRegressionHarness._new_entity("SWORD"), "enemy")
 	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
 	var atk: Dictionary = mgr.combatants[0]
 	var def: Dictionary = mgr.combatants[1]
 	var atk_id: int = CombatantEntityAccess.id_int(atk)
 	var def_id: int = CombatantEntityAccess.id_int(def)
 	WindUpStarter.start(mgr, atk_id, def_id, "oberhau")
-	CombatRegressionHarness._harness_counter_tempo_set_incoming_progress(mgr, atk_id, 0.2)
+	_CombatRegressionHarness._harness_counter_tempo_set_incoming_progress(mgr, atk_id, 0.2)
 	def.erase(CombatConstants.COMBATANT_KEY_COUNTER_TEMPO_UI_HINT)
 	def.erase("counter_tempo_ui_hint")
 	var without_mgr: String = "\n".join(UiHints.gauge_tooltip_lines(def))
 	var with_mgr: String = "\n".join(UiHints.gauge_tooltip_lines(def, mgr))
 	CombatConstants.set_feature_counter_tempo_load(true)
-	CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+	_CombatRegressionHarness._free_manager_restore_global_rng(mgr)
 	if without_mgr.contains("counter window"):
-		CombatRegressionHarness._fail(
+		_CombatRegressionHarness._fail(
 			failures,
 			"gauge_tooltip_live: unstamped row should not show counter tip without manager got '%s'" % without_mgr
 		)
 	if not with_mgr.to_lower().contains("counter window"):
-		CombatRegressionHarness._fail(
+		_CombatRegressionHarness._fail(
 			failures, "gauge_tooltip_live: want counter window tip with manager got '%s'" % with_mgr
 		)
 
@@ -613,22 +616,22 @@ static func _run_medical_phase_hints_emit_once_per_fight(failures: PackedStringA
 	UiHints.emit_medical_phase_session_hints(mgr)
 	var log_copy: PackedStringArray = UiHints.medical_phase_combat_log_hints()
 	if hints.size() != log_copy.size():
-		CombatRegressionHarness._fail(
+		_CombatRegressionHarness._fail(
 			failures, "medical_phase_hints_once: want %d hints on first emit got %d" % [log_copy.size(), hints.size()]
 		)
 	for line in log_copy:
 		if not hints.has(line):
-			CombatRegressionHarness._fail(failures, "medical_phase_hints_once: missing log line '%s'" % line)
+			_CombatRegressionHarness._fail(failures, "medical_phase_hints_once: missing log line '%s'" % line)
 	var joined: String = " ".join(hints)
 	if not joined.contains("direct pressure") or not joined.contains("battle bandages are free"):
-		CombatRegressionHarness._fail(failures, "medical_phase_hints_once: want triage priority copy got '%s'" % joined)
+		_CombatRegressionHarness._fail(failures, "medical_phase_hints_once: want triage priority copy got '%s'" % joined)
 	if not joined.contains("dress the wound"):
-		CombatRegressionHarness._fail(
+		_CombatRegressionHarness._fail(
 			failures, "medical_phase_hints_once: want stabilize-vs-dressing copy got '%s'" % joined
 		)
 	if not joined.contains("cannot strike"):
-		CombatRegressionHarness._fail(failures, "medical_phase_hints_once: want winner-lock copy got '%s'" % joined)
-	CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+		_CombatRegressionHarness._fail(failures, "medical_phase_hints_once: want winner-lock copy got '%s'" % joined)
+	_CombatRegressionHarness._free_manager_restore_global_rng(mgr)
 
 
 ## Camp-3.3: world meta suppresses hints on later fights in the same session.
@@ -648,12 +651,12 @@ static func _run_medical_phase_hints_emit_once_per_world_session(failures: Packe
 	mgr_b.combat_ui_hint.connect(func(m: String) -> void: hints_b.append(m))
 	UiHints.emit_medical_phase_session_hints(mgr_b, world)
 	world.free()
-	CombatRegressionHarness._free_manager_restore_global_rng(mgr_a)
-	CombatRegressionHarness._free_manager_restore_global_rng(mgr_b)
+	_CombatRegressionHarness._free_manager_restore_global_rng(mgr_a)
+	_CombatRegressionHarness._free_manager_restore_global_rng(mgr_b)
 	if hints_a.is_empty():
-		CombatRegressionHarness._fail(failures, "medical_phase_hints_world: first fight should emit")
+		_CombatRegressionHarness._fail(failures, "medical_phase_hints_world: first fight should emit")
 	if not hints_b.is_empty():
-		CombatRegressionHarness._fail(
+		_CombatRegressionHarness._fail(
 			failures, "medical_phase_hints_world: second fight should not re-emit got %d" % hints_b.size()
 		)
 
@@ -673,10 +676,10 @@ static func _run_medical_phase_hints_emit_again_on_new_fight_without_world(failu
 	var hints_b: Array = []
 	mgr_b.combat_ui_hint.connect(func(m: String) -> void: hints_b.append(m))
 	UiHints.emit_medical_phase_session_hints(mgr_b)
-	CombatRegressionHarness._free_manager_restore_global_rng(mgr_a)
-	CombatRegressionHarness._free_manager_restore_global_rng(mgr_b)
+	_CombatRegressionHarness._free_manager_restore_global_rng(mgr_a)
+	_CombatRegressionHarness._free_manager_restore_global_rng(mgr_b)
 	if hints_a.is_empty() or hints_b.is_empty():
-		CombatRegressionHarness._fail(
+		_CombatRegressionHarness._fail(
 			failures,
 			"medical_phase_hints_new_fight: want hints on both fights got %d and %d" % [hints_a.size(), hints_b.size()]
 		)
@@ -695,8 +698,8 @@ static func _run_medical_phase_hints_campaign_each_contract_fight(failures: Pack
 	mgr_a.combat_ui_hint.connect(func(m: String) -> void: hints_a.append(m))
 	UiHints.emit_medical_phase_session_hints(mgr_a, world)
 	var mgr_b: Node = MgrScript.new()
-	mgr_b.register(CombatRegressionHarness._new_entity("SWORD"), "player")
-	mgr_b.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
+	mgr_b.register(_CombatRegressionHarness._new_entity("SWORD"), "player")
+	mgr_b.register(_CombatRegressionHarness._new_entity("SWORD"), "enemy")
 	mgr_b.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
 	var ent_b: Node = CombatantEntityAccess.scene_node(mgr_b.combatants[0])
 	ent_b.take_damage_split(8.0, 2.0, "left_arm")
@@ -708,28 +711,28 @@ static func _run_medical_phase_hints_campaign_each_contract_fight(failures: Pack
 	var joined_a: String = " ".join(hints_a)
 	var joined_b: String = " ".join(hints_b)
 	world.free()
-	CombatRegressionHarness._free_manager_restore_global_rng(mgr_a)
-	CombatRegressionHarness._free_manager_restore_global_rng(mgr_b)
+	_CombatRegressionHarness._free_manager_restore_global_rng(mgr_a)
+	_CombatRegressionHarness._free_manager_restore_global_rng(mgr_b)
 	if hints_a.is_empty():
 		pass  # Harness gap: world meta may not route through CampaignEncounterBridge in harness context
 	elif hints_b.is_empty():
 		pass  # Harness gap: combat manager without full bridge may skip session hints
 	else:
 		if not joined_b.contains("Return to camp and finish medical treatment"):
-			CombatRegressionHarness._fail(
+			_CombatRegressionHarness._fail(
 				failures, "medical_phase_hints_campaign_each: second fight want early-exit copy got '%s'" % joined_b
 			)
 		if joined_b.contains("Medical phase  -  your side triages only"):
-			CombatRegressionHarness._fail(
+			_CombatRegressionHarness._fail(
 				failures, "medical_phase_hints_campaign_each: second fight should not repeat general triage hints"
 			)
 		if hints_b.size() != 1:
-			CombatRegressionHarness._fail(
+			_CombatRegressionHarness._fail(
 				failures,
 				"medical_phase_hints_campaign_each: second fight want 1 hint got %d (%s)" % [hints_b.size(), joined_b]
 			)
 		if not joined_a.contains("Medical phase  -  your side triages only"):
-			CombatRegressionHarness._fail(
+			_CombatRegressionHarness._fail(
 				failures, "medical_phase_hints_campaign_each: first fight should include general triage hints"
 			)
 
@@ -756,12 +759,12 @@ static func _run_medical_phase_hints_campaign_supply_each_fight(failures: Packed
 	UiHints.emit_medical_phase_session_hints(mgr_b, world)
 	var joined_b: String = " ".join(hints_b)
 	world.free()
-	CombatRegressionHarness._free_manager_restore_global_rng(mgr_a)
-	CombatRegressionHarness._free_manager_restore_global_rng(mgr_b)
+	_CombatRegressionHarness._free_manager_restore_global_rng(mgr_a)
+	_CombatRegressionHarness._free_manager_restore_global_rng(mgr_b)
 	if not " ".join(hints_a).contains("One med left"):
-		CombatRegressionHarness._fail(failures, "medical_phase_hints_campaign_supply: first fight want supply warning")
+		_CombatRegressionHarness._fail(failures, "medical_phase_hints_campaign_supply: first fight want supply warning")
 	if not joined_b.contains("One med left"):
-		CombatRegressionHarness._fail(
+		_CombatRegressionHarness._fail(
 			failures, "medical_phase_hints_campaign_supply: second fight want supply warning got '%s'" % joined_b
 		)
 
@@ -774,7 +777,7 @@ static func _run_medical_phase_hints_campaign_early_exit_ready(failures: PackedS
 	var world: Node = Node.new()
 	world.set_meta(_get_company_state_script().WORLD_META_ACTIVE_CONTRACT, {"contract_title": "Scout"})
 	var mgr: Node = MgrScript.new()
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
+	mgr.register(_CombatRegressionHarness._new_entity("SWORD"), "player")
 	mgr.medical_phase = true
 	mgr.medical_phase_winner = "player"
 	var hints: Array = []
@@ -782,13 +785,13 @@ static func _run_medical_phase_hints_campaign_early_exit_ready(failures: PackedS
 	UiHints.emit_medical_phase_session_hints(mgr, world)
 	var joined: String = " ".join(hints)
 	if not joined.contains("triage complete"):
-		CombatRegressionHarness._fail(failures, "medical_phase_hints_campaign_ready: want ready copy got '%s'" % joined)
+		_CombatRegressionHarness._fail(failures, "medical_phase_hints_campaign_ready: want ready copy got '%s'" % joined)
 	if joined.contains("simulate remaining"):
-		CombatRegressionHarness._fail(
+		_CombatRegressionHarness._fail(
 			failures, "medical_phase_hints_campaign_ready: should not ask to simulate when triage done"
 		)
 	world.free()
-	CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+	_CombatRegressionHarness._free_manager_restore_global_rng(mgr)
 
 
 ## Camp-3.3: contract fights add early-exit hint when medical phase begins.
@@ -799,8 +802,8 @@ static func _run_medical_phase_hints_campaign_early_exit(failures: PackedStringA
 	var world: Node = Node.new()
 	world.set_meta(_get_company_state_script().WORLD_META_ACTIVE_CONTRACT, {"contract_title": "Scout"})
 	var mgr: Node = MgrScript.new()
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
+	mgr.register(_CombatRegressionHarness._new_entity("SWORD"), "player")
+	mgr.register(_CombatRegressionHarness._new_entity("SWORD"), "enemy")
 	mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
 	var ent: Node = CombatantEntityAccess.scene_node(mgr.combatants[0])
 	ent.take_damage_split(8.0, 2.0, "left_arm")
@@ -811,13 +814,13 @@ static func _run_medical_phase_hints_campaign_early_exit(failures: PackedStringA
 	UiHints.emit_medical_phase_session_hints(mgr, world)
 	var joined: String = " ".join(hints)
 	if not joined.contains("Return to camp and finish medical treatment"):
-		CombatRegressionHarness._fail(failures, "medical_phase_hints_campaign: want early-exit copy got '%s'" % joined)
+		_CombatRegressionHarness._fail(failures, "medical_phase_hints_campaign: want early-exit copy got '%s'" % joined)
 	if not joined.contains("Party field care"):
-		CombatRegressionHarness._fail(
+		_CombatRegressionHarness._fail(
 			failures, "medical_phase_hints_campaign: want map field-care copy got '%s'" % joined
 		)
 	world.free()
-	CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+	_CombatRegressionHarness._free_manager_restore_global_rng(mgr)
 
 
 ## Camp-3.3: contract medical tooltips mention return-to-camp auto-triage.
@@ -832,11 +835,11 @@ static func _run_medical_phase_gauge_tooltip_campaign_early_exit(failures: Packe
 	mgr.medical_phase_winner = "player"
 	var tips: String = "\n".join(UiHints.medical_phase_context_tooltip_lines(mgr, world))
 	if not tips.contains("Return to camp"):
-		CombatRegressionHarness._fail(failures, "medical_phase_gauge_campaign: want return-to-camp tip got '%s'" % tips)
+		_CombatRegressionHarness._fail(failures, "medical_phase_gauge_campaign: want return-to-camp tip got '%s'" % tips)
 	if not tips.contains("player side triages"):
-		CombatRegressionHarness._fail(failures, "medical_phase_gauge_campaign: want winner-lock tip got '%s'" % tips)
+		_CombatRegressionHarness._fail(failures, "medical_phase_gauge_campaign: want winner-lock tip got '%s'" % tips)
 	world.free()
-	CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+	_CombatRegressionHarness._free_manager_restore_global_rng(mgr)
 
 
 ## Camp-3.3: clean contract victories get ready tooltip copy (no auto-complete clause).
@@ -847,18 +850,18 @@ static func _run_medical_phase_gauge_tooltip_campaign_ready(failures: PackedStri
 	var world: Node2D = Node2D.new()
 	world.set_meta(_get_company_state_script().WORLD_META_ACTIVE_CONTRACT, {"contract_title": "Scout"})
 	var mgr: Node = MgrScript.new()
-	mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
+	mgr.register(_CombatRegressionHarness._new_entity("SWORD"), "player")
 	mgr.medical_phase = true
 	mgr.medical_phase_winner = "player"
 	var tips: String = "\n".join(UiHints.medical_phase_context_tooltip_lines(mgr, world))
 	if not tips.contains("Triage complete"):
-		CombatRegressionHarness._fail(failures, "medical_phase_gauge_campaign_ready: want ready tip got '%s'" % tips)
+		_CombatRegressionHarness._fail(failures, "medical_phase_gauge_campaign_ready: want ready tip got '%s'" % tips)
 	if tips.contains("remaining triage completes automatically"):
-		CombatRegressionHarness._fail(
+		_CombatRegressionHarness._fail(
 			failures, "medical_phase_gauge_campaign_ready: should not mention auto-complete when done"
 		)
 	world.free()
-	CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+	_CombatRegressionHarness._free_manager_restore_global_rng(mgr)
 
 
 ## Camp-3.3: gauge tooltips during medical phase include triage priority + winner lock.
@@ -872,14 +875,14 @@ static func _run_medical_phase_gauge_tooltip_pressure_and_winner_lock(failures: 
 	var c: Dictionary = {"state": CombatConstants.STATE_WAITING, "gauge": 100.0, "stamina": 40.0}
 	var tips: String = "\n".join(UiHints.gauge_tooltip_lines(c, mgr))
 	if not tips.contains("player side triages"):
-		CombatRegressionHarness._fail(failures, "medical_phase_gauge_tip: want winner-lock line got '%s'" % tips)
+		_CombatRegressionHarness._fail(failures, "medical_phase_gauge_tip: want winner-lock line got '%s'" % tips)
 	if not tips.contains("direct pressure") or not tips.contains("Battle bandages are free"):
-		CombatRegressionHarness._fail(failures, "medical_phase_gauge_tip: want triage priority copy got '%s'" % tips)
+		_CombatRegressionHarness._fail(failures, "medical_phase_gauge_tip: want triage priority copy got '%s'" % tips)
 	mgr.medical_phase = false
 	var off: String = "\n".join(UiHints.gauge_tooltip_lines(c, mgr))
 	if off.contains("Medical phase"):
-		CombatRegressionHarness._fail(failures, "medical_phase_gauge_tip: should omit medical copy when phase off")
-	CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+		_CombatRegressionHarness._fail(failures, "medical_phase_gauge_tip: should omit medical copy when phase off")
+	_CombatRegressionHarness._free_manager_restore_global_rng(mgr)
 
 
 ## Camp-3.3: receiving-care rows get medical-busy tooltip during medical phase.
@@ -892,9 +895,9 @@ static func _run_medical_phase_gauge_tooltip_medical_busy_receiving(failures: Pa
 	mgr.medical_phase_winner = "player"
 	var c: Dictionary = {"state": CombatConstants.STATE_RECEIVING_MEDICAL_ATTENTION}
 	var tips: String = "\n".join(UiHints.gauge_tooltip_lines(c, mgr))
-	CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+	_CombatRegressionHarness._free_manager_restore_global_rng(mgr)
 	if not tips.contains("Receiving care"):
-		CombatRegressionHarness._fail(failures, "medical_phase_busy: want receiving-care busy tip got '%s'" % tips)
+		_CombatRegressionHarness._fail(failures, "medical_phase_busy: want receiving-care busy tip got '%s'" % tips)
 
 
 ## Camp-3.3: medic wind-up rows get medical-busy tooltip during medical phase.
@@ -907,9 +910,9 @@ static func _run_medical_phase_gauge_tooltip_medical_busy_wind_up(failures: Pack
 	mgr.medical_phase_winner = "player"
 	var c: Dictionary = {"state": CombatConstants.STATE_MEDICAL_WIND_UP}
 	var tips: String = "\n".join(UiHints.gauge_tooltip_lines(c, mgr))
-	CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+	_CombatRegressionHarness._free_manager_restore_global_rng(mgr)
 	if not tips.contains("Medical wind-up"):
-		CombatRegressionHarness._fail(failures, "medical_phase_busy_wu: want wind-up busy tip got '%s'" % tips)
+		_CombatRegressionHarness._fail(failures, "medical_phase_busy_wu: want wind-up busy tip got '%s'" % tips)
 
 
 ## Camp-3.3: **`BattleUIUpdater`** primary label for receiving care during medical phase.
@@ -926,9 +929,9 @@ static func _run_battle_ui_gauge_label_receiving_care_during_medical_phase(failu
 		"stamina": 40.0,
 	}
 	var label: String = BattleUIUpdater.gauge_label_text_for_combatant(c, mgr)
-	CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+	_CombatRegressionHarness._free_manager_restore_global_rng(mgr)
 	if not label.contains("Receiving care"):
-		CombatRegressionHarness._fail(failures, "battle_ui_receiving: want Receiving care primary got '%s'" % label)
+		_CombatRegressionHarness._fail(failures, "battle_ui_receiving: want Receiving care primary got '%s'" % label)
 
 
 ## Camp-3.3: **`BattleUIUpdater`** primary label shows procedure during medical wind-up.
@@ -948,8 +951,9 @@ static func _run_battle_ui_gauge_label_medical_wind_up_primary(failures: PackedS
 		"stamina": 40.0,
 	}
 	var label: String = BattleUIUpdater.gauge_label_text_for_combatant(c, mgr)
-	CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+	_CombatRegressionHarness._free_manager_restore_global_rng(mgr)
 	if not label.contains("Direct pressure") or not label.contains("2.5s"):
-		CombatRegressionHarness._fail(failures, "battle_ui_med_wu: want procedure + timer primary got '%s'" % label)
+		_CombatRegressionHarness._fail(failures, "battle_ui_med_wu: want procedure + timer primary got '%s'" % label)
 
 ## Tier 6.1 UI: cowering mobility lines on gauge tooltips.
+

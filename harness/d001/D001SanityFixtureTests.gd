@@ -5,6 +5,7 @@ extends RefCounted
 ## `d001_presets`).
 
 const BattleScene := preload("res://ui/battle/BattleScene.gd")
+const _CombatRegressionHarness := preload("res://harness/regression/CombatRegressionHarness.gd")
 
 const II6_PROBE_CUT: float = 22.0
 const II6_PROBE_BLUNT: float = 22.0
@@ -21,8 +22,7 @@ static func _run_validator_fixture_tests() -> PackedStringArray:
             "soak=ii5",
             "soak_setup ii5 leader armless",
             "cowering_fall_back listed for Leader",
-            "cowering_fall_back pick Leader target_id=0",
-            "cowering_fall_back executed Leader rank 0->1 file 0",
+            "solo fall_back blocked: cowering unit alone on side (Leader)",
             "soak_fight_end winner=player medical_phase=false fight_profile=ii5",
         ]
     )
@@ -55,7 +55,7 @@ static func _run_validator_fixture_tests() -> PackedStringArray:
     var bad_missing_listed: PackedStringArray = PackedStringArray(
         [
             "soak_setup ii5 leader armless",
-            "cowering_fall_back executed Leader rank 0->1 file 0",
+            "solo fall_back blocked: cowering unit alone on side (Leader)",
         ]
     )
     var r5b: Dictionary = CombatF5SoakLogValidator.validate(
@@ -485,18 +485,18 @@ static func _run_validator_fixture_tests() -> PackedStringArray:
 static func _run_plausibility_fixture_tests() -> PackedStringArray:
     var failures: PackedStringArray = PackedStringArray()
 
-    var missing_exec: PackedStringArray = PackedStringArray(
+    var missing_blocked: PackedStringArray = PackedStringArray(
         [
             "cowering_fall_back listed for Leader",
         ]
     )
-    if D001SanityProbeTests._ii5_plausibility_failures(missing_exec).is_empty():
-        failures.append("fixture_ii5: should require executed line")
+    if D001SanityProbeTests._ii5_plausibility_failures(missing_blocked).is_empty():
+        failures.append("fixture_ii5: should require blocked line")
 
     var good_ii5: PackedStringArray = PackedStringArray(
         [
             "cowering_fall_back listed for Leader",
-            "cowering_fall_back executed Leader rank 0->1 file 0",
+            "solo fall_back blocked: cowering unit alone on side (Leader)",
         ]
     )
     if not D001SanityProbeTests._ii5_plausibility_failures(good_ii5).is_empty():
@@ -801,7 +801,7 @@ static func _ii6_probe_entity() -> CoreEntity:
     ent.blood_volume = II6_PROBE_BV_PCT
     ent._pain_shock_until_time = -1.0
     ent._ambient_pain_shock_accum = 0.0
-    CombatRegressionHarness._track_harness_node(ent)
+    _CombatRegressionHarness._track_harness_node(ent)
     return ent
 
 
@@ -909,7 +909,7 @@ static func _run_f5_soak_trace_fixtures() -> PackedStringArray:
         failures.append("f5_trace_early_medical_exit: want soak_coverage after finish_battle got %d" % early_exit_cov)
     if medical_exit_log > 0:
         failures.append("f5_trace_early_medical_exit: campaign_medical_exit should not log without contract world")
-    CombatRegressionHarness._free_harness_node(exit_mgr)
+    _CombatRegressionHarness._free_harness_node(exit_mgr)
     CombatF5SoakTrace.prepare_fight_end_log()
     CombatF5SoakTrace.set_fight_profile("7v7")
     OperationalLog.clear_capture()
@@ -941,7 +941,7 @@ static func _run_f5_soak_trace_fixtures() -> PackedStringArray:
         failures.append(
             "f5_trace_camp_med_exit_refresh: want camp_medical_exit supplement pass got %d" % camp_med_refresh
         )
-    CombatRegressionHarness._free_manager(camp_mgr)
+    _CombatRegressionHarness._free_manager(camp_mgr)
     camp_battle.free()
     camp_world.free()
     OperationalLog.play_world("settlement_continue paid=120 renown=1")

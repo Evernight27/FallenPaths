@@ -652,6 +652,9 @@ static func _run_7v7_brawl() -> Dictionary:
     var form: Dictionary = D001RunnerHelpers._formation_7v7()
     var mgr: Node = D001Ii5Ii6RunnerTests._start_manager("7v7", 7, 7, form, form)
     D001RunnerHelpers._simulate_fight(mgr, 120.0, "7v7")
+    var banner: String = D001RunnerHelpers._formation_engagement_banner_line(mgr)
+    if not banner.is_empty():
+        CombatF5SoakTrace.log_diagram_banner_player(banner)
     D001RunnerHelpers._free_manager(mgr)
     var lines: PackedStringArray = OperationalLog.get_captured_lines()
     return D001Ii5Ii6RunnerTests._evaluate("7v7", lines, CombatD001TrackSpecs.headless_checks_for_preset("7v7"))

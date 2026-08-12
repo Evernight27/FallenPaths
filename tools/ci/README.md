@@ -17,7 +17,7 @@ Expect **`PHASE0: PASS`**. Do not pipe stdout to `grep`. Windows: `.\tools\ci\ru
 | `run_playtest.sh` / `.ps1` | Playtest dispatcher (F5 / Camp closeout) — see below |
 | `run_q_feel.sh` / `.ps1` | F5 feel checklist (`Camp` \| `Q1` \| `Q2`) |
 | `run_q_audit.sh` / `.ps1` | Headless Q-track audit (`Track` \| `Q1` \| `Q2`) |
-| `check_doc_links.py` (+ `.sh` / `.ps1`) | Doc link + tombstone + `res://` audit |
+| `check_doc_links.py` (+ `.sh` / `.ps1`) | Doc link + tombstone + `res://` + constants-parity audit |
 | `ci_lint.sh` | Shellcheck + gdlint + gdformat --check |
 | `print_phase0_status.sh` / `.ps1` | Optional Phase 0 / D001 / Camp-5 summary |
 

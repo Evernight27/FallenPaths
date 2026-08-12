@@ -253,15 +253,18 @@ static func _move_definitions_build() -> Dictionary:
         },
         "poll_strike":
         {
+            # Axe poll strike uses blunt haft contact — swing path with long lever creates excess KE;
+            # reduce archetype's 1.3e_mult to ~0.65 so the move lands in the 55-155J axe band at realistic intensity.
             "name": "Back-of-head strike (blunt)",
             "contact_type": ATTACK_TYPE_BLUNT,
-            "archetype_id": WeaponTemplateDefinitions.ARCHETYPE_HEAVY_BLUNT,
+            "archetype_id": WeaponTemplateDefinitions.ARCHETYPE_OVERHEAD,
             "base_cooldown": 3.0,
             "attack_line": "high",
             "preferred_parts": ["head"],
             "angle_variance_deg": 11,
             "impact_station_mean": 0.22,
-            "impact_station_spread": 0.02
+            "impact_station_spread": 0.02,
+            "strike_energy_mult_override": 0.65
         },
         "parry_chop":
         {
@@ -702,15 +705,18 @@ static func _move_definitions_build() -> Dictionary:
         },
         "shaft_thrust":
         {
+            # Spear shaft butt strike — uses body mass transfer through the long shaft;
+            # default BLUNT strike_mass (0.55 kg) is too low for this move type.
             "name": "Shaft butt strike",
             "contact_type": ATTACK_TYPE_BLUNT,
-            "archetype_id": WeaponTemplateDefinitions.ARCHETYPE_HEAVY_BLUNT,
+            "archetype_id": WeaponTemplateDefinitions.ARCHETYPE_THRUSTING_BLUNT,
             "base_cooldown": 2.0,
             "attack_line": "high",
             "preferred_parts": ["head"],
             "angle_variance_deg": 10,
             "impact_station_mean": 0.15,
-            "impact_station_spread": 0.02
+            "impact_station_spread": 0.02,
+            "strike_mass_override_kg": 2.5
         },
         "low_thrust_spear":
         {

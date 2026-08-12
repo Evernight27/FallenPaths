@@ -348,16 +348,18 @@ static func envelop_mop_up_active(manager: Node, formation_id: String) -> bool:
 static func fight_finish_tail_active(manager: Node, c: Dictionary, actions: Array, combatant_id: int) -> bool:
     if manager == null or c.is_empty() or combatant_id < 0:
         return false
+    var fid: String = CombatantEntityAccess.formation_id_str(c)
+    # Mop-up fighters don't need listed strikes — mop-up status itself is sufficient trigger.
+    if envelop_mop_up_active(manager, fid):
+        return true
     if not CombatListedActions.action_list_has_hostile_strike(actions, combatant_id):
         return false
-    var fid: String = CombatantEntityAccess.formation_id_str(c)
     return (
         (
             CombatantEntityAccess.rank_int(c) == 0
             and CombatFormationFlow.skirmish_line_sparse_after_casualties(manager, fid)
         )
         or mop_up_underdog_active(manager, c)
-        or envelop_mop_up_active(manager, fid)
     )
 
 

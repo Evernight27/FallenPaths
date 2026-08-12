@@ -1,5 +1,7 @@
 class_name CombatRegressionHarnessMentalStackIntegrationTail
 extends RefCounted
+const _CombatRegressionHarness := preload("res://harness/regression/CombatRegressionHarness.gd")
+
 ## Stacked-phase integration tests: verify layer precedence when multiple FEATURE flags are active.
 ## Tests that activate multiple phases simultaneously and check MENTAL_STACK_LAYER_* stamps.
 

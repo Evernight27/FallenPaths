@@ -197,6 +197,9 @@ static func is_enemy_side(combatant: Dictionary) -> bool:
 	return _get_identity().is_enemy_side(combatant)
 
 
+static func is_living_opponent_of_by_side(combatant: Dictionary, my_side: String) -> bool:
+	return _get_identity().is_living_opponent_of_by_side(combatant, my_side)
+
 static func leader_register_flags_from_node(node: Node, side: String) -> Dictionary:
 	return _get_identity().leader_register_flags_from_node(node, side)
 

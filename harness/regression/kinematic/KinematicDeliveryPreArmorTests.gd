@@ -413,7 +413,7 @@ static func _run_kinematic_delivery_strike_momentum_mult_scales_blunt_damage_and
         {"def": "AXE", "move": "diagonal_chop", "pfx": "kin_p_mult_cb_ax"},
         # Light blade: raise pinned **`v`** so raw blunt clears **`BLUNT_DAMAGE_MIN`** for both mults (narrow blade
         # otherwise clamps both samples to **1.0** -> ratio **1.0**).
-        {"def": "DAGGER", "move": "quick_slash", "pfx": "kin_p_mult_cb_dg", "v": 20.0},
+        {"def": "DAGGER", "move": "quick_slash", "pfx": "kin_p_mult_cb_dg", "v": 18.0},
     ]:
         var wcb: Weapon = HarnessFixtures.get_cached_weapon(str(cb["def"]))
         if wcb == null:

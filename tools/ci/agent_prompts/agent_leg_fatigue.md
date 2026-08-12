@@ -211,7 +211,7 @@ static func formation_movement_weight_mult(c: Dictionary, move_id: String, _mana
 ```
 
 ### Step 5: Add recovery time bonus hook (if feasible within budget)
-If there's room after steps 1-4, add `recovery_time_mult()` and hook it into wherever recovering state duration is computed. This could be in `CombatStateHandlers` or via a constant that scales the `COMPOSURE_FILL_RECOVERING` rate inversely:
+If there's room after steps 1-4, add `recovery_time_mult()` and hook it into wherever recovering state duration is computed. This could be in `CombatStateHandlers` or via a constant that scales recovering duration inversely (note: recovery is event-driven via `EVENT_RECOVERY_END`; gauge is zeroed, not filled):
 
 ```gdscript
 // In CombatConstants.gd (or existing recovery constants file):
@@ -241,7 +241,7 @@ static func _run_muscle_fatigue_dodge_chance_tired_legs(failures: PackedStringAr
         // New curve at 80% fatigue: lerp(1.0, 0.25, pow(0.8, 1.3)) ≈ 0.29
         var expected := lerpf(1.0, CombatConstants.MUSCLE_FATIGUE_BALANCE_STABILITY_FLOOR_AT_MAX, pow(0.8, 1.3))
         if absf(mult - expected) > 0.02:
-            CombatRegressionHarness._fail(failures, "muscle_fatigue_dodge: want ~%.3f got %.3f" % [expected, mult])
+            _CombatRegressionHarness._fail(failures, "muscle_fatigue_dodge: want ~%.3f got %.3f" % [expected, mult])
     )
 ```
 

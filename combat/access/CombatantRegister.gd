@@ -53,4 +53,7 @@ static func build_initial(
         "is_enemy_leader": leader_flags.get("is_enemy_leader", false),
         "morale_cohesion": morale_cohesion,
         "campaign_stamina_mult": campaign_stamina_mult,
+        "ruthlessness": 50.0,
+        "damage_dealt_by_id": {},
+        "prisoner": false,
     }

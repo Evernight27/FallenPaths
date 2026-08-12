@@ -114,6 +114,14 @@ static func is_on_side(combatant: Dictionary, side: String) -> bool:
     return side_str(combatant) == side
 
 
+## Alive combatant on the **opposite** side from `side_str`. (Convenience — mirrors `is_living_same_side`.)
+
+static func is_living_opponent_of_by_side(combatant: Dictionary, my_side: String) -> bool:
+    if not alive_bool(combatant):
+        return false
+    return side_str(combatant) != my_side
+
+
 static func is_player_side(combatant: Dictionary) -> bool:
     return is_on_side(combatant, CombatConstantsMisc.SIDE_PLAYER)
 

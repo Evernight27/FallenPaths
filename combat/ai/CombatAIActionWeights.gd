@@ -107,6 +107,12 @@ static func _get_action_weight(
 		and not CombatMobilityRetreat.resolve_move_allowed_when_cannot_melee(mid, a.get(DataKeys.ACTION_TARGET_ID, -1), combatant_id)
 	):
 		return 0.0
+	if mid == CombatConstants.MOVE_ID_EXECUTE:
+		return CombatExecute.execute_weight(
+			manager,
+			c,
+			CombatantEntityAccess.manager_get_combatant(manager, a.get(DataKeys.ACTION_TARGET_ID, -1))
+		)
 	if mid == CombatConstants.MOVE_ID_WAIT:
 		var preset_w: float = a.get(DataKeys.ACTION_WEIGHT, -1.0)
 		if preset_w >= 0.0:
@@ -899,8 +905,10 @@ static func _get_medical_weight(a: Dictionary, combatant_id: int, manager: Node)
 		eff_raw, MedicalPhaseBatchResolve.MEDICAL_AI_EFF_CLAMP_MIN, MedicalPhaseBatchResolve.MEDICAL_AI_EFF_CLAMP_MAX
 	)
 	var urgency: float = (
-		MedicalPhaseController.get_medical_urgency_deterministic(manager, tgt) if not tgt.is_empty() else 0.0
+		MedicalPhaseController.get_medical_urgency_deterministic(manager, tgt) if not tgt.is_empty() else -1.0
 	)
+	if urgency < 0.0:
+		return MedicalPhaseBatchResolve.MEDICAL_AI_WEIGHT_COORDINATION_BLOCKED
 	var part_threat: float = 0.0
 	if not tgt.is_empty() and not part.is_empty():
 		part_threat = MedicalPhaseController.get_part_intervention_threat(manager, tgt, part)
@@ -938,10 +946,17 @@ static func _get_medical_weight(a: Dictionary, combatant_id: int, manager: Node)
 	if failed_raw is Array and part in (failed_raw as Array) and CombatConstants.is_wind_up_medical_move(mid):
 		w *= MedicalPhaseBatchResolve.MEDICAL_AI_WEIGHT_FAILED_PART_RETRY
 	if not tgt.is_empty() and not CombatantEntityAccess.is_in_immediate_peril(manager, tgt):
-		if mid == CombatConstants.MOVE_ID_STABILIZE_WOUND:
+		var bleed_r: float = 0.0
+		if not part.is_empty():
+			bleed_r = CombatantEntityAccess.entity_bleeding_rate_for_part(manager, tgt, part)
+		var slow_bleed_active: bool = bleed_r > BleedingConstants.BLEEDING_RATE_EPSILON and bleed_r < BleedingConstants.TOURNIQUET_BLEEDING_RATE_THRESHOLD
+		if mid == CombatConstants.MOVE_ID_BANDAGE_SELF or mid == CombatConstants.MOVE_ID_PACK_WOUND or mid == CombatConstants.MOVE_ID_BANDAGE_ALLY or mid == CombatConstants.MOVE_ID_PACK_ALLY:
+			if slow_bleed_active:
+				pass
+			else:
+				w *= MedicalPhaseBatchResolve.MEDICAL_AI_WEIGHT_DRESSING_OUT_OF_PERIL
+		elif mid == CombatConstants.MOVE_ID_STABILIZE_WOUND or mid == CombatConstants.MOVE_ID_STABILIZE_ALLY:
 			w *= MedicalPhaseBatchResolve.MEDICAL_AI_WEIGHT_STABILIZE_OUT_OF_PERIL
-		elif mid == CombatConstants.MOVE_ID_BANDAGE_SELF or mid == CombatConstants.MOVE_ID_PACK_WOUND:
-			w *= MedicalPhaseBatchResolve.MEDICAL_AI_WEIGHT_DRESSING_OUT_OF_PERIL
 	if (
 		not tgt.is_empty()
 		and not part.is_empty()
@@ -969,7 +984,7 @@ static func _get_medical_weight(a: Dictionary, combatant_id: int, manager: Node)
 			elif CombatConstants.is_dressing_medical_move(mid):
 				if not MedicalPhaseController.dressings_allowed_for_part(manager, tgt, part):
 					return 0.001
-				if mid == CombatConstants.MOVE_ID_PACK_WOUND:
+				if mid == CombatConstants.MOVE_ID_PACK_WOUND or mid == CombatConstants.MOVE_ID_PACK_ALLY:
 					w *= MedicalPhaseBatchResolve.MEDICAL_AI_WEIGHT_PACK_BEFORE_PRESSURE
 	return maxf(w, 0.001)
 
@@ -983,14 +998,21 @@ static func _opponent_degradation_weight_mult(manager: Node, target_id: int) -> 
 	if tgt.is_empty():
 		return 1.0
 	var mult: float = 1.0
-	## Body-wide wound severity ratio — heavily wounded targets are easier to strike.
-	var wounds: Array = tgt.get(DataKeys.WOUNDS, [])
-	if not wounds.is_empty():
+	var entity: Node = CombatantEntityAccess.get_entity_from_manager(manager, tgt)
+	if entity != null and entity.has_method("_get_wounds"):
+		var wounds_dict: Dictionary = entity._get_wounds()
 		var total_damage: float = 0.0
-		for w in wounds:
-			total_damage += EntityProficiency.SEVERITY_MULT.get(w.get("severity", ""), 1.0)
-		var max_possible: float = wounds.size() * 2.0  # critical wound severity_mult is 2.0
-		var wound_ratio: float = clampf(total_damage / max(max_possible, 0.001), 0.0, 1.0)
-		if wound_ratio > 0.3:
-			mult *= lerpf(1.0, CombatConstants.AI_WOUNDED_OPPONENT_WEIGHT_MULT, clampf((wound_ratio - 0.3) / 0.7, 0.0, 1.0))
+		var part_count: int = 0
+		for part_key in wounds_dict:
+			var injuries: Array = wounds_dict[part_key]
+			if injuries.is_empty():
+				continue
+			part_count += 1
+			for inj in injuries:
+				total_damage += EntityProficiency.SEVERITY_MULT.get(inj.get("severity", ""), 1.0)
+		if part_count > 0:
+			var max_possible: float = part_count * 2.0
+			var wound_ratio: float = clampf(total_damage / max(max_possible, 0.001), 0.0, 1.0)
+			if wound_ratio > 0.3:
+				mult *= lerpf(1.0, CombatConstants.AI_WOUNDED_OPPONENT_WEIGHT_MULT, clampf((wound_ratio - 0.3) / 0.7, 0.0, 1.0))
 	return mult

@@ -577,9 +577,12 @@ static func choose_defense(
         )
     )
     if preview_align >= CombatConstants.PARRY_PARTIAL_GUARD_ALIGNMENT_THRESHOLD and not def_recovering_from_attack:
-        var alignment_floor: float = maxf(preview_align, CombatConstants.PARRY_PARTIAL_GUARD_ALIGNMENT_THRESHOLD)
-        var min_viable_capacity: float = result.parry_p_a * CombatConstants.PARRY_CAPACITY_FLOOR_RATIO * (alignment_floor / CombatConstants.PARRY_PARTIAL_GUARD_ALIGNMENT_THRESHOLD)
-        result.parry_c_d = maxf(result.parry_c_d, min_viable_capacity)
+        # Skip floor when guard is explicitly zeroed (e.g. harness tests forcing hit outcomes).
+        var guard_suppressed: bool = PassiveParryContext.guard_readiness_float(tgt) <= 0.0
+        if not guard_suppressed:
+            var alignment_floor: float = maxf(preview_align, CombatConstants.PARRY_PARTIAL_GUARD_ALIGNMENT_THRESHOLD)
+            var min_viable_capacity: float = result.parry_p_a * CombatConstants.PARRY_CAPACITY_FLOOR_RATIO * (alignment_floor / CombatConstants.PARRY_PARTIAL_GUARD_ALIGNMENT_THRESHOLD)
+            result.parry_c_d = maxf(result.parry_c_d, min_viable_capacity)
     var interpose_active: bool = float(result.get(DataKeys.RESULT_ARM_INTERPOSE_BOOST, 0.0)) > 0.0
     var def_has_weapon: bool = CombatantEntityAccess.has_weapon(tgt)
 
@@ -663,12 +666,23 @@ static func choose_defense(
                 CombatantEntityAccess.id_int(atk), late_parry, well_aligned, is_glancing, clean_dodge_likely, dodge_better, energy_dodge, energy_parry
             ]
         )
+        var capacity_shortfall_ratio: float = 1.0
+        if result.parry_p_a > 0.001:
+            capacity_shortfall_ratio = result.parry_c_d / result.parry_p_a
+        var partial_parry_viable: bool = (
+            well_aligned and not is_glancing and capacity_shortfall_ratio >= CombatConstants.PARRY_CAPACITY_FLOOR_RATIO * 0.5
+        )
         choose_parry = (
             late_parry
             and (block_viable or redirect_viable)
             or (
                 well_aligned
                 and (block_viable or redirect_viable)
+            )
+            or (
+                partial_parry_viable
+                and not dodge_better
+                and not clean_dodge_likely
             )
             or (
                 interpose_active
@@ -831,7 +845,7 @@ static func _get_line_alignment(
         if not effective_attack_line_override.is_empty()
         else move_def.get(DataKeys.PA_ATTACK_LINE, "high")
     )
-    # G2: share the guard alignment stamped at resolve (same source guard_hit_mult uses) for the
+    # G2: share the guard alignment stamped at resolve (same source DefenseChoiceResolver parry uses) for the
     # line-based path; the angle context (blade at parry contact) is the fine-grained refinement.
     if alignment_context.is_empty() and base_alignment >= 0.0:
         return base_alignment

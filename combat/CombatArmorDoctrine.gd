@@ -433,3 +433,22 @@ static func _combatant_node(combatant: Dictionary) -> Variant:
 	if ent != null and ent is CoreEntity:
 		return ent
 	return null
+
+
+## Weapon-type-specific armor interaction multiplier for mace.
+## Returns a factor >= 1.0 that scales mace damage UP against armored targets, representing
+## blunt force trauma transmitted through plate/mail that edged weapons cannot deliver.
+## target_rha_mm: sharp resistance of the target's armor on the hit part in mm RHA.
+static func mace_armor_interaction_multiplier(target_rha_mm: float) -> float:
+	if target_rha_mm <= ARMOR_TIER_NONE_THRESHOLD:
+		return 1.0  # cloth/gambeson — no bonus vs soft targets
+	elif target_rha_mm <= ARMOR_TIER_LIGHT_THRESHOLD:
+		# Mail armor — mace crushes beneath links, transmitting shock to body
+		var ratio = (target_rha_mm - ARMOR_TIER_NONE_THRESHOLD) / (ARMOR_TIER_LIGHT_THRESHOLD - ARMOR_TIER_NONE_THRESHOLD)
+		return 1.2 + ratio * 0.3  # 1.2x at none → 1.5x at light mail
+	elif target_rha_mm <= ARMOR_TIER_MEDIUM_THRESHOLD:
+		# Medium plate — flanged head dents plates, concentrates force on small contact areas
+		var ratio = (target_rha_mm - ARMOR_TIER_LIGHT_THRESHOLD) / (ARMOR_TIER_MEDIUM_THRESHOLD - ARMOR_TIER_LIGHT_THRESHOLD)
+		return 1.5 + ratio * 0.28  # 1.5x at light → 1.78x at medium
+	else:
+		return 1.78  # cap vs heavy plate

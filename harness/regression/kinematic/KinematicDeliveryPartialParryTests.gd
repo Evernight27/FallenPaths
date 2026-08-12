@@ -44,11 +44,15 @@ static func _kin_dmg_integration_sample(
     var intensity: float = 0.62
     var arch: Dictionary = arch_override
     if arch.is_empty():
-        arch = (
-            {"kinematic_delivery": WeaponConstants.KINEMATIC_DELIVERY_THRUST}
-            if move_id == "spear_thrust"
-            else {"kinematic_delivery": WeaponConstants.KINEMATIC_DELIVERY_SWING}
-        )
+        var full_arch: Dictionary = WeaponConstants.get_archetype(move_id)
+        var delivery: String = "swing"
+        if move_id == "spear_thrust":
+            delivery = WeaponConstants.KINEMATIC_DELIVERY_THRUST
+        else:
+            delivery = WeaponConstants.KINEMATIC_DELIVERY_SWING
+        arch = {"kinematic_delivery": delivery}
+        for key in full_arch:
+            arch[key] = full_arch[key]
     var m: Node = MgrScript.new()
     m.set_meta(HARNESS_META_EXPOSE_PENETRATION_APPLIED, true)
     m.set_meta(HARNESS_META_EXPOSE_DAMAGE_KINEMATICS, true)

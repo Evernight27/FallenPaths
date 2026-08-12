@@ -1,5 +1,7 @@
 class_name KinematicDeliveryClosingDefenseTests
 extends CombatRegressionHarnessCore
+const _CombatRegressionHarness := preload("res://harness/regression/CombatRegressionHarness.gd")
+
 ## Tier 5.1 (optional long-tail): rear **`engagement_angle`** - -  **`afterblow_damage_mult`** compose on **`v`**.
 ## -> **`strike_ke_j`** (~**(cls - -  sqrtab)2**).
 const HumanSpecies := preload("res://resources/species/human.tres")

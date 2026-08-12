@@ -5,6 +5,7 @@ extends RefCounted
 
 const HumanSpecies := preload("res://resources/species/human.tres")
 const GoblinSpecies := preload("res://resources/species/goblin.tres")
+const _CombatRegressionHarness := preload("res://harness/regression/CombatRegressionHarness.gd")
 
 const REPORT_FILENAME := ".calibration_audit.txt"
 const BIND_THRESHOLD := CombatConstants.PARRY_BIND_CONTROL_THRESHOLD
@@ -103,8 +104,8 @@ static func tissue_energy_hp_vs_j_parity_metrics() -> Dictionary:
         + float(res_hp.get("final_blunt", 0.0))
         + float(res_hp.get("final_bone", 0.0))
     )
-    CombatRegressionHarness._free_harness_node(ent_j)
-    CombatRegressionHarness._free_harness_node(ent_hp)
+    _CombatRegressionHarness._free_harness_node(ent_j)
+    _CombatRegressionHarness._free_harness_node(ent_hp)
     return {"tissue_applied_j": tissue_j, "tissue_applied_hp": tissue_hp}
 
 
@@ -119,7 +120,7 @@ static func f5_forearm_graze_metrics() -> Dictionary:
         "penetration_to_tissue_mm": float(res.get("penetration_to_tissue_mm", -1.0)),
         "penetration_to_bone_mm": float(res.get("penetration_to_bone_mm", -1.0)),
     }
-    CombatRegressionHarness._free_harness_node(ent)
+    _CombatRegressionHarness._free_harness_node(ent)
     return out
 
 
@@ -159,8 +160,8 @@ static func f5_armored_chest_metrics() -> Dictionary:
         "transmitted_ke_fraction": float(res_arm.get("transmitted_ke_fraction", -1.0)),
         "armor_ke_absorbed_j": float(res_arm.get("armor_ke_absorbed_j", 0.0)),
     }
-    CombatRegressionHarness._free_harness_node(bare)
-    CombatRegressionHarness._free_harness_node(armored)
+    _CombatRegressionHarness._free_harness_node(bare)
+    _CombatRegressionHarness._free_harness_node(armored)
     return out
 
 
@@ -181,5 +182,5 @@ static func f5_mace_elbow_metrics() -> Dictionary:
         "final_bone": float(res.get("final_bone", 0.0)),
         "final_blunt": float(res.get("final_blunt", 0.0)),
     }
-    CombatRegressionHarness._free_harness_node(ent)
+    _CombatRegressionHarness._free_harness_node(ent)
     return out

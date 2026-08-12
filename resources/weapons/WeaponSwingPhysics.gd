@@ -29,7 +29,7 @@ static func _total_length_m_from_parts(parts: Array) -> float:
 static func com_distance_from_grip_m(parts: Array, part_index: int) -> float:
     if part_index < 0 or part_index >= parts.size():
         return MIN_LEVER_M
-    var total_momentum: float = _total_length_m_from_parts(parts)
+    var total_length_m: float = _total_length_m_from_parts(parts)
     var cum_from_tip: float = 0.0
     for i in range(parts.size()):
         if not parts[i] is Dictionary:
@@ -37,7 +37,7 @@ static func com_distance_from_grip_m(parts: Array, part_index: int) -> float:
         var segment_momentum: float = maxf(0.0, parts[i].get("length_cm", 0.0)) / 100.0
         if i == part_index:
             var com_from_tip: float = cum_from_tip + segment_momentum * 0.5
-            return maxf(MIN_LEVER_M, total_momentum - com_from_tip)
+            return maxf(MIN_LEVER_M, total_length_m - com_from_tip)
         cum_from_tip += segment_momentum
     return MIN_LEVER_M
 
@@ -100,19 +100,19 @@ static func inertia_about_grip_kg_m2(weapon: Object) -> float:
             if (weapon.get("melee_range") is float or weapon.get("melee_range") is int)
             else 1.2
         )
-        ## Effective lever arm for inertia: uniform rod about one end has I = mL^2/3,
-        ## but real weapons concentrate mass toward the grip (handle ~0.15m of shaft),
-        ## so effective radius is shorter than L_total. Factor matches measured values:
-        ## dagger ~0.17m, arming sword ~0.32m, longswords ~0.42-0.50m.
+        ## Effective lever arm for inertia: I = m·r_eff² where r_eff captures mass concentration toward grip.
+        ## Combined shortened lever and mass profile into single 0.35 factor (merged from old eff_radius*0.48 × 0.25 correction).
         var eff_radius: float = l_total * WeaponConstants.INERTIA_EFF_RADIUS_FRACTION
-        ## Mass distribution correction — real swords concentrate mass near grip; uniform rod overestimates by ~4×.
-        ## Measured I for longswords at grip ≈ 0.010-0.015 kg·m² (Meinel & Rottler 1983); uniform rod gives ~0.036.
-        var MASS_DIST_CORRECTION_FRACTION: float = 0.25   # tapered blade + handle mass profile (measured vs uniform)
-        return maxf(MIN_INERTIA_KG_M2, total_mass * eff_radius * eff_radius / 3.0 * MASS_DIST_CORRECTION_FRACTION)
+        return maxf(MIN_INERTIA_KG_M2, total_mass * eff_radius * eff_radius)
     var parts: Array = weapon.parts
     if parts.is_empty():
-        var eff_radius: float = WeaponConstants.INERTIA_EFF_RADIUS_FRACTION
-        return maxf(MIN_INERTIA_KG_M2, total_mass * eff_radius * eff_radius / 3.0)
+        var l_default: float = 1.2
+        if weapon != null and weapon.has_method("get"):
+            var mr: Variant = weapon.get("melee_range")
+            if mr is float or mr is int:
+                l_default = float(mr)
+        var eff_radius: float = l_default * WeaponConstants.INERTIA_EFF_RADIUS_FRACTION
+        return maxf(MIN_INERTIA_KG_M2, total_mass * eff_radius * eff_radius)
     ## For weapons with explicit part definitions, compute point-mass inertia directly — no correction needed
     ## since mass_fraction per segment captures the tapered profile naturally.
     var inertia_kg_m2: float = 0.0
@@ -123,6 +123,11 @@ static func inertia_about_grip_kg_m2(weapon: Object) -> float:
         var m_i: float = maxf(0.0, total_mass * frac)
         var d: float = com_distance_from_grip_m(parts, i)
         inertia_kg_m2 += m_i * d * d
+    ## Per-weapon inertia scaling from strike_physics (calibrated per weapon to hit HEMA KE bands).
+    if weapon is Object and weapon.has_method("get"):
+        var sp: Variant = weapon.get("strike_physics")
+        if sp is Dictionary and sp.has("inertia_scale"):
+            inertia_kg_m2 *= float(sp.inertia_scale)
     return maxf(MIN_INERTIA_KG_M2, inertia_kg_m2)
 
 

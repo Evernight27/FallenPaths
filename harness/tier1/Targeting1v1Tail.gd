@@ -1,8 +1,9 @@
 class_name CombatRegressionHarnessTargeting1v1Tail
 extends RefCounted
+const _CombatRegressionHarness := preload("res://harness/regression/CombatRegressionHarness.gd")
 ## 1v1 targeting validation harness (soak calibration).
 ## Runs short (3-exchange) strikes per weapon and logs aim=part distributions.
-## Usage: run() from CombatRegressionHarness.run_all() or invoke run_tuning_all() manually.
+## Usage: run() from _CombatRegressionHarness.run_all() or invoke run_tuning_all() manually.
 ## Each scenario fires exactly 3 exchanges (player→enemy, enemy→player = 2 attacks each).
 
 const PROF_NOVICE := {"strength": 80, "agility": 70, "intelligence": 60, "endurance": 70, "perception": 50}
@@ -523,7 +524,7 @@ static func run(failures: PackedStringArray) -> void:
         var result: Dictionary = runner.call()
         var total: int = result.get("total_attacks", 0)
         if total == 0:
-            CombatRegressionHarness._fail(failures, "targeting_1v1_%s: no attacks recorded" % name)
+            _CombatRegressionHarness._fail(failures, "targeting_1v1_%s: no attacks recorded" % name)
             continue
 
         var matches: Dictionary = result.get("matches", {})
@@ -531,7 +532,7 @@ static func run(failures: PackedStringArray) -> void:
             var action_summary := ""
             for r in result.get("records", []):
                 action_summary += "%s(%s) " % [r.get("move_id", ""), r.get("outcome", "")]
-            CombatRegressionHarness._fail(
+            _CombatRegressionHarness._fail(
                 failures, "targeting_1v1_%s: no hits in %d attacks [%s]" % [name, total, action_summary.strip_edges()]
             )
 

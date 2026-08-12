@@ -287,6 +287,12 @@ static func format_action_line(
                     "[color=red]%s (%s)  -  %s (%s) is defeated.[/color]"
                     % [attacker_name, attacker_side, target_name, target_side]
                 )
+        "execute":
+            if died and not has_resolved_physical_damage(result):
+                return (
+                    "[color=red]%s (%s)  -  %s (%s) was executed.[/color]"
+                    % [attacker_name, attacker_side, target_name, target_side]
+                )
         _:
             if died and not has_resolved_physical_damage(result):
                 return (

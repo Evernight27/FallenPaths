@@ -16,7 +16,6 @@ static func _sanitize_name(raw: String) -> String:
 
 const SPECIES_OPTIONS: Array[String] = [
 	"res://resources/species/human.tres",
-	"res://resources/species/goblin.tres",
 ]
 
 # Body part order used for display and serialization.

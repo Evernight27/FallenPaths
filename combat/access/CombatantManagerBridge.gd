@@ -70,6 +70,8 @@ static func has_left_battlefield(combatant: Dictionary) -> bool:
 static func is_incapacitated(combatant: Dictionary) -> bool:
     if bool(combatant.get(DataKeys.COMBATANT_YIELDED, false)) or str(combatant.get(DataKeys.COMBATANT_STATE, "")) == "yielded":
         return true
+    if str(combatant.get(DataKeys.COMBATANT_STATE, "")) == "cowering":
+        return true
     var node = node_variant(combatant)
     if node == null or not node.has_method("is_incapacitated"):
         return false

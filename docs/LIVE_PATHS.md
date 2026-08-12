@@ -32,7 +32,7 @@ Entry: [`AGENTS_ENTRY`](AGENTS_ENTRY.md) · Expand: [#phase-4--new-systems-forma
 
 ## Tier 3 — parry / bind / guards
 
-`DefenseChoiceResolver`, `CombatIncomingParryChoice` (**D-007**), `CombatGuardLines` (**D-006**) · `PARRY_DEFLECT_THRESHOLD` **1.03**, `PARRY_BIND_CONTROL_THRESHOLD` **0.65** · `_run_parry_*`, `_run_bind_*`, `_run_*guard*`.
+`DefenseChoiceResolver`, `CombatIncomingParryChoice` (**D-007**), `CombatGuardLines` (**D-006**) · `PARRY_DEFLECT_THRESHOLD` **0.75**, `PARRY_BIND_CONTROL_THRESHOLD` **0.65** · `_run_parry_*`, `_run_bind_*`, `_run_*guard*`.
 
 **D-006 + WF:** eight-line **`guard_line`** is moment posture (L3). **`CombatWeaponForm.assign_form`** sets **home** line on spawn/switch; outcomes drift via **`GuardLineUpdater`**. Parry alignment and Tier **4.4** PA step read **live** line — not **`weapon_form`**. Attachment: [#wf-footing-guards-stances](#wf-footing-guards-stances) · [#wf-layer-labels](#wf-layer-labels).
 
@@ -254,9 +254,9 @@ Literal mL · layer tissue · material curves · ATLS consciousness · absolute 
 
 <a id="1-hemorrhage-and-atls-blood-volume-ttd"></a>
 
-**ATLS (remaining blood %):** I ≥85 · II ≥70 · III ≥60 · IV death at **35%** remaining.
+**ATLS (remaining blood %):** I ≥85 · II ≥70 · III ≥60 · IV death at **30%** remaining.
 
-**Reference uncontrolled bleed:** `BLEEDING_RATES[cut][critical] × head × arterial` = **13.5 HP/s**.
+**Reference uncontrolled bleed:** `BLEEDING_RATES[cut][critical] × head × arterial` = **23.625 HP/s** (4.5 × 1.5 × 3.5).
 
 **TTD:** `(blood_volume − threshold) / (rate × BLOOD_LOSS_RATE_MULTIPLIER × loss_mult)` → default **~48 s**; tune mult for **30–120 s** band. **Sustained direct pressure** uses TCCC retained-flow fractions (**venous ~10%**, **arterial ~50%** of intrinsic wound rate for blood-loss integration) plus faster local clotting k (`CLOTTING_RATE_UNDER_DIRECT_PRESSURE`); constant-rate halving anchor (`clinical_ttd_seconds(0.5)`) ≈ **2×** TTD is the research gate only — live sim includes clotting `exp(-k×Δt)`.
 
@@ -272,7 +272,7 @@ Literal mL · layer tissue · material curves · ATLS consciousness · absolute 
 
 <a id="10-blunt-fracture-j-vs-nm-biomechanics-note"></a>
 
-**Clotting** `exp(-k×Δt)` — open moderate **k≈0.02** · sustained pressure **k=0.032** (half-life **~22 s**) · bandaged **k=0.006** (**~115 s**) · arterial ×**0.15** on k · **stabilize** trims rate only (no `is_stabilized` until dress/pack). **Pain** human ref **~3.0** / **~2** hits → NRS 4 · **blunt KE** oberhau **~137 J**, arm **22 J** (rank-order only).
+**Clotting** `exp(-k×Δt)` — open moderate **k≈0.02** · sustained pressure **k=0.032** (half-life **~22 s**) · bandaged **k=0.006** (**~115 s**) · arterial ×**0.1** on k · **stabilize** trims rate only (no `is_stabilized` until dress/pack). **Pain** human ref **~3.0** / **~2** hits → NRS 4 · **blunt KE** oberhau **~137 J**, arm **22 J** (rank-order only).
 
 <a id="12-tuning-order-keep-research-chain"></a>
 
@@ -288,13 +288,13 @@ Literal mL · layer tissue · material curves · ATLS consciousness · absolute 
 
 **MXm-3 (shipped):** burst **`Stm N%`** = `stamina_ratio()` vs `CombatExhaustion.effective_stamina_max()` (exhaustion + blood caps, floor 0.7 each). `clamp_stamina_to_effective_max` after spend. Refill rate scales down at high exhaustion. Progress bar always maps to burst stamina; counter-tempo readiness is label-only (`Rdy N%` / `Counter!`). `ZoneOfControl` opponent pressure and aggressive-stance gates use **`stamina_ratio`**, not absolute `/ STAMINA_MAX`.
 
-**MS-L7 (shipped):** `MentalStackDecider` **L5** (`Stack exhaustion`) + gradual offense damp in `CombatAIActionPicker` — ramp to floor at **`MENTAL_STACK_EXHAUSTION_TUNNEL_THRESHOLD`** (0.50, 50% FP band). Harness `_run_mental_stack_exhaustion_tunnel_*` · **`_run_p4a_ms_l7_exhaustion_threshold_parity`** ☑ 2026-06-08.
+**MS-L7 (shipped):** `MentalStackDecider` **L5** (`Stack exhaustion`) + gradual offense damp in `CombatAIActionPicker` — ramp to floor at **`MENTAL_STACK_EXHAUSTION_TUNNEL_THRESHOLD`** (0.55, 55% FP band). Harness `_run_mental_stack_exhaustion_tunnel_*` · **`_run_p4a_ms_l7_exhaustion_threshold_parity`** ☑ 2026-06-08.
 
 <a id="composure-rework"></a>
 
 ## Composure (shipped)
 
-Continuous 0–100 gauge: fill 25/s WAITING · 8/s RECOVERING · cost at wind-up · quality/parry scale with gauge · wait does not zero. APIs: [`AGENTS_API`](AGENTS_API.md) · [`COMPOSURE_PLAN`](COMPOSURE_PLAN.md).
+`gauge` 0–100 (`DataKeys.COMBATANT_GAUGE`) — **event-driven**: no fill during WAITING/RECOVERING. `CombatEventDispatch.handle_action_ready` sets **100**; wind-up / recovery / medical / form-switch set **0**. Cowering idle fills **0.5/s** (`CombatStateHandlers.process_cowering_idle`). Counter-tempo ready ≥ `COUNTER_TEMPO_GAUGE_THRESHOLD` (**50**) · AI/action-list gated `< GAUGE_FULL_THRESHOLD` (**99**). **No** wind-up cost deduction, **no** quality/parry scaling. Persists between fights via `CampaignComposureSync`. APIs: [`AGENTS_API`](AGENTS_API.md) · [`COMPOSURE_PLAN`](COMPOSURE_PLAN.md).
 
 <a id="muscle-fatigue-phase-2"></a>
 
@@ -385,27 +385,14 @@ F5 workflow: optional `dev_soak_encounter` → `.f5_soak_in.txt` → `run_playte
 <a id="phase-3--integration-depth-shipped--deeper-wiring"></a>
 <a id="production-flags"></a>
 <a id="tier-5-simulation-flags-2026-05"></a>
-<a id="phase-4--new-systems-formal-tracks"></a>
 <a id="before-you-add-a-new-combat-tier"></a>
 <a id="iii-3--deflect--bind-calibration-loop-m3c"></a>
 <a id="integration-depth-phase-3"></a>
-<a id="p4-playbooks-expansion"></a>
 <a id="combat-expand-registry"></a>
 
 ## Integration
 
 POST 0–2 done. Phase 3/4 / P4 / WF → Expand after Camp-5 unless a Camp bridge row. Mirror: [`SHIP_PLAN` §9c](SHIP_PLAN.md#combat-expand-registry). Cognition: [#combat-cognition-pipeline](#combat-cognition-pipeline).
-
-<a id="integration-archive"></a>
-<a id="run-this-plan-agents-entry"></a>
-<a id="integration-wiring-index"></a>
-<a id="phase-3--integration-depth-shipped--deeper-wiring"></a>
-<a id="production-flags"></a>
-<a id="tier-5-simulation-flags-2026-05"></a>
-<a id="before-you-add-a-new-combat-tier"></a>
-<a id="iii-3--deflect--bind-calibration-loop-m3c"></a>
-<a id="integration-depth-phase-3"></a>
-<a id="combat-expand-registry"></a>
 
 ### During Campaign ship
 
@@ -522,11 +509,9 @@ Open queue: [`EXPANSION_PLAN`](EXPANSION_PLAN.md). Policy: [`SHIP_PLAN` §9c](SH
 <a id="tier-02-formation-hit-reaction-incoming-parry"></a>
 <a id="tier-1--engagement-geometry-shipped--maintain--gated-intrusion"></a>
 <a id="tier-1--engagement-geometry-active-track"></a>
-<a id="iii-4"></a>
 <a id="all-tiers-at-a-glance"></a>
 <a id="next-coding-step"></a>
 <a id="p1-editor-soak-checklist"></a>
-<a id="expansion-backlog-p4-playbooks"></a>
 <a id="p4a--tier-72-stamina-depletion-pacing"></a>
 <a id="p4b--tier-01-formation-move-duration-ui"></a>
 <a id="p4c--tier-110-automatic-doctrine-pilot"></a>
@@ -568,47 +553,12 @@ Canonical live docs: [`PLANNING`](PLANNING.md) · [`AGENTS_ENTRY`](AGENTS_ENTRY.
 
 Deleted plan names must not reappear under `docs/`. Prefer section anchors in this file or `SHIP_PLAN` / `EXPANSION_PLAN`.
 
-<a id="wf-footing-terminology"></a>
-
 <a id="implementation-phases-logical-order"></a>
-
-<a id="spawn--reset-path-wf-1a"></a>
 
 <a id="wf-3--auto-switch-triggers-evaluate_automatic_form"></a>
 
 <a id="wf-2--reading--counters"></a>
 
-<a id="wf-1c--ui-surfacing"></a>
-
 <a id="wf-4--roster--encounter-wiring"></a>
 
 <a id="harness-row-catalog-combatregressionharnessweaponformtailgd"></a>
-
-## Anchor index (stubs)
-
-<a id="legacy-anchors"></a>
-<a id="weapon-form-stances"></a>
-<a id="wf-1a-shipped"></a>
-
-
-
-Unresolved deep links resolve here.
-<a id="wf-1b-shipped"></a>
-<a id="wf-1c-shipped"></a>
-<a id="wf-2-open"></a>
-<a id="wf-3-open"></a>
-<a id="wf-4-open"></a>
-<a id="wf-pr-checklists"></a>
-<a id="wf-agent-prompts"></a>
-<a id="harness-footwork-catalog"></a>
-<a id="wf-guard-writers"></a>
-<a id="wf-production-call-sites"></a>
-<a id="wf-tier-44-pa"></a>
-<a id="wf-pa-stamp-callers"></a>
-<a id="wf-pa-geometry-callers"></a>
-<a id="wf-pa-clear-callers"></a>
-<a id="p0--design-lock-before-wf-1-code"></a>
-<a id="wall--reserve-posture"></a>
-<a id="wf-1b--picker-integration-exact"></a>
-<a id="wf-implementation-pitfalls"></a>
-<a id="wf-combat-weapon-form-module"></a>

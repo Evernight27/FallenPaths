@@ -178,6 +178,43 @@ static func _append_impact_ke_section(lines: PackedStringArray, failures: Packed
         failures.append("impact_ke: no intensity 1.0 sample")
     elif not arm_loose:
         failures.append("impact_ke: sword oberhau i=1.0 KE %.0fJ outside 40-250J loose band" % ke_hi)
+
+    ## AXE overhead chop (ARCHETYPE_OVERHEAD — strike_energy_mult from archetype default).
+    var axe: Weapon = HarnessFixtures.get_cached_weapon("AXE")
+    if axe != null:
+        for intensity in [0.5, 0.8, 1.0]:
+            var ai_axe: AttackInstance = AttackInstance.new("overhead_chop", intensity)
+            ai_axe.archetype = {"kinematic_delivery": WeaponConstants.KINEMATIC_DELIVERY_SWING}
+            var arch_overhead: Dictionary = WeaponConstants.get_archetype(WeaponConstants.ARCHETYPE_OVERHEAD)
+            if arch_overhead.has("strike_energy_mult"):
+                ai_axe.strike_energy_mult = float(arch_overhead.strike_energy_mult)
+            var ke_j: float = WeaponDamageHelper.compute_kinetic_energy_j(axe, ai_axe)
+            if is_equal_approx(intensity, 1.0):
+                var axe_loose_ok: bool = ke_j >= 30.0 and ke_j <= 250.0
+                lines.append("axe_overhead_i=%.1f KE_J=%.0f loose_30-250J=%s" % [intensity, ke_j, str(axe_loose_ok).to_lower()])
+                if not axe_loose_ok:
+                    failures.append("impact_ke: axe overhead i=1.0 KE %.0fJ outside 30-250J loose band" % ke_j)
+            else:
+                lines.append("axe_overhead_i=%.1f KE_J=%.0f" % [intensity, ke_j])
+
+    ## MACE direct blow (ARCHETYPE_HEAVY_BLUNT — strike_energy_mult from archetype default).
+    var mace: Weapon = HarnessFixtures.get_cached_weapon("MACE")
+    if mace != null:
+        for intensity in [0.5, 0.8, 1.0]:
+            var ai_mace: AttackInstance = AttackInstance.new("direct_blow", intensity)
+            ai_mace.archetype = {"kinematic_delivery": WeaponConstants.KINEMATIC_DELIVERY_SWING}
+            var arch_blunt: Dictionary = WeaponConstants.get_archetype(WeaponConstants.ARCHETYPE_HEAVY_BLUNT)
+            if arch_blunt.has("strike_energy_mult"):
+                ai_mace.strike_energy_mult = float(arch_blunt.strike_energy_mult)
+            var ke_j: float = WeaponDamageHelper.compute_kinetic_energy_j(mace, ai_mace)
+            if is_equal_approx(intensity, 1.0):
+                var mace_loose_ok: bool = ke_j >= 40.0 and ke_j <= 250.0
+                lines.append("mace_direct_i=%.1f KE_J=%.0f loose_40-250J=%s" % [intensity, ke_j, str(mace_loose_ok).to_lower()])
+                if not mace_loose_ok:
+                    failures.append("impact_ke: mace direct i=1.0 KE %.0fJ outside 40-250J loose band" % ke_j)
+            else:
+                lines.append("mace_direct_i=%.1f KE_J=%.0f" % [intensity, ke_j])
+
     lines.append("spear_thrust_vs_mace=see harness impact_station_order (tip > head-weighted blunt)")
 
 

@@ -1,5 +1,7 @@
 class_name FeintTempoDefenseFootworkTests
 extends CombatRegressionHarnessCore
+
+const _CombatRegressionHarness := preload("res://harness/regression/CombatRegressionHarness.gd")
 ## Tier 4.2 feint / counter-tempo / riposte / defense telegraph tests (compile split).
 ## Weapon form: **`CombatRegressionHarnessWeaponFormTail`** owns **`form_str`** / **`mod`**  -  stance alias rows here
 ## stay feint/tempo only.
@@ -10,7 +12,7 @@ extends CombatRegressionHarnessCore
 static func _run_feint_telegraph_dodge_readthrough_respects_guard_zone_spacing_long_vs_mid(
     failures: PackedStringArray
 ) -> void:
-    var mgr: Node = CombatRegressionHarness._harness_start_1v1()
+    var mgr: Node = _CombatRegressionHarness._harness_start_1v1()
     var defender: Dictionary = mgr.combatants[0]
     var attacker: Dictionary = mgr.combatants[1]
     var atk_id: int = CombatantEntityAccess.id_int(attacker)
@@ -22,8 +24,8 @@ static func _run_feint_telegraph_dodge_readthrough_respects_guard_zone_spacing_l
     var def_n: Node = CombatantEntityAccess.scene_node(defender)
     var parts: Array = CombatantEntityAccess.get_targetable_parts_from_node(def_n)
     if parts.is_empty() or not parts.has("left_leg"):
-        CombatRegressionHarness._fail(failures, "feint_tele_dodge_gz_spacing: need left_leg in targetable")
-        CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+        _CombatRegressionHarness._fail(failures, "feint_tele_dodge_gz_spacing: need left_leg in targetable")
+        _CombatRegressionHarness._free_manager_restore_global_rng(mgr)
         return
     var move_def: Dictionary = WeaponConstants.get_move("oberhau_feint")
     var arch: Dictionary = WeaponConstants.get_archetype(
@@ -59,14 +61,14 @@ static func _run_feint_telegraph_dodge_readthrough_respects_guard_zone_spacing_l
             initial_part = p_l
             break
     if found_seed < 0:
-        CombatRegressionHarness._fail(
+        _CombatRegressionHarness._fail(
             failures,
             (
                 "feint_tele_dodge_gz_spacing: no seed in 0..65535 yields non-left_leg initial at LONG + telegraph left_"
                 + "leg at MID"
             )
         )
-        CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+        _CombatRegressionHarness._free_manager_restore_global_rng(mgr)
         return
     seed(found_seed)
     dm[atk_id] = CombatConstants.DISTANCE_LONG
@@ -79,7 +81,7 @@ static func _run_feint_telegraph_dodge_readthrough_respects_guard_zone_spacing_l
         pa, attacker, defender, parts, "oberhau_feint", arch, -1.0
     )
     if str(dc_mid.get("dodge_eval_part", "")) != "left_leg":
-        CombatRegressionHarness._fail(
+        _CombatRegressionHarness._fail(
             failures,
             (
                 "feint_tele_dodge_gz_spacing: mid want left_leg got %s (seed=%d)"
@@ -87,21 +89,21 @@ static func _run_feint_telegraph_dodge_readthrough_respects_guard_zone_spacing_l
             )
         )
     if str(dc_long.get("dodge_eval_part", "")) != initial_part or initial_part == "left_leg":
-        CombatRegressionHarness._fail(
+        _CombatRegressionHarness._fail(
             failures,
             (
                 "feint_tele_dodge_gz_spacing: long want initial %s got %s (seed=%d)"
                 % [initial_part, str(dc_long.get("dodge_eval_part", "")), found_seed]
             )
         )
-    CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+    _CombatRegressionHarness._free_manager_restore_global_rng(mgr)
 
 
 ## Tier 4.2 footwork: LONG **`distance_to[attacker]`** scales feint dodge telegraph bias down vs MID
 ## (**`FEINT_TELEGRAPH_DODGE_EVAL_BIAS_SPACING_MULT_LONG`**) so the same RNG draw can take telegraph bite at MID but not
 ## at LONG.
 static func _run_feint_telegraph_spacing_long_dampens_dodge_bite_vs_mid(failures: PackedStringArray) -> void:
-    var mgr: Node = CombatRegressionHarness._harness_start_1v1()
+    var mgr: Node = _CombatRegressionHarness._harness_start_1v1()
     var defender: Dictionary = mgr.combatants[0]
     var attacker: Dictionary = mgr.combatants[1]
     var atk_id: int = CombatantEntityAccess.id_int(attacker)
@@ -111,8 +113,8 @@ static func _run_feint_telegraph_spacing_long_dampens_dodge_bite_vs_mid(failures
     var def_n: Node = CombatantEntityAccess.scene_node(defender)
     var parts: Array = CombatantEntityAccess.get_targetable_parts_from_node(def_n)
     if parts.is_empty() or not parts.has("left_leg"):
-        CombatRegressionHarness._fail(failures, "feint_telegraph_spacing: need left_leg in targetable")
-        CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+        _CombatRegressionHarness._fail(failures, "feint_telegraph_spacing: need left_leg in targetable")
+        _CombatRegressionHarness._free_manager_restore_global_rng(mgr)
         return
     var move_def: Dictionary = WeaponConstants.get_move("oberhau_feint")
     var arch: Dictionary = WeaponConstants.get_archetype(
@@ -153,21 +155,21 @@ static func _run_feint_telegraph_spacing_long_dampens_dodge_bite_vs_mid(failures
             ok_spacing = true
             break
     if not ok_spacing:
-        CombatRegressionHarness._fail(
+        _CombatRegressionHarness._fail(
             failures,
             (
                 "feint_telegraph_spacing: no seed in 0..65535 with mid=left_leg long!=left_leg (eff_mid=%.4f eff_lo"
                 + "ng=%.4f last mid=%s long=%s)" % [eff_mid, eff_long, de_mid, de_long]
             )
         )
-    CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+    _CombatRegressionHarness._free_manager_restore_global_rng(mgr)
 
 
 ## Tier 4.2 footwork: CLOSE **`distance_to[attacker]`** scales feint dodge telegraph bias up vs MID
 ## (**`FEINT_TELEGRAPH_DODGE_EVAL_BIAS_SPACING_MULT_CLOSE`**) so the same RNG draw can skip telegraph bite at MID but
 ## take it at CLOSE.
 static func _run_feint_telegraph_spacing_close_boosts_dodge_bite_vs_mid(failures: PackedStringArray) -> void:
-    var mgr: Node = CombatRegressionHarness._harness_start_1v1()
+    var mgr: Node = _CombatRegressionHarness._harness_start_1v1()
     var defender: Dictionary = mgr.combatants[0]
     var attacker: Dictionary = mgr.combatants[1]
     var atk_id: int = CombatantEntityAccess.id_int(attacker)
@@ -177,8 +179,8 @@ static func _run_feint_telegraph_spacing_close_boosts_dodge_bite_vs_mid(failures
     var def_n: Node = CombatantEntityAccess.scene_node(defender)
     var parts: Array = CombatantEntityAccess.get_targetable_parts_from_node(def_n)
     if parts.is_empty() or not parts.has("left_leg"):
-        CombatRegressionHarness._fail(failures, "feint_telegraph_spacing_close: need left_leg in targetable")
-        CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+        _CombatRegressionHarness._fail(failures, "feint_telegraph_spacing_close: need left_leg in targetable")
+        _CombatRegressionHarness._free_manager_restore_global_rng(mgr)
         return
     var move_def: Dictionary = WeaponConstants.get_move("oberhau_feint")
     var arch: Dictionary = WeaponConstants.get_archetype(
@@ -219,14 +221,14 @@ static func _run_feint_telegraph_spacing_close_boosts_dodge_bite_vs_mid(failures
             ok_spacing = true
             break
     if not ok_spacing:
-        CombatRegressionHarness._fail(
+        _CombatRegressionHarness._fail(
             failures,
             (
                 "feint_telegraph_spacing_close: no seed in 0..65535 with mid!=left_leg close=left_leg (eff_mid=%.4f"
                 + " eff_close=%.4f last mid=%s close=%s)" % [eff_mid, eff_close, de_mid, de_close]
             )
         )
-    CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+    _CombatRegressionHarness._free_manager_restore_global_rng(mgr)
 
 
 ## Tier 4.2 tempo: non-empty **`feint_part`** -> **`CombatConstants.COMMITMENT_FRACTION_FEINT`**  -  same
@@ -235,7 +237,7 @@ static func _run_feint_telegraph_spacing_close_boosts_dodge_bite_vs_mid(failures
 static func _run_feint_commitment_fraction_shortens_effective_wind_up_for_late_parry(
     failures: PackedStringArray
 ) -> void:
-    var mgr: Node = CombatRegressionHarness._harness_start_1v1()
+    var mgr: Node = _CombatRegressionHarness._harness_start_1v1()
     var defender: Dictionary = mgr.combatants[0]
     var attacker: Dictionary = mgr.combatants[1]
     defender["stance"] = "balanced"
@@ -244,8 +246,8 @@ static func _run_feint_commitment_fraction_shortens_effective_wind_up_for_late_p
     var def_n: Node = CombatantEntityAccess.scene_node(defender)
     var parts: Array = CombatantEntityAccess.get_targetable_parts_from_node(def_n)
     if parts.is_empty():
-        CombatRegressionHarness._fail(failures, "feint_commitment: targetable parts empty")
-        CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+        _CombatRegressionHarness._fail(failures, "feint_commitment: targetable parts empty")
+        _CombatRegressionHarness._free_manager_restore_global_rng(mgr)
         return
     var move_plain: Dictionary = WeaponConstants.get_move("oberhau")
     var arch_plain: Dictionary = WeaponConstants.get_archetype(
@@ -262,14 +264,14 @@ static func _run_feint_commitment_fraction_shortens_effective_wind_up_for_late_p
     var eff_plain: float = w_up * (1.0 - cf)
     var eff_feint: float = w_up * (1.0 - cff)
     if eff_plain <= r_time or eff_feint >= r_time:
-        CombatRegressionHarness._fail(
+        _CombatRegressionHarness._fail(
             failures,
             (
                 "feint_commitment: bracket r=%.4f w=%.4f eff_plain=%.4f eff_feint=%.4f want plain>r feint<r"
                 % [r_time, w_up, eff_plain, eff_feint]
             )
         )
-        CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+        _CombatRegressionHarness._free_manager_restore_global_rng(mgr)
         return
     var pa_plain: Dictionary = {
         "attack_type": "oberhau",
@@ -295,7 +297,7 @@ static func _run_feint_commitment_fraction_shortens_effective_wind_up_for_late_p
         pa_feint, attacker, defender, parts, "oberhau_feint", arch_feint, -1.0
     )
     if bool(dc_plain.get("late_parry", false)):
-        CombatRegressionHarness._fail(
+        _CombatRegressionHarness._fail(
             failures,
             (
                 "feint_commitment: plain oberhau want on-time parry late_parry=false got late=%s"
@@ -303,11 +305,11 @@ static func _run_feint_commitment_fraction_shortens_effective_wind_up_for_late_p
             )
         )
     elif not bool(dc_feint.get("late_parry", false)):
-        CombatRegressionHarness._fail(
+        _CombatRegressionHarness._fail(
             failures,
             "feint_commitment: feint want late_parry=true got late=%s" % str(dc_feint.get("late_parry", false))
         )
-    CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+    _CombatRegressionHarness._free_manager_restore_global_rng(mgr)
 
 
 ## Tier 4.2 tempo: same bracket as **`_run_feint_commitment_fraction_shortens_effective_wind_up_for_late_parry`**, for
@@ -315,7 +317,7 @@ static func _run_feint_commitment_fraction_shortens_effective_wind_up_for_late_p
 static func _run_feint_commitment_fraction_shortens_effective_wind_up_for_late_parry_thrust(
     failures: PackedStringArray
 ) -> void:
-    var mgr: Node = CombatRegressionHarness._harness_start_1v1()
+    var mgr: Node = _CombatRegressionHarness._harness_start_1v1()
     var defender: Dictionary = mgr.combatants[0]
     var attacker: Dictionary = mgr.combatants[1]
     defender["stance"] = "balanced"
@@ -324,8 +326,8 @@ static func _run_feint_commitment_fraction_shortens_effective_wind_up_for_late_p
     var def_n: Node = CombatantEntityAccess.scene_node(defender)
     var parts: Array = CombatantEntityAccess.get_targetable_parts_from_node(def_n)
     if parts.is_empty():
-        CombatRegressionHarness._fail(failures, "feint_commitment_thrust: targetable parts empty")
-        CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+        _CombatRegressionHarness._fail(failures, "feint_commitment_thrust: targetable parts empty")
+        _CombatRegressionHarness._free_manager_restore_global_rng(mgr)
         return
     var move_plain: Dictionary = WeaponConstants.get_move("thrust")
     var arch_plain: Dictionary = WeaponConstants.get_archetype(
@@ -342,14 +344,14 @@ static func _run_feint_commitment_fraction_shortens_effective_wind_up_for_late_p
     var eff_plain: float = w_up * (1.0 - cf)
     var eff_feint: float = w_up * (1.0 - cff)
     if eff_plain <= r_time or eff_feint >= r_time:
-        CombatRegressionHarness._fail(
+        _CombatRegressionHarness._fail(
             failures,
             (
                 "feint_commitment_thrust: bracket r=%.4f w=%.4f eff_plain=%.4f eff_feint=%.4f want plain>r feint<r"
                 % [r_time, w_up, eff_plain, eff_feint]
             )
         )
-        CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+        _CombatRegressionHarness._free_manager_restore_global_rng(mgr)
         return
     var pa_plain: Dictionary = {
         "attack_type": "thrust",
@@ -375,7 +377,7 @@ static func _run_feint_commitment_fraction_shortens_effective_wind_up_for_late_p
         pa_feint, attacker, defender, parts, "thrust_feint", arch_feint, -1.0
     )
     if bool(dc_plain.get("late_parry", false)):
-        CombatRegressionHarness._fail(
+        _CombatRegressionHarness._fail(
             failures,
             (
                 "feint_commitment_thrust: plain thrust want on-time parry late_parry=false got late=%s"
@@ -383,21 +385,21 @@ static func _run_feint_commitment_fraction_shortens_effective_wind_up_for_late_p
             )
         )
     elif not bool(dc_feint.get("late_parry", false)):
-        CombatRegressionHarness._fail(
+        _CombatRegressionHarness._fail(
             failures,
             (
                 "feint_commitment_thrust: thrust_feint want late_parry=true got late=%s"
                 % str(dc_feint.get("late_parry", false))
             )
         )
-    CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+    _CombatRegressionHarness._free_manager_restore_global_rng(mgr)
 
 
 ## Tier 4.2 footwork: **`DefenseChoiceResolver.choose_defense`**  -  defender **`distance_to[attacker]`** scales
 ## **`parry_c_d`** (CLOSE / LONG vs MID) and **`dodge_chance`** at CLOSE / LONG
 ## (**`CombatConstants.DEFENSE_SPACING_*`**).
 static func _run_defense_spacing_band_modulates_parry_and_dodge(failures: PackedStringArray) -> void:
-    var mgr: Node = CombatRegressionHarness._harness_start_1v1()
+    var mgr: Node = _CombatRegressionHarness._harness_start_1v1()
     var defender: Dictionary = mgr.combatants[0]
     var attacker: Dictionary = mgr.combatants[1]
     var atk_id: int = CombatantEntityAccess.id_int(attacker)
@@ -409,8 +411,8 @@ static func _run_defense_spacing_band_modulates_parry_and_dodge(failures: Packed
     var def_n: Node = CombatantEntityAccess.scene_node(defender)
     var parts: Array = CombatantEntityAccess.get_targetable_parts_from_node(def_n)
     if parts.is_empty():
-        CombatRegressionHarness._fail(failures, "defense_spacing: targetable parts empty")
-        CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+        _CombatRegressionHarness._fail(failures, "defense_spacing: targetable parts empty")
+        _CombatRegressionHarness._free_manager_restore_global_rng(mgr)
         return
     var move_def: Dictionary = WeaponConstants.get_move("oberhau")
     var arch: Dictionary = WeaponConstants.get_archetype(
@@ -436,9 +438,9 @@ static func _run_defense_spacing_band_modulates_parry_and_dodge(failures: Packed
     var dodge_mid: float = float(dc_mid.get("dodge_chance", 0.0))
     var dodge_long: float = float(dc_long.get("dodge_chance", 0.0))
     if cd_mid < 1.0:
-        CombatRegressionHarness._fail(failures, "defense_spacing: mid parry_c_d too small %.3f" % cd_mid)
+        _CombatRegressionHarness._fail(failures, "defense_spacing: mid parry_c_d too small %.3f" % cd_mid)
     elif not is_equal_approx(cd_long / cd_mid, CombatConstants.DEFENSE_SPACING_PARRY_MULT_LONG):
-        CombatRegressionHarness._fail(
+        _CombatRegressionHarness._fail(
             failures,
             (
                 "defense_spacing: parry_c_d long/mid want ratio %.3f got %.3f"
@@ -446,9 +448,9 @@ static func _run_defense_spacing_band_modulates_parry_and_dodge(failures: Packed
             )
         )
     elif dodge_mid <= 1e-6:
-        CombatRegressionHarness._fail(failures, "defense_spacing: mid dodge_chance too small")
+        _CombatRegressionHarness._fail(failures, "defense_spacing: mid dodge_chance too small")
     elif not is_equal_approx(dodge_long / dodge_mid, CombatConstants.DEFENSE_SPACING_DODGE_MULT_LONG):
-        CombatRegressionHarness._fail(
+        _CombatRegressionHarness._fail(
             failures,
             (
                 "defense_spacing: dodge long/mid want ratio %.3f got %.3f"
@@ -465,7 +467,7 @@ static func _run_defense_spacing_band_modulates_parry_and_dodge(failures: Packed
     var cd_close: float = float(dc_close.get("parry_c_d", 0.0))
     var dodge_close: float = float(dc_close.get("dodge_chance", 0.0))
     if not is_equal_approx(cd_close / cd_mid, CombatConstants.DEFENSE_SPACING_PARRY_MULT_CLOSE):
-        CombatRegressionHarness._fail(
+        _CombatRegressionHarness._fail(
             failures,
             (
                 "defense_spacing: parry_c_d close/mid want ratio %.3f got %.3f"
@@ -473,20 +475,20 @@ static func _run_defense_spacing_band_modulates_parry_and_dodge(failures: Packed
             )
         )
     elif not is_equal_approx(dodge_close / dodge_mid, CombatConstants.DEFENSE_SPACING_DODGE_MULT_CLOSE):
-        CombatRegressionHarness._fail(
+        _CombatRegressionHarness._fail(
             failures,
             (
                 "defense_spacing: dodge close/mid want ratio %.3f got %.3f"
                 % [CombatConstants.DEFENSE_SPACING_DODGE_MULT_CLOSE, dodge_close / dodge_mid]
             )
         )
-    CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+    _CombatRegressionHarness._free_manager_restore_global_rng(mgr)
 
 
 ## Tier 4.2 footwork / tempo: **`STATE_RECOVERING`** defender gets recovering dodge mult vs off-balance
 ## **`STATE_WAITING`** baseline (no settled waiting-footwork mult).
 static func _run_defense_footwork_recovering_boosts_dodge_vs_waiting(failures: PackedStringArray) -> void:
-    var mgr: Node = CombatRegressionHarness._harness_start_1v1()
+    var mgr: Node = _CombatRegressionHarness._harness_start_1v1()
     var defender: Dictionary = mgr.combatants[0]
     var attacker: Dictionary = mgr.combatants[1]
     var atk_id: int = CombatantEntityAccess.id_int(attacker)
@@ -500,8 +502,8 @@ static func _run_defense_footwork_recovering_boosts_dodge_vs_waiting(failures: P
     var def_n: Node = CombatantEntityAccess.scene_node(defender)
     var parts: Array = CombatantEntityAccess.get_targetable_parts_from_node(def_n)
     if parts.is_empty():
-        CombatRegressionHarness._fail(failures, "defense_footwork_recovering: targetable parts empty")
-        CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+        _CombatRegressionHarness._fail(failures, "defense_footwork_recovering: targetable parts empty")
+        _CombatRegressionHarness._free_manager_restore_global_rng(mgr)
         return
     var move_def: Dictionary = WeaponConstants.get_move("oberhau")
     var arch: Dictionary = WeaponConstants.get_archetype(
@@ -525,7 +527,7 @@ static func _run_defense_footwork_recovering_boosts_dodge_vs_waiting(failures: P
     var d_wait: float = float(dc_wait.get("dodge_chance", 0.0))
     var d_rec: float = float(dc_rec.get("dodge_chance", 0.0))
     if d_wait <= 1e-6:
-        CombatRegressionHarness._fail(
+        _CombatRegressionHarness._fail(
             failures, "defense_footwork_recovering: waiting dodge_chance too small %.6f" % d_wait
         )
     elif not is_equal_approx(
@@ -544,7 +546,7 @@ static func _run_defense_footwork_recovering_boosts_dodge_vs_waiting(failures: P
                 )
             )
         )
-    CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+    _CombatRegressionHarness._free_manager_restore_global_rng(mgr)
 
 
 ## Tier 4.2 footwork / tempo: **`recovery_cause`** selects
@@ -552,7 +554,7 @@ static func _run_defense_footwork_recovering_boosts_dodge_vs_waiting(failures: P
 ## (**`DEFENSE_FOOTWORK_RECOVERING_DODGE_MULT_BY_CAUSE`**) on reported **`dodge_chance`**; **`attack_hit`** >
 ## **`attack_miss`** at same **`distance_to`** / seed (miss recovery is more punishing).
 static func _run_defense_footwork_recovery_cause_orders_recovering_dodge_mult(failures: PackedStringArray) -> void:
-    var mgr: Node = CombatRegressionHarness._harness_start_1v1()
+    var mgr: Node = _CombatRegressionHarness._harness_start_1v1()
     var defender: Dictionary = mgr.combatants[0]
     var attacker: Dictionary = mgr.combatants[1]
     var atk_id: int = CombatantEntityAccess.id_int(attacker)
@@ -566,8 +568,8 @@ static func _run_defense_footwork_recovery_cause_orders_recovering_dodge_mult(fa
     var def_n: Node = CombatantEntityAccess.scene_node(defender)
     var parts: Array = CombatantEntityAccess.get_targetable_parts_from_node(def_n)
     if parts.is_empty():
-        CombatRegressionHarness._fail(failures, "defense_footwork_cause: targetable parts empty")
-        CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+        _CombatRegressionHarness._fail(failures, "defense_footwork_cause: targetable parts empty")
+        _CombatRegressionHarness._free_manager_restore_global_rng(mgr)
         return
     var move_def: Dictionary = WeaponConstants.get_move("oberhau")
     var arch: Dictionary = WeaponConstants.get_archetype(
@@ -613,20 +615,20 @@ static func _run_defense_footwork_recovery_cause_orders_recovering_dodge_mult(fa
     var m_hit: float = CombatConstants.defense_footwork_recovering_dodge_mult_for_cause("attack_hit")
     var m_miss: float = CombatConstants.defense_footwork_recovering_dodge_mult_for_cause("attack_miss")
     if d_wait <= 1e-6:
-        CombatRegressionHarness._fail(failures, "defense_footwork_cause: waiting dodge_chance too small %.6f" % d_wait)
+        _CombatRegressionHarness._fail(failures, "defense_footwork_cause: waiting dodge_chance too small %.6f" % d_wait)
     elif not is_equal_approx(d_hit / d_wait, m_hit):
-        CombatRegressionHarness._fail(
+        _CombatRegressionHarness._fail(
             failures, "defense_footwork_cause: hit rec/wait want %.4f got %.4f" % [m_hit, d_hit / d_wait]
         )
     elif not is_equal_approx(d_miss / d_wait, m_miss):
-        CombatRegressionHarness._fail(
+        _CombatRegressionHarness._fail(
             failures, "defense_footwork_cause: miss rec/wait want %.4f got %.4f" % [m_miss, d_miss / d_wait]
         )
     elif not is_equal_approx(d_miss / d_hit, m_miss / m_hit):
-        CombatRegressionHarness._fail(
+        _CombatRegressionHarness._fail(
             failures, "defense_footwork_cause: miss/hit ratio want %.4f got %.4f" % [m_miss / m_hit, d_miss / d_hit]
         )
-    CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+    _CombatRegressionHarness._free_manager_restore_global_rng(mgr)
 
 
 ## Tier 4.2 footwork / tempo: **`STATE_RECOVERING`**  -  pair **`distance_to`** spacing
@@ -635,7 +637,7 @@ static func _run_defense_footwork_recovery_cause_orders_recovering_dodge_mult(fa
 static func _run_defense_footwork_recovering_dodge_stacks_with_spacing_long_and_close(
     failures: PackedStringArray
 ) -> void:
-    var mgr: Node = CombatRegressionHarness._harness_start_1v1()
+    var mgr: Node = _CombatRegressionHarness._harness_start_1v1()
     var defender: Dictionary = mgr.combatants[0]
     var attacker: Dictionary = mgr.combatants[1]
     var atk_id: int = CombatantEntityAccess.id_int(attacker)
@@ -650,8 +652,8 @@ static func _run_defense_footwork_recovering_dodge_stacks_with_spacing_long_and_
     var def_n: Node = CombatantEntityAccess.scene_node(defender)
     var parts: Array = CombatantEntityAccess.get_targetable_parts_from_node(def_n)
     if parts.is_empty():
-        CombatRegressionHarness._fail(failures, "defense_footwork_rec_spacing: targetable parts empty")
-        CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+        _CombatRegressionHarness._fail(failures, "defense_footwork_rec_spacing: targetable parts empty")
+        _CombatRegressionHarness._free_manager_restore_global_rng(mgr)
         return
     var move_def: Dictionary = WeaponConstants.get_move("oberhau")
     var arch: Dictionary = WeaponConstants.get_archetype(
@@ -690,9 +692,9 @@ static func _run_defense_footwork_recovering_dodge_stacks_with_spacing_long_and_
         )
     )
     if d_mid <= 1e-6:
-        CombatRegressionHarness._fail(failures, "defense_footwork_rec_spacing: mid dodge_chance too small %.6f" % d_mid)
+        _CombatRegressionHarness._fail(failures, "defense_footwork_rec_spacing: mid dodge_chance too small %.6f" % d_mid)
     elif not is_equal_approx(d_long / d_mid, CombatConstants.DEFENSE_SPACING_DODGE_MULT_LONG):
-        CombatRegressionHarness._fail(
+        _CombatRegressionHarness._fail(
             failures,
             (
                 "defense_footwork_rec_spacing: long/mid want %.4f got %.4f"
@@ -700,20 +702,20 @@ static func _run_defense_footwork_recovering_dodge_stacks_with_spacing_long_and_
             )
         )
     elif not is_equal_approx(d_close / d_mid, CombatConstants.DEFENSE_SPACING_DODGE_MULT_CLOSE):
-        CombatRegressionHarness._fail(
+        _CombatRegressionHarness._fail(
             failures,
             (
                 "defense_footwork_rec_spacing: close/mid want %.4f got %.4f"
                 % [CombatConstants.DEFENSE_SPACING_DODGE_MULT_CLOSE, d_close / d_mid]
             )
         )
-    CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+    _CombatRegressionHarness._free_manager_restore_global_rng(mgr)
 
 
 ## Tier 4.2 footwork / tempo: settled **`STATE_WAITING`** (not off-balance) gets
 ## **`DEFENSE_FOOTWORK_WAITING_DODGE_MULT`** on reported **`dodge_chance`** after spacing.
 static func _run_defense_footwork_waiting_boosts_dodge_when_settled_vs_off_balance(failures: PackedStringArray) -> void:
-    var mgr: Node = CombatRegressionHarness._harness_start_1v1()
+    var mgr: Node = _CombatRegressionHarness._harness_start_1v1()
     var defender: Dictionary = mgr.combatants[0]
     var attacker: Dictionary = mgr.combatants[1]
     var atk_id: int = CombatantEntityAccess.id_int(attacker)
@@ -727,8 +729,8 @@ static func _run_defense_footwork_waiting_boosts_dodge_when_settled_vs_off_balan
     var def_n: Node = CombatantEntityAccess.scene_node(defender)
     var parts: Array = CombatantEntityAccess.get_targetable_parts_from_node(def_n)
     if parts.is_empty():
-        CombatRegressionHarness._fail(failures, "defense_footwork_waiting: targetable parts empty")
-        CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+        _CombatRegressionHarness._fail(failures, "defense_footwork_waiting: targetable parts empty")
+        _CombatRegressionHarness._free_manager_restore_global_rng(mgr)
         return
     var move_def: Dictionary = WeaponConstants.get_move("oberhau")
     var arch: Dictionary = WeaponConstants.get_archetype(
@@ -755,24 +757,24 @@ static func _run_defense_footwork_waiting_boosts_dodge_when_settled_vs_off_balan
         )
     )
     if d_off <= 1e-6:
-        CombatRegressionHarness._fail(
+        _CombatRegressionHarness._fail(
             failures, "defense_footwork_waiting: off-balance dodge_chance too small %.6f" % d_off
         )
     elif not is_equal_approx(d_settled / d_off, CombatConstants.DEFENSE_FOOTWORK_WAITING_DODGE_MULT):
-        CombatRegressionHarness._fail(
+        _CombatRegressionHarness._fail(
             failures,
             (
                 "defense_footwork_waiting: settled/off want ratio %.4f got %.4f"
                 % [CombatConstants.DEFENSE_FOOTWORK_WAITING_DODGE_MULT, d_settled / d_off]
             )
         )
-    CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+    _CombatRegressionHarness._free_manager_restore_global_rng(mgr)
 
 
 ## Tier 4.2 footwork / tempo: settled **`STATE_WAITING`**  -  pair **`distance_to`** spacing multiplies before
 ## **`DEFENSE_FOOTWORK_WAITING_DODGE_MULT`**.
 static func _run_defense_footwork_waiting_dodge_stacks_with_spacing_long_and_close(failures: PackedStringArray) -> void:
-    var mgr: Node = CombatRegressionHarness._harness_start_1v1()
+    var mgr: Node = _CombatRegressionHarness._harness_start_1v1()
     var defender: Dictionary = mgr.combatants[0]
     var attacker: Dictionary = mgr.combatants[1]
     var atk_id: int = CombatantEntityAccess.id_int(attacker)
@@ -785,8 +787,8 @@ static func _run_defense_footwork_waiting_dodge_stacks_with_spacing_long_and_clo
     var def_n: Node = CombatantEntityAccess.scene_node(defender)
     var parts: Array = CombatantEntityAccess.get_targetable_parts_from_node(def_n)
     if parts.is_empty():
-        CombatRegressionHarness._fail(failures, "defense_footwork_wait_spacing: targetable parts empty")
-        CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+        _CombatRegressionHarness._fail(failures, "defense_footwork_wait_spacing: targetable parts empty")
+        _CombatRegressionHarness._free_manager_restore_global_rng(mgr)
         return
     var move_def: Dictionary = WeaponConstants.get_move("oberhau")
     var arch: Dictionary = WeaponConstants.get_archetype(
@@ -825,11 +827,11 @@ static func _run_defense_footwork_waiting_dodge_stacks_with_spacing_long_and_clo
         )
     )
     if d_mid <= 1e-6:
-        CombatRegressionHarness._fail(
+        _CombatRegressionHarness._fail(
             failures, "defense_footwork_wait_spacing: mid dodge_chance too small %.6f" % d_mid
         )
     elif not is_equal_approx(d_long / d_mid, CombatConstants.DEFENSE_SPACING_DODGE_MULT_LONG):
-        CombatRegressionHarness._fail(
+        _CombatRegressionHarness._fail(
             failures,
             (
                 "defense_footwork_wait_spacing: long/mid want %.4f got %.4f"
@@ -837,20 +839,20 @@ static func _run_defense_footwork_waiting_dodge_stacks_with_spacing_long_and_clo
             )
         )
     elif not is_equal_approx(d_close / d_mid, CombatConstants.DEFENSE_SPACING_DODGE_MULT_CLOSE):
-        CombatRegressionHarness._fail(
+        _CombatRegressionHarness._fail(
             failures,
             (
                 "defense_footwork_wait_spacing: close/mid want %.4f got %.4f"
                 % [CombatConstants.DEFENSE_SPACING_DODGE_MULT_CLOSE, d_close / d_mid]
             )
         )
-    CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+    _CombatRegressionHarness._free_manager_restore_global_rng(mgr)
 
 
 ## Tier 4.2 footwork / tempo: incoming stab **`contact_type`** scales passive **`parry_readiness`** after guard
 ## (**`PASSIVE_PARRY_READINESS_INCOMING_STAB_MULT`** vs cut baseline) in **`DefenseChoiceResolver.choose_defense`**.
 static func _run_passive_parry_readiness_incoming_contact_stab_scales_vs_cut(failures: PackedStringArray) -> void:
-    var mgr: Node = CombatRegressionHarness._harness_start_1v1()
+    var mgr: Node = _CombatRegressionHarness._harness_start_1v1()
     var defender: Dictionary = mgr.combatants[0]
     var attacker: Dictionary = mgr.combatants[1]
     var atk_id: int = CombatantEntityAccess.id_int(attacker)
@@ -863,8 +865,8 @@ static func _run_passive_parry_readiness_incoming_contact_stab_scales_vs_cut(fai
     var def_n: Node = CombatantEntityAccess.scene_node(defender)
     var parts: Array = CombatantEntityAccess.get_targetable_parts_from_node(def_n)
     if parts.is_empty():
-        CombatRegressionHarness._fail(failures, "incoming_contact_readiness: targetable parts empty")
-        CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+        _CombatRegressionHarness._fail(failures, "incoming_contact_readiness: targetable parts empty")
+        _CombatRegressionHarness._free_manager_restore_global_rng(mgr)
         return
     var move_ober: Dictionary = WeaponConstants.get_move("oberhau")
     var arch_ober: Dictionary = WeaponConstants.get_archetype(
@@ -894,16 +896,16 @@ static func _run_passive_parry_readiness_incoming_contact_stab_scales_vs_cut(fai
     var pr_c: float = float(dc_cut.get("parry_readiness", -1.0))
     var pr_s: float = float(dc_stab.get("parry_readiness", -1.0))
     if pr_c <= 1e-6:
-        CombatRegressionHarness._fail(failures, "incoming_contact_readiness: cut parry_readiness too small %.4f" % pr_c)
+        _CombatRegressionHarness._fail(failures, "incoming_contact_readiness: cut parry_readiness too small %.4f" % pr_c)
     elif not is_equal_approx(pr_s / pr_c, CombatConstants.PASSIVE_PARRY_READINESS_INCOMING_STAB_MULT):
-        CombatRegressionHarness._fail(
+        _CombatRegressionHarness._fail(
             failures,
             (
                 "incoming_contact_readiness: stab/cut readiness ratio want %.4f got %.4f (pr_cut=%.4f pr_stab=%.4f)"
                 % [CombatConstants.PASSIVE_PARRY_READINESS_INCOMING_STAB_MULT, pr_s / pr_c, pr_c, pr_s]
             )
         )
-    CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+    _CombatRegressionHarness._free_manager_restore_global_rng(mgr)
 
 
 ## Tier 4.2 footwork / tempo: defender **`stamina`** scales **`choose_defense`** **`parry_readiness`** (feint
@@ -914,7 +916,7 @@ static func _run_passive_parry_readiness_incoming_contact_stab_scales_vs_cut(fai
 static func _run_defender_low_stamina_scales_passive_parry_readiness_in_choose_defense(
     failures: PackedStringArray
 ) -> void:
-    var mgr: Node = CombatRegressionHarness._harness_start_1v1()
+    var mgr: Node = _CombatRegressionHarness._harness_start_1v1()
     var defender: Dictionary = mgr.combatants[0]
     var attacker: Dictionary = mgr.combatants[1]
     var atk_id: int = CombatantEntityAccess.id_int(attacker)
@@ -927,8 +929,8 @@ static func _run_defender_low_stamina_scales_passive_parry_readiness_in_choose_d
     var def_n: Node = CombatantEntityAccess.scene_node(defender)
     var parts: Array = CombatantEntityAccess.get_targetable_parts_from_node(def_n)
     if parts.is_empty():
-        CombatRegressionHarness._fail(failures, "def_stam_readiness: targetable parts empty")
-        CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+        _CombatRegressionHarness._fail(failures, "def_stam_readiness: targetable parts empty")
+        _CombatRegressionHarness._free_manager_restore_global_rng(mgr)
         return
     defender["stamina"] = CombatConstants.STAMINA_MAX
     var move_ober: Dictionary = WeaponConstants.get_move("oberhau")
@@ -957,19 +959,20 @@ static func _run_defender_low_stamina_scales_passive_parry_readiness_in_choose_d
         / lerpf(CombatConstants.STAMINA_AT_ZERO_PARRY_MULT, 1.0, CombatConstants.stamina_factor(1.0))
     )
     if pr_hi <= 1e-6:
-        CombatRegressionHarness._fail(
+        _CombatRegressionHarness._fail(
             failures, "def_stam_readiness: full-stamina parry_readiness too small %.4f" % pr_hi
         )
     elif not is_equal_approx(pr_lo / pr_hi, want):
-        CombatRegressionHarness._fail(
+        _CombatRegressionHarness._fail(
             failures,
             (
                 "def_stam_readiness: low/full readiness ratio want %.4f got %.4f (pr_lo=%.4f pr_hi=%.4f)"
                 % [want, pr_lo / pr_hi, pr_lo, pr_hi]
             )
         )
-    CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+    _CombatRegressionHarness._free_manager_restore_global_rng(mgr)
 
 ## Tier 4.2: **`CombatAIActionPicker._get_action_weight`**  -  feint listing applies
 ## **`passive_parry_readiness_incoming_contact_mult`** to defender readiness: stab feint (**`thrust_feint`**) vs cut
 ## feint (**`oberhau_feint`**) at defender **`guard`** **1.0** (**SWORD** 1v1).
+

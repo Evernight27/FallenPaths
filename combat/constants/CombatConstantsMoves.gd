@@ -1,7 +1,21 @@
 class_name CombatConstantsMoves
 extends RefCounted
 
-const DRESSING_MEDICAL_MOVE_IDS: Array[String] = [MOVE_ID_BANDAGE_SELF, MOVE_ID_PACK_WOUND, MOVE_ID_STABILIZE_WOUND]
+# Move IDs (medical actions) — defined first so arrays can reference them.
+const MOVE_ID_BANDAGE_SELF: String = "bandage_self"
+const MOVE_ID_BANDAGE_ALLY: String = "bandage_ally"
+const MOVE_ID_PACK_WOUND: String = "pack_wound"
+const MOVE_ID_PACK_ALLY: String = "pack_ally"
+const MOVE_ID_STABILIZE_WOUND: String = "stabilize_wound"
+const MOVE_ID_STABILIZE_ALLY: String = "stabilize_ally"
+const MOVE_ID_APPLY_TOURNIQUET: String = "apply_tourniquet"
+const MOVE_ID_APPLY_TOURNIQUET_ALLY: String = "apply_tourniquet_ally"
+const MOVE_ID_HOLD_DIRECT_PRESSURE: String = "hold_direct_pressure"
+const MOVE_ID_HOLD_DIRECT_PRESSURE_ALLY: String = "hold_direct_pressure_ally"
+const MOVE_ID_RELEASE_DIRECT_PRESSURE: String = "release_direct_pressure"
+const MOVE_ID_RELEASE_DIRECT_PRESSURE_ALLY: String = "release_direct_pressure_ally"
+
+const DRESSING_MEDICAL_MOVE_IDS: Array[String] = [MOVE_ID_BANDAGE_SELF, MOVE_ID_PACK_WOUND, MOVE_ID_STABILIZE_WOUND, MOVE_ID_BANDAGE_ALLY, MOVE_ID_PACK_ALLY, MOVE_ID_STABILIZE_ALLY]
 
 const FOCUS_LINE_MOVE_IDS: Array[String] = [
     MOVE_ID_FOCUS_HIGH,
@@ -20,6 +34,12 @@ const MEDICAL_MOVE_IDS: Array[String] = [
     MOVE_ID_STABILIZE_WOUND,
     MOVE_ID_APPLY_DIRECT_PRESSURE,
     MOVE_ID_APPLY_TOURNIQUET,
+    MOVE_ID_BANDAGE_ALLY,
+    MOVE_ID_PACK_ALLY,
+    MOVE_ID_STABILIZE_ALLY,
+    MOVE_ID_APPLY_TOURNIQUET_ALLY,
+    MOVE_ID_HOLD_DIRECT_PRESSURE_ALLY,
+    MOVE_ID_RELEASE_DIRECT_PRESSURE_ALLY,
 ]
 
 const MEDICAL_WINDUP_PRIMARY_HOLDER_DURATION_BONUS := 0.40
@@ -28,9 +48,7 @@ const MEDICAL_WINDUP_STACK_ASSIST_DURATION_BONUS := 0.25
 
 const MOVE_ID_APPLY_DIRECT_PRESSURE := "apply_direct_pressure"
 
-const MOVE_ID_APPLY_TOURNIQUET := "apply_tourniquet"
-
-const MOVE_ID_BANDAGE_SELF := "bandage_self"
+const MOVE_ID_EXECUTE := "execute"
 
 const MOVE_ID_FEINT := "feint"
 
@@ -46,11 +64,7 @@ const MOVE_ID_HEAVY := "heavy"
 
 const MOVE_ID_MEDIUM := "medium"
 
-const MOVE_ID_PACK_WOUND := "pack_wound"
-
 const MOVE_ID_QUICK := "quick"
-
-const MOVE_ID_STABILIZE_WOUND := "stabilize_wound"
 
 const MOVE_ID_WAIT := "wait"
 
@@ -71,6 +85,10 @@ static func guard_line_for_focus_move_id(move_id: String) -> String:
 
 static func is_direct_pressure_move(move_id: String) -> bool:
     return move_id == MOVE_ID_APPLY_DIRECT_PRESSURE
+
+
+static func is_execute_move(move_id: String) -> bool:
+    return move_id == MOVE_ID_EXECUTE
 
 
 static func is_dressing_medical_move(move_id: String) -> bool:

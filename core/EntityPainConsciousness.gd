@@ -12,10 +12,6 @@ const PASSIVE_PARRY_BASE_REACTION_S: float = 0.24
 ## Clinical neurophysiology: visual reaction ~150-250 ms, movement initiation +50-100 ms → total ~200-350 ms.
 ## Defender can dodge if attacker windup > defender's minimum reaction time (MRT = 250 ms baseline).
 ## Dodge probability = sigmoid((windup_s - MRT) / scale), where scale controls slope steepness.
-## Windup/reaction time differential dodge model (replaces flat DODGE_CHANCE_AT_FULL_SPEED=0.12).
-## Clinical neurophysiology: visual reaction ~150-250 ms, movement initiation +50-100 ms → total ~200-350 ms.
-## Defender can dodge if attacker windup > defender's minimum reaction time (MRT = 250 ms baseline).
-## Dodge probability = sigmoid((windup_s - MRT) / scale), where scale controls slope steepness.
 
 const DODGE_MIN_REACTION_TIME_S: float = 0.37          # visual + motor response for untrained human (~370 ms)
 const DODGE_WINDUP_DIFF_SCALE: float = 0.08           # sigmoid steepness — wider = smoother transition
@@ -110,9 +106,9 @@ static func _get_adrenaline_phase_info(entity: Node) -> Dictionary:
 	var ad_performance_mult: float = ADRENALINE_PERFORMANCE_BASELINE_MULT
 	var ad_pain_suppression_mult: float = ADRENALINE_PAIN_SUPPRESSION
 	# Adrenaline-blood interaction: at Class III+ hemorrhage, progressively negate adrenaline benefits.
-	if entity.has_method("blood_volume"):
-		var blood_pct: float = entity.blood_volume
-		var remaining_pct: float = (blood_pct / 100.0) * BleedingConstants.MAX_BLOOD_VOLUME
+	if "blood_volume" in entity:
+		var blood_pct: float = clampf(float(entity.blood_volume), 0.0, 100.0)
+		var remaining_pct: float = blood_pct
 		var atls_class: int = BleedingConstants.atls_hemorrhage_class_from_remaining_pct(remaining_pct)
 		if atls_class >= ADRENALINE_NEUTRALIZATION_ATLS_CLASS_III_MIN:
 			var classes_above: float = atls_class - ADRENALINE_NEUTRALIZATION_ATLS_CLASS_III_MIN + 1.0
@@ -133,16 +129,6 @@ static func _get_adrenaline_phase_info(entity: Node) -> Dictionary:
 	return result
 
 
-static func _get_adrenaline_cooldown_until_time(entity: Node) -> float:
-	"""Returns game time when next adrenaline dump is allowed (cooldown expiration). -1 if no cooldown active."""
-	if not entity.has_method("_get_adrenaline_cooldown_until"):
-		return -1.0
-	var cooldown_until: float = 0.0
-	if entity.has_method("_get_adrenaline_cooldown_until"):
-		cooldown_until = entity._get_adrenaline_cooldown_until()
-	return cooldown_until if cooldown_until > 0 else -1.0
-
-
 static func _set_adrenaline_cooldown(entity: Node, current_time: float) -> void:
 	"""Sets adrenaline cooldown timer after a dump is triggered."""
 	if entity.has_method("_set_adrenaline_cooldown_until"):
@@ -153,25 +139,25 @@ static func try_enter_adrenaline_dump(entity: Node, severity_factor: float = 1.0
 	# Check cooldown — prevent repeated adrenaline dumps from trivial trauma (clinical refractory period).
 	if entity.has_method("_get_adrenaline_cooldown_until"):
 		var cooldown_until: float = entity._get_adrenaline_cooldown_until()
-		if cooldown_until > 0.0 and entity._game_time_seconds < cooldown_until:
+		if cooldown_until > 0.0 and entity._get_game_time_seconds() < cooldown_until:
 			return  # Still in cooldown — no new dump allowed
 	# Check if already active
-	if entity.has_method("_get_adrenaline_dump_until_time") and entity._get_adrenaline_dump_until_time() >= entity._game_time_seconds:
+	if entity.has_method("_get_adrenaline_dump_until_time") and entity._get_adrenaline_dump_until_time() >= entity._get_game_time_seconds():
 		return
 	# Blood-volume gate: adrenaline is a hemorrhage/acute-stress response. Routine pain-shock triggers
 	# (~NRS 7.5-10, severity 1.5-2.0) fire on the first serious exchange of every fight, and the dump lasts
 	# 60-180s — covering the whole duel. Gate it on meaningful blood loss (<= trigger), so adrenaline is a
 	# late-fight response instead of always-on from the first hit.
-	var blood_pct: float = entity.blood_volume if entity.has_method("blood_volume") else 100.0
+	var blood_pct: float = clampf(float(entity.blood_volume), 0.0, 100.0) if "blood_volume" in entity else 100.0
 	if blood_pct > ADRENALINE_BLOOD_VOLUME_TRIGGER:
 		return
 	# Single sustained duration — no surge/plateau/crash phases per clinical data.
 	var duration: float = randf_range(ADRENALINE_DURATION_MIN_S, ADRENALINE_DURATION_MAX_S) * severity_factor
 	duration = clampf(duration, ADRENALINE_DURATION_MIN_S * 0.5, ADRENALINE_DURATION_MAX_S * 1.5)
-	entity._set_adrenaline_dump_until_time(entity._game_time_seconds + duration)
+	entity._set_adrenaline_dump_until_time(entity._get_game_time_seconds() + duration)
 	entity._set_adrenaline_phase("surge")  # Simplified: always "surge" — single sustained state
 	# Set cooldown to prevent re-triggering within 2 minutes
-	_set_adrenaline_cooldown(entity, entity._game_time_seconds)
+	_set_adrenaline_cooldown(entity, entity._get_game_time_seconds())
 	CombatDebug.combat_session(
 		"%s adrenaline_dump started blood=%.1f severity=%.2f duration=%.1fs (cooldown=%.0fs)"
 		% [entity.name, blood_pct, severity_factor, duration, ADRENALINE_COOLDOWN_S]
@@ -181,15 +167,16 @@ static func try_enter_adrenaline_dump(entity: Node, severity_factor: float = 1.0
 static func tick_adrenaline_dump(entity: Node) -> void:
 	if entity.has_method("_get_adrenaline_dump_until_time") and entity._get_adrenaline_dump_until_time() <= 0.0:
 		return
-	var now: float = entity._game_time_seconds
+	var now: float = entity._get_game_time_seconds()
 	if entity.has_method("_get_adrenaline_dump_until_time") and now >= entity._get_adrenaline_dump_until_time():
 		entity._set_adrenaline_dump_until_time(-1.0)
 		entity._set_adrenaline_phase("")
 		return
 	# Simplified: single sustained state — no phase transitions (surge→plateau→crash removed).
 	# Adrenaline dumps sustain for a single duration then return to baseline without crash penalty.
-	if entity.has_method("_get_adrenaline_phase") and entity._get_adrenaline_phase() != "surge":
-		entity._set_adrenaline_phase("surge")
+	if entity.has_method("_get_adrenaline_dump_until_time") and now < entity._get_adrenaline_dump_until_time():
+		if entity.has_method("_get_adrenaline_phase") and entity._get_adrenaline_phase() != "surge":
+			entity._set_adrenaline_phase("surge")
 
 
 # Phase-based perception/cognitive modifiers (fraction of baseline function). Gradual recovery curve:
@@ -285,8 +272,8 @@ static func get_pain_for_part(entity: Node, part: String) -> float:
 	var total: float = 0.0
 	var part_mult: float = PainConsciousnessConstants.get_body_part_pain_multiplier(part)
 	for injury in entity.wounds[part]:
-		var d: float = injury.get("damage", 0.0)
-		var sev: String = injury.get(DataKeys.INJURY_SEVERITY, "moderate")
+		var d: float = injury.get("cumulative_damage", injury.get("damage", 0.0))
+		var sev: String = injury.get(DataKeys.INJURY_SEVERITY, BleedingConstants.SEVERITY_MODERATE)
 		var sev_mult: float = PainConsciousnessConstants.SEVERITY_PAIN_MULTIPLIERS.get(sev, 1.0)
 		var itype: String = injury.get("injury_type", "crush")
 		var itype_mult: float = PainConsciousnessConstants.get_injury_type_pain_multiplier(itype)
@@ -355,8 +342,11 @@ static func _get_effective_pain_for_region(entity: Node, region: String) -> floa
 
 
 static func get_blood_consciousness_modifier(entity: Node) -> float:
+	var raw_bv: float = 100.0
+	if "blood_volume" in entity:
+		raw_bv = float(entity.blood_volume)
 	return BleedingConstants.blood_consciousness_modifier_from_remaining(
-		float(entity.blood_volume),
+		clampf(raw_bv, 0.0, 100.0),
 		PainConsciousnessConstants.BLOOD_CONSCIOUSNESS_START_THRESHOLD,
 		PainConsciousnessConstants.BLOOD_CONSCIOUSNESS_FLOOR_THRESHOLD,
 		PainConsciousnessConstants.BLOOD_CONSCIOUSNESS_REDUCTION_MAX
@@ -396,6 +386,11 @@ static func try_enter_pain_shock_from_hit(entity: Node, pain_from_this_hit_raw: 
 	var duration: float = PainConsciousnessConstants.get_pain_shock_duration_seconds(
 		pain_value, entity._last_hit_impact
 	)
+	# Limb destruction trauma bonus: strikes to destroyed/damaged limbs cause amplified shock.
+	## Clinical basis: limb ischemia (crush syndrome), nerve avulsion, and bone splintering produce
+	## disproportionate pain relative to visible damage — damaged nerves fire continuously until severed.
+	var limb_shock_mult: float = _limb_destruction_pain_multiplier(entity)
+	duration *= limb_shock_mult
 	entity._pain_shock_until_time = now + duration
 	entity._last_hit_impact = 0.0
 	# In tuning/batch mode, lock effective_consciousness at current value once pain shock is entered.
@@ -495,30 +490,33 @@ static func update_consciousness(entity: Node) -> void:
 		base_consciousness = 100.0 * (head_total / head_max_total)
 	if entity.has_method("is_vital_part_critically_damaged") and entity.is_vital_part_critically_damaged():
 		base_consciousness = minf(base_consciousness, 15.0)
-	var true_consciousness: float = base_consciousness * get_blood_consciousness_modifier(entity)
+	var blood_mod: float = get_blood_consciousness_modifier(entity)
+	var true_consciousness: float = base_consciousness * blood_mod
 	# Adrenaline pain suppression — catecholamine surge reduces pain perception by ~50% during sustained dump.
 	# At Class III+ hemorrhage, this effect is progressively negated (receptor desensitization).
+	var now_check: float = CombatTiming.now_seconds()
 	var adrenaline_info: Dictionary = _get_adrenaline_phase_info(entity)
 	var ad_pain_suppression: float = ADRENALINE_PAIN_SUPPRESSION
-	if adrenaline_info.get("phase", "none") != "none":
-		ad_pain_suppression = adrenaline_info.get("pain_suppression_mult", ADRENALINE_PAIN_SUPPRESSION)
-	if entity.has_method("_get_adrenaline_dump_until_time"):
-		var ad_until: float = entity._get_adrenaline_dump_until_time()
-		if ad_until > 0.0 and entity._get_game_time_seconds() < ad_until:
-			true_consciousness *= (1.0 - PainConsciousnessConstants.PAIN_SHOCK_CONSCIOUSNESS_REDUCTION / 100.0 * ad_pain_suppression)
+	if entity._pain_shock_until_time >= 0.0 and now_check < entity._pain_shock_until_time:
+		if adrenaline_info.get("phase", "none") != "none":
+			ad_pain_suppression = adrenaline_info.get("pain_suppression_mult", ADRENALINE_PAIN_SUPPRESSION)
 	var old_consciousness: float = entity.consciousness
 	var old_effective: float = entity.effective_consciousness
 	entity.consciousness = true_consciousness
-	var now: float = CombatTiming.now_seconds()
-	if entity._pain_shock_until_time >= 0.0 and now < entity._pain_shock_until_time:
+	if entity._pain_shock_until_time >= 0.0 and now_check < entity._pain_shock_until_time:
 		entity.effective_consciousness = (
-			true_consciousness * (1.0 - PainConsciousnessConstants.PAIN_SHOCK_CONSCIOUSNESS_REDUCTION / 100.0)
+			true_consciousness * (1.0 - PainConsciousnessConstants.PAIN_SHOCK_CONSCIOUSNESS_REDUCTION / 100.0 * ad_pain_suppression)
 		)
 	elif entity.has_meta("_tuning_pain_shock_locked"):
 		## Tuning/batch mode: once pain shock is entered during a cycle, it remains locked at the
 		## lowest effective_consciousness reached. Prevents CON from recovering mid-cycle when shock
 		## expires between strikes (which would make CON non-monotonic within a single weapon-sweep cycle).
-		entity.effective_consciousness = float(entity.get_meta("_tuning_pain_shock_locked_value", 0.0))
+		var locked_val: float = entity.get_meta("_tuning_pain_shock_locked_value", -1.0)
+		if locked_val < 0.0:
+			entity.effective_consciousness = true_consciousness
+			entity.remove_meta("_tuning_pain_shock_locked")
+		else:
+			entity.effective_consciousness = locked_val
 	else:
 		entity._pain_shock_until_time = -1.0
 		entity.effective_consciousness = true_consciousness
@@ -620,18 +618,13 @@ static func get_performance_modifier(entity: Node) -> float:
 
 static func get_action_bar_performance_modifier(entity: Node) -> float:
 	var base: float = get_performance_modifier(entity)
-	var chest_pain_mod: float = PainConsciousnessConstants.get_pain_performance_modifier(
-		_get_effective_pain_for_region(entity, BodyPartConstants.PART_CHEST)
-	)
-	return maxf(PainConsciousnessConstants.MIN_PERFORMANCE_MODIFIER, base * chest_pain_mod)
-
+	# Chest pain already factored into total pain via get_performance_modifier; do not double-count.
+	return base
 
 static func get_hit_chance_performance_modifier(entity: Node) -> float:
 	var base: float = get_performance_modifier(entity)
-	var head_pain_mod: float = PainConsciousnessConstants.get_pain_performance_modifier(
-		_get_effective_pain_for_region(entity, BodyPartConstants.PART_HEAD)
-	)
-	return maxf(PainConsciousnessConstants.MIN_PERFORMANCE_MODIFIER, base * head_pain_mod)
+	# Head pain already factored into total pain via get_performance_modifier; do not double-count.
+	return base
 
 
 static func get_parry_capacity_modifier(entity: Node) -> float:
@@ -729,16 +722,16 @@ static func get_all_limb_crippling_modifiers(entity: Node) -> Dictionary:
 
 static func get_cumulative_limb_penalty(entity: Node) -> float:
 	# Blend all limb penalties — losing one arm is worse than two minor leg injuries due to weapon handling priority.
-	var right_arm_mod: float = get_limb_crippling_modifier(entity, BodyPartConstants.PART_RIGHT_ARM) if entity.has_method("_get_vital_parts") else 1.0
-	var left_arm_mod: float = get_limb_crippling_modifier(entity, BodyPartConstants.PART_LEFT_ARM) if entity.has_method("_get_vital_parts") else 1.0
-	if not entity.has_method("_get_vital_parts"):
-		right_arm_mod = 1.0
-		left_arm_mod = 1.0
+	var right_arm_mod: float = 1.0
+	var left_arm_mod: float = 1.0
+	if entity.has_method("_get_vital_parts"):
+		right_arm_mod = get_limb_crippling_modifier(entity, BodyPartConstants.PART_RIGHT_ARM)
+		left_arm_mod = get_limb_crippling_modifier(entity, BodyPartConstants.PART_LEFT_ARM)
 	var arm_penalty: float = (1.0 - right_arm_mod + 1.0 - left_arm_mod) * 0.6 # Arms weighted higher for combat
 	var leg_penalty: float = 0.0
 	for leg in [BodyPartConstants.PART_RIGHT_LEG, BodyPartConstants.PART_LEFT_LEG]:
 		leg_penalty += 1.0 - get_limb_crippling_modifier(entity, leg)
-	leg_penalty *= 0.25 # Legs affect movement/dodge but less than arms for weapon handling
+	leg_penalty *= 0.25 # Legs affect movement/dodge but less than arms for combat
 	return clampf(arm_penalty + leg_penalty, 0.0, 1.0)
 
 
@@ -773,7 +766,8 @@ static func get_passive_parry_reaction_time(entity: Node) -> float:
 	var perception_factor: float = clampf(perception_norm * consciousness_norm * head_pain_mod, 0.15, 1.0)
 	var base_reaction: float = PASSIVE_PARRY_BASE_REACTION_S / perception_factor
 	if is_concussed(entity):
-		var reaction_ms_add: float = get_concussion_reaction_time_ms_add(entity)
+		var concussion_info: Dictionary = get_concussion_phase_info(entity)
+		var reaction_ms_add: float = concussion_info.get("reaction_time_ms_add", 0.0)
 		base_reaction += reaction_ms_add / 1000.0
 	return base_reaction
 
@@ -855,8 +849,8 @@ static func try_enter_concussion_from_head_bone_damage(entity: Node, bone_damage
 		sis_multiplier = _get_sis_severity_multiplier(time_since_initial, cumulative_count)
 		cumulative_bonus = 1.0 + cumulative_count * CONCUSSION_CUMULATIVE_SEVERITY_BONUS
 		var new_weighted_severity_raw: float = weighted_severity * sis_multiplier * cumulative_bonus
+		check_and_apply_sis_catastrophic_outcome(entity, new_weighted_severity_raw)
 		var new_weighted_severity: float = clampf(new_weighted_severity_raw, 0.0, 2.0) # cap at double severity
-		check_and_apply_sis_catastrophic_outcome(entity, new_weighted_severity)
 		if time_since_initial < CONCUSSION_CRITICAL_DURATION_S and new_weighted_severity <= 0.5:
 			# Mild re-impact during critical phase — extend with SIS consideration.
 			# Even mild impacts add a minimum severity bump to prevent trivial taps from extending without effect.
@@ -870,7 +864,8 @@ static func try_enter_concussion_from_head_bone_damage(entity: Node, bone_damage
 			entity.set_meta("_concussion_until_time", current_time + total_recover_s)
 		entity.set_meta("_cumulative_concussion_count", cumulative_count + 1)
 		entity.set_meta("_last_concussion_time", current_time)
-		entity.set_meta("_concussion_onset_time", current_time) # re-impact resets onset for phase tracking
+		if cumulative_count == 0:
+			entity.set_meta("_concussion_onset_time", current_time) # only first impact sets onset for phase tracking
 		# Accumulate persistent concussion fatigue from repeated sub-threshold impacts.
 		var prior_fatigue: float = float(entity.get_meta("_concussion_persistent_fatigue", 0.0))
 		var fatigue_bump: float = minf(bone_damage_ratio * CONCUSSION_PERSISTENT_FATIGUE_PER_HIT, 0.12)
@@ -941,7 +936,7 @@ static func try_enter_concussion_from_rotation(entity: Node, rotational_accel_ra
 		new_severity = clampf(new_severity, 0.0, 2.0)
 		check_and_apply_sis_catastrophic_outcome(entity, new_severity)
 		if current_until - current_time < CONCUSSION_CRITICAL_DURATION_S and new_severity <= 0.5:
-			var ext: float = lerp(CONCUSSION_MIN_TOTAL_DURATION_S * 0.25, CONCUSSION_MAX_TOTAL_DURATION_S * 0.3, severity)
+			var ext: float = lerp(CONCUSSION_MIN_TOTAL_DURATION_S * 0.25, CONCUSSION_MAX_TOTAL_DURATION_S * 0.3, new_severity)
 			entity.set_meta("_concussion_until_time", current_until + ext)
 		else:
 			var total_recover_s: float = _calculate_total_recovery_duration(new_severity, cumulative_count + 1, sis_multiplier)
@@ -1082,37 +1077,6 @@ static func get_concussion_phase_info(entity: Node) -> Dictionary:
 		"healing_mult": healing_mult
 	}
 
-
-static func get_concussed_perception_modifier(entity: Node) -> float:
-	var info: Dictionary = get_concussion_phase_info(entity)
-	return info.get("perception_mult", 1.0)
-
-
-static func get_concussion_reaction_time_ms_add(entity: Node) -> float:
-	var info: Dictionary = get_concussion_phase_info(entity)
-	return info.get("reaction_time_ms_add", 0.0)
-
-
-static func get_concussion_balance_modifier(entity: Node) -> float:
-	var info: Dictionary = get_concussion_phase_info(entity)
-	return info.get("balance_mult", 1.0)
-
-
-static func get_concussion_visual_tracking_modifier(entity: Node) -> float:
-	var info: Dictionary = get_concussion_phase_info(entity)
-	return info.get("visual_tracking_mult", 1.0)
-
-
-static func get_spatial_judgment_ms_add(entity: Node) -> float:
-	"""Spatial judgment impairment delay (ms). Combat impact: affects parry timing, dodge prediction, aim accuracy."""
-	var info: Dictionary = get_concussion_phase_info(entity)
-	return info.get("spatial_judgment_ms_add", 0.0)
-
-
-static func get_pain_concussion_synergy_penalty(pain_shock_reduction: float, concussive_reduction: float) -> float:
-	"""Synergistic interaction term per Gosselin et al. (2012): pain * concussive * factor.
-	Returns the additional impairment beyond individual effects when both are present."""
-	return pain_shock_reduction * concussive_reduction * PAIN_CONCUSSION_SYNERGY_FACTOR
 
 
 static func _get_current_simulation_time(_entity: Node) -> float:
@@ -1273,11 +1237,6 @@ static func was_sis_catastrophic(entity: Node) -> bool:
 	return false
 
 
-static func get_effective_stat_with_sis_reduction(entity: Node, stat_name: String) -> float:
-	"""Get effective stat value accounting for permanent SIS reduction.
-	Note: EntityStatsUtil.get_effective_stat() already applies SIS reduction internally, so this is now a pass-through."""
-	return EntityStatsUtil.get_effective_stat(entity, stat_name) if entity.has_method("get_meta") else 0.0
-
 
 static func get_persistent_concussion_fatigue(entity: Node) -> float:
 	"""Returns accumulated persistent concussion fatigue from repeated sub-threshold concussions (0-1 scale).
@@ -1306,3 +1265,35 @@ static func apply_attacker_windup_concussion_mult(_manager: Variant, attacker: D
 	# Map: windup_mult = 1.0 + lerp(0.30, 0.05, 1.0 - dq) where dq in [0.30, 1.0]
 	var normalized_dq = clampf((dq - 0.30) / 0.70, 0.0, 1.0) # normalize to [0,1] over clinical range
 	return wind_up_s * lerp(1.30, 1.05, normalized_dq)
+
+
+## Compute a pain shock duration multiplier based on limb destruction state of the entity.
+## Destroyed limbs produce disproportionate trauma — damaged nerves fire continuously (phantom limb pain,
+## ischemic agony), and bone fragments cause additional internal damage. Clinical basis: Mangled Extremity
+## Severity Score (MESS) shows that limb-threatening injuries produce shock responses 2-3x higher than
+## equivalent soft-tissue wounds to trunk regions.
+static func _limb_destruction_pain_multiplier(entity: Node) -> float:
+	if not entity.has_method("_get_leg_functionality") or not entity.has_method("get_total_bleeding_rate"):
+		return 1.0
+	var limb_loss_factor: float = 0.0
+
+	# Check arm functionality — destroyed arms cause grip trauma + nerve pain
+	if entity.has_method("_get_bone_functionality_factor"):
+		for arm_part in [BodyPartConstants.PART_RIGHT_ARM, BodyPartConstants.PART_LEFT_ARM]:
+			var func_val: float = entity._get_bone_functionality_factor(arm_part)
+			var tissue_factor: float = 1.0
+			if entity.has_method("_round_tissue"):
+				tissue_factor = BodyPartQuery.get_arm_tissue_factor(entity, arm_part)
+			# Fully destroyed limb (tissue < threshold or not operable): major trauma bonus
+			if not BodyPartQuery.is_part_physically_operable(entity, arm_part) or tissue_factor < 0.15:
+				limb_loss_factor += 0.4
+			elif func_val < 0.5:
+				# Severely damaged but not destroyed: moderate trauma bonus
+				limb_loss_factor += 0.2
+
+	# Check leg functionality — destroyed legs cause balance trauma + ischemic pain
+	var leg_func: float = entity._get_leg_functionality() if entity.has_method("_get_leg_functionality") else 1.0
+	if leg_func < 0.5:
+		limb_loss_factor += 0.3
+
+	return 1.0 + limb_loss_factor

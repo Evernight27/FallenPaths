@@ -7,6 +7,7 @@ const MAX_SEC := 60.0
 
 const _Helpers := preload("res://harness/d001/D001RunnerHelpers.gd")
 const _SoakPresets := preload("res://world/SoakEncounterPresets.gd")
+const _CombatRegressionHarness := preload("res://harness/regression/CombatRegressionHarness.gd")
 
 
 func _init() -> void:
@@ -16,7 +17,7 @@ func _init() -> void:
 		var elapsed := _drive_fight(mgr)
 		print("STALL_DIAG wid=%s duration_s=%.1f medical=%s" % [wid, elapsed, bool(mgr.medical_phase)])
 		_dump_end_state(mgr)
-		CombatRegressionHarness._free_manager(mgr)
+		_CombatRegressionHarness._free_manager(mgr)
 	quit(0)
 
 

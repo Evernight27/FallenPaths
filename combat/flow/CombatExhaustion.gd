@@ -282,6 +282,8 @@ static func _maybe_log_exhaustion_band_crossing(combatant: Dictionary, prev_ex: 
     var who: String = CombatantEntityAccess.get_display_name(combatant)
     if OperationalLog.play_session_is_editor_f5():
         CombatF5SoakTrace.note_exhaustion_crossing(who, band_pct, new_ex * 100.0, perf_pct)
+    elif OperationalLog.is_play_session_active():
+        CombatF5SoakTrace.note_exhaustion_crossing(who, band_pct, new_ex * 100.0, perf_pct)
     else:
         CombatDebug.combat_session(
             "exhaustion %s crossed %d%% (index %.0f%% perf %d%%)" % [who, band_pct, new_ex * 100.0, perf_pct]

@@ -51,6 +51,9 @@ const FIELDS: Dictionary = {
     "is_enemy_leader": {"owner": OWNER_ACCESS, "writers": "CombatantRegister from node"},
     "morale_cohesion": {"owner": OWNER_FLOW, "writers": "CombatMoraleCohesion"},
     "campaign_stamina_mult": {"owner": OWNER_ACCESS, "writers": "CombatantRegister from entity"},
+    "ruthlessness": {"owner": OWNER_AI, "writers": "CombatantRegister (species seed) · CombatExecute"},
+    "damage_dealt_by_id": {"owner": OWNER_STRIKE, "writers": "AttackResultApplier (ledger) · CombatExecute (reads)"},
+    "prisoner": {"owner": OWNER_MEDICAL, "writers": "MedicalPhase / victory mop-up"},
 }
 
 

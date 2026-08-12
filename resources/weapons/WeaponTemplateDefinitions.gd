@@ -41,13 +41,13 @@ const KINEMATIC_DELIVERY_MIXED := "mixed"
 
 static func _weapon_definitions_build() -> Dictionary:
     return {
-        # Longsword / arming sword: thrust, cuts, pommel, parry-counters (German tradition).
+        # Longsword / arming sword: thrust, cuts, pommel, parry-counters (German tradition). Mass ~1.3 kg per Oakeshott museum measurements of 14th-15th century swords.
         "SWORD":
         {
             "name": "Sword",
             "default_form": "ox",
             "allowed_forms": ["ox", "plow", "wrath", "fool", "wall", "tempest", "balanced"],
-            "mass": 1.2,
+            "mass": 1.30,
             "parry_speed_factor": 1.0,
             "bind_riposte_contact_types": ["stab", "cut"],
             "blade_width": 2.0,
@@ -71,10 +71,11 @@ static func _weapon_definitions_build() -> Dictionary:
                 "station_cut_vel_guard": 0.9,
                 "station_cut_vel_tip": 1.06,
                 "coupling_stab": 0.9,
-                "coupling_cut": 0.92,
+                "coupling_cut": 1.20,
                 "coupling_blunt": 0.96,
                 "blunt_pressure": 1.0,
-                "blunt_head_ref_cm": 6.0
+                "blunt_head_ref_cm": 6.0,
+                "inertia_scale": 0.98
             },
             "moves":
             [
@@ -147,7 +148,8 @@ static func _weapon_definitions_build() -> Dictionary:
                 "coupling_cut": 0.92,
                 "coupling_blunt": 0.98,
                 "blunt_pressure": 1.05,
-                "blunt_head_ref_cm": 6.0
+                "blunt_head_ref_cm": 6.0,
+                "inertia_scale": 0.70
             },
             "moves":
             [
@@ -211,7 +213,8 @@ static func _weapon_definitions_build() -> Dictionary:
                 "coupling_cut": 0.92,
                 "coupling_blunt": 1.06,
                 "blunt_pressure": 1.14,
-                "blunt_head_ref_cm": 6.0
+                "blunt_head_ref_cm": 6.0,
+                "inertia_scale": 0.80
             },
             "moves":
             [
@@ -250,7 +253,7 @@ static func _weapon_definitions_build() -> Dictionary:
             "head_diameter": 2.5,
             "edge_width": 0.0,
             "blade_cut_ratio": 0.9,
-            "stab_cut_ratio": 0.2,
+            "stab_cut_ratio": 0.3,  # Rondel daggers can slice tissue on withdrawal (Oakeshott medieval dagger typology); higher than point-thrust-only weapons
             "melee_range": 0.8,
             "parts":
             [
@@ -268,7 +271,8 @@ static func _weapon_definitions_build() -> Dictionary:
                 "coupling_cut": 0.92,
                 "coupling_blunt": 0.9,
                 "blunt_pressure": 0.95,
-                "blunt_head_ref_cm": 6.0
+                "blunt_head_ref_cm": 6.0,
+                "inertia_scale": 1.0
             },
             "moves":
             [
@@ -307,8 +311,8 @@ static func _weapon_definitions_build() -> Dictionary:
             "thrust_head_width": 2.5,
             "head_diameter": 3.5,
             "edge_width": 0.0,
-            "blade_cut_ratio": 0.85,
-            "stab_cut_ratio": 0.55,
+            "blade_cut_ratio": 0.35,
+            "stab_cut_ratio": 0.25,
             "melee_range": 2.5,
             "depth_melee_eligible": true,
             "parts":
@@ -318,18 +322,25 @@ static func _weapon_definitions_build() -> Dictionary:
                     "length_cm": 25,
                     "mass_fraction": 0.15,
                     "parry_eligible": false,
-                    "striking_for": ["stab", "cut"]
+                    "striking_for": ["stab"]
+                },
+                {
+                    "id": "blade",
+                    "length_cm": 60,
+                    "mass_fraction": 0.2,
+                    "parry_eligible": true,
+                    "striking_for": ["cut"]
                 },
                 {
                     "id": "shaft",
-                    "length_cm": 200,
-                    "mass_fraction": 0.85,
+                    "length_cm": 175,
+                    "mass_fraction": 0.65,
                     "parry_eligible": true,
                     "striking_for": ["blunt"]
                 }
             ],
             "parry_part_id": "shaft",
-            "impact_velocity_bands": {"stab": {"min": 5.0, "max": 9.5}},
+            "impact_velocity_bands": {"stab": {"min": 5.0, "max": 8.5}},
             "strike_physics":
             {
                 "station_mean": 0.48,
@@ -340,7 +351,8 @@ static func _weapon_definitions_build() -> Dictionary:
                 "coupling_cut": 0.92,
                 "coupling_blunt": 0.99,
                 "blunt_pressure": 1.02,
-                "blunt_head_ref_cm": 6.0
+                "blunt_head_ref_cm": 6.0,
+                "inertia_scale": 0.85
             },
             "moves":
             [
@@ -365,13 +377,12 @@ static func _archetype_definitions_build() -> Dictionary:
     return {
         ARCHETYPE_STAB:
         {
-            "velocity_factor": 1.08,
+            "velocity_factor": 1.0,
             "velocity_intensity_curve": 0.95,
             "cut_ratio": -1.0,  # use weapon stab_cut_ratio (falls back to blade_cut_ratio)
             "recovery_multiplier": 1.0,
             "windup_multiplier": 1.0,
-            "kinematic_delivery": KINEMATIC_DELIVERY_THRUST,
-            "strike_energy_mult": 1.25
+            "kinematic_delivery": KINEMATIC_DELIVERY_THRUST
         },
         ARCHETYPE_SLASH:
         {
@@ -389,7 +400,8 @@ static func _archetype_definitions_build() -> Dictionary:
             "cut_ratio": -1.0,
             "recovery_multiplier": 1.2,
             "windup_multiplier": 1.15,
-            "kinematic_delivery": KINEMATIC_DELIVERY_SWING
+            "kinematic_delivery": KINEMATIC_DELIVERY_SWING,
+            "strike_energy_mult": 1.3
         },
         ARCHETYPE_QUICK_SLASH:
         {
@@ -416,7 +428,8 @@ static func _archetype_definitions_build() -> Dictionary:
             "cut_ratio": -1.0,  # blunt weapons route via get_damage_type -> MIN_CUT_RATIO floor (0.02), not 5%
             "recovery_multiplier": 1.15,
             "windup_multiplier": 1.1,
-            "kinematic_delivery": KINEMATIC_DELIVERY_SWING
+            "kinematic_delivery": KINEMATIC_DELIVERY_SWING,
+            "strike_energy_mult": 1.45
         },
         ARCHETYPE_THRUSTING_BLUNT:
         {

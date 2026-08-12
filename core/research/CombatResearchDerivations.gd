@@ -153,7 +153,7 @@ static func reference_bleed_rate_derivation() -> Dictionary:
         BleedingConstants.BLEEDING_RATES[BleedingConstants.INJURY_TYPE_CUT][BleedingConstants.SEVERITY_CRITICAL]
     )
     var head_mult: float = float(BleedingConstants.BODY_PART_BLEEDING_MULTIPLIERS["head"])
-    var arterial_mult: float = BleedingConstants.ARTERIAL_BLEEDING_MULTIPLIER
+    var arterial_mult: float = BleedingConstants.BLEEDING_TYPE_RATE_MULT[BleedingConstants.BLEEDING_TYPE_ARTERIAL]
     var product: float = cut_crit * head_mult * arterial_mult
     var ref_kg: float = CombatDesignAnchors.REFERENCE_ADULT_MASS_KG
     var implied_ml_s: float = reference_uncontrolled_implied_ml_per_second(ref_kg, 1.0)

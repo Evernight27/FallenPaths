@@ -11,13 +11,13 @@ const GLANCING_DAMAGE_RATIO := 0.1
 const GLANCING_DAMAGE_ABSOLUTE_FLOOR := 0.3
 const PHYSICAL_DAMAGE_ZERO_EPS := 1e-4
 
-## Williams-formula scaling for unarmored targets.
-## The Williams formula (KE/55)^0.6 outputs RHA penetration calibrated against steel plate tests.
-## Applying it directly to soft tissue overestimates depth because tissue yields and bleeds rather than
-## deforming rigidly like steel, so energy is dissipated through different failure modes.
-## Value 0.35 is a game-tuning parameter (not derived from physical measurement) that brings
-## unarmored penetration into reasonable range for HEMA damage calibration.
-const FLESH_EQUIVALENT_PENETRATION_FACTOR := 0.35
+## Williams formula (KE/55)^0.6 outputs RHA penetration calibrated against steel plate tests.
+## For unarmored targets, tissue yields and bleeds rather than deforming rigidly like steel,
+## so energy dissipates through different failure modes (laceration vs plastic deformation).
+## This factor was reserved for a future conversion from RHA penetration to soft-tissue depth.
+## Attinger et al. (J. Trauma 62:686, 2007) suggests tissue is ~74× easier to penetrate than RHA by depth,
+## but this constant is not currently used in the damage pipeline.
+# const FLESH_EQUIVALENT_PENETRATION_FACTOR := 74.0  # Reserved: tissue-to-RHA penetration depth ratio; see Attinger et al. J. Trauma 62:686 (2007)
 
 ## R4: Minimum tissue floor for blunt damage — after armor absorption, at least this fraction of
 ## pre-armor blunt value must remain as tissue damage. Prevents high-KE blunt weapons from allocating

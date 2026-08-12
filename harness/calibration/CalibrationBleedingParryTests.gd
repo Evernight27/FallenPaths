@@ -5,6 +5,7 @@ extends RefCounted
 
 const HumanSpecies := preload("res://resources/species/human.tres")
 const GoblinSpecies := preload("res://resources/species/goblin.tres")
+const _CombatRegressionHarness := preload("res://harness/regression/CombatRegressionHarness.gd")
 
 const REPORT_FILENAME := ".calibration_audit.txt"
 const BIND_THRESHOLD := CombatConstants.PARRY_BIND_CONTROL_THRESHOLD
@@ -77,7 +78,7 @@ static func _append_bleeding_section(lines: PackedStringArray, failures: PackedS
                         ]
                     ),
                     float(BleedingConstants.BODY_PART_BLEEDING_MULTIPLIERS["head"]),
-                    BleedingConstants.ARTERIAL_BLEEDING_MULTIPLIER,
+                    BleedingConstants.BLEEDING_TYPE_RATE_MULT[BleedingConstants.BLEEDING_TYPE_ARTERIAL],
                     BleedingConstants.REFERENCE_UNCONTROLLED_BLEED_RATE,
                 ]
             )
@@ -630,7 +631,7 @@ static func _audit_new_entity(weapon_id: String) -> CoreEntity:
     var w: Weapon = HarnessFixtures.get_cached_weapon(weapon_id)
     if w != null:
         ent.equip_weapon(w)
-    CombatRegressionHarness._track_harness_node(ent)
+    _CombatRegressionHarness._track_harness_node(ent)
     return ent
 
 

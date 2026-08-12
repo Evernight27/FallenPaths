@@ -1,5 +1,7 @@
 class_name SimulationResearchTests
 extends CombatRegressionHarnessCore
+const _CombatRegressionHarness := preload("res://harness/regression/CombatRegressionHarness.gd")
+
 ## Simulation realism track (S1 - S10): `_run_sim_*`  -  docs/LIVE_PATHS.md#harness-prefixes.
 
 const HumanSpecies := preload("res://resources/species/human.tres")

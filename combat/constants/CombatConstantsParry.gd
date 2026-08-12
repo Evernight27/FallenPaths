@@ -3,7 +3,7 @@ extends RefCounted
 
 const PARRY_V_FRACTION_OF_MAX_STRIKE := 0.5
 const PARRY_STRENGTH_NORM := 100.0
-const PARRY_DEFLECT_THRESHOLD := 1.00
+const PARRY_DEFLECT_THRESHOLD := 0.75
 const PARRY_TECHNIQUE_VARIANCE := 0.08
 const PARRY_V_MIN_FRACTION := 0.2
 const PARRY_V_MIN_NEAR_DEFLECT := 0.1
@@ -55,6 +55,9 @@ const PARRY_FUNCTIONAL_ALIGNMENT_BONUS := 0.12
 ## Glancing floor: alignment at cos(60°). Below this, parry contact geometry is so degraded that even viable capacity
 ## should not override dodge — the blade cannot meaningfully engage the attack trajectory (near-perpendicular spark).
 const PARRY_GLANCING_ALIGNMENT_FLOOR := 0.5
+## Reduced alignment threshold for wide-arc weapons (axe, poleaxe) attacking with adjacent guard lines.
+## Wide-face weapons can intercept attacks at specific points along their arc even when not perfectly aligned.
+const PARRY_WIDE_ARC_DEFLECT_THRESHOLD := 0.25       # cos75 — allows deflect for wide weapons on adjacent lines
 ## Parry damage mapping: ctrl should map directly to damage reduction percentage.
 ## Models HEMA reality — a parry that achieves ctrl=0.6 (absorbs 60% of attack momentum)
 ## blocks ~40-60% of incoming damage, not just the current 10-25%.
@@ -165,7 +168,7 @@ static func parry_full_stop_reached(c_d: float, parry_p_a: float, is_block_parry
     return is_block_parry and c_d >= parry_p_a * threshold
 
 
-static func parry_edge_deflect_reached(c_d: float, parry_p_a: float, alignment: float, is_block_parry: bool, contact_type: String = "") -> bool:
+static func parry_edge_deflect_reached(c_d: float, parry_p_a: float, alignment: float, is_block_parry: bool, contact_type: String = "", attack_line: String = "", guard_line: String = "", is_wide_arc: bool = false) -> bool:
     if is_block_parry:
         return false
     # Thrusts can glancing at high obliquity — point contact slides off blade edge when alignment >= cos60.
@@ -175,6 +178,13 @@ static func parry_edge_deflect_reached(c_d: float, parry_p_a: float, alignment: 
             return false  # below glancing floor — no edge deflect possible for thrusts
         # Thrust edge deflect: requires both sufficient capacity AND reasonable alignment (cos45+).
         return alignment >= PARRY_THRUST_GLANCE_ALIGNMENT_FLOOR and c_d >= parry_p_a * PARRY_THRUST_BLOCK_ONLY_THRESHOLD
+    # Wide-arc weapon + adjacent lines → reduced threshold deflect.
+    # Historical: Fiore's Azza and Le Jeu de la Hache show wide-face weapons can intercept at specific points
+    # along their arc even when guard is not perfectly matched to attack line.
+    if is_wide_arc and not attack_line.is_empty() and not guard_line.is_empty():
+        var adj = CombatGuardLines.LINE_ADJACENTS.get(attack_line, [])
+        if guard_line in adj or attack_line in CombatGuardLines.LINE_ADJACENTS.get(guard_line, []):
+            return alignment >= PARRY_WIDE_ARC_DEFLECT_THRESHOLD and c_d >= parry_p_a * 0.85
     # Edge deflect requires reasonable alignment (cos(45°) ≈ 0.707) and sufficient capacity surplus.
     # Alignment below PARRY_PARTIAL_GUARD_ALIGNMENT_THRESHOLD means the guard is too misaligned — glancing only, no clean deflect.
     return alignment >= PARRY_PARTIAL_GUARD_ALIGNMENT_THRESHOLD and c_d >= parry_p_a * PARRY_DEFLECT_THRESHOLD
@@ -275,7 +285,7 @@ static func parry_control_for_bind_deflect(
     # PARRY_CONTROL_ALIGNMENT_FLOOR prevents absolute zero — even a "miracle" deflect via arm interpose
     # grants minimal positional advantage because the attacker's momentum was wasted and the defender feel
     # the impact point (Waffenfühlen), per Liechtenauer: every parry is the first half of a counterattack.
-    var alignment_weight: float = pow(clampf(maxf(alignment, PARRY_CONTROL_ALIGNMENT_FLOOR), 0.0, 1.0), 1.8)
+    var alignment_weight: float = pow(clampf(maxf(alignment, PARRY_CONTROL_ALIGNMENT_FLOOR), 0.0, 1.0), 1.2)
 
     # Readiness contributes additively to the margin factor (capacity bonus), not multiplicatively.
     # This prevents readiness from acting as a "brake" — instead it helps achieve bind when
@@ -290,7 +300,7 @@ static func parry_control_for_bind_deflect(
         # HEMA realism — even overwhelmed defenders create blade friction and structural disruption.
         # A parry absorbing 80% of momentum should grant ~2x the control of one absorbing 40%.
         # The contact floor ensures ANY blade contact produces non-zero control (HEMA: Waffenfühlen).
-        var contact_floor: float = margin_ratio * 0.7 + 0.25  # [0.25, 0.95] when margin_ratio in [0, 1]
+        var contact_floor: float = margin_ratio * 0.7 + 0.35  # [0.35, 1.05] when margin_ratio in [0, 1]; raised from 0.25 floor to give partial parry meaningful bind potential (HEMA: any sustained blade contact creates leverage)
         effective_margin = contact_floor + parry_readiness * 0.5
 
     var p: float = alignment_weight * (effective_margin / 2.0)

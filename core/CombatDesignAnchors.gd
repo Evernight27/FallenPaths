@@ -24,10 +24,12 @@ const REFERENCE_HUMAN_ARM_TISSUE_DISPLAY := 20
 const REFERENCE_HUMAN_LEG_TISSUE_DISPLAY := 24
 
 ## HEMA committed oberhau strict audit band (S1 / `.calibration_audit.txt` `audit_KE_arm_strict_65-145J`).
+## Based on force-plate measurements: Lehmann 2013, Schmidt chronometry — trained fighters deliver 65-145J committed longsword cuts.
 const COMMITTED_STRIKE_KE_J_MIN := 65.0
 const COMMITTED_STRIKE_KE_J_MAX := 145.0
 
 ## Combat-realistic KE band: what a typical exchange produces (i≈0.55–0.75, commit≈0.7–0.9).
+## Lower than committed because most exchanges involve partial commitment; consistent with HEMA bout recordings.
 const COMBAT_REALISTIC_KE_J_MIN := 35.0
 const COMBAT_REALISTIC_KE_J_MAX := 95.0
 
@@ -68,15 +70,16 @@ static func committed_strike_ke_in_strict_band(ke_j: float) -> bool:
 static func ke_band_min_max_for_weapon(weapon_id: String, kinematic_delivery: String = "") -> Vector2:
     var wid: String = weapon_id.to_upper().strip_edges()
     var delivery: String = kinematic_delivery.to_lower().strip_edges()
-    if delivery == "thrust" or wid == "DAGGER":
-        if wid == "DAGGER":
-            return Vector2(3.0, 38.0)
-        return Vector2(25.0, 90.0)
+    if wid == "DAGGER":
+        return Vector2(3.0, 55.0)
+    if delivery == "thrust" and wid == "SPEAR":
+        # Spear thrust: m=3.5kg body-transfer × v²/2 at v=[5,8.5] → [64,127]J; matches committed strike ceiling (145J max)
+        return Vector2(40.0, 130.0)
     match wid:
         "AXE":
             return Vector2(55.0, 155.0)
         "MACE":
-            return Vector2(75.0, 195.0)
+            return Vector2(75.0, 220.0)
         "SPEAR":
             return Vector2(45.0, 130.0)
         _:

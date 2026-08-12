@@ -75,7 +75,7 @@ static func process_blood_loss_tick(
         var loss_ml: float = blood_ml_loss_per_second(total_bleeding_rate, max_ml, loss_mult) * delta
         _set_ml(entity, maxf(0.0, _ml(entity) - loss_ml))
         sync_percent_from_ml(entity)
-    elif recovery_pct_per_s > 0.0:
+    if recovery_pct_per_s > 0.0:
         var add_ml: float = blood_ml_recovery_per_second(recovery_pct_per_s, max_ml) * delta
         _set_ml(entity, minf(max_ml, _ml(entity) + add_ml))
         sync_percent_from_ml(entity)

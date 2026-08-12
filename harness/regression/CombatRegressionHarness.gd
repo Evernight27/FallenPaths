@@ -301,6 +301,8 @@ static func get_test_functions() -> Array:
     ## Tier 1.7-1.8: stale swap-rank event cleanup and parry formation-pair state preservation.
     tests.append(Callable(CombatRegressionHarnessCore, "_run_cancel_stale_swap_rank_resolve_events"))
     tests.append(Callable(CombatRegressionHarnessCore, "_run_parry_preserves_formation_pair_state"))
+    ## MS/EX-1: mercy & execution (downed predicate, weights, listing, resolve).
+    tests.append(Callable(CombatRegressionHarnessMercyExecuteTail, "run"))
 
     _test_functions_cache = tests
     return tests
