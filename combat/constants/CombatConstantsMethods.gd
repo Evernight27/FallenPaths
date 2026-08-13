@@ -169,8 +169,8 @@ static func parry_full_stop_reached(c_d: float, parry_p_a: float, is_block_parry
 	return Parry.parry_full_stop_reached(c_d, parry_p_a, is_block_parry, contact_type)
 
 
-static func parry_edge_deflect_reached(c_d: float, parry_p_a: float, alignment: float, is_block_parry: bool, contact_type: String = "") -> bool:
-	return Parry.parry_edge_deflect_reached(c_d, parry_p_a, alignment, is_block_parry, contact_type)
+static func parry_edge_deflect_reached(c_d: float, parry_p_a: float, alignment: float, is_block_parry: bool, contact_type: String = "", attack_line: String = "", guard_line: String = "", is_wide_arc: bool = false) -> bool:
+	return Parry.parry_edge_deflect_reached(c_d, parry_p_a, alignment, is_block_parry, contact_type, attack_line, guard_line, is_wide_arc)
 
 
 static func parry_bind_control_reached(parry_control: float) -> bool:

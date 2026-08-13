@@ -124,14 +124,14 @@ static func set_guard_from_move(c: Dictionary, move_id: String, effective_line_o
 
 ## Sets combatant guard_line directly from line (e.g. when we have effective_attack_line from diagonal roll).
 ## L3 writer  -  home guard uses same path from **`assign_form`**. Catalog: LIVE_PATHS **`#wf-guard-writers`**.
-static func set_guard_from_line(c: Dictionary, line: String) -> void:
+static func set_guard_from_line(c: Dictionary, line: String, sync_focus: bool = true) -> void:
     if line.is_empty():
         return
     var prev: String = c.get(DataKeys.ATTACK_GUARD_LINE, CombatConstants.GUARD_DEFAULT)
     c[DataKeys.ATTACK_GUARD_LINE] = line
     c.erase(DataKeys.PA_GUARD_DEFLECT_BLEND)
     c.erase(DataKeys.PA_GUARD_DEFLECT_FROM_LINE)
-    _sync_guard_zone_from_line(c, line, true)
+    _sync_guard_zone_from_line(c, line, sync_focus)
     if CombatConstants.combat_debug_active():
         var name_s: String = CombatantEntityAccess.get_display_name(c)
         CombatDebug.log("guard_line %s: %s -> %s (from_line)" % [name_s, prev, line])

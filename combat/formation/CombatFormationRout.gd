@@ -7,6 +7,9 @@ extends RefCounted
 const FORMATION_FLEE_LEADER_BLOOD_MIN := 27.5
 const PERSONAL_CRISIS_COHESION_MULT: float = 0.55
 const LEADER_COHESION_EXEMPTION_MULT: float = 1.5
+## Per-entity morale variance — ±5% individual threshold offset for flee decisions.
+## Models historical unit variation: veteran fighters hold longer, militia rout earlier.
+const FLEE_MORALE_VARIANCE_RANGE: float = 0.05
 
 
 static func is_party_leader_combatant(c: Dictionary) -> bool:
@@ -173,12 +176,24 @@ static func casualty_ratio_for_combatant(manager: Node, c: Dictionary) -> float:
     return clampf(1.0 - float(now_n) / float(start_n), 0.0, 1.0)
 
 
+## Per-entity morale offset for flee threshold — ±5% variance based on entity ID hash.
+static func _morale_offset_for_combatant(c: Dictionary) -> float:
+    if c.is_empty():
+        return 0.0
+    var raw: float = (fmod(hash(str(c.id)), FLEE_MORALE_VARIANCE_RANGE * 100.0)) / 100.0 - FLEE_MORALE_VARIANCE_RANGE * 0.5
+    return clampf(raw, -FLEE_MORALE_VARIANCE_RANGE, FLEE_MORALE_VARIANCE_RANGE)
+
+
 ## True when the unit's formation is tactically breaking (ragged line or heavy losses).
 static func formation_stressed_for_rout(manager: Node, c: Dictionary) -> bool:
     ensure_rout_baseline(manager)
     if line_cohesion_for_combatant(manager, c) < flee_line_cohesion_max(manager, c):
         return true
-    if casualty_ratio_for_combatant(manager, c) >= flee_casualty_ratio_min(manager, c):
+    # Per-entity morale offset — veterans hold longer, militia rout earlier.
+    var casualty_ratio: float = casualty_ratio_for_combatant(manager, c)
+    var base_threshold: float = flee_casualty_ratio_min(manager, c)
+    var entity_offset: float = _morale_offset_for_combatant(c)
+    if casualty_ratio >= base_threshold + entity_offset:
         return true
     return false
 

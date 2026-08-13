@@ -547,6 +547,7 @@ static func _run_sim_joule_armor_authoritative_ke_frac(failures: PackedStringArr
     var ent: CoreEntity = SimulationCombatTests._sim_entity()
     ent.species = HumanSpecies
     ent.apply_species()
+    ent.endurance = 0
     var armor: ArmorPiece = HarnessFixtures.get_cached_armor("CUIRASS")
     if armor == null:
         SimulationCombatTests._fail(failures, "sim_joule_authoritative: missing CUIRASS")

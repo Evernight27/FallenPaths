@@ -3,7 +3,7 @@ extends RefCounted
 
 const PARRY_V_FRACTION_OF_MAX_STRIKE := 0.5
 const PARRY_STRENGTH_NORM := 100.0
-const PARRY_DEFLECT_THRESHOLD := 0.75
+const PARRY_DEFLECT_THRESHOLD := 0.45
 const PARRY_TECHNIQUE_VARIANCE := 0.08
 const PARRY_V_MIN_FRACTION := 0.2
 const PARRY_V_MIN_NEAR_DEFLECT := 0.1
@@ -48,6 +48,10 @@ const PARRY_PENETRATION_ALIGNMENT_SCALE := 1.0
 ## prefers dodge when alignment drops below this floor. Alignments between cos(60)=0.5 and 0.707 are "glancing"
 ## (parry may be chosen but geometric leak is amplified via pow curve); below 0.5, parry is physically ineffective.
 const PARRY_PARTIAL_GUARD_ALIGNMENT_THRESHOLD := 0.707
+## Reduced alignment threshold for partial-parry bind eligibility (controls, not deflects).
+## A control value of 0.55+ already indicates a competent blade engagement — requiring cos45 alignment is overly strict.
+## Partial binds at >= 0.60 still require meaningful alignment but allow glancing intercepts to trigger riposte/flurry chains.
+const PARRY_PARTIAL_BIND_ALIGNMENT_THRESHOLD := 0.60
 ## Functional parry bonus: alignments near the partial guard threshold (cos45) are boosted into a more confident regime.
 ## A 45° intercept is a legitimate HEMA parry line — it deflects rather than fully blocks, but should not be treated as
 ## marginal. This small alignment bump prevents the decision system from oscillating between parry/dodge for borderline cases.
@@ -58,6 +62,9 @@ const PARRY_GLANCING_ALIGNMENT_FLOOR := 0.5
 ## Reduced alignment threshold for wide-arc weapons (axe, poleaxe) attacking with adjacent guard lines.
 ## Wide-face weapons can intercept attacks at specific points along their arc even when not perfectly aligned.
 const PARRY_WIDE_ARC_DEFLECT_THRESHOLD := 0.25       # cos75 — allows deflect for wide weapons on adjacent lines
+## Wide-arc momentum threshold: slightly above main deflect (0.45) because while alignment floor is lower,
+## wide-face weapons deliver higher-momentum strikes that require proportionally more capacity to redirect.
+const PARRY_WIDE_ARC_MOMENTUM_THRESHOLD := 0.55
 ## Parry damage mapping: ctrl should map directly to damage reduction percentage.
 ## Models HEMA reality — a parry that achieves ctrl=0.6 (absorbs 60% of attack momentum)
 ## blocks ~40-60% of incoming damage, not just the current 10-25%.
@@ -105,7 +112,7 @@ const PARRY_LATE_CAPACITY_FLOOR := 0.45
 ## Minimum parry capacity as a fraction of attack momentum when alignment is at the partial guard threshold (cos45).
 ## Prevents the multiplicative modifier cascade from reducing parry_c_d below functional levels — even with heavy
 ## stamina/exhaustion/pain penalties, a well-aligned defender should always have meaningful parry options.
-const PARRY_CAPACITY_FLOOR_RATIO := 0.60
+const PARRY_CAPACITY_FLOOR_RATIO := 0.35
 const PARRY_CONTACT_MODIFIERS: Dictionary = {"blade": 1.0, "shaft": 0.94, "haft": 0.96}
 const PARRY_DEF_VS_ATK_MOD: Dictionary = {
     "AXE": {"stab": 0.85, "cut": 0.92, "blunt": 0.95},
@@ -184,7 +191,7 @@ static func parry_edge_deflect_reached(c_d: float, parry_p_a: float, alignment: 
     if is_wide_arc and not attack_line.is_empty() and not guard_line.is_empty():
         var adj = CombatGuardLines.LINE_ADJACENTS.get(attack_line, [])
         if guard_line in adj or attack_line in CombatGuardLines.LINE_ADJACENTS.get(guard_line, []):
-            return alignment >= PARRY_WIDE_ARC_DEFLECT_THRESHOLD and c_d >= parry_p_a * 0.85
+            return alignment >= PARRY_WIDE_ARC_DEFLECT_THRESHOLD and c_d >= parry_p_a * PARRY_WIDE_ARC_MOMENTUM_THRESHOLD
     # Edge deflect requires reasonable alignment (cos(45°) ≈ 0.707) and sufficient capacity surplus.
     # Alignment below PARRY_PARTIAL_GUARD_ALIGNMENT_THRESHOLD means the guard is too misaligned — glancing only, no clean deflect.
     return alignment >= PARRY_PARTIAL_GUARD_ALIGNMENT_THRESHOLD and c_d >= parry_p_a * PARRY_DEFLECT_THRESHOLD
@@ -204,6 +211,15 @@ static func parry_thrust_recovery_mult(intensity: float) -> float:
 
 static func parry_bind_control_reached(parry_control: float) -> bool:
     return parry_control >= PARRY_BIND_CONTROL_THRESHOLD
+
+
+## Wide-arc weapons (axe, poleaxe, mace) have larger arc spans that can intercept attacks at specific points
+## along their swing even when the guard line is not perfectly matched — models Fiore's Azza / Le Jeu de la Hache.
+static func is_wide_arc_weapon(weapon: Variant) -> bool:
+    if weapon == null or not "weapon_type" in weapon:
+        return false
+    var wt: String = str(weapon.weapon_type).to_upper()
+    return wt == "AXE" or wt == "MACE"
 
 
 static func iii3_baseline_constants_line() -> String:

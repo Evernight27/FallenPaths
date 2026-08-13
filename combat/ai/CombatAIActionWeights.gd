@@ -358,11 +358,6 @@ static func _get_action_weight(
 ## Extracted from **`_get_action_weight`** for auditability. Returns `{weight, ...}` dictionary.
 ## Computes all per-attack multipliers: stamina base, polearm lane, form weights, counter-read,
 ## feint listing (readiness, footwork state, doctrine, yomi), counter-tempo, attrition, exhaustion.
-
-
-## Extracted from **`_get_action_weight`** for auditability. Returns `{weight, ...}` dictionary.
-## Computes all per-attack multipliers: stamina base, polearm lane, form weights, counter-read,
-## feint listing (readiness, footwork state, doctrine, yomi), counter-tempo, attrition, exhaustion.
 static func _compute_attack_weight_components(
 	a: Dictionary,
 	combatant_id: int,
@@ -552,9 +547,6 @@ static func _compute_attack_weight_components(
 
 
 ## IV-11: doctrine-context weight for party leader / enemy commander instant orders.
-
-
-## IV-11: doctrine-context weight for party leader / enemy commander instant orders.
 static func _leader_formation_command_pick_weight(manager: Node, c: Dictionary, move_id: String) -> float:
 	var w: float = CombatConstants.AI_LEADER_FORMATION_COMMAND_PICK_WEIGHT
 	if move_id != CombatConstants.MOVE_ID_ORDER_PINCH_CENTER:
@@ -567,9 +559,6 @@ static func _leader_formation_command_pick_weight(manager: Node, c: Dictionary, 
 	var mood_bias: float = CombatCampaignMoodBias.mood_bias_for_combatant(manager, c)
 	w *= CombatCampaignMoodBias.offense_action_weight_mult(mood_bias)
 	return w
-
-
-## LONG band, close listed but no melee strikes '"" mapped rank-0 band-lag shuffle (not bind-close wings).
 
 
 ## LONG band, close listed but no melee strikes '"" mapped rank-0 band-lag shuffle (not bind-close wings).
@@ -647,12 +636,6 @@ static func _post_strike_weight_mult(c: Dictionary, a: Dictionary, manager: Node
 ## Swordmaster teaching: "Do not react to the feint - wait for the real attack."
 ## Threshold >0.75 means: settled fighter with decent guard (>=0.80) rejects feints;
 ## recovering fighter must be >89% through recovery (0.75 / 0.85 curve max).
-
-
-## Phase 2: Feint resistance gate '"" returns true when defender has high readiness and is not off-balance.
-## Swordmaster teaching: "Do not react to the feint - wait for the real attack."
-## Threshold >0.75 means: settled fighter with decent guard (>=0.80) rejects feints;
-## recovering fighter must be >89% through recovery (0.75 / 0.85 curve max).
 static func _is_feint_resistance_active(defender_id: int, manager: Node) -> bool:
 	if defender_id < 0:
 		return false
@@ -668,11 +651,6 @@ static func _is_feint_resistance_active(defender_id: int, manager: Node) -> bool
 	if PassiveParryContext.is_off_balance(defender):
 		return false
 	return true
-
-
-## When mental stack is on but no layer fired: high **`attention_load`** dampens offensive picks (still weighted, not
-## hard block).
-## Combat-finish tails (sparse / mop-up) skip salience damp so fights actually end.
 
 
 ## When mental stack is on but no layer fired: high **`attention_load`** dampens offensive picks (still weighted, not
@@ -721,9 +699,6 @@ static func _attrition_offense_weight_mult(manager: Node, c: Dictionary) -> floa
 
 
 ## Fight-finish tails (sparse / mop-up / underdog): damp focus shuffle when strikes/close are listed.
-
-
-## Fight-finish tails (sparse / mop-up / underdog): damp focus shuffle when strikes/close are listed.
 static func _fight_finish_focus_damp_mult(manager: Node, c: Dictionary, combatant_id: int, all_actions: Array) -> float:
 	if manager == null or c.is_empty() or all_actions.is_empty():
 		return 1.0
@@ -732,9 +707,6 @@ static func _fight_finish_focus_damp_mult(manager: Node, c: Dictionary, combatan
 	if not CombatDoctrine.sparse_line_prefer_finish_over_shuffle(manager, c, all_actions, combatant_id):
 		return 1.0
 	return CombatConstants.AI_FOCUS_LINE_SPARSE_ENGAGEMENT_LISTED_MULT
-
-
-## Tier 4.3.7: focus-line retarget '"" party lead favors matching incoming telegraph; others rarely shift.
 
 
 ## Tier 4.3.7: focus-line retarget '"" party lead favors matching incoming telegraph; others rarely shift.
@@ -781,8 +753,22 @@ static func _focus_line_action_weight(
 		w *= CombatConstants.ENVELOP_MOP_UP_FOCUS_AI_WEIGHT_MULT
 	w *= CombatAIActionWeights._form_focus_preferred_mult(c, line)
 	w *= CombatAIActionWeights._fight_finish_focus_damp_mult(manager, c, combatant_id, all_actions)
+	w *= CombatAIActionWeights._guard_priority_focus_mult(manager, c, line)
 	w *= mood_focus_mult
 	return w
+
+
+## Tier 4.3.8: focus-line weight boost when the move's line matches the guard-priority target line and
+## priority is high — lets a braced unit "hold + position" compete with routine strikes (utility pick
+## path; L4G stack layer fires first). Reads the cached target line stamped by drift to avoid re-scanning.
+static func _guard_priority_focus_mult(manager: Node, c: Dictionary, line: String) -> float:
+	var score: float = float(c.get(CombatConstants.COMBATANT_KEY_GUARD_PRIORITY, 0.0))
+	if score < CombatConstantsMentalStack.GUARD_PRIORITY_MIN_SCORE:
+		return 1.0
+	var cached_target: String = str(c.get(CombatConstants.COMBATANT_KEY_GUARD_PRIORITY_TARGET_LINE, "")).strip_edges()
+	if cached_target.is_empty() or cached_target != line:
+		return 1.0
+	return lerpf(1.0, CombatConstantsMentalStack.GUARD_PRIORITY_FOCUS_WEIGHT_TOP, score)
 
 
 static func _form_focus_preferred_mult(c: Dictionary, line: String) -> float:

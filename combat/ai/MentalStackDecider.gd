@@ -147,6 +147,31 @@ static func try_pick(actions: Array, combatant_id: int, manager: Node) -> Dictio
                 CombatAIActionPicker.pick_weighted(fight_first, combatant_id, manager),
                 manager
             )
+    # L4G: guard priority — hold + position blade toward the expected attack line (live telegraph,
+    # else engaged opponent's habitual yomi line) instead of opening new offense. Fires after L3
+    # (no counter / threat melee listed) and after L4b fight-finish; before L4 hold-line. Telegraph
+    # tells the unit "brace and parry" vs "attack". Guard-priority drift aligns the yomi habit for
+    # free on waiting ticks; this layer spends the action to align on a live wind-up. Reads the
+    # stamped target line from `apply_guard_priority_drift` to avoid redundant yomi scans.
+    if (
+        not CombatDoctrine.fight_finish_tail_active(manager, c, actions, combatant_id)
+        and CombatAttention.guard_priority_score(manager, c)
+            >= CombatConstantsMentalStack.GUARD_PRIORITY_MIN_SCORE
+    ):
+        var gp_target: String = str(c.get(CombatConstantsMentalStack.COMBATANT_KEY_GUARD_PRIORITY_TARGET_LINE, "")).strip_edges()
+        if gp_target.is_empty():
+            gp_target = CombatAttention.guard_priority_target_line(manager, c)
+        if not gp_target.is_empty():
+            var cur_line_gp: String = str(c.get(DataKeys.ATTACK_GUARD_LINE, CombatConstants.GUARD_DEFAULT)).strip_edges()
+            if gp_target != cur_line_gp:
+                var gp_pool: Array = _filter_guard_priority_actions(actions, gp_target)
+                if not gp_pool.is_empty():
+                    return _stamp_layer_pick(
+                        c,
+                        CombatConstants.MENTAL_STACK_LAYER_GUARD_PRIORITY,
+                        CombatAIActionPicker.pick_weighted(gp_pool, combatant_id, manager),
+                        manager
+                    )
     # L4: back rank / no reach  -  hold in place; retarget guard only on incoming telegraph mismatch.
     # Fight-finish tails skip L4 wait/focus when L4b had no offense  -  utility pick handles trusted close/strikes.
     if CombatListedActions.action_list_is_reserve_posture_only(actions):
@@ -350,6 +375,21 @@ static func _filter_hold_line_actions(actions: Array) -> Array:
         var a: Dictionary = raw
         var mid: String = a.get(DataKeys.ACTION_MOVE_ID, "")
         if mid == CombatConstants.MOVE_ID_WAIT or CombatConstants.is_focus_line_move(mid):
+            out.append(a)
+    return out
+
+
+## L4G: focus-line actions that align the blade to the guard-priority target line.
+static func _filter_guard_priority_actions(actions: Array, target_line: String) -> Array:
+    var out: Array = []
+    for raw in actions:
+        if raw is not Dictionary:
+            continue
+        var a: Dictionary = raw
+        var mid: String = a.get(DataKeys.ACTION_MOVE_ID, "")
+        if not CombatConstants.is_focus_line_move(mid):
+            continue
+        if CombatConstants.guard_line_for_focus_move_id(mid) == target_line:
             out.append(a)
     return out
 

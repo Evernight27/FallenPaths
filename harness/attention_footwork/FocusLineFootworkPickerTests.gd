@@ -401,6 +401,7 @@ static func _run_focus_line_party_leader_prefers_telegraph_match(failures: Packe
 
 ## Tier 4.3.8: yomi **`parry_deflect`** raises defender reported readiness vs that attacker.
 static func _run_yomi_parry_deflect_boosts_feint_listing_mult(failures: PackedStringArray) -> void:
+    CombatConstants.set_feature_combat_attention_load(true)
     var def: Dictionary = {}
     var atk_id: int = 13
     CombatAttention.record_parry_deflect_on_attacker_memory(def, atk_id)
@@ -418,6 +419,7 @@ static func _run_yomi_parry_deflect_boosts_feint_listing_mult(failures: PackedSt
 
 ## Tier 4.3: **`parry_deflect`** increments yomi; **`hit`** clears attacker entry.
 static func _run_yomi_defense_readiness_mult_boosts_after_parry_deflect(failures: PackedStringArray) -> void:
+    CombatConstants.set_feature_combat_attention_load(true)
     var def: Dictionary = {}
     var atk_id: int = 14
     var m0: float = CombatAttention.yomi_defense_readiness_mult(def, atk_id)

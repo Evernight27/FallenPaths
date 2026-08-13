@@ -434,6 +434,7 @@ static func _run_mental_stack_attack_layer_matches_stance_alias_weights(failures
 
 ## Tier 4.3: repeated high-line attacks raise yomi feint mult on that line.
 static func _run_yomi_guard_tendency_boosts_feint_after_repeated_high(failures: PackedStringArray) -> void:
+    CombatConstants.set_feature_combat_attention_load(true)
     var def: Dictionary = {}
     var atk_id: int = 7
     CombatAttention.record_attack_toward_defender(null, atk_id, def, "head")
@@ -450,6 +451,7 @@ static func _run_yomi_guard_tendency_boosts_feint_after_repeated_high(failures: 
 
 ## Tier 4.3 UI: **`format_attention_ui_hint`** includes telegraph + focus when incoming.
 static func _run_yomi_updates_on_parry_deflect_clears_on_hit(failures: PackedStringArray) -> void:
+    CombatConstants.set_feature_combat_attention_load(true)
     var def: Dictionary = {}
     var atk_id: int = 3
     CombatAttention.record_parry_deflect_on_attacker_memory(def, atk_id)

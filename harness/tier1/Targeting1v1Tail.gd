@@ -9,6 +9,9 @@ const _CombatRegressionHarness := preload("res://harness/regression/CombatRegres
 const PROF_NOVICE := {"strength": 80, "agility": 70, "intelligence": 60, "endurance": 70, "perception": 50}
 const PROF_VETERAN := {"strength": 140, "agility": 130, "intelligence": 120, "endurance": 130, "perception": 110}
 
+## Harness seed for targeting tests — deterministic RNG so dodge/hit outcomes are reproducible.
+const _TARGETING_HARNESS_SEED: int = 0
+
 
 ## Per-exchange hit record.
 static func _new_record(move_id: String, aimed_part: String, actual_part: String, outcome: String) -> Dictionary:
@@ -503,6 +506,7 @@ static func _ensure_proficiency_on() -> void:
 
 
 static func run(failures: PackedStringArray) -> void:
+    seed(_TARGETING_HARNESS_SEED)
     var scenarios := {
         "sword_balanced_novice": run_sword_balanced,
         "sword_balanced_veteran": run_sword_veteran,

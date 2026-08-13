@@ -59,6 +59,9 @@ const WF_AUTO_SWITCH_DUEL_WRATH_PROMOTE_PAD := 0.15
 const WF_AUTO_SWITCH_DUEL_WRATH_DEMOTE_PAD := 0.10
 const WF_AUTO_SWITCH_SURROUND_WEIGHT_PAD := 0.05
 const WF_AUTO_SWITCH_ISOLATED_DUEL_WEIGHT_PAD := 0.08
+## Stamina hysteresis gap — prevents form thrashing when stamina oscillates near threshold.
+## Enter threshold = min_stamina_ratio + pad; exit threshold = min_stamina_ratio (defensive form).
+const WF_STAMINA_HYSTERESIS_PAD := 0.15
 const AI_FOCUS_LINE_FORM_PREFERRED_MULT := 1.25
 
 ## A2 Meisterhäue: decisive counter-strikes scale counter bonus by this factor (yomi-intent aware).

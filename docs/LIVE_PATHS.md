@@ -32,7 +32,7 @@ Entry: [`AGENTS_ENTRY`](AGENTS_ENTRY.md) · Expand: [#phase-4--new-systems-forma
 
 ## Tier 3 — parry / bind / guards
 
-`DefenseChoiceResolver`, `CombatIncomingParryChoice` (**D-007**), `CombatGuardLines` (**D-006**) · `PARRY_DEFLECT_THRESHOLD` **0.75**, `PARRY_BIND_CONTROL_THRESHOLD` **0.65** · `_run_parry_*`, `_run_bind_*`, `_run_*guard*`.
+`DefenseChoiceResolver`, `CombatIncomingParryChoice` (**D-007**), `CombatGuardLines` (**D-006**) · `PARRY_DEFLECT_THRESHOLD` **0.45**, `PARRY_BIND_CONTROL_THRESHOLD` **0.55** · `_run_parry_*`, `_run_bind_*`, `_run_*guard*`.
 
 **D-006 + WF:** eight-line **`guard_line`** is moment posture (L3). **`CombatWeaponForm.assign_form`** sets **home** line on spawn/switch; outcomes drift via **`GuardLineUpdater`**. Parry alignment and Tier **4.4** PA step read **live** line — not **`weapon_form`**. Attachment: [#wf-footing-guards-stances](#wf-footing-guards-stances) · [#wf-layer-labels](#wf-layer-labels).
 
@@ -137,6 +137,7 @@ Priority is **strict top-to-bottom**; first non-empty pool wins. Each layer uses
 | **L1** | `medical` | `CombatAttention.ally_in_immediate_peril` | Coordinated **ally** medical (not duplicate wind-up / compression rules) |
 | **L2** | `counter` | `CounterTempo.can_act` | `ACTION_KEY_COUNTER_TEMPO` only |
 | **L3** | `incoming` | Wind-up telegraph or incoming attacker id | Counter actions **or** melee vs that attacker (no med / no `attempt_close`) |
+| **L4G** | `guard_priority` | `CombatAttention.guard_priority_score` ≥ `GUARD_PRIORITY_MIN_SCORE` (0.5), not in fight-finish tail, priority line ≠ current guard, matching `focus_*` listed | `focus_*` toward the priority line (live wind-up telegraph, else engaged attacker's habitual yomi line) — `pick_weighted`. Telegraph score **decays with wind-up progress** (readability: only an early/mid wind-up is braceable; a committed strike is too late to shift stance to). Free per-tick drift aligns `guard_line` to the yomi line on waiting ticks and **holds the read** until the new line is observed more (count margin, no flicker); the drift drops its stamp during live wind-ups so L4G owns the brace — [#wf-guard-writers](#wf-guard-writers) |
 | **L4** | `hold_line` | Menu is reserve posture only (`wait`, focus, **`attempt_close`**) — **not** if `rotate_file` or melee listed | **Shipped:** focus, wait, or **`pick_weighted`** `attempt_close` when wing lacks mapped opposition + LONG — [§III-4](#iii-4--engagement-geometry-audit) · [§9b](SHIP_PLAN.md#combat-mental-stack-shipped). **3b:** `rotate_file` breaks reserve posture → utility pick |
 | **L5** | `exhaustion` | `CombatExhaustion.exhaustion_tunnel_active` (**MS-L7**) | Wait, flee, fall_back, formation disengage, focus lines — not fresh offense |
 | **—** | *(cleared)* | No layer matched | **`pick_weighted`** with **salience offense damp** + gradual exhaustion offense damp (below tunnel threshold) |
@@ -147,7 +148,7 @@ Priority is **strict top-to-bottom**; first non-empty pool wins. Each layer uses
 
 | Stage | Module | Behavior |
 |-------|--------|----------|
-| 1 | `MentalStackDecider.try_pick` | Layers L0→L5 above |
+| 1 | `MentalStackDecider.try_pick` | Layers L0→L5 above (L4G guard-priority sits between L3 and L4) |
 | 2 | `CombatAIActionPicker.pick_weighted` | `_get_action_weight` + salience damp on offense; **`CombatWeaponForm.action_weight_mult`** / **`wait_action_weight_mult`** / focus **`preferred_guards`** |
 | 2b | `CombatWeaponForm.evaluate_automatic_form` | After stack miss in **`pick`** — **`assign_form`** home guard only; **no** PA stamp — [#wf-pick-vs-strike](#wf-pick-vs-strike) |
 | 3 | `_add_attack_target_part` | Pathway / unguarded part on chosen attack |

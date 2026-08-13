@@ -559,7 +559,7 @@ static func apply_result(manager: Node, attacker_id: int, result: Dictionary) ->
                     "guard_angle_deg": CombatFootwork.guard_angle_deg(tgt, wob),
                 }
             var align: float = CombatConstants.get_line_alignment_with_deflect(atk_line, tgt, align_ctx)
-            if align >= CombatConstants.PARRY_PARTIAL_GUARD_ALIGNMENT_THRESHOLD:
+            if align >= CombatConstants.PARRY_PARTIAL_BIND_ALIGNMENT_THRESHOLD or align >= CombatConstants.PARRY_PARTIAL_GUARD_ALIGNMENT_THRESHOLD:
                 GuardLineUpdater.set_guard_from_move(tgt, move_id, atk_line)
                 var pcl_bind: Variant = result.get(DataKeys.PA_PARRY_CLASH_CONTEXT, null)
                 var clash_bind: Dictionary = pcl_bind if pcl_bind is Dictionary else {}

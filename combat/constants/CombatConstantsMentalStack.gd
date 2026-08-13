@@ -32,6 +32,7 @@ const POST_STRIKE_HIT_WEIGHT_BONUS := 1.1
 const POST_STRIKE_MOMENTUM_WEIGHT_BONUS := 1.3
 const MENTAL_STACK_LAYER_POSITIONAL_DIS := "positional_dis"
 const MENTAL_STACK_LAYER_EXHAUSTION := "exhaustion"
+const MENTAL_STACK_LAYER_GUARD_PRIORITY := "guard_priority"
 ## AI exhaustion tunnel thresholds — stamina ratio bands where decision quality degrades.
 ## 0.55 = point where AI starts favoring suboptimal actions (observed in playtest: ~45% error rate above this).
 ## 0.80 = "exhausted tunnel" state — AI almost entirely ignores offensive options, defaults to flee/wait.
@@ -95,4 +96,26 @@ const COMBATANT_KEY_DECEPTION_STATE := "_deception_state"
 
 ## V5 HEMA realism: Perception scaling for yomi min_line_count. High perception = fewer observations to detect patterns.
 const YOMI_PERCEPTION_LINE_SCALE: float = 0.6  # At max perception (100), min lines reduced by 60%
+
+## Tier 4.3.8: guard priority — proactive defensive positioning (waiting-tick drift + L4G stack layer).
+## Score 0..1 = how strongly a waiting combatant should hold + position blade toward the expected attack
+## line instead of opening new offense (a correctly-braced fighter still scores its read). Telegraph
+## (live wind-up) scores highest and decays with wind-up progress (readability: a fully-committed strike
+## is too late to shift stance to — anticipation early, reaction at the end); otherwise the most
+## threatening engaged attacker's habitual yomi line builds score from observation count, band-weighted
+## so a CLOSE threat dominates a MID one. Drift applies the yomi habit for free each waiting tick
+## (anticipation outside wind-up) with a count-margin commitment (no flicker between near-equal reads);
+## L4G spends the action to align on a live telegraph (offensive-or-hold decision). Suppressed for
+## exhausted / critical-stamina fighters (L5 exhaustion already dominates their menu).
+const COMBATANT_KEY_GUARD_PRIORITY := "guard_priority"
+const COMBATANT_KEY_GUARD_PRIORITY_TARGET_LINE := "guard_priority_target_line"
+const GUARD_PRIORITY_MIN_SCORE := 0.5
+const GUARD_PRIORITY_TELEGRAPH_SCORE := 0.9
+const GUARD_PRIORITY_YOMI_BASE := 0.55
+const GUARD_PRIORITY_YOMI_PER_LINE_COUNT := 0.05
+const GUARD_PRIORITY_YOMI_CAP := 0.8
+const GUARD_PRIORITY_MIN_LINE_COUNT := 2
+const GUARD_PRIORITY_MID_BAND_MULT := 0.85  # MID-range attackers scored at 85% of CLOSE to keep guard priority active in formation combat
+const GUARD_PRIORITY_FOCUS_WEIGHT_TOP := 18.0  # focus-line weight multiplier at max priority
+const GUARD_PRIORITY_SWITCH_COUNT_MARGIN := 1  # drift holds the current read until the new line is observed this much more
 

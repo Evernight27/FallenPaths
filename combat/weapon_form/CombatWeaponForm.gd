@@ -697,10 +697,39 @@ static func _surround_pressure_high(manager: Node, c: Dictionary) -> bool:
 	if manager == null or c.is_empty():
 		return false
 	var scan: Dictionary = CombatWeaponForm._get_tactical_combat().surround_threat_scan_for_defender(manager, c)
-	if scan.get("count", 0) >= 2:
+	var count: int = scan.get("count", 0)
+	if count >= 2:
 		return true
-	var wsum: float = scan.get("weight_sum", 0.0)
-	return wsum > CombatConstants.SURROUND_SECTOR_LOAD_FREE + CombatConstants.WF_AUTO_SWITCH_SURROUND_WEIGHT_PAD
+	# Distance-weighted threat scoring — front-line threats (close range) count more than distant ones.
+	var weighted_sum: float = _compute_weighted_threat_sum(manager, c, scan)
+	return weighted_sum > CombatConstants.SURROUND_SECTOR_LOAD_FREE + CombatConstants.WF_AUTO_SWITCH_SURROUND_WEIGHT_PAD
+
+
+static func _compute_weighted_threat_sum(manager: Node, defender: Dictionary, scan: Dictionary) -> float:
+	if manager == null or defender.is_empty():
+		return scan.get("weight_sum", 0.0)
+	var weighted_sum: float = 0.0
+	# Re-scan to get per-threat distance data (scan itself doesn't store distance bands).
+	for other in manager.combatants:
+		if other == null or not other is Dictionary:
+			continue
+		if not CombatantEntityAccess.is_living_hostile_to(defender, other):
+			continue
+		var pair_geom: Dictionary = CombatPairGeometry.effective_pair_geometry(manager, other, defender)
+		if not CombatMeleeListing.can_melee_threaten(manager, other, defender, pair_geom):
+			continue
+		var eff_f: float = pair_geom.get(DataKeys.PAIR_FILE_SPACING_EQUIV, 0.0)
+		var w: float = clampf(eff_f / maxf(0.001, CombatConstants.PARRY_FLANK_EFFECTIVE_FILES_MIN), CombatConstants.SURROUND_SECTOR_WEIGHT_MIN, 1.0)
+		# Distance-weighting — close-range threats create more urgent pressure.
+		var dist_band: String = CombatantEntityAccess.distance_to_opponent_band(other, CombatantEntityAccess.id_int(defender))
+		if dist_band == "close":
+			w *= 2.0
+		elif dist_band == "mid":
+			w *= 1.3
+		else:
+			w *= 0.6
+		weighted_sum += w
+	return weighted_sum
 
 
 static func _surround_form_for_weapon(weapon: Variant) -> String:
@@ -826,13 +855,18 @@ static func evaluate_automatic_form(manager: Node, c: Dictionary) -> bool:
 		return false
 	var clk: float = CombatantEntityAccess.combat_clock_float(manager)
 	var until: float = float(c.get(CombatConstants.COMBATANT_KEY_FORM_SWITCH_COOLDOWN_UNTIL, 0.0))
-	if until > clk:
+	# Per-entity response delay — prevents all entities from switching simultaneously under surround pressure.
+	var entity_jitter: float = fmod(hash(str(c.id)), 30) / 100.0  # 0-0.3s stagger
+	if until - entity_jitter > clk:
 		return false
 	var cur: String = CombatantEntityAccess.form_str(c)
 	var ratio: float = CombatantEntityAccess.stamina_ratio(c)
 	var weapon = CombatantEntityAccess.get_weapon(c)
 	var min_r: float = min_stamina_ratio_for_form(cur, weapon)
 	var def_form: String = _defensive_form_for_weapon(weapon)
+	# Hysteresis: defensive form exit threshold is lower than enter threshold to prevent thrashing.
+	var hysteresis_pad: float = CombatConstantsEncounter.WF_STAMINA_HYSTERESIS_PAD if cur == def_form else 0.0
+	var min_r_effective: float = min_r + hysteresis_pad
 	var envelop: bool = CombatDoctrine.envelop_mop_up_active(manager, CombatantEntityAccess.formation_id_str(c))
 	if ratio < min_r and not def_form.is_empty() and cur != def_form and not envelop:
 		return _try_assign_auto_switch(manager, c, def_form, "low_stamina", clk)
@@ -850,7 +884,7 @@ static func evaluate_automatic_form(manager: Node, c: Dictionary) -> bool:
 			if inferred.is_empty():
 				return false
 			var offense_pad: float = CombatConstants.WF_AUTO_SWITCH_DUEL_OFFENSE_STAMINA_PAD
-			var can_offense: bool = not (not def_form.is_empty() and cur == def_form and ratio < min_r + offense_pad)
+			var can_offense: bool = not (not def_form.is_empty() and cur == def_form and ratio < min_r_effective + offense_pad)
 			if can_offense:
 				var counter: String = _duel_counter_form_vs_inferred(weapon, inferred)
 				if _try_assign_auto_switch(manager, c, counter, "counter_read", clk):
@@ -861,7 +895,7 @@ static func evaluate_automatic_form(manager: Node, c: Dictionary) -> bool:
 	var threat_id: int = _primary_melee_threat_id(manager, c)
 	if threat_id >= 0:
 		var offense_pad_fb: float = CombatConstants.WF_AUTO_SWITCH_DUEL_OFFENSE_STAMINA_PAD
-		if not (not def_form.is_empty() and cur == def_form and ratio < min_r + offense_pad_fb):
+		if not (not def_form.is_empty() and cur == def_form and ratio < min_r_effective + offense_pad_fb):
 			var inferred_opp: String = _inferred_opponent_form(manager, c, threat_id)
 			var counter: String = _counter_form_vs_inferred(weapon, inferred_opp)
 			if _try_assign_auto_switch(manager, c, counter, "counter_read", clk):

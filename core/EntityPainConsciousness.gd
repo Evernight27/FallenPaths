@@ -72,19 +72,45 @@ const CONCUSSION_MIN_TOTAL_DURATION_S: float = 25.0   # mild (low severity) — 
 ## Fine motor degradation (-30% precision) occurs during surge due to large-motor sympathetic activation.
 ## Pain suppression (-50% pain perception) allows continued fighting despite injury.
 ## Cooldown between dumps: 120s minimum — prevents repeated adrenaline dumping from trivial trauma.
+
+# --- Probabilistic trigger (clinical catecholamine kinetics) ---
+## Real-world catecholamine surge onset is NOT deterministic at a single blood-volume threshold.
+## Baroreceptor-mediated epinephrine/norepinephrine release begins in Class II hemorrhage (15-30% loss,
+## 70-85% remaining) but varies by individual factors: training level, stress tolerance, age, fitness.
+## Clinical data shows sympathetic activation starts gradually at ~70% remaining, with most entities
+## triggering between 60-75% (Class II/III boundary). We model this as a probability ramp:
+##   - 85-75% remaining: no trigger (Class I — minimal stress response)
+##   - 75-60% remaining: probability ramps from ~10% to ~90% (Class II → Class III transition)
+##   - <60% remaining: deterministic trigger + cooldown check (Class III — catecholamine crisis)
+## Per-entity jitter: each entity gets a unique threshold offset (-5% to +5%) via seeded random,
+## so not all entities dump simultaneously when crossing the same blood-volume boundary.
+
 const ADRENALINE_DURATION_MIN_S: float = 60.0       # minimum sustained dump duration (acute stress response)
 const ADRENALINE_DURATION_MAX_S: float = 120.0      # max sustained dump before return to baseline
 const ADRENALINE_FINE_MOTOR_PENALTY: float = 0.70   # -30% fine motor precision during surge (epinephrine effect)
 const ADRENALINE_PAIN_SUPPRESSION: float = 0.50     # -50% pain perception during surge
-const ADRENALINE_BLOOD_VOLUME_TRIGGER: float = 70.0 # blood volume threshold to trigger adrenaline dump
+
+## Upper boundary of probability ramp — above this, no dump possible (Class I hemorrhage).
+## Shifted from 75% to 82% to match clinical Class II onset (70-85% remaining blood).
+const ADRENALINE_TRIGGER_RAMP_MAX_REMAINING: float = 82.0
+## Lower boundary of probability ramp — below this, dump is deterministic if cooldown allows.
+## Shifted from 60% to 70% to trigger at Class III boundary (60-70% remaining).
+const ADRENALINE_TRIGGER_RAMP_MIN_REMAINING: float = 70.0
+
+## Minimum blood volume to trigger (absolute floor) — prevents dumps at near-death (Class IV <60%).
+## Below this threshold, the patient is in decompensated shock and catecholamine response collapses;
+## baroreceptor failure means epinephrine release cannot sustain. Matches ATLS Class III→IV boundary.
+const ADRENALINE_TRIGGER_MIN_ABS_REMAINING: float = 50.0
+
 const ADRENALINE_COOLDOWN_S: float = 120.0           # minimum cooldown between adrenaline dumps (2 min)
 const ADRENALINE_PERFORMANCE_BASELINE_MULT: float = 1.05 # +5% gross motor performance during sustained surge
+
 
 # --- Adrenaline-blood interaction (HIGH #6 from hemorrhage audit) ---
 ## At Class III+ hemorrhage (>30% blood loss), sympathetic response overwhelms — adrenaline benefits are progressively negated.
 ## Clinical basis: catecholamine levels are sky-high in shock, but peripheral vasoconstriction + tissue hypoxia prevent
 ## beta-adrenergic receptors from responding (downregulation / receptor desensitization). Patient appears "wired but collapsing."
-const ADRENALINE_NEUTRALIZATION_ATLS_CLASS_III_MIN: int = 3     # start negating at Class III (>20% remaining blood)
+const ADRENALINE_NEUTRALIZATION_ATLS_CLASS_III_MIN: int = 3     # start negating at Class III (<=70% remaining blood)
 const ADRENALINE_PERFORMANCE_NEUTRALIZATION_RATE: float = 0.5   # fraction of adrenaline performance lost per ATLS class above threshold
 const ADRENALINE_PAIN_NEUTRALIZATION_ATLS_CLASS_III_MIN: int = 3 # pain suppression also negated at Class III+
 
@@ -105,6 +131,7 @@ static func _get_adrenaline_phase_info(entity: Node) -> Dictionary:
 	# Single sustained performance effect: +5% gross motor during surge (not phased boost/crash)
 	var ad_performance_mult: float = ADRENALINE_PERFORMANCE_BASELINE_MULT
 	var ad_pain_suppression_mult: float = ADRENALINE_PAIN_SUPPRESSION
+	var fine_motor_mult: float = ADRENALINE_FINE_MOTOR_PENALTY
 	# Adrenaline-blood interaction: at Class III+ hemorrhage, progressively negate adrenaline benefits.
 	if "blood_volume" in entity:
 		var blood_pct: float = clampf(float(entity.blood_volume), 0.0, 100.0)
@@ -121,11 +148,12 @@ static func _get_adrenaline_phase_info(entity: Node) -> Dictionary:
 				# Pain neutralization uses the same classes_above since both thresholds are identical (=3).
 				var pain_neutralization: float = minf(classes_above * ADRENALINE_PERFORMANCE_NEUTRALIZATION_RATE, 1.0)
 				ad_pain_suppression_mult = ADRENALINE_PAIN_SUPPRESSION * (1.0 - pain_neutralization)
-			result["performance_mult"] = ad_performance_mult
-			result["pain_suppression_mult"] = ad_pain_suppression_mult
 			# Fine motor mult affected by blood loss — at Class III+, receptor desensitization reduces the -30% fine motor penalty.
-			var fine_motor_mult: float = ADRENALINE_FINE_MOTOR_PENALTY * (1.0 - minf(classes_above * ADRENALINE_PERFORMANCE_NEUTRALIZATION_RATE, 1.0))
-			result["fine_motor_mult"] = maxf(fine_motor_mult, 0.3)
+			var fm_neutralization: float = minf(classes_above * ADRENALINE_PERFORMANCE_NEUTRALIZATION_RATE, 1.0)
+			fine_motor_mult = lerp(ADRENALINE_FINE_MOTOR_PENALTY, 1.0, fm_neutralization)
+	result["performance_mult"] = ad_performance_mult
+	result["pain_suppression_mult"] = ad_pain_suppression_mult
+	result["fine_motor_mult"] = maxf(fine_motor_mult, 0.3)
 	return result
 
 
@@ -144,13 +172,43 @@ static func try_enter_adrenaline_dump(entity: Node, severity_factor: float = 1.0
 	# Check if already active
 	if entity.has_method("_get_adrenaline_dump_until_time") and entity._get_adrenaline_dump_until_time() >= entity._get_game_time_seconds():
 		return
-	# Blood-volume gate: adrenaline is a hemorrhage/acute-stress response. Routine pain-shock triggers
-	# (~NRS 7.5-10, severity 1.5-2.0) fire on the first serious exchange of every fight, and the dump lasts
-	# 60-180s — covering the whole duel. Gate it on meaningful blood loss (<= trigger), so adrenaline is a
-	# late-fight response instead of always-on from the first hit.
+	# Blood-volume gate with probabilistic trigger. Adrenaline is a catecholamine surge triggered by baroreceptor-mediated
+	# sympathetic activation during hemorrhage/acute stress (not deterministic at a single threshold). Clinical kinetics:
+	# Class I (<15% loss): minimal response — no dump expected.
+	# Class II (15-30% loss, 70-85% remaining): baroreceptor detection → epinephrine/norepinephrine release begins;
+	#   onset varies by individual training/stress tolerance. Modeled as probability ramp from ~75% down to ~60%.
+	# Class III (30-40% loss, 60-70% remaining): catecholamine surge peaks — deterministic trigger if cooldown allows.
+	# Class IV (>40% loss, <60% remaining): decompensated shock — baroreceptor failure means sympathetic response collapses;
+	#   no new dumps below absolute floor (patient is in crisis mode).
 	var blood_pct: float = clampf(float(entity.blood_volume), 0.0, 100.0) if "blood_volume" in entity else 100.0
-	if blood_pct > ADRENALINE_BLOOD_VOLUME_TRIGGER:
-		return
+	if blood_pct > ADRENALINE_TRIGGER_RAMP_MAX_REMAINING:
+		return  # Class I — no sympathetic surge expected
+	if blood_pct < ADRENALINE_TRIGGER_MIN_ABS_REMAINING:
+		return  # Below absolute floor — decompensated shock, baroreceptor failure
+	# Compute per-entity threshold jitter for inter-individual variability (-5% to +5%).
+	# Uses entity name hash as pseudo-seed so the same entity always has the same threshold within a session.
+	var jitter_seed: int = hash(entity.name) if entity.has_method("name") else 0
+	var orig_rand := RandomNumberGenerator.new()
+	orig_rand.seed = jitter_seed
+	var threshold_jitter: float = orig_rand.randf_range(-5.0, 5.0)
+	var effective_trigger_threshold: float = ADRENALINE_TRIGGER_RAMP_MAX_REMAINING + threshold_jitter
+	if blood_pct > effective_trigger_threshold:
+		return  # Above this entity's individualized upper bound — no dump
+	# Compute probability within the ramp zone (linear interpolation).
+	var trigger_prob: float
+	if blood_pct <= ADRENALINE_TRIGGER_RAMP_MIN_REMAINING:
+		trigger_prob = 1.0  # Deterministic below ramp minimum (Class III crisis)
+	elif blood_pct >= effective_trigger_threshold:
+		trigger_prob = 0.0  # Above individualized upper bound
+	else:
+		# Linear probability ramp from 0 to 1 across the active zone.
+		trigger_prob = clampf(
+			(effective_trigger_threshold - blood_pct) / (effective_trigger_threshold - ADRENALINE_TRIGGER_RAMP_MIN_REMAINING),
+			0.0, 1.0
+		)
+	# Probabilistic check — roll for adrenaline dump with computed probability.
+	if randf() >= trigger_prob:
+		return  # Roll failed — no dump this tick (will re-evaluate on next hit/tick)
 	# Single sustained duration — no surge/plateau/crash phases per clinical data.
 	var duration: float = randf_range(ADRENALINE_DURATION_MIN_S, ADRENALINE_DURATION_MAX_S) * severity_factor
 	duration = clampf(duration, ADRENALINE_DURATION_MIN_S * 0.5, ADRENALINE_DURATION_MAX_S * 1.5)
@@ -158,9 +216,11 @@ static func try_enter_adrenaline_dump(entity: Node, severity_factor: float = 1.0
 	entity._set_adrenaline_phase("surge")  # Simplified: always "surge" — single sustained state
 	# Set cooldown to prevent re-triggering within 2 minutes
 	_set_adrenaline_cooldown(entity, entity._get_game_time_seconds())
+	var effective_trigger_pct: float = ADRENALINE_TRIGGER_RAMP_MAX_REMAINING + threshold_jitter
+	var severity: float = severity_factor
 	CombatDebug.combat_session(
-		"%s adrenaline_dump started blood=%.1f severity=%.2f duration=%.1fs (cooldown=%.0fs)"
-		% [entity.name, blood_pct, severity_factor, duration, ADRENALINE_COOLDOWN_S]
+		"%s adrenaline_dump STARTED blood=%.1f%% prob=%.2f jitter=%.1f eff_threshold=%.1f severity=%.2f duration=%.1fs (cooldown=%.0fs)"
+		% [entity.name, blood_pct, trigger_prob, threshold_jitter, effective_trigger_pct, severity, duration, ADRENALINE_COOLDOWN_S]
 	)
 
 

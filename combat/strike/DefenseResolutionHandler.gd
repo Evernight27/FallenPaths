@@ -490,8 +490,11 @@ static func _resolve_parry(
 	var edge_contact: String = "" if edge_contact_ct.is_empty() else edge_contact_ct
 	if edge_contact.is_empty():
 		edge_contact = edge_contact_ct
+	var atk_weapon_edge = CombatantEntityAccess.get_weapon(atk)
+	var is_wide_arc_edge: bool = CombatConstantsParry.is_wide_arc_weapon(atk_weapon_edge)
+	var eff_atk_line_edge: String = pa.get(DataKeys.ATTACK_EFFECTIVE_ATTACK_LINE, attack_line)
 	var edge_deflect: bool = CombatConstants.parry_edge_deflect_reached(
-		c_d_final, parry_p_a, effective_alignment, is_block_parry, edge_contact
+		c_d_final, parry_p_a, effective_alignment, is_block_parry, edge_contact, eff_atk_line_edge, guard_line, is_wide_arc_edge
 	)
 	if edge_deflect:
 		var parry_intensity_edge: float = pa.get(CombatConstants.PA_KEY_INTENSITY, CombatConstants.PA_DEFAULT_INTENSITY)
@@ -511,8 +514,6 @@ static func _resolve_parry(
 		# Thrust edge-deflections (rare but possible with strong alignment) cost more recovery.
 		if edge_contact.to_lower().strip_edges() == "stab":
 			rec_dur_edge *= CombatConstants.parry_thrust_recovery_mult(parry_intensity_edge)
-		var eff_atk_line_edge: String = pa.get(DataKeys.ATTACK_EFFECTIVE_ATTACK_LINE, attack_line)
-		var atk_weapon_edge = CombatantEntityAccess.get_weapon(atk)
 		var atk_angle_edge: float = _parry_attack_angle_deg(atk, arc_start, arc_end, parry_progress, eff_atk_line_edge)
 		var wobble_edge: Dictionary = CombatantEntityAccess.parry_wobble_context_for_combatant(tgt, parry_readiness)
 		var kinematics_edge: Dictionary = _strike_kinematics_for_parry_clash(

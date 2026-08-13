@@ -604,7 +604,14 @@ static func resolve_attack(manager: Node, attacker_id: int) -> Dictionary:
 	var eff_atk_line: String = pa.get(DataKeys.ATTACK_EFFECTIVE_ATTACK_LINE, atk_line_base)
 	var guard_align: float = CombatConstants.get_line_alignment_with_deflect(eff_atk_line, tgt, {})
 	pa[DataKeys.PA_GUARD_ALIGNMENT] = guard_align
-	var effective_hit_chance: float = (1.0 - CombatConstants.MISS_CHANCE_BASE) * perf_mod * perception_factor * melee_skill_factor * measure_hit_mult
+	# Proximity-weighted hit chance — close-range exchanges have higher blade engagement rates (40-60% clean hits).
+	var distance_band: String = CombatantEntityAccess.distance_to_opponent_band(atk, target_id)
+	var dist_hit_mult: float = 1.0
+	if distance_band == "close":
+		dist_hit_mult = 1.35
+	elif distance_band == "mid":
+		dist_hit_mult = 1.10
+	var effective_hit_chance: float = (1.0 - CombatConstants.MISS_CHANCE_BASE) * perf_mod * perception_factor * melee_skill_factor * measure_hit_mult * dist_hit_mult
 	var miss_chance: float = 1.0 - effective_hit_chance
 	var miss_roll: float = randf()
 	if miss_roll < miss_chance:
