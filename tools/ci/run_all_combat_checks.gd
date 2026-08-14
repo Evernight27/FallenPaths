@@ -112,11 +112,14 @@ func _run_mode_sanity() -> void:
 
 func _run_mode_all() -> void:
     var failures: PackedStringArray = PackedStringArray()
-    _merge_failures(failures, "CombatRegressionHarness", _run_regression())
+    ## Run the soak BEFORE regression: the regression-phase mat_production audit
+    ## (SimulationMaterialTests._run_mat_production_calibration_anchors_locked) reads
+    ## .f5_soak_in.txt inline, so a stale soak from a prior run would spuriously fail it.
     var d001_r = load("res://harness/d001/CombatD001SoakRunner.gd")
     _merge_failures(failures, d001_r.RUNNER_NAME, _run_d001())
+    _merge_failures(failures, "CombatRegressionHarness", _run_regression())
     _merge_failures(failures, "CombatCalibrationAudit", _run_calibration_audit())
-    _quit_mode(HARNESS_NAME, failures, "regression+d001")
+    _quit_mode(HARNESS_NAME, failures, "d001+regression")
 
 
 func _quit_mode(label: String, failures: PackedStringArray, detail: String) -> void:

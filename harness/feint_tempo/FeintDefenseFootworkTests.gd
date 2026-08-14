@@ -972,6 +972,76 @@ static func _run_defender_low_stamina_scales_passive_parry_readiness_in_choose_d
         )
     _CombatRegressionHarness._free_manager_restore_global_rng(mgr)
 
+
+## Tier 4.2 parry decision: below the glancing alignment floor (cos60) a parry is physically ineffective, so
+## **`choose_defense`** must refuse parry even when **`redirect_viable`** (desperate low-dodge) would otherwise
+## fire — a recovering defender whose guard ended on the attack line (align 0) previously chose a zero-capacity
+## parry via the `not is_glancing` fallthrough. LIVE_PATHS **`#wf-guard-writers`** (blade ends where action ends).
+static func _run_below_glancing_floor_refuses_parry(failures: PackedStringArray) -> void:
+    var mgr: Node = _CombatRegressionHarness._harness_start_1v1()
+    var defender: Dictionary = mgr.combatants[0]
+    var attacker: Dictionary = mgr.combatants[1]
+    var atk_id: int = CombatantEntityAccess.id_int(attacker)
+    defender["stance"] = "balanced"
+    defender["guard"] = 0.4
+    defender["guard_zone"] = "chest"
+    defender["guard_line"] = "high_right"
+    defender["state"] = CombatConstants.STATE_RECOVERING
+    defender["state_duration"] = 1.0
+    defender["state_timer"] = 0.25
+    defender["recovery_cause"] = "attack_miss"
+    CombatantEntityAccess.nested_dictionary_for_mutation(defender, "distance_to")[atk_id] = CombatConstants.DISTANCE_MID
+    var def_n: Node = CombatantEntityAccess.scene_node(defender)
+    var parts: Array = CombatantEntityAccess.get_targetable_parts_from_node(def_n)
+    if parts.is_empty():
+        _CombatRegressionHarness._fail(failures, "below_glancing_floor: targetable parts empty")
+        _CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+        return
+    var move_def: Dictionary = WeaponConstants.get_move("oberhau")
+    var arch: Dictionary = WeaponConstants.get_archetype(
+        str(move_def.get("archetype_id", WeaponConstants.ARCHETYPE_OVERHEAD))
+    )
+    var pa: Dictionary = {
+        "attack_type": "oberhau",
+        "target_part": "head",
+        "intensity": 1.0,
+        "wind_up_duration": 0.40,
+        "tactical_ambush_mult": 1.0,
+        DataKeys.PA_GUARD_ALIGNMENT: 0.0,
+    }
+    seed(91003)
+    var dc_below: Dictionary = DefenseChoiceResolver.choose_defense(
+        pa, attacker, defender, parts, "oberhau", arch, -1.0
+    )
+    var chose_parry: bool = str(dc_below.get("defense", "")) == "parry"
+    var align_out: float = float(dc_below.get(DataKeys.RESULT_PARRY_PREVIEW_ALIGNMENT, 1.0))
+    var c_d_out: float = float(dc_below.get("parry_c_d", -1.0))
+    var p_a_out: float = float(dc_below.get("parry_p_a", -1.0))
+    if align_out >= CombatConstants.PARRY_GLANCING_ALIGNMENT_FLOOR:
+        _CombatRegressionHarness._fail(
+            failures,
+            "below_glancing_floor: forced align should stay below floor, got %.3f" % align_out,
+        )
+    elif c_d_out > 0.001 or not bool(dc_below.get("can_parry_in_time", false)):
+        _CombatRegressionHarness._fail(
+            failures,
+            (
+                "below_glancing_floor: fixture must be zero-capacity parry in time "
+                + "(c_d=%.3f p_a=%.3f) to exercise the zero-alignment fallthrough"
+                % [c_d_out, p_a_out]
+            ),
+        )
+    elif chose_parry:
+        _CombatRegressionHarness._fail(
+            failures,
+            (
+                "below_glancing_floor: zero-alignment recovering defender must refuse parry "
+                + "(parry physically ineffective below cos60)"
+            ),
+        )
+    _CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+
+
 ## Tier 4.2: **`CombatAIActionPicker._get_action_weight`**  -  feint listing applies
 ## **`passive_parry_readiness_incoming_contact_mult`** to defender readiness: stab feint (**`thrust_feint`**) vs cut
 ## feint (**`oberhau_feint`**) at defender **`guard`** **1.0** (**SWORD** 1v1).

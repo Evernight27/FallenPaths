@@ -1198,16 +1198,10 @@ func _batch_run_cycle_to_completion():
 		var atk_c = eac.manager_get_combatant(manager, attacker_id)
 		var def_c = eac.manager_get_combatant(manager, defender_id)
 
-		# Guard: if combat resolved but both combatants still actively exchanging,
-		# keep pumping until actual resolution (both idle or one eliminated).
+		# Combat resolved (a side eliminated or a stalemate decision): stop pumping.
+		# `stop()` clears the event queue, so no in-flight strikes remain after phase end.
 		if manager != null and is_instance_valid(manager) and manager.combat_resolution_closed:
-			var atk_alive = eac.alive_bool(atk_c) if not atk_c.is_empty() else false
-			var def_alive = eac.alive_bool(def_c) if not def_c.is_empty() else false
-			if (atk_alive or def_alive):
-				# Combat resolved but living combatants still have pending events — process remaining.
-				pass
-			else:
-				break
+			break
 
 		if atk_c.is_empty() or def_c.is_empty():
 			break
@@ -2445,8 +2439,11 @@ func _run_batch(
 		if not is_instance_valid(manager):
 			break
 
-		# Fast-forward the AI-driven battle to completion (no real-time waiting)
-		_batch_run_cycle_to_completion()
+		# Fast-forward the AI-driven battle to completion (no real-time waiting).
+		# Must await: the pump yields to the frame loop, so without await the summary
+		# below would be computed mid-fight and the still-suspended pump would keep
+		# resolving strikes on later cycles' managers (double-pumping the fight).
+		await _batch_run_cycle_to_completion()
 
 		if _batch_abort:
 			break

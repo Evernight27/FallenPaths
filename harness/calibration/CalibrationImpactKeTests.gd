@@ -8,9 +8,10 @@ const GoblinSpecies := preload("res://resources/species/goblin.tres")
 
 const REPORT_FILENAME := ".calibration_audit.txt"
 const BIND_THRESHOLD := CombatConstants.PARRY_BIND_CONTROL_THRESHOLD
-const DEFLECT_THRESHOLD := CombatConstants.PARRY_DEFLECT_THRESHOLD
-## Soak lines tag `parry_deflect` for full-stop outcomes; `parry_bind` only when `parry_was_bind`  -  allow ctrl at
-## threshold on deflect rows.
+## Soak lines tag `parry_deflect` for full-stop outcomes; `parry_bind` only when `parry_was_bind`.
+## A deflect row is only inconsistent if its control reached the **bind** threshold but the row was tagged deflect
+## (`parry_control_for_bind_deflect` legitimately produces control in the 0.45-0.55 deflect band for marginal
+## full-stop deflections below the bind threshold).
 const BIND_CTRL_AUDIT_EPS := 0.001
 
 # de Leva (1996) whole-body segment mass % (adult male reference; game uses abstract 6-part lumping).
@@ -43,7 +44,7 @@ static func _append_soak_parry_section(lines: PackedStringArray, failures: Packe
             deflect_n += 1
             var ctrl: float = CalibrationImpactKeTests._parse_ctrl(line)
             if ctrl >= 0.0:
-                if ctrl < DEFLECT_THRESHOLD + BIND_CTRL_AUDIT_EPS:
+                if ctrl < BIND_THRESHOLD + BIND_CTRL_AUDIT_EPS:
                     deflect_ctrl_ok += 1
                 else:
                     ctrl_mismatch += 1

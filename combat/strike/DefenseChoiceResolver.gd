@@ -686,7 +686,13 @@ static func choose_defense(
 		var partial_parry_viable: bool = (
 			well_aligned and not is_glancing and capacity_shortfall_ratio >= CombatConstants.PARRY_CAPACITY_FLOOR_RATIO * 0.5
 		)
-		choose_parry = (
+		# Below glancing floor (cos60): parry is physically ineffective — skip the parry decision
+		# entirely (dodge always wins; see the dodge boost above). Exception: a block parry with
+		# actual capacity (`block_viable` — a mass intercept that works regardless of blade
+		# alignment) or an arm interpose (body in the path) stays available below the floor.
+		var below_glancing_floor: bool = preview_align < CombatConstants.PARRY_GLANCING_ALIGNMENT_FLOOR
+		var body_intercept: bool = block_viable or interpose_active
+		choose_parry = not (below_glancing_floor and not body_intercept) and (
 			late_parry
 			and (block_viable or redirect_viable)
 			or (

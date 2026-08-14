@@ -753,7 +753,7 @@ static func _focus_line_action_weight(
 		w *= CombatConstants.ENVELOP_MOP_UP_FOCUS_AI_WEIGHT_MULT
 	w *= CombatAIActionWeights._form_focus_preferred_mult(c, line)
 	w *= CombatAIActionWeights._fight_finish_focus_damp_mult(manager, c, combatant_id, all_actions)
-	w *= CombatAIActionWeights._guard_priority_focus_mult(manager, c, line)
+	w *= CombatAIActionWeights._guard_priority_focus_mult(c, line)
 	w *= mood_focus_mult
 	return w
 
@@ -761,7 +761,7 @@ static func _focus_line_action_weight(
 ## Tier 4.3.8: focus-line weight boost when the move's line matches the guard-priority target line and
 ## priority is high — lets a braced unit "hold + position" compete with routine strikes (utility pick
 ## path; L4G stack layer fires first). Reads the cached target line stamped by drift to avoid re-scanning.
-static func _guard_priority_focus_mult(manager: Node, c: Dictionary, line: String) -> float:
+static func _guard_priority_focus_mult(c: Dictionary, line: String) -> float:
 	var score: float = float(c.get(CombatConstants.COMBATANT_KEY_GUARD_PRIORITY, 0.0))
 	if score < CombatConstantsMentalStack.GUARD_PRIORITY_MIN_SCORE:
 		return 1.0

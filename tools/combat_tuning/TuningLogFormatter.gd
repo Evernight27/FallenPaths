@@ -10,42 +10,6 @@ const _DesignAnchors := preload("res://core/CombatDesignAnchors.gd")
 const _Bleeding := preload("res://core/BleedingConstants.gd")
 const _WeaponDamageHelper := preload("res://resources/weapons/WeaponDamageHelper.gd")
 
-const _SWING_MOVE_IDS: Array[String] = [
-	"bind_press",
-	"diagonal_chop",
-	"dagger_pommel",
-	"direct_blow",
-	"false_cut",
-	"feint_overhead_mace",
-	"grab_strike",
-	"horizontal_chop",
-	"krumphau",
-	"low_chop",
-	"low_strike",
-	"oberhau",
-	"oberhau_feint",
-	"overhead_chop",
-	"overhead_feint",
-	"overhead_strike",
-	"parry_chop",
-	"parry_cut",
-	"parry_strike",
-	"pommel_strike",
-	"pole_swing",
-	"poll_strike",
-	"quick_slash",
-	"scheitelhau",
-	"schielhau",
-	"side_strike",
-	"slash",
-	"spear_slash",
-	"thrusting_blow",
-	"unterhau",
-	"upcut_mace",
-	"zornhau",
-	"zwerchau",
-]
-
 static var _bbcode_strip_re: RegEx
 
 
@@ -290,8 +254,15 @@ static func format_exchange_line(
 			if atk_entity != null:
 				short += " | actor[%s]" % format_vitals_suffix(atk_entity)
 			return short
+		"bled_out":
+			# Bleed-out is a non-strike event on the victim itself (target id is -1), so the
+			# vitals shown must be the victim's (atk_entity), not a stale/healthy "target".
+			var short := "[HEMA] %s%s %s | outcome=%s" % [idx_bit, atk_name, move_id, outcome]
+			if atk_entity != null:
+				short += " | actor[%s]" % format_vitals_suffix(atk_entity)
+			return short
 		"focus_line":
-			var short := "[HEMA] %s%s %s->%s | outcome=%s" % [idx_bit, atk_name, move_id, tgt_name, outcome]
+			var short := "[HEMA] %s%s %s->%s | outcome=%s" % [idx_bit, atk_name, move_id if move_id != "?" else "focus_line", tgt_name, outcome]
 			if tgt_entity != null:
 				short += " | actor[%s]" % format_vitals_suffix(tgt_entity)
 			return short
@@ -587,7 +558,7 @@ static func format_cycle_hema_summary(
 	if effective_total < 0:
 		effective_total = contact_strikes
 	lines.push_back(
-        "--- Cycle %d: %s (%s) | exchanges=%d strikes=%d contacts=%d —"
+        "--- Cycle %d: %s wins (%s) | exchanges=%d strikes=%d contacts=%d —"
 		% [cycle_index, winner_name, end_cause, total_exchanges, effective_total, effective_contacts]
 	)
 	if not scenario_key.is_empty():
@@ -673,14 +644,20 @@ static func _ke_sample_weapon_id(sample: Variant) -> String:
 	return ""
 
 
-static func _is_committed_swing_sample(sample: Variant) -> bool:
-	var move_id: String = _ke_sample_move_id(sample)
-	if move_id in _SWING_MOVE_IDS:
-		return true
+static func _ke_sample_delivery(sample: Variant) -> String:
 	if sample is Dictionary:
-		var delivery: String = str((sample as Dictionary).get("kinematic_delivery", ""))
-		return delivery == "swing"
-	return false
+		return str((sample as Dictionary).get("kinematic_delivery", "")).strip_edges().to_lower()
+	return ""
+
+
+static func _is_thrust_sample(sample: Variant) -> bool:
+	var delivery: String = _ke_sample_delivery(sample)
+	if delivery == "thrust":
+		return true
+	if delivery == "swing":
+		return false
+	var move_id: String = _ke_sample_move_id(sample)
+	return move_id.contains("thrust") or move_id.contains("stab")
 
 
 static func _format_ke_bucket_line(
@@ -739,17 +716,15 @@ static func _format_ke_bucket_lines(ke_samples: Array) -> String:
 	var light_samples: Array = []
 	for raw in ke_samples:
 		all_samples.append(raw)
-		var move_id: String = _ke_sample_move_id(raw)
 		var weapon_id: String = _ke_sample_weapon_id(raw)
-		if _is_committed_swing_sample(raw):
-			swing_samples.append(raw)
-		if weapon_id != "DAGGER" and (
-			move_id.contains("thrust")
-			or move_id in ["spike_thrust", "quick_thrust", "committed_thrust", "spear_thrust"]
-		):
-			thrust_samples.append(raw)
 		if weapon_id == "DAGGER":
+			# Dagger hits live in the light bucket only (they would otherwise double-count
+			# as swings via pommel/grab moves, and their thrusts as a second thrust bucket).
 			light_samples.append(raw)
+		elif _is_thrust_sample(raw):
+			thrust_samples.append(raw)
+		else:
+			swing_samples.append(raw)
 	var parts := PackedStringArray()
 	var swing_weapon: String = _dominant_weapon_in_samples(swing_samples)
 	parts.append(_format_ke_bucket_line("committed_swing", swing_samples, true, swing_weapon, "swing"))
