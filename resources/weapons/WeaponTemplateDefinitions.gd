@@ -31,6 +31,8 @@ const ARCHETYPE_QUICK_SLASH: String = "quick_slash"
 const ARCHETYPE_POMMEL: String = "pommel_strike"
 const ARCHETYPE_HEAVY_BLUNT: String = "heavy_blunt"
 const ARCHETYPE_THRUSTING_BLUNT: String = "thrusting_blunt"
+const ARCHETYPE_POLE_SWING: String = "pole_swing"
+const ARCHETYPE_POLL_STRIKE: String = "poll_strike"
 
 ## Kinematic delivery for `WeaponDamageHelper` (abstract  -  no unit positions): thrust = linear band + point-mass KE;
 ## swing = (lever-swing) - lever + rotational KE; mixed = blend (`kinematic_mixed_blend` 0..1).
@@ -138,6 +140,7 @@ static func _weapon_definitions_build() -> Dictionary:
                 }
             ],
             "parry_part_id": "haft",
+            "impact_velocity_bands": {"blunt": {"min": 3.0, "max": 10.0}},
             "strike_physics":
             {
                 "station_mean": 0.58,
@@ -149,7 +152,7 @@ static func _weapon_definitions_build() -> Dictionary:
                 "coupling_blunt": 0.98,
                 "blunt_pressure": 1.05,
                 "blunt_head_ref_cm": 6.0,
-                "inertia_scale": 0.70
+                "inertia_scale": 0.90
             },
             "moves":
             [
@@ -203,6 +206,7 @@ static func _weapon_definitions_build() -> Dictionary:
                 {"id": "shaft", "length_cm": 55, "mass_fraction": 0.3, "parry_eligible": true, "striking_for": ["blunt"]}
             ],
             "parry_part_id": "shaft",
+            "impact_velocity_bands": {"blunt": {"min": 5.0, "max": 12.0}},
             "strike_physics":
             {
                 "station_mean": 0.62,
@@ -340,7 +344,7 @@ static func _weapon_definitions_build() -> Dictionary:
                 }
             ],
             "parry_part_id": "shaft",
-            "impact_velocity_bands": {"stab": {"min": 5.0, "max": 8.5}},
+            "impact_velocity_bands": {"stab": {"min": 5.0, "max": 8.0}},
             "strike_physics":
             {
                 "station_mean": 0.48,
@@ -386,7 +390,7 @@ static func _archetype_definitions_build() -> Dictionary:
         },
         ARCHETYPE_SLASH:
         {
-            "velocity_factor": 0.9,
+            "velocity_factor": 1.0,
             "velocity_intensity_curve": 1.04,
             "cut_ratio": -1.0,
             "recovery_multiplier": 1.0,
@@ -395,17 +399,20 @@ static func _archetype_definitions_build() -> Dictionary:
         },
         ARCHETYPE_OVERHEAD:
         {
+            # High-commitment swing moves — calibrated at reference velocity. Damage transfer efficiency handled via
+            # strike_energy_mult (now applied to damage, not KE). For high-inertia weapons like axe poll_strike use
+            # ARCHETYPE_POLL_STRIKE instead which has reduced velocity_factor for realistic rotational KE.
             "velocity_factor": 1.0,
             "velocity_intensity_curve": 1.1,
             "cut_ratio": -1.0,
             "recovery_multiplier": 1.2,
             "windup_multiplier": 1.15,
             "kinematic_delivery": KINEMATIC_DELIVERY_SWING,
-            "strike_energy_mult": 1.3
+            "strike_energy_mult": 0.65
         },
         ARCHETYPE_QUICK_SLASH:
         {
-            "velocity_factor": 0.65,
+            "velocity_factor": 0.75,
             "velocity_intensity_curve": 0.8,
             "cut_ratio": -1.0,
             "recovery_multiplier": 0.85,
@@ -423,13 +430,15 @@ static func _archetype_definitions_build() -> Dictionary:
         },
         ARCHETYPE_HEAVY_BLUNT:
         {
+            # Mace poll/handle strikes — moderate inertia weapon. Damage transfer efficiency handled via strike_energy_mult
+            # (now applied to damage, not KE). Velocity_factor=1.0 produces realistic KE for mace geometry.
             "velocity_factor": 1.0,
             "velocity_intensity_curve": 0.95,
             "cut_ratio": -1.0,  # blunt weapons route via get_damage_type -> MIN_CUT_RATIO floor (0.02), not 5%
             "recovery_multiplier": 1.15,
             "windup_multiplier": 1.1,
             "kinematic_delivery": KINEMATIC_DELIVERY_SWING,
-            "strike_energy_mult": 1.45
+            "strike_energy_mult": 1.25
         },
         ARCHETYPE_THRUSTING_BLUNT:
         {
@@ -439,6 +448,30 @@ static func _archetype_definitions_build() -> Dictionary:
             "recovery_multiplier": 0.95,
             "windup_multiplier": 0.9,
             "kinematic_delivery": KINEMATIC_DELIVERY_THRUST
+        },
+        ARCHETYPE_POLE_SWING:
+        {
+            # Polearm shaft/butt strikes — very high inertia weapon (I≈3.81 kg·m²) with long lever arm r=1.015m.
+            # At full commitment vf=0.55 gives KE≈140J which exceeds 130J band cap; vf=0.46 caps to ~128J.
+            # At i=0.6 typical exchange: v≈7.7 m/s → ω≈7.6 rad/s → KE≈109J (in-band).
+            "velocity_factor": 0.46,
+            "velocity_intensity_curve": 0.95,
+            "cut_ratio": -1.0,
+            "recovery_multiplier": 1.15,
+            "windup_multiplier": 1.1,
+            "kinematic_delivery": KINEMATIC_DELIVERY_SWING,
+            "strike_energy_mult": 0.45
+        },
+        ARCHETYPE_POLL_STRIKE:
+        {
+            # Axe poll strike — very high inertia weapon (I≈2.64 kg·m²) with short effective lever r=0.76m.
+            # At vf=1.0, KE≈388J which far exceeds the 40-155J axe band; vf=0.62 caps to ~151J.
+            "velocity_factor": 0.62,
+            "velocity_intensity_curve": 0.95,
+            "cut_ratio": -1.0,
+            "recovery_multiplier": 1.15,
+            "windup_multiplier": 1.1,
+            "kinematic_delivery": KINEMATIC_DELIVERY_SWING
         }
     }
 

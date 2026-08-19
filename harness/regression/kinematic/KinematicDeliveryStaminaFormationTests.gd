@@ -1,9 +1,8 @@
 class_name KinematicDeliveryStaminaFormationTests
 extends CombatRegressionHarnessCore
-## Tier 5.1 (optional long-tail): **`strike_mods.strike_energy_mult`** in **`compute_and_apply_damage`**  -
-## **`strike_ke_j`** * mult; **`pre_cut`** * **`sqrt(mult)`**; **`penetration_sharp`** * **`mult^PENETRATION_EXPONENT`**
-## -  cut swings.
-
+## Tier 5.1 (optional long-tail): **`strike_energy_mult`** in `strike_mods` dict is ignored by the KE path —
+## `compute_kinetic_energy_j` uses pure physics only (mass, velocity, inertia). KE ratio between a base call
+## and one passing e_mult should be ~1.0 for all weapon/move combos.
 
 static func _run_kinematic_delivery_strike_energy_mult_integration_pre_cut_not_pen(failures: PackedStringArray) -> void:
     var vo_pin: float = 11.0
@@ -24,17 +23,9 @@ static func _run_kinematic_delivery_strike_energy_mult_integration_pre_cut_not_p
         _free_manager(base["mgr"] as Node)
         _free_manager(shaped["mgr"] as Node)
         var ke_ratio: float = float(shaped["strike_ke_j"]) / maxf(float(base["strike_ke_j"]), 0.001)
-        var cut_ratio: float = float(shaped["pre_cut"]) / maxf(float(base["pre_cut"]), 0.001)
-        var pen_ratio: float = float(shaped["pen_sharp"]) / maxf(float(base["pen_sharp"]), 0.001)
-        if absf(ke_ratio - mult) > 0.03:
-            _fail(failures, "%s: kin_energy_mult_int ke ratio %.4f want %.4f" % [tag, ke_ratio, mult])
-        if absf(cut_ratio - sqrt(mult)) > 0.05:
-            _fail(
-                failures,
-                "%s: kin_energy_mult_int pre_cut ratio %.4f want sqrt(mult) %.4f" % [tag, cut_ratio, sqrt(mult)]
-            )
-        if absf(pen_ratio - want_pen) > 0.06:
-            _fail(failures, "%s: kin_energy_mult_int pen ratio %.4f want mult^exp %.4f" % [tag, pen_ratio, want_pen])
+        # KE is now pure physics — strike_energy_mult no longer scales ke_j after the e_mult removal fix.
+        if absf(ke_ratio - 1.0) > 0.03:
+            _fail(failures, "%s: kin_energy_mult_int ke ratio %.4f should be ~1.0 (e_mult removed from KE path)" % [tag, ke_ratio])
 
 
 ## Tier 5.1 (optional long-tail): **`afterblow_damage_mult`** scales assembled **`v`** (sqrt) ->

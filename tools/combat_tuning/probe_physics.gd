@@ -9,7 +9,6 @@ const _Weapon := preload("res://resources/weapons/Weapon.gd")
 const _WeaponDamageHelper := preload("res://resources/weapons/WeaponDamageHelper.gd")
 const _AttackInstance := preload("res://resources/weapons/AttackInstance.gd")
 const _ImpactVelocityModel := preload("res://resources/weapons/ImpactVelocityModel.gd")
-const _CombatTiming := preload("res://combat/flow/CombatTiming.gd")
 
 const WEAPONS := ["SWORD", "AXE", "MACE", "DAGGER", "SPEAR"]
 const MOVES := {"SWORD": "oberhau", "AXE": "diagonal_chop", "MACE": "overhead_strike", "DAGGER": "quick_thrust", "SPEAR": "spear_thrust"}

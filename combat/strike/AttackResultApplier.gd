@@ -49,6 +49,11 @@ static func _log_fp_parry_outcome(
                 interpose_boost,
             ]
         )
+    # The [HEMA] exchange line already carries parry=deflect/partial/bind + ctrl + rem; the [Combat]
+    # parry_outcome line (DefenseResolutionHandler) is the authoritative applier record. This F5-soak
+    # tracer was redundant for realism debugging — gate behind the calibration trace to keep the log dense.
+    if not CombatDebug.dc_trace_active():
+        return
     if outcome == "parry_deflect":
         var tag: String = "parry_bind" if tgt.get(DataKeys.PA_PARRY_WAS_BIND, false) else "parry_deflect"
         CombatDebug.combat_session(
@@ -736,9 +741,22 @@ static func apply_result(manager: Node, attacker_id: int, result: Dictionary) ->
                     OperationalLog.is_play_session_active() and CombatConstants.combat_hit_summary_active()
                 )
                 if not suppress_log:
-                    CombatDebug.combat_session(
-                        "INCAPACITATED %s (%s)" % [CombatantEntityAccess.get_display_name(tgt, target_id), reason]
-                    )
+                    # Compact stable token on the always-on line (cause_code already summarizes this); verbose reason is calibration-only.
+                    var incap_token: String = "UNCONSCIOUS"
+                    if CombatantEntityAccess.is_cowering(tgt):
+                        var cr: String = ""
+                        var te: Node = CombatantEntityAccess.scene_node(tgt)
+                        if te != null and te.has_method("get_cowering_reason"):
+                            cr = te.get_cowering_reason()
+                        incap_token = "COWERING_LEGS" if cr == "legs" else "COWERING_ARMS"
+                    if CombatDebug.dc_trace_active():
+                        CombatDebug.combat_session(
+                            "INCAPACITATED %s (%s)" % [CombatantEntityAccess.get_display_name(tgt, target_id), reason]
+                        )
+                    else:
+                        CombatDebug.combat_session(
+                            "INCAPACITATED %s -- %s" % [CombatantEntityAccess.get_display_name(tgt, target_id), incap_token]
+                        )
             CombatF5SoakTrace.note_hit_resolve(attacker_id, target_id, atk, tgt, result_dict)
             _enrich_payload_for_tuning(
                 manager,

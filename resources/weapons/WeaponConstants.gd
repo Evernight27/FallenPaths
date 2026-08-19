@@ -104,6 +104,15 @@ const EDGE_WEDGE_PENETRATION_FLOOR: float = 0.3   # minimum wedge factor, keeps 
 # --- Pressure-based blunt damage (replaces flat DAMAGE_MOMENTUM_SCALE) ---
 ## P = m·v/(A·Δt): pressure at wound interface where Δt is contact duration, A is contact area.
 const BLUNT_IMPACT_CONTACT_TIME_MS: float = 12.0       # Median of measured range 8-18ms for rigid steel vs yielding flesh (Campbell et al., J. Biomechanics 36:1157)
+## Δt reference impact speed (m/s): the 12 ms constant is anchored at this tip speed. Faster impacts have
+## shorter pulse width (elastic-plastic contact duration scales ~v^-0.4), so peak force rises above linear-in-v.
+const BLUNT_IMPACT_REFERENCE_SPEED_M_S: float = 10.0
+## Δt speed exponent: Δt(v) = Δt_ref · (v/v_ref)^(-BLUNT_CONTACT_TIME_SPEED_EXPONENT). 0.4 sits in the
+## measured 0.3-0.5 band for rigid-on-yielding impacts (Campbell et al.); 0 keeps the legacy constant model.
+const BLUNT_CONTACT_TIME_SPEED_EXPONENT: float = 0.4
+## Δt clamp (s): prevents sub-band velocities from inflating contact time into unrealistic multi-ms pulses.
+const BLUNT_CONTACT_TIME_MIN_S: float = 0.005
+const BLUNT_CONTACT_TIME_MAX_S: float = 0.025
 ## BLUNT_DAMAGE_PER_UNIT_PRESSURE: game-tuning coefficient calibrated so a typical mace impact produces ~25-45 damage after strength/mod factors are applied. Uses aggregate contact pressure (not peak stress), so the coefficient absorbs modeling simplifications — not directly derivable from clinical thresholds.
 const BLUNT_DAMAGE_PER_UNIT_PRESSURE: float = 0.000025      # Pa→damage; game-tuning coefficient calibrated for mace impact range
 const BLUNT_TARGET_EFFECTIVE_MASS_KG: float = 6.5         # Two-body reduced mass Plagenhofs limb-segment compliance; matches 5-8 kg biomechanical range for yielding tissue targets
@@ -283,6 +292,7 @@ static func get_weapon_definition(weapon_id: String) -> Dictionary:
 static func get_archetype(archetype_id: String) -> Dictionary:
 	var all_arch := WeaponTemplateDefinitions._archetype_definitions_build()
 	if not all_arch.has(archetype_id):
+		push_warning("[WeaponConstants] Unknown archetype '%s', falling back to SLASH" % archetype_id)
 		return all_arch.get(ARCHETYPE_SLASH, {})
 	return all_arch[archetype_id].duplicate(true)
 

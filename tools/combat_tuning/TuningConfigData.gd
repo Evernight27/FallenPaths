@@ -42,13 +42,6 @@ class TuningCombatantConfig:
 	var guard_line: String = "high"
 	var armor_overrides: Dictionary = {}  # part -> armor_resource_path
 
-	var _randomize_stats: bool = false
-	var _randomize_weapon: bool = false
-	var _randomize_form: bool = false
-	var _randomize_guard: bool = false
-	var _randomize_armor: bool = false
-	var _armor_count: int = 0
-
 	func _init(
 		p_name: String = "Attacker",
 		p_weapon: String = "SWORD",
@@ -93,10 +86,10 @@ class TuningCombatantConfig:
 		species_tres_path = SPECIES_OPTIONS[randi() % SPECIES_OPTIONS.size()]
 
 		armor_overrides.clear()
-		_armor_count = randi() % 3  # 0-2 armor pieces
+		var armor_count := randi() % 3  # 0-2 armor pieces
 		var all_parts := ["head", "chest", "right_arm", "left_arm", "right_leg", "left_leg"]
 		var parts_to_armor := []
-		for i in _armor_count:
+		for i in armor_count:
 			if parts_to_armor.size() >= all_parts.size():
 				break
 			var available := []
@@ -153,29 +146,17 @@ class TuningCombatantConfig:
 
 ## Default attacker: sword, balanced form, 110/100/105/105/95 stats.
 static func default_attacker_config() -> TuningCombatantConfig:
-	var c := TuningCombatantConfig.new(
+	return TuningCombatantConfig.new(
 		"Attacker", "SWORD", "balanced", "high",
 		110, 100, 105, 105, 95
 	)
-	c._randomize_stats = false
-	c._randomize_weapon = false
-	c._randomize_form = false
-	c._randomize_guard = false
-	c._randomize_armor = false
-	return c
 
 ## Default defender: sword, plow form (defensive), 100/100/100/100/100 stats.
 static func default_defender_config() -> TuningCombatantConfig:
-	var c := TuningCombatantConfig.new(
+	return TuningCombatantConfig.new(
 		"Defender", "SWORD", "plow", "middle",
 		100, 100, 100, 100, 100
 	)
-	c._randomize_stats = false
-	c._randomize_weapon = false
-	c._randomize_form = false
-	c._randomize_guard = false
-	c._randomize_armor = false
-	return c
 
 ## Standard heavy vs light scenario.
 static func heavy_vs_light_configs() -> Array[TuningCombatantConfig]:
@@ -254,14 +235,6 @@ static func armor_profile_heavy() -> Dictionary:
 		"right_leg": "GREAVES_RIGHT",
 		"left_leg": "GREAVES_LEFT",
 	}
-
-
-static func _apply_stats(c: TuningCombatantConfig, stats: Dictionary) -> void:
-	c.strength = int(stats.get("strength", 100))
-	c.agility = int(stats.get("agility", 100))
-	c.intelligence = int(stats.get("intelligence", 100))
-	c.endurance = int(stats.get("endurance", 100))
-	c.perception = int(stats.get("perception", 100))
 
 
 static func fighter_config(
@@ -366,11 +339,29 @@ static func weapon_sweep_configs(weapon_id: String) -> Array[TuningCombatantConf
 	var wid: String = weapon_id.to_upper().strip_edges()
 	var atk := TuningCombatantConfig.new("Attacker", wid)
 	atk.randomize_with_weapon(wid)
+	_ensure_min_armor(atk, wid)
 	atk.display_name = _sanitize_name("Attacker")
 	var def := TuningCombatantConfig.new("Defender", wid)
 	def.randomize_with_weapon(wid)
+	_ensure_min_armor(def, wid)
 	def.display_name = _sanitize_name("Defender")
 	return [atk, def]
+
+static const TWO_HANDED_WEAPONS: PackedStringArray = ["SPEAR"]
+
+static func _ensure_min_armor(cfg: TuningCombatantConfig, weapon_id: String) -> void:
+	if not weapon_id.to_upper().strip_edges() in TWO_HANDED_WEAPONS:
+		return
+	var current_count := cfg.armor_overrides.size()
+	if current_count >= 1:
+		return
+	var all_parts := ["head", "chest", "right_arm", "left_arm", "right_leg", "left_leg"]
+	for part in all_parts:
+		if not part in cfg.armor_overrides:
+			var options: Array = _ArmorConst.get_armor_options_by_part().get(part, [])
+			if not options.is_empty():
+				cfg.armor_overrides[part] = options[randi() % options.size()]
+				break
 
 
 ## One scenario key per weapon for batch weapon-sweep mode.

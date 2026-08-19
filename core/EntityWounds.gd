@@ -184,7 +184,8 @@ static func add_wound(
 	sub_region: String = "",
 	severity_override: String = "",
 	impact_ke_j: float = -1.0,
-	penetration_to_tissue_mm: float = -1.0
+	penetration_to_tissue_mm: float = -1.0,
+	extra_flags: Dictionary = {}
 ) -> void:
 	if part.is_empty() or damage <= 0.0:
 		return
@@ -198,6 +199,8 @@ static func add_wound(
 	var base_rate: float = BleedingConstants.get_bleeding_rate(injury_type, severity, part, sub_region)
 	if base_rate < 0.0:
 		base_rate = 0.0
+	if extra_flags.get("dagger_wound", false):
+		base_rate *= BleedingConstants.DAGGER_BLEED_MULTIPLIER
 	if base_rate > 0.0 and injury_type == BleedingConstants.INJURY_TYPE_CUT:
 		if impact_ke_j >= 0.0:
 			base_rate *= 1.0 + _BLEED_KE_BLEND * minf(impact_ke_j / maxf(1.0, _IMPACT_KE_REF_J), 2.0)

@@ -1,13 +1,7 @@
 extends "res://combat/CombatManager.gd"
 
-## Tuning-combat manager: extends CombatManager with an optional action override
-## hook (`tuning_override_provider`) so the tuning scene can force a specific move
-## without modifying production code. Skips post-victory medical phase by default.
-
-## Callable(combatant_id: int) -> Array[Dictionary] or null.
-## When set, called inside get_available_actions(). If it returns a non-empty array,
-## that array is returned instead of AvailableActionsBuilder.build().
-var tuning_override_provider: Callable
+## Tuning-combat manager: extends CombatManager for tuning scenarios.
+## Skips post-victory medical phase by default.
 
 ## When true (default), player wins end combat immediately without medical triage.
 var tuning_skip_medical: bool = true
@@ -28,14 +22,6 @@ func start(player_preset: Dictionary = {}, enemy_preset: Dictionary = {}) -> voi
 	super.start(player_preset, enemy_preset)
 	if tuning_wait_for_player:
 		set_process(false)
-
-
-func get_available_actions(combatant_id: int) -> Array:
-	if tuning_override_provider != null:
-		var result = tuning_override_provider.call(combatant_id)
-		if result != null and not result.is_empty():
-			return result
-	return super(combatant_id)
 
 
 func _end_combat_phase(winner: String, defeated_node: Node) -> void:

@@ -341,27 +341,21 @@ func start(player_formation: Dictionary = {}, enemy_formation: Dictionary = {}):
 		OperationalLog.play_combat_manager_started(alive_p, alive_e, formation_doctrine, encounter)
 		OperationalLog.play_combat(eng_line)
 	else:
-		CombatDebug.combat_session(
-			"manager_started alive=%d/%d doctrine=%s" % [alive_p, alive_e, str(formation_doctrine)]
-		)
-		CombatDebug.combat_session(eng_line)
-	if has_meta(EngagementOpposition.META_OPPOSITION_FILE_OFFSET_BY_SIDE):
-		var pf: int = int((formations.get("player", {}) as Dictionary).get(DataKeys.FORMATION_FILES, 1))
-		var ef: int = int((formations.get("enemy", {}) as Dictionary).get(DataKeys.FORMATION_FILES, 1))
-		var opp_line: String = (
-            "opposition offset player=%d enemy=%d formation_files=%d/%d"
-			% [
+		# Condensed single setup line for the always-on session log (the three separate lines were
+		# identical per 1v1 fight and diluted grep density). Opposition/formation detail is calibration-only.
+		var opp_detail := ""
+		if has_meta(EngagementOpposition.META_OPPOSITION_FILE_OFFSET_BY_SIDE):
+			var pf: int = int((formations.get("player", {}) as Dictionary).get(DataKeys.FORMATION_FILES, 1))
+			var ef: int = int((formations.get("enemy", {}) as Dictionary).get(DataKeys.FORMATION_FILES, 1))
+			opp_detail = " opp=%d/%d files=%d/%d" % [
 				EngagementOpposition.opposition_file_offset(self, "player"),
 				EngagementOpposition.opposition_file_offset(self, "enemy"),
 				pf,
 				ef,
 			]
+		CombatDebug.combat_session(
+			"combat_start alive=%d/%d %s%s" % [alive_p, alive_e, eng_line, opp_detail]
 		)
-		if OperationalLog.is_play_session_active():
-			OperationalLog.play_combat(opp_line)
-			CombatEngagementDiagnostics.log_fight_start_summary(self)
-		else:
-			CombatDebug.combat_session(opp_line)
 	TacticalCombat.seed_engagement_mode_telemetry(self, eng_mode)
 
 

@@ -77,11 +77,13 @@ const CONCUSSION_MIN_TOTAL_DURATION_S: float = 25.0   # mild (low severity) — 
 ## Real-world catecholamine surge onset is NOT deterministic at a single blood-volume threshold.
 ## Baroreceptor-mediated epinephrine/norepinephrine release begins in Class II hemorrhage (15-30% loss,
 ## 70-85% remaining) but varies by individual factors: training level, stress tolerance, age, fitness.
-## Clinical data shows sympathetic activation starts gradually at ~70% remaining, with most entities
+## Clinical data shows sympathetic activation starts gradually in the upper Class II range, with most entities
 ## triggering between 60-75% (Class II/III boundary). We model this as a probability ramp:
-##   - 85-75% remaining: no trigger (Class I — minimal stress response)
-##   - 75-60% remaining: probability ramps from ~10% to ~90% (Class II → Class III transition)
-##   - <60% remaining: deterministic trigger + cooldown check (Class III — catecholamine crisis)
+##   - >82% remaining: no trigger (Class I — minimal stress response)
+##   - 82-70% remaining: probability ramps from 0 to 1 (Class II → Class III transition; per-entity jitter shifts
+##     the 82% upper bound by ±5%)
+##   - 70-60% remaining: deterministic trigger + cooldown check (Class III — catecholamine crisis)
+##   - <60% remaining: no new dump (Class IV — decompensated shock, baroreceptor failure; see MIN_ABS floor)
 ## Per-entity jitter: each entity gets a unique threshold offset (-5% to +5%) via seeded random,
 ## so not all entities dump simultaneously when crossing the same blood-volume boundary.
 
@@ -99,8 +101,9 @@ const ADRENALINE_TRIGGER_RAMP_MIN_REMAINING: float = 70.0
 
 ## Minimum blood volume to trigger (absolute floor) — prevents dumps at near-death (Class IV <60%).
 ## Below this threshold, the patient is in decompensated shock and catecholamine response collapses;
-## baroreceptor failure means epinephrine release cannot sustain. Matches ATLS Class III→IV boundary.
-const ADRENALINE_TRIGGER_MIN_ABS_REMAINING: float = 50.0
+## baroreceptor failure means epinephrine release cannot sustain. Matches ATLS Class III→IV boundary
+## (`BleedingConstants.ATLS_CLASS_III_MIN_REMAINING` = 60% remaining; Class IV begins below it).
+const ADRENALINE_TRIGGER_MIN_ABS_REMAINING: float = BleedingConstants.ATLS_CLASS_III_MIN_REMAINING
 
 const ADRENALINE_COOLDOWN_S: float = 120.0           # minimum cooldown between adrenaline dumps (2 min)
 const ADRENALINE_PERFORMANCE_BASELINE_MULT: float = 1.05 # +5% gross motor performance during sustained surge

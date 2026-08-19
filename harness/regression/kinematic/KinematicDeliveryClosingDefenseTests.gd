@@ -753,16 +753,35 @@ static func _run_kinematic_delivery_striker_stamina_strike_ke_matches_sqrt_stami
     var ke_low: float = KinematicDeliveryGuardMatrixTests._kin_striker_stamina_strike_ke_sample(st_ratio_low)
     if ke_full <= 0.5:
         CombatRegressionHarness._fail(failures, "kin_stam_ke: full ke too small %.4f" % ke_full)
-    # Fatigue velocity model: lerpf(FLOOR,1,pow(ratio,EXPONENT))^2 ratio.
+    # Fatigue velocity model: lerpf(FLOOR,1,pow(ratio,EXPONENT))^2 ratio. A fatigued striker's KE can drop below
+    # band-minimum energy, in which case the sub-band ramp (sub_band_energy_factor) additionally scales reported
+    # KE — so the expected ratio is fatigue_vel² × (f_low / f_full). Both samples here are on SWORD oberhau at
+    # pinned v=11, so the factor is derived from the same weapon/move.
     var st_factor_low: float = pow(st_ratio_low, CombatConstantsStamina.FATIGUE_VELOCITY_POWER_EXPONENT)
     var vel_low: float = lerpf(CombatConstantsStamina.FATIGUE_VELOCITY_FLOOR_AT_ZERO_STAMINA, 1.0, st_factor_low)
-    var want_ratio: float = vel_low * vel_low
+    var want_raw_ratio: float = vel_low * vel_low
+    var sword: Weapon = HarnessFixtures.get_cached_weapon("SWORD")
+    var arch_swing: Dictionary = {"kinematic_delivery": WeaponConstants.KINEMATIC_DELIVERY_SWING}
+    var f_full: float = 1.0
+    var f_low: float = 1.0
+    if sword != null:
+        var ai_full: AttackInstance = AttackInstance.new("oberhau", 0.62)
+        ai_full.archetype = arch_swing
+        ai_full.velocity_m_s = 11.0
+        var ai_lo: AttackInstance = AttackInstance.new("oberhau", 0.62)
+        ai_lo.archetype = arch_swing
+        ai_lo.velocity_m_s = 11.0 * vel_low
+        f_full = WeaponDamageHelper.sub_band_energy_factor(sword, ai_full)
+        f_low = WeaponDamageHelper.sub_band_energy_factor(sword, ai_lo)
+    if f_full <= 0.0:
+        f_full = 1.0
+    var want_ratio: float = want_raw_ratio * (f_low / f_full)
     if absf(ke_low / ke_full - want_ratio) > 0.06:
         CombatRegressionHarness._fail(
             failures,
             (
-                "kin_stam_ke: ke ratio %.4f want fatigue_vel2 %.4f (full=%.4f low=%.4f)"
-                % [ke_low / ke_full, want_ratio, ke_full, ke_low]
+                "kin_stam_ke: ke ratio %.4f want fatigue_vel2*subband %.4f (full=%.4f low=%.4f f_full=%.3f f_low=%.3f)"
+                % [ke_low / ke_full, want_ratio, ke_full, ke_low, f_full, f_low]
             )
         )
 

@@ -44,6 +44,7 @@ static func _kin_striker_stamina_strike_ke_sample(stamina_ratio: float) -> float
     var atk: Dictionary = m.combatants[0]
     var tgt: Dictionary = m.combatants[1]
     atk["stamina"] = CombatConstants.STAMINA_MAX * clampf(stamina_ratio, 0.0, 1.0)
+    atk["exhaustion"] = 0.0
     var res: Dictionary = AttackResolver.compute_and_apply_damage(
         m,
         CombatantEntityAccess.id_int(atk),

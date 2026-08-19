@@ -190,9 +190,8 @@ static func compute_strike_modifiers(
         else clampf(lerpf(0.96, 1.028, sin(station * PI)), 0.9, 1.08)
     )
     var sharp_pen_mult: float = pen_station * lerpf(0.75, 1.0, sharpness)
-    # velocity^2 scales KE; coup couples energy into the target; commit gates extension follow-through.
-    # Minimum ratio of 0.65 prevents sub-band strikes from being suppressed below realistic energy floors
-    # (e.g., axe thrusts at low intensity should still deliver meaningful impact energy).
+    # strike_energy_mult stored for diagnostic/tuning reference only — no longer consumed by KE or damage pipeline.
+    # Formerly scaled velocity^2 * coup * commit; now retained in return dict alongside actual damage multipliers.
     var computed_e: float = maxf(0.65, vel_m * vel_m * coup * clampf(commit_frac, 0.3, 1.0))
     if is_feint:
         computed_e = maxf(0.15, computed_e * 0.2)

@@ -20,6 +20,12 @@ static func run_core(failures: PackedStringArray) -> void:
     KinematicDeliveryPreArmorTests._run_kinematic_delivery_penetration_sharp_ke_exponent_and_blunt_mpa_rises(failures)
     KinematicDeliveryPreArmorTests._run_kinematic_delivery_strike_energy_mult_scales_ke_and_pre_armor_cut_sqrt(failures)
     KinematicDeliveryPreArmorTests._run_kinematic_delivery_strike_momentum_mult_scales_blunt_damage_and_mpa(failures)
+    KinematicDeliveryPreArmorTests._run_kinetic_delivery_thrust_mass_fallback_for_unknown_templates(failures)
+    KinematicDeliveryPreArmorTests._run_kinematic_delivery_thrust_body_coupled_strike_mass_and_ke_rising(failures)
+    KinematicDeliveryPreArmorTests._run_kinetic_delivery_mass_scaled_band_max(failures)
+    KinematicDeliveryPreArmorTests._run_kinetic_delivery_uniform_rod_inertia_parallel_axis(failures)
+    KinematicDeliveryPreArmorTests._run_kinetic_delivery_sub_band_energy_consistency(failures)
+    KinematicDeliveryPreArmorTests._run_kinematic_delivery_impact_contact_time_speed_dependent(failures)
     KinematicDeliveryStrikeMultTests._run_kinematic_delivery_strike_mult_cross_coupling_ke_vs_blunt_isolated(failures)
     KinematicDeliveryPenetrationTests._run_kinematic_delivery_penetration_oblique_angle_factor_attack_resolver(failures)
     KinematicDeliveryPenetrationTests._run_kinematic_delivery_compute_damage_oblique_penetration_integration(failures)
@@ -36,6 +42,7 @@ static func run_core(failures: PackedStringArray) -> void:
     KinematicDeliveryPenetrationTests._run_kinematic_delivery_guard_deflect_blend_guard_angle_and_attack_only_align(
         failures
     )
+    KinematicDeliveryPenetrationTests._run_kinetic_delivery_blunt_penetration_contact_mirrors_damage_cap(failures)
     KinematicDeliveryPenetrationTests._run_kinematic_delivery_compute_penetration_return_keys_and_thrust_blunt_contact(
         failures
     )

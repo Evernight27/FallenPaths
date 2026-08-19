@@ -145,21 +145,27 @@ static func choose_defense(
 	result.dodge_chance = dodge_chance
 
 	var already_used_defense: bool = pa.get(CombatConstants.PA_KEY_PASSIVE_PARRY_ATTEMPTED, false)
-	var st_def: String = CombatantEntityAccess.state_str(tgt)
 	if pa.get(DataKeys.PA_PARRY_CHOICE_BLOCKED, false):
 		result.effective_redirect = _get_effective_redirect(tgt)
 		return result
-	if (
-		already_used_defense
-		or st_def == CombatConstants.STATE_WIND_UP
-		or st_def == CombatConstants.STATE_MEDICAL_WIND_UP
-	):
+	if already_used_defense:
 		result.effective_redirect = _get_effective_redirect(tgt)
 		return result
-
 	var wind_up_duration: float = pa.get(DataKeys.PA_WIND_UP_DURATION, 0.5)
 	var comm_frac: float = CombatConstants.commitment_fraction_for_pending_attack(pa)
 	var effective_wind_up: float = wind_up_duration * (1.0 - comm_frac)
+	# A defender already committed to their own wind-up (STATE_WIND_UP / STATE_MEDICAL_WIND_UP) has no free blade for a
+	# proactive on-time parry — their weapon is in their own arc. They are NOT defenseless though: HEMA reflex shows a
+	# mid-swing fighter still raises the blade into a late/reflexive parry. Force `force_reflexive_parry` so the branch
+	# below routes to the late path regardless of reaction timing (a fast reaction would otherwise take the proactive
+	# on-time branch, which over-credits a defender whose weapon is already committed). Hard-returning here was zeroing
+	# parry_c_d for the common mid-swing case — that is why mirror matchups produced clean hits and no blade clashes.
+	# The late branch applies PARRY_LATE_CAPACITY_FLOOR + arc-span + stamina/exhaustion timing penalties, so reflexive
+	# mid-swing parries stay strictly weaker than on-time ones (no over-reward).
+	var force_reflexive_parry: bool = (
+		CombatantEntityAccess.state_str(tgt) == CombatConstants.STATE_WIND_UP
+		or CombatantEntityAccess.state_str(tgt) == CombatConstants.STATE_MEDICAL_WIND_UP
+	)
 	var can_parry_in_time: bool = false
 	var parry_p_a: float = 0.0
 	var parry_c_d: float = 0.0
@@ -174,7 +180,9 @@ static func choose_defense(
 		if def_weapon != null and effective_wind_up > 0.0:
 			var atk_weapon = CombatantEntityAccess.get_weapon(atk)
 			var reaction_time: float = CombatantEntityAccess.get_passive_parry_reaction_time(tgt)
-			if reaction_time < effective_wind_up and atk_weapon != null:
+			# `force_reflexive_parry` (mid-swing defender) takes the late branch even with a fast reaction, so a
+			# committed weapon is never credited with a proactive on-time parry.
+			if not force_reflexive_parry and reaction_time < effective_wind_up and atk_weapon != null:
 				can_parry_in_time = true
 				var parry_eval_step_deg: float = CombatFootwork.parry_eval_step_deg_for_defender(
 					tgt, CombatantEntityAccess.id_int(atk), manager
@@ -459,6 +467,7 @@ static func choose_defense(
 	parry_c_d *= depth_spear_tight_lane_parry_c_d_mult(pa)
 	parry_c_d *= pa.get(DataKeys.PA_ZONE_ENGAGEMENT_PARRY_MULT, 1.0)
 	parry_c_d *= _spacing_band_parry_capacity_mult(tgt, atk)
+	parry_c_d *= _reach_disparity_parry_penalty(atk, tgt)
 	parry_c_d *= CombatWeaponPosition.parry_capacity_mult_for_defender(tgt)
 	parry_c_d *= CombatMuscleFatigue.parry_capacity_mult(tgt)
 	parry_c_d *= CombatWeaponPosition.incoming_attack_parry_c_d_mult(atk)
@@ -554,6 +563,22 @@ static func choose_defense(
 	var effective_redirect: float = _get_effective_redirect(tgt)
 	result.effective_redirect = effective_redirect
 	result.is_block_parry = m_d_parry >= m_a_parry * block_mass_t and s_d_parry >= s_atk_parry * block_str_t
+	# Reflexive mid-swing parry floor — must run BEFORE the viability booleans below so it actually makes
+	# `redirect_viable`/`block_viable` true. A defender committed to their own wind-up has no free blade for a proactive
+	# parry, but a reflexive block is still physically available; without this floor the late-branch cascade
+	# (PARRY_LATE_CAPACITY_FLOOR × arc-span × alignment geometry × reactive timing) collapses c_d below the
+	# redirect-viability threshold and the defender always falls to dodge — exactly why mirror matchups produced clean
+	# hits and no blade clashes. Anchor at 1/effective_redirect (the exact point where `redirect_viable` flips true) so
+	# the reflexive parry is actually choosable, then scale by alignment (0.85–1.0) so a well-matched guard reflexes
+	# slightly harder than a misaligned one. This sits below an on-time defender's typical c_d/p_a surplus (~0.7–1.0)
+	# for equal weapons, so a mid-swing block stays strictly weaker than a settled parry (no over-reward). Skipped when
+	# the guard is explicitly zeroed (harness test fixtures) or when no parry was even evaluated.
+	if force_reflexive_parry and can_parry_in_time and result.parry_p_a > 0.0:
+		var reflex_guard_suppressed: bool = PassiveParryContext.guard_readiness_float(tgt) <= 0.0
+		if not reflex_guard_suppressed:
+			var reflex_align_frac: float = clampf(float(result.get(DataKeys.RESULT_PARRY_PREVIEW_ALIGNMENT, 1.0)), 0.0, 1.0)
+			var reflex_floor_ratio: float = (1.0 / maxf(effective_redirect, 0.5)) * lerpf(0.85, 1.0, reflex_align_frac)
+			result.parry_c_d = maxf(result.parry_c_d, result.parry_p_a * reflex_floor_ratio)
 	var block_viable: bool = (
 		can_parry_in_time and result.parry_p_a <= result.parry_c_d * CombatConstants.PARRY_DODGE_STRENGTH_RATIO
 	)
@@ -562,14 +587,15 @@ static func choose_defense(
 		can_parry_in_time and (result.parry_p_a <= result.parry_c_d * effective_redirect or desperate_parry)
 	)
 	var preview_align: float = float(result.get(DataKeys.RESULT_PARRY_PREVIEW_ALIGNMENT, 1.0))
-	CombatDebug.combat_session(
-		"dc_pre_align def=%s state=%s cause=%s preview_align=%.4f" % [
-			CombatantEntityAccess.get_display_name(tgt, -1),
-			CombatantEntityAccess.state_str(tgt),
-			str(tgt.get(DataKeys.ATTACK_RECOVERY_CAUSE, "")),
-			preview_align
-		]
-	)
+	if CombatDebug.dc_trace_active():
+		CombatDebug.combat_session(
+			"dc_pre_align def=%s state=%s cause=%s preview_align=%.4f" % [
+				CombatantEntityAccess.get_display_name(tgt, -1),
+				CombatantEntityAccess.state_str(tgt),
+				str(tgt.get(DataKeys.ATTACK_RECOVERY_CAUSE, "")),
+				preview_align
+			]
+		)
 	# Functional alignment bonus: near-threshold alignments (cos45) get a small boost for confident parry decisions.
 	if preview_align >= CombatConstants.PARRY_GLANCING_ALIGNMENT_FLOOR and preview_align < CombatConstants.PARRY_PARTIAL_GUARD_ALIGNMENT_THRESHOLD + 0.15:
 		var margin_frac = (preview_align - CombatConstants.PARRY_GLANCING_ALIGNMENT_FLOOR) / (CombatConstants.PARRY_PARTIAL_GUARD_ALIGNMENT_THRESHOLD - CombatConstants.PARRY_GLANCING_ALIGNMENT_FLOOR)
@@ -594,27 +620,29 @@ static func choose_defense(
 	var def_has_weapon: bool = CombatantEntityAccess.has_weapon(tgt)
 
 	var choose_parry: bool = false
-	CombatDebug.combat_session(
-		"defense_choose def=%s atk_id=%d type=%s can_pt=%s has_wpn=%s block_v=%s redir_v=%s align=%.3f dodge_c=%.2f late=%s" % [
-			CombatantEntityAccess.get_display_name(tgt, -1),
-			CombatantEntityAccess.id_int(atk), attack_type, can_parry_in_time, def_has_weapon,
-			block_viable, redirect_viable, preview_align, dodge_chance, late_parry
-		]
-	)
+	if CombatDebug.dc_trace_active():
+		CombatDebug.combat_session(
+			"defense_choose def=%s atk_id=%d type=%s can_pt=%s has_wpn=%s block_v=%s redir_v=%s align=%.3f dodge_c=%.2f late=%s" % [
+				CombatantEntityAccess.get_display_name(tgt, -1),
+				CombatantEntityAccess.id_int(atk), attack_type, can_parry_in_time, def_has_weapon,
+				block_viable, redirect_viable, preview_align, dodge_chance, late_parry
+			]
+		)
 	if not def_has_weapon:
 		choose_parry = false
 	elif not can_parry_in_time:
 		choose_parry = false
 	else:
-		CombatDebug.combat_session(
-			"dc_enter_def=%s atk_id=%d type=%s late_parry=%s well_aligned=%s is_glancing=%s block_v=%s redir_v=%s" % [
-				CombatantEntityAccess.get_display_name(tgt, -1),
-				CombatantEntityAccess.id_int(atk), attack_type, late_parry,
-				(preview_align >= CombatConstants.PARRY_PARTIAL_GUARD_ALIGNMENT_THRESHOLD),
-				(preview_align < CombatConstants.PARRY_PARTIAL_GUARD_ALIGNMENT_THRESHOLD and preview_align >= CombatConstants.PARRY_GLANCING_ALIGNMENT_FLOOR),
-				block_viable, redirect_viable
-			]
-		)
+		if CombatDebug.dc_trace_active():
+			CombatDebug.combat_session(
+				"dc_enter_def=%s atk_id=%d type=%s late_parry=%s well_aligned=%s is_glancing=%s block_v=%s redir_v=%s" % [
+					CombatantEntityAccess.get_display_name(tgt, -1),
+					CombatantEntityAccess.id_int(atk), attack_type, late_parry,
+					(preview_align >= CombatConstants.PARRY_PARTIAL_GUARD_ALIGNMENT_THRESHOLD),
+					(preview_align < CombatConstants.PARRY_PARTIAL_GUARD_ALIGNMENT_THRESHOLD and preview_align >= CombatConstants.PARRY_GLANCING_ALIGNMENT_FLOOR),
+					block_viable, redirect_viable
+				]
+			)
 		var part_mod: float = CombatantEntityAccess._get_part_dodge_modifier(tgt, result.dodge_eval_part)
 		var effective_dodge_chance: float = dodge_chance * part_mod
 		# Below glancing floor (cos60): parry is physically ineffective — boost dodge and skip parry decision entirely.
@@ -674,12 +702,13 @@ static func choose_defense(
 		var is_glancing: bool = (preview_align < CombatConstants.PARRY_PARTIAL_GUARD_ALIGNMENT_THRESHOLD
 			and preview_align >= CombatConstants.PARRY_GLANCING_ALIGNMENT_FLOOR)
 		# Glancing parries need a meaningful capacity surplus to overcome dodge energy advantage.
-		CombatDebug.combat_session(
-			"dc_sub def=%s atk_id=%d late_parry=%s well_aligned=%s is_glancing=%s clean_dodge_likely=%s dodge_better=%s energy_dodge=%.3f energy_parry=%.3f" % [
-				CombatantEntityAccess.get_display_name(tgt, -1),
-				CombatantEntityAccess.id_int(atk), late_parry, well_aligned, is_glancing, clean_dodge_likely, dodge_better, energy_dodge, energy_parry
-			]
-		)
+		if CombatDebug.dc_trace_active():
+			CombatDebug.combat_session(
+				"dc_sub def=%s atk_id=%d late_parry=%s well_aligned=%s is_glancing=%s clean_dodge_likely=%s dodge_better=%s energy_dodge=%.3f energy_parry=%.3f" % [
+					CombatantEntityAccess.get_display_name(tgt, -1),
+					CombatantEntityAccess.id_int(atk), late_parry, well_aligned, is_glancing, clean_dodge_likely, dodge_better, energy_dodge, energy_parry
+				]
+			)
 		var capacity_shortfall_ratio: float = 1.0
 		if result.parry_p_a > 0.001:
 			capacity_shortfall_ratio = result.parry_c_d / result.parry_p_a
@@ -715,13 +744,32 @@ static func choose_defense(
 				and not dodge_better
 			)
 		)
-		CombatDebug.combat_session(
-			"dc_out def=%s atk_id=%d type=%s choose_parry=%s late=%s well_aligned=%s is_glancing=%s block_v=%s redir_v=%s dodge_better=%s clean_dodge=%s align=%.3f c_d=%.2f p_a=%.2f" % [
-				CombatantEntityAccess.get_display_name(tgt, -1),
-				CombatantEntityAccess.id_int(atk), attack_type, choose_parry, late_parry, well_aligned, is_glancing,
-				block_viable, redirect_viable, dodge_better, clean_dodge_likely, preview_align, result.parry_c_d, result.parry_p_a
-			]
-		)
+		if CombatDebug.dc_trace_active():
+			CombatDebug.combat_session(
+				"dc_out def=%s atk_id=%d type=%s choose_parry=%s late=%s well_aligned=%s is_glancing=%s block_v=%s redir_v=%s dodge_better=%s clean_dodge=%s align=%.3f c_d=%.2f p_a=%.2f" % [
+					CombatantEntityAccess.get_display_name(tgt, -1),
+					CombatantEntityAccess.id_int(atk), attack_type, choose_parry, late_parry, well_aligned, is_glancing,
+					block_viable, redirect_viable, dodge_better, clean_dodge_likely, preview_align, result.parry_c_d, result.parry_p_a
+				]
+			)
+		else:
+			# Condensed always-on defense line: the decision (parry vs dodge), alignment tier, and capacity —
+			# enough to judge whether a defense call is realistic without the 4 intermediate trace lines.
+			var dc_tier: String = "aligned" if well_aligned else ("glancing" if is_glancing else "off")
+			(
+				CombatDebug
+				.combat_session(
+					(
+						"dc def=%s vs atk=%d %s -> %s | align=%.3f (%s) late=%s c_d=%.2f p_a=%.2f"
+						% [
+							CombatantEntityAccess.get_display_name(tgt, -1),
+							CombatantEntityAccess.id_int(atk), attack_type,
+							"parry" if choose_parry else "dodge",
+							preview_align, dc_tier, late_parry, result.parry_c_d, result.parry_p_a
+						]
+					)
+				)
+			)
 	if choose_parry:
 		CombatFootwork.apply_defender_step_on_parry(
 			tgt, str(tgt.get(DataKeys.ATTACK_GUARD_LINE, CombatConstants.GUARD_DEFAULT)), CombatantEntityAccess.id_int(atk), manager
@@ -936,6 +984,30 @@ static func _spacing_band_parry_capacity_mult(tgt: Dictionary, atk: Dictionary) 
 			return CombatConstants.DEFENSE_SPACING_PARRY_MULT_LONG
 		_:
 			return 1.0
+
+
+static func _reach_disparity_parry_penalty(atk: Dictionary, tgt: Dictionary) -> float:
+	var atk_weapon = CombatantEntityAccess.get_weapon(atk)
+	if atk_weapon == null:
+		return 1.0
+	var atk_range = 1.5
+	if atk_weapon.has_method("get") or atk_weapon is Dictionary:
+		atk_range = float(atk_weapon.get("melee_range", 1.5))
+	elif "melee_range" in atk_weapon:
+		atk_range = float(atk_weapon.melee_range)
+	var def_weapon = CombatantEntityAccess.get_weapon(tgt)
+	if def_weapon == null:
+		return 1.0
+	var def_range = 1.5
+	if def_weapon.has_method("get") or def_weapon is Dictionary:
+		def_range = float(def_weapon.get("melee_range", 1.5))
+	elif "melee_range" in def_weapon:
+		def_range = float(def_weapon.melee_range)
+	var disparity = atk_range - def_range
+	if disparity <= 0.3:
+		return 1.0
+	var penalty = clampf(1.0 - (disparity - 0.3) * 0.5, 0.25, 1.0)
+	return penalty
 
 
 static func _spacing_band_dodge_chance_mult(tgt: Dictionary, atk: Dictionary) -> float:

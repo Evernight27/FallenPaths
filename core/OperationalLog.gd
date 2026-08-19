@@ -29,6 +29,8 @@ const CAPTURE_MAX_LINES: int = 5000
 static var _play_session_active: bool = false
 static var _play_session_scene: String = ""
 static var _play_error_logger = null
+static var _error_logger_added: bool = false
+static var _error_logger_removed: bool = false
 static var _capture_enabled: bool = false
 static var _captured_lines: PackedStringArray = PackedStringArray()
 ## Max captured lines before oldest are dropped (prevents unbounded growth in long campaigns).
@@ -75,6 +77,7 @@ static func ensure_harness_error_logger() -> void:
     if _play_error_logger == null:
         _play_error_logger = FallenPathsErrorLogger.new()
         OS.add_logger(_play_error_logger)
+        _error_logger_added = true
     FallenPathsErrorLogger.reset_script_error_count()
 
 
@@ -150,6 +153,7 @@ static func begin_play_session(
     if _play_error_logger == null:
         _play_error_logger = FallenPathsErrorLogger.new()
         OS.add_logger(_play_error_logger)
+        _error_logger_added = true
     var soak_s: String = dev_soak_encounter.strip_edges().to_lower()
     var soak_note: String = (
         (
@@ -192,6 +196,11 @@ static func end_play_session() -> void:
     _last_play_combat_body = ""
     CombatConstants.set_play_session_diagnostic(false)
     CombatConstants.clear_combat_hit_summary_override()
+    if _play_error_logger != null and _error_logger_added:
+        OS.remove_logger(_play_error_logger)
+        _error_logger_added = false
+        _error_logger_removed = true
+        _play_error_logger = null
 
 
 static func play_combat_start(

@@ -51,9 +51,7 @@ func _init() -> void:
 		var v14 = _WDH.get_effective_velocity_m_s(spear, ai_14, false)
 		var m9 = _WDH.strike_mass_kg(spear, ai_9)
 		var m14 = _WDH.strike_mass_kg(spear, ai_14)
-		var e9 = ai_9.strike_energy_mult if "strike_energy_mult" in ai_9 else 1.0
-		var e14 = ai_14.strike_energy_mult if "strike_energy_mult" in ai_14 else 1.0
-		print("v9=%.4f v14=%.4f m9=%.4f m14=%.4f e9=%.4f e14=%.4f" % [v9, v14, m9, m14, e9, e14])
+		print("v9=%.4f v14=%.4f m9=%.4f m14=%.4f" % [v9, v14, m9, m14])
 	
 	# --- sim_joule_floor trace ---
 	print("\n========== SIM_JOULE_FLOOR TRACE ==========")
@@ -143,11 +141,6 @@ func _init() -> void:
 		
 		print("station=%.4f coup=%.4f vel_m_st=%.4f vel_m_meas=%.4f vel_m=%.6f" % [station_mean, coup, vel_m_station, vel_m_meas, vel_m])
 		
-		var commit_frac = 0.78
-		var e_mult = vel_m * vel_m * coup * clampf(commit_frac, 0.3, 1.0)
-		print("e_mult=%.6f (vel^2=%.6f * coup=%.4f * commit=%.2f)" % [e_mult, vel_m*vel_m, coup, clampf(commit_frac, 0.3, 1.0)])
-		
-		ai.strike_energy_mult = e_mult
 		var ke_r = _WDH.compute_kinetic_energy_j(sword_def, ai)
 		print("research_KE=%.4f (want 65-145)" % ke_r)
 	

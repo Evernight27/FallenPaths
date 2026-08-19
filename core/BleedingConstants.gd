@@ -151,6 +151,9 @@ const MATERIAL_CURVE_BLEND_WEIGHT := 1.0
 const FEATURE_LAYER_TISSUE_CURVES := true
 ## M3: bleed bump when subcutaneous sheet is ruptured on this hit.
 const LAYER_RUPTURE_SUBCUT_BLEED_MULT := 1.08
+## Dagger wounds: small blades create narrow deep channels that bypass natural clotting and tear vessels on entry/withdrawal.
+## Clinically, dagger/pistol-grip stab wounds bleed ~2x surface cut at equivalent damage (Fiore/Talhoffer dagger combat).
+const DAGGER_BLEED_MULTIPLIER: float = 2.0
 ## M4 (cancelled): continuum damage memory per sub_region  -  reserved; do not enable.
 const FEATURE_TISSUE_DAMAGE_D := false
 ## M6: internal tissue J capacity; `body_cutting` as display derived from J. Shipped.

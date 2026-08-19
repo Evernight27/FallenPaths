@@ -50,10 +50,10 @@ const RECOVERY_MAX_S: float = 4.0
 const WINDUP_LEG_MIN: float = 0.2
 const RECOVERY_AFTER_MEDICAL_S: float = 0.5
 
-# Power and follow_through (0.2-1.0 each); intensity drives velocity, wind-up, recovery.
-const POWER_MIN: float = 0.2
+# Power and follow_through (0.5-1.0 each); ensures realistic KE distributions matching HEMA data.
+const POWER_MIN: float = 0.5
 const POWER_MAX: float = 1.0
-const FOLLOW_THROUGH_MIN: float = 0.2
+const FOLLOW_THROUGH_MIN: float = 0.5
 const FOLLOW_THROUGH_MAX: float = 1.0
 const INTENSITY_MIN: float = 0.2
 

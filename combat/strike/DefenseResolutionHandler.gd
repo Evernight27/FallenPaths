@@ -646,7 +646,10 @@ static func _resolve_parry(
 			partial_extra_z
 		)
 		CombatDebug.log("parry_deflect_redirect %s blocked %s ctrl=%.3f" % [def_name, atk_name, parry_clash_zero.get(CombatConstants.CLASH_KEY_PARRY_CONTROL, CombatConstants.DEFAULT_PARRY_CONTROL)])
-		CombatDebug.combat_session("parry_outcome def=%s vs atk=%s action=parry_deflect ctrl=%.3f" % [def_name, atk_name, parry_clash_zero.get(CombatConstants.CLASH_KEY_PARRY_CONTROL, CombatConstants.DEFAULT_PARRY_CONTROL)])
+		# The [HEMA] exchange line already carries parry=deflect + ctrl; this applier record is redundant for
+		# realism debugging. Gate behind the calibration trace to keep the always-on log dense.
+		if CombatDebug.dc_trace_active():
+			CombatDebug.combat_session("parry_outcome def=%s vs atk=%s action=parry_deflect ctrl=%.3f" % [def_name, atk_name, parry_clash_zero.get(CombatConstants.CLASH_KEY_PARRY_CONTROL, CombatConstants.DEFAULT_PARRY_CONTROL)])
 		return {
 			"action": "parry_deflect",
 			"target_id": target_id,
@@ -730,7 +733,9 @@ static func _resolve_parry(
 			]
 		)
 	)
-	CombatDebug.combat_session("parry_outcome def=%s vs atk=%s action=parry_partial final_ratio=%.2f" % [def_name, atk_name, remaining_ratio])
+	# The [HEMA] exchange line already carries parry=partial + ctrl + rem; redundant for realism debugging.
+	if CombatDebug.dc_trace_active():
+		CombatDebug.combat_session("parry_outcome def=%s vs atk=%s action=parry_partial final_ratio=%.2f" % [def_name, atk_name, remaining_ratio])
 	var eff_atk_line_p: String = pa.get(DataKeys.ATTACK_EFFECTIVE_ATTACK_LINE, attack_line)
 	var atk_angle_partial: float = _parry_attack_angle_deg(atk, arc_start, arc_end, parry_progress, eff_atk_line_p)
 	var wobble_p: Dictionary = CombatantEntityAccess.parry_wobble_context_for_combatant(tgt, parry_readiness)

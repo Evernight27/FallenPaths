@@ -198,6 +198,7 @@ static func _run_finish_battle_campaign_medical_exit_refreshes_camp(failures: Pa
             camp_med_pass += 1
     OperationalLog.end_play_session()
     _CombatRegressionHarness._free_manager(mgr)
+    BattleScene._destroy_battle_ui_for_harness(battle as BattleScene)
     battle.free()
     world.free()
     if exit_log != 1:
@@ -294,6 +295,7 @@ static func _run_finish_battle_incomplete_hint_campaign_only(failures: PackedStr
             failures, "finish_battle_incomplete_hint: world log should include parts_left count"
         )
     _CombatRegressionHarness._free_manager(mgr)
+    BattleScene._destroy_battle_ui_for_harness(battle as BattleScene)
     battle.free()
     world.free()
 
@@ -373,6 +375,7 @@ static func _run_finish_battle_campaign_batch_completes_windup(failures: PackedS
     ):
         _CombatRegressionHarness._fail(failures, "finish_battle_campaign_batch: ally pressure setup failed")
         _CombatRegressionHarness._free_manager(mgr)
+        BattleScene._destroy_battle_ui_for_harness(battle as BattleScene)
         battle.free()
         world.free()
         return
@@ -396,6 +399,7 @@ static func _run_finish_battle_campaign_batch_completes_windup(failures: PackedS
             batch_summary_log = true
     OperationalLog.end_play_session()
     _CombatRegressionHarness._free_manager(mgr)
+    BattleScene._destroy_battle_ui_for_harness(battle as BattleScene)
     battle.free()
     world.free()
     if not bandaged_chest:

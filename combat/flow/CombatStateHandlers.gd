@@ -53,7 +53,12 @@ static func process_death_tick(manager: Node, c: Dictionary) -> String:
     if OperationalLog.play_session_is_editor_f5():
         CombatF5SoakTrace.note_death_tick(who, death_reason)
     else:
-        CombatDebug.combat_session("DEATH (tick) %s  -  %s" % [who, death_reason])
+        # Compact stable token on the always-on line; verbose numeric reason is calibration-only.
+        var death_token: String = "BLEED_OUT" if str(death_reason).to_lower().begins_with("blood_loss") else ("VITAL_DESTROYED" if (str(death_reason).to_lower().begins_with("vital_part_destroyed") or str(death_reason).to_lower().begins_with("vital_part_zero")) else "OTHER")
+        if CombatDebug.dc_trace_active():
+            CombatDebug.combat_session("DEATH (tick) %s  -  %s" % [who, death_reason])
+        else:
+            CombatDebug.combat_session("DEATH (tick) %s -- %s" % [who, death_token])
     # Phase 3: Plug on death  -  update formation (slot_obstacles, promote rank 1 if rank 0 died).
     if manager.has_method("_on_combatant_died"):
         manager.on_combatant_died(c)

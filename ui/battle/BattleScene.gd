@@ -107,20 +107,21 @@ func start(
 	manager = mgr_script.new()
 	add_child(manager)
 	# register combatants
-	_player_list = get_node_or_null(
-		BattleUIConstants.MAIN_LIST_PATH + "/PlayerStatsScroll/PlayerPanel/PlayerVBox/PlayerList"
-	)
-	_enemy_list = get_node_or_null(
-		BattleUIConstants.MAIN_LIST_PATH + "/EnemyStatsScroll/EnemyPanel/EnemyVBox/EnemyList"
-	)
-	if _player_list == null or _enemy_list == null:
-		push_error("BattleScene: missing PlayerList or EnemyList in UI tree — combatant rows will not render")
-	for pl in players:
-		var pid = manager.register(pl, CombatConstants.SIDE_PLAYER)
-		CombatantRowBuilder.create_row(pid, pl, _player_list, id_to_controls)
-	for en in enemies:
-		var eid = manager.register(en, CombatConstants.SIDE_ENEMY)
-		CombatantRowBuilder.create_row(eid, en, _enemy_list, id_to_controls)
+	if canvas_layer != null:
+		_player_list = get_node_or_null(
+			BattleUIConstants.MAIN_LIST_PATH + "/PlayerStatsScroll/PlayerPanel/PlayerVBox/PlayerList"
+		)
+		_enemy_list = get_node_or_null(
+			BattleUIConstants.MAIN_LIST_PATH + "/EnemyStatsScroll/EnemyPanel/EnemyVBox/EnemyList"
+		)
+		if _player_list == null or _enemy_list == null:
+			push_error("BattleScene: missing PlayerList or EnemyList in UI tree — combatant rows will not render")
+		for pl in players:
+			var pid = manager.register(pl, CombatConstants.SIDE_PLAYER)
+			CombatantRowBuilder.create_row(pid, pl, _player_list, id_to_controls)
+		for en in enemies:
+			var eid = manager.register(en, CombatConstants.SIDE_ENEMY)
+			CombatantRowBuilder.create_row(eid, en, _enemy_list, id_to_controls)
 	# Formation presets: use provided or default from count
 	_player_preset = (
 		p_player_formation if not p_player_formation.is_empty() else FormationPreset.default_for_count(players.size())
@@ -236,6 +237,9 @@ func _apply_debug_depth_polearm_loadout(mgr: Node) -> void:
 
 
 func _create_ui() -> void:
+	## Harness tests never add BattleScene to a tree; creating UI there leaks CanvasItem RIDs.
+	if not is_inside_tree():
+		return
 	var layout = BattleUILayout.create(self)
 	canvas_layer = layout.canvas_layer
 	combat_log = layout.combat_log
@@ -269,6 +273,8 @@ func _do_scroll_combat_log_to_bottom() -> void:
 ## Builds the combatant snapshot once and refreshes rows. Returns the snapshot for reuse in the same frame.
 func _update_ui() -> Array:
 	if manager == null or not is_instance_valid(manager):
+		return []
+	if canvas_layer == null:
 		return []
 	var caps: Array = manager.get_combatants()
 	for c in caps:
@@ -728,6 +734,7 @@ func _sync_pending_winner_from_manager() -> void:
 
 
 func _exit_tree() -> void:
+	_destroy_battle_ui()
 	if is_instance_valid(manager):
 		manager.disconnect("turn_ready", Callable(self, "_on_turn_ready"))
 		manager.disconnect("turn_resolved", Callable(self, "_on_turn_resolved"))
@@ -738,6 +745,27 @@ func _exit_tree() -> void:
 		manager.disconnect("formation_changed", Callable(self, "_on_formation_changed"))
 		manager.disconnect("engagement_state_changed", Callable(self, "_on_engagement_state_changed"))
 		manager.disconnect("combat_ui_hint", Callable(self, "_on_combat_ui_hint"))
-	# Restore visibility of the parent scene when this battle UI is removed
 	if parent_scene != null:
 		parent_scene.visible = true
+
+
+func _destroy_battle_ui() -> void:
+	if canvas_layer != null and is_instance_valid(canvas_layer):
+		if canvas_layer.is_inside_tree():
+			canvas_layer.queue_free()
+		else:
+			canvas_layer.free()
+			canvas_layer = null
+	# Clear UI references and controls to prevent ObjectDB leaks.
+	id_to_controls.clear()
+	combat_log = null
+	combat_log_scroll = null
+	end_battle_button = null
+	formation_diagram_hbox = null
+	formation_diagram_player = null
+	formation_diagram_enemy = null
+
+
+static func _destroy_battle_ui_for_harness(scene: BattleScene) -> void:
+	if scene != null and is_instance_valid(scene):
+		scene._destroy_battle_ui()

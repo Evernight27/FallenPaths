@@ -151,7 +151,7 @@ static func _append_impact_ke_section(lines: PackedStringArray, failures: Packed
     var pre_cut_commit: float = WeaponDamageHelper.compute_pre_armor_cut(sword, ai_commit, 100.0, 1.0)
     var commit_ke_ratio: float = ke_commit / ke_hi if ke_hi > 0.01 else 0.0
     lines.append(
-        "delivery_commit_formula=effective_intensity=intensity (commit no longer reduces velocity; affects KE coupling via strike_energy_mult); floor=%.2f"
+        "delivery_commit_formula=effective_intensity=intensity (commit no longer reduces velocity; affects damage coupling via StrikeRealismProfile); floor=%.2f"
         % [WeaponDamageHelper.DELIVERY_INTENSITY_FLOOR]
     )
     lines.append(
@@ -161,7 +161,7 @@ static func _append_impact_ke_section(lines: PackedStringArray, failures: Packed
         )
     )
     var arm_strict_commit: bool = CombatDesignAnchors.committed_strike_ke_in_strict_band(ke_commit)
-    lines.append("audit_KE_at_i1.0_committed_J=%.0f strict_65-145J=%s (headless path; real combat uses strike_energy_mult commit coupling)" % [ke_commit, str(arm_strict_commit).to_lower()])
+    lines.append("audit_KE_at_i1.0_committed_J=%.0f strict_65-145J=%s (pure physics KE; real combat uses damage coupling via StrikeRealismProfile)" % [ke_commit, str(arm_strict_commit).to_lower()])
     var arm_strict: bool = CombatDesignAnchors.committed_strike_ke_in_strict_band(ke_hi)
     var arm_loose: bool = ke_hi >= 40.0 and ke_hi <= 250.0
     var combat_realistic: bool = ke_hi >= CombatDesignAnchors.COMBAT_REALISTIC_KE_J_MIN and ke_hi <= CombatDesignAnchors.COMBAT_REALISTIC_KE_J_MAX
@@ -172,7 +172,7 @@ static func _append_impact_ke_section(lines: PackedStringArray, failures: Packed
             % [ke_hi, vs_design, CombatDesignAnchors.DESIGN_KE_ARM_J]
         )
     )
-    lines.append("audit_KE_arm_strict_65-145J=%s (headless audit; committed strikes in real combat routed through compute_strike_modifiers with commit coupling)" % str(arm_strict).to_lower())
+    lines.append("audit_KE_arm_strict_65-145J=%s (pure physics KE audit; damage coupling via StrikeRealismProfile)" % str(arm_strict).to_lower())
     lines.append("audit_KE_arm_combat_realistic_%d-%dJ=%s" % [CombatDesignAnchors.COMBAT_REALISTIC_KE_J_MIN, CombatDesignAnchors.COMBAT_REALISTIC_KE_J_MAX, str(combat_realistic).to_lower()])
     lines.append("audit_KE_arm_loose_40-250J=%s" % str(arm_loose).to_lower())
     if ke_hi < 0.0:
@@ -180,15 +180,12 @@ static func _append_impact_ke_section(lines: PackedStringArray, failures: Packed
     elif not arm_loose:
         failures.append("impact_ke: sword oberhau i=1.0 KE %.0fJ outside 40-250J loose band" % ke_hi)
 
-    ## AXE overhead chop (ARCHETYPE_OVERHEAD — strike_energy_mult from archetype default).
+    ## AXE overhead chop (KE computed from pure physics: mass, velocity, inertia — no archetype e_mult).
     var axe: Weapon = HarnessFixtures.get_cached_weapon("AXE")
     if axe != null:
         for intensity in [0.5, 0.8, 1.0]:
             var ai_axe: AttackInstance = AttackInstance.new("overhead_chop", intensity)
             ai_axe.archetype = {"kinematic_delivery": WeaponConstants.KINEMATIC_DELIVERY_SWING}
-            var arch_overhead: Dictionary = WeaponConstants.get_archetype(WeaponConstants.ARCHETYPE_OVERHEAD)
-            if arch_overhead.has("strike_energy_mult"):
-                ai_axe.strike_energy_mult = float(arch_overhead.strike_energy_mult)
             var ke_j: float = WeaponDamageHelper.compute_kinetic_energy_j(axe, ai_axe)
             if is_equal_approx(intensity, 1.0):
                 var axe_loose_ok: bool = ke_j >= 30.0 and ke_j <= 250.0
@@ -198,15 +195,12 @@ static func _append_impact_ke_section(lines: PackedStringArray, failures: Packed
             else:
                 lines.append("axe_overhead_i=%.1f KE_J=%.0f" % [intensity, ke_j])
 
-    ## MACE direct blow (ARCHETYPE_HEAVY_BLUNT — strike_energy_mult from archetype default).
+    ## MACE direct blow (KE computed from pure physics: mass, velocity, inertia — no archetype e_mult).
     var mace: Weapon = HarnessFixtures.get_cached_weapon("MACE")
     if mace != null:
         for intensity in [0.5, 0.8, 1.0]:
             var ai_mace: AttackInstance = AttackInstance.new("direct_blow", intensity)
             ai_mace.archetype = {"kinematic_delivery": WeaponConstants.KINEMATIC_DELIVERY_SWING}
-            var arch_blunt: Dictionary = WeaponConstants.get_archetype(WeaponConstants.ARCHETYPE_HEAVY_BLUNT)
-            if arch_blunt.has("strike_energy_mult"):
-                ai_mace.strike_energy_mult = float(arch_blunt.strike_energy_mult)
             var ke_j: float = WeaponDamageHelper.compute_kinetic_energy_j(mace, ai_mace)
             if is_equal_approx(intensity, 1.0):
                 var mace_loose_ok: bool = ke_j >= 40.0 and ke_j <= 250.0

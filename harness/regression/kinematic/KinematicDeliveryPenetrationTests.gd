@@ -559,7 +559,11 @@ static func _run_kinematic_delivery_compute_penetration_return_keys_and_thrust_b
         _fail(failures, "kin_pen_keys: BLUNT dict missing penetration_blunt_momentum_per_area")
     if not d_blunt.has("blunt_contact_cm"):
         _fail(failures, "kin_pen_keys: BLUNT dict missing blunt_contact_cm")
-    var want_bc: float = WeaponDamageHelper.get_blunt_contact_cm(mace, ai_blunt)
+    # The BLUNT penetration channel caps at BLUNT_HEAD_MAX_CONTACT_CM (mirroring the damage channel), so a
+    # large head like the MACE 8 cm resolves to the capped face, not the raw head diameter.
+    var want_bc: float = minf(
+        WeaponDamageHelper.get_blunt_contact_cm(mace, ai_blunt), WeaponConstants.BLUNT_HEAD_MAX_CONTACT_CM
+    )
     var got_bc: float = float(d_blunt.get("blunt_contact_cm", -1.0))
     if got_bc <= 0.0:
         _fail(failures, "kin_pen_keys: blunt_contact_cm must be > 0 got %.4f" % got_bc)
@@ -618,6 +622,56 @@ static func _run_kinematic_delivery_compute_penetration_return_keys_and_thrust_b
                     % [bare_thrust_bc, got_thrust_bc, depth]
                 )
             )
+
+
+## BLUNT penetration channel must mirror the damage channel's **`BLUNT_HEAD_MAX_CONTACT_CM`** cap: a large head
+## (MACE 8 cm) dissipates momentum/area over the capped face in **`compute_penetration`**, not the raw 8 cm, so armor
+## absorption stays consistent with pre-armor pressure. Locked for MACE `direct_blow` (cap engages) and SWORD
+## `pommel_strike` (small head, cap is a no-op).
+
+
+## BLUNT penetration channel must mirror the damage channel's **`BLUNT_HEAD_MAX_CONTACT_CM`** cap: a large head
+## (MACE 8 cm) dissipates momentum/area over the capped face in **`compute_penetration`**, not the raw 8 cm, so armor
+## absorption stays consistent with pre-armor pressure. Locked for MACE `direct_blow` (cap engages) and SWORD
+## `pommel_strike` (small head, cap is a no-op).
+static func _run_kinetic_delivery_blunt_penetration_contact_mirrors_damage_cap(failures: PackedStringArray) -> void:
+    var mace: Weapon = HarnessFixtures.get_cached_weapon("MACE")
+    var sword: Weapon = HarnessFixtures.get_cached_weapon("SWORD")
+    if mace == null or sword == null:
+        _fail(failures, "kin_blunt_pen_cap: missing mace/sword")
+        return
+    var ai_mace: AttackInstance = AttackInstance.new("direct_blow", 0.5)
+    ai_mace.velocity_m_s = 10.0
+    var pen_mace: Dictionary = WeaponDamageHelper.compute_penetration(
+        mace, ai_mace, WeaponConstants.DAMAGE_TYPE_BLUNT, {}
+    )
+    var got_mace: float = float(pen_mace.get("blunt_contact_cm", -1.0))
+    if absf(got_mace - WeaponConstants.BLUNT_HEAD_MAX_CONTACT_CM) > 0.0001:
+        _fail(
+            failures,
+            "kin_blunt_pen_cap: MACE penetration contact %.4f want damage-channel cap %.4f"
+            % [got_mace, WeaponConstants.BLUNT_HEAD_MAX_CONTACT_CM]
+        )
+    var raw_mace: float = mace.get_blunt_contact_cm("direct_blow")
+    if raw_mace <= WeaponConstants.BLUNT_HEAD_MAX_CONTACT_CM + 0.0001:
+        _fail(
+            failures,
+            "kin_blunt_pen_cap_pre: MACE raw head %.4f should exceed cap for the test to be meaningful" % raw_mace
+        )
+    var ai_pommel: AttackInstance = AttackInstance.new("pommel_strike", 0.5)
+    ai_pommel.velocity_m_s = 8.0
+    var pen_pommel: Dictionary = WeaponDamageHelper.compute_penetration(
+        sword, ai_pommel, WeaponConstants.DAMAGE_TYPE_BLUNT, {}
+    )
+    var got_pommel: float = float(pen_pommel.get("blunt_contact_cm", -1.0))
+    var want_pommel: float = minf(
+        sword.get_blunt_contact_cm("pommel_strike"), WeaponConstants.BLUNT_HEAD_MAX_CONTACT_CM
+    )
+    if absf(got_pommel - want_pommel) > 0.0001:
+        _fail(
+            failures,
+            "kin_blunt_pen_cap: SWORD pommel penetration contact %.4f want min(raw, cap)=%.4f" % [got_pommel, want_pommel]
+        )
 
 
 ## Tier 5.1 (optional long-tail): **`get_attack_angle_deg(..., add_variance=false)`** matches **`line_to_angle`**;
@@ -690,7 +744,6 @@ static func _kin_pen_sharp_at_velocity(
     var ai: AttackInstance = AttackInstance.new(move_id, intensity)
     ai.archetype = arch
     ai.velocity_m_s = v_m_s
-    ai.strike_energy_mult = float(strike_mods.get("strike_energy_mult", 1.0))
     ai.strike_momentum_mult = float(strike_mods.get("strike_momentum_mult", 1.0))
     return float(
         WeaponDamageHelper.compute_penetration(weapon, ai, WeaponConstants.DAMAGE_TYPE_SHARP, {}).get(

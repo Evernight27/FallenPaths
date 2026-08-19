@@ -105,10 +105,8 @@ static func _disconnect_all_signals_on_node(node: Node) -> void:
                 if callable_val == null:
                     continue
                 var valid := false
-                if callable_val is Callable:
-                    valid = callable_val.is_valid()
-                elif typeof(callable_val) == TYPE_CALLABLE:
-                    valid = callable_val.is_valid()
+                if typeof(callable_val) == TYPE_CALLABLE:
+                    valid = (callable_val as Callable).is_valid()
                 else:
                     valid = true
                 if valid:

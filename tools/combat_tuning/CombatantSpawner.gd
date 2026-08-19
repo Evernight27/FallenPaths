@@ -8,10 +8,10 @@ const _CoreEntity := preload("res://core/CoreEntity.gd")
 const _Weapon := preload("res://resources/weapons/Weapon.gd")
 const _WeaponForm := preload("res://combat/weapon_form/CombatWeaponForm.gd")
 const _CombatConstants := preload("res://combat/CombatConstants.gd")
-const _StatsSync := preload("res://combat/access/CombatantStatsSync.gd")
 const _ConfigData := preload("res://tools/combat_tuning/TuningConfigData.gd")
 const _ArmorPiece := preload("res://resources/armor/ArmorPiece.gd")
 static var _entity_access_cache: Variant = null
+static var log_sink: Callable = Callable()
 
 
 static func _get_entity_access() -> GDScript:
@@ -70,40 +70,15 @@ static func _create_entity(cfg: Variant) -> Node:
 		if armor_def != null:
 			e.equip_armor(str(part), armor_def)
 
-	print("[Tuning] Entity '%s': body_cutting=%s body_blunt=%s dominant_hand=%s weapon=%s armor=%s" % [
-		e.name, str(e.body_cutting), str(e.body_blunt), e.dominant_hand, "yes" if w != null else "no", str(cfg.armor_overrides)
-	])
+	var entity_line := "[Tuning] Entity '%s': dominant=%s weapon=%s armor=%s" % [
+		e.name, e.dominant_hand, "yes" if w != null else "no", str(cfg.armor_overrides)
+	]
+	if CombatantSpawner.log_sink.is_valid():
+		CombatantSpawner.log_sink.call(entity_line)
+	else:
+		print(entity_line)
 
 	return e
-
-## Full reset: heal entity, reset combatant dicts, restore form/guard.
-static func reset_combatants(
-	manager: Node,
-	atk_ent: Node, def_ent: Node,
-	atk_id: int, def_id: int,
-	atk_cfg: Variant,
-	def_cfg: Variant
-) -> void:
-	_heal_entity(atk_ent)
-	_heal_entity(def_ent)
-
-	for c in manager.combatants:
-		c.state = _CombatConstants.STATE_WAITING
-		c.stamina = _CombatConstants.STAMINA_MAX
-		c.pending_attack = {}
-
-	var atk_c: Dictionary = _get_entity_access().manager_get_combatant(manager, atk_id)
-	var def_c: Dictionary = _get_entity_access().manager_get_combatant(manager, def_id)
-
-	if not atk_c.is_empty():
-		_WeaponForm.assign_form(manager, atk_c, atk_cfg.form, "harness_baseline")
-		atk_c["guard_line"] = atk_cfg.guard_line
-		_StatsSync.sync_from_entity(atk_ent, _get_entity_access().stats_dict_for_mutation(atk_c))
-
-	if not def_c.is_empty():
-		_WeaponForm.assign_form(manager, def_c, def_cfg.form, "harness_baseline")
-		def_c["guard_line"] = def_cfg.guard_line
-		_StatsSync.sync_from_entity(def_ent, _get_entity_access().stats_dict_for_mutation(def_c))
 
 ## Restores entity to full health across all body parts.
 static func _heal_entity(e: Node) -> void:

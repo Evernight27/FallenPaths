@@ -84,9 +84,6 @@ static func compute_and_apply_damage(
 		var attack_instance = AttackInstance.new(attack_type, intensity)
 		attack_instance.archetype = archetype
 		attack_instance.delivery_commit_fraction = commit_frac
-		var arch_e_mult: float = archetype.get("strike_energy_mult", -1.0) if archetype is Dictionary else -1.0
-		var move_e_override: Variant = WeaponConstants.get_move(attack_type).get("strike_energy_mult_override", -1.0)
-		attack_instance.strike_energy_mult = _resolve_strike_energy_mult(move_e_override, arch_e_mult, sm)
 		attack_instance.strike_momentum_mult = sm.get(DataKeys.ATK_STRIKE_MOMENTUM_MULT, 1.0)
 		var v_base: float = (
 			velocity_override
@@ -414,7 +411,13 @@ static func compute_and_apply_damage(
 		# Tuning duel defers the line to `action_resolved` so the killing strike's HEMA line prints first.
 		var defer_death_log: bool = manager != null and bool(manager.get_meta("_tuning_defer_death_log", false))
 		if not (OperationalLog.is_play_session_active() and CombatConstants.combat_hit_summary_active()) and not defer_death_log:
-			CombatDebug.combat_session("DEATH %s -- %s" % [tgt_name, death_reason])
+			# Compact stable token on the always-on line; verbose numeric reason is calibration-only.
+			var dr: String = death_reason.to_lower()
+			var death_token: String = "BLEED_OUT" if dr.begins_with("blood_loss") else ("VITAL_DESTROYED" if (dr.begins_with("vital_part_destroyed") or dr.begins_with("vital_part_zero")) else "OTHER")
+			if CombatDebug.dc_trace_active():
+				CombatDebug.combat_session("DEATH %s -- %s" % [tgt_name, death_reason])
+			else:
+				CombatDebug.combat_session("DEATH %s -- %s" % [tgt_name, death_token])
 
 	var rec_dur: float = CombatTiming.recovery_duration(
 		intensity,
@@ -506,12 +509,15 @@ static func resolve_attack(manager: Node, attacker_id: int) -> Dictionary:
 			atk_perf_mod,
 			atk_stats.get(DataKeys.ENTITY_AGILITY, CombatConstants.DEFAULT_STAT_VALUE)
 		)
-		CombatDebug.combat_session(
-			(
-																"%s has no functional arm; skips attack. intensity=%.2f => recovery=%.2fs"
-				% [atk_name, intensity, rec_dur_skip]
+		# Fires every time a fighter with a destroyed arm resolves an attack (potentially many times per fight).
+		# The INCAPACITATED/cowering lines already announce the arm loss once; gate the repeat behind calibration.
+		if CombatDebug.dc_trace_active():
+			CombatDebug.combat_session(
+				(
+					"%s has no functional arm; skips attack. intensity=%.2f => recovery=%.2fs"
+					% [atk_name, intensity, rec_dur_skip]
+				)
 			)
-		)
 		return {"action": "skip", "target_id": target_id, "recovery_duration": rec_dur_skip}
 
 	var targetable: Array = CombatantEntityAccess.get_targetable_parts(tgt)
@@ -801,6 +807,10 @@ static func resolve_attack(manager: Node, attacker_id: int) -> Dictionary:
 	rd_out[DataKeys.RESULT_TARGET_PART] = intended_part
 	rd_out[DataKeys.RESULT_MOVE_ID] = attack_type
 	rd_out[DataKeys.RESULT_ATTACK_TYPE] = attack_type
+	if str(rd_out.get(DataKeys.WD_KINEMATIC_DELIVERY, "")).is_empty() and not archetype.is_empty():
+		var delivery: String = WeaponDamageHelper.kinematic_delivery(archetype, attack_type)
+		if not delivery.is_empty():
+			rd_out[DataKeys.RESULT_KINEMATIC_DELIVERY] = delivery
 	var ent_aim: CoreEntity = CombatantEntityAccess.scene_entity(atk)
 	if ent_aim != null:
 		rd_out[DataKeys.AIM_PROT_TIER] = EntityProficiency.combined_aim_prof_tier(
@@ -835,7 +845,11 @@ static func check_close_quarters_grapple_escalation(
 	if outcome not in ["hit", "glancing"]:
 		return {}
 	var dmg_val: float = strike_damage if strike_damage > 0.0 else float(strike_damage)
-	if dmg_val >= CombatConstants.CLOSE_QUARTERS_GRAPPLE_MAX_DAMAGE_FOR_TRIGGER:
+	var atk_weapon_type: String = CombatantEntityAccess.weapon_type_id(atk)
+	var grapple_max_dmg: float = CombatConstants.CLOSE_QUARTERS_GRAPPLE_MAX_DAMAGE_FOR_TRIGGER
+	if atk_weapon_type == "DAGGER":
+		grapple_max_dmg = 18.0
+	if dmg_val >= grapple_max_dmg:
 		return {}
 
 	var atk: Dictionary = CombatantEntityAccess.manager_get_combatant(manager, attacker_id)
@@ -864,7 +878,7 @@ static func check_close_quarters_grapple_escalation(
 	var tgt_bind_state: String = CombatBindPressure.get_bind_state(tgt, clk)
 	var bind_escalation: bool = (atk_bind_state == "hard" or tgt_bind_state == "hard")
 
-	if exchange_count >= CombatConstants.CLOSE_QUARTERS_GRAPPLE_TRIGGER_STRIKE_COUNT and avg_damage <= CombatConstants.CLOSE_QUARTERS_GRAPPLE_MAX_DAMAGE_FOR_TRIGGER:
+	if exchange_count >= CombatConstants.CLOSE_QUARTERS_GRAPPLE_TRIGGER_STRIKE_COUNT and avg_damage <= grapple_max_dmg:
 		# Trigger grappling resolution — record the escalation.
 		atk[DataKeys.CLOSE_QUARTERS_GRAPPLE_COOLDOWN] = now + CombatConstants.CLOSE_QUARTERS_GRAPPLE_COOLDOWN_S
 		tgt[DataKeys.CLOSE_QUARTERS_GRAPPLE_COOLDOWN] = now + CombatConstants.CLOSE_QUARTERS_GRAPPLE_COOLDOWN_S
@@ -874,7 +888,7 @@ static func check_close_quarters_grapple_escalation(
 			"avg_damage": avg_damage,
 		}
 
-	if bind_escalation and exchange_count >= 2 and avg_damage <= CombatConstants.CLOSE_QUARTERS_GRAPPLE_MAX_DAMAGE_FOR_TRIGGER:
+	if bind_escalation and exchange_count >= 2 and avg_damage <= grapple_max_dmg:
 		atk[DataKeys.CLOSE_QUARTERS_GRAPPLE_COOLDOWN] = now + CombatConstants.CLOSE_QUARTERS_GRAPPLE_COOLDOWN_S
 		tgt[DataKeys.CLOSE_QUARTERS_GRAPPLE_COOLDOWN] = now + CombatConstants.CLOSE_QUARTERS_GRAPPLE_COOLDOWN_S
 		return {
@@ -928,9 +942,4 @@ static func _make_pair_key(atk: Dictionary, tgt: Dictionary) -> String:
 	return "%d-%d" % [id_b, id_a]
 
 
-static func _resolve_strike_energy_mult(move_e_override: Variant, arch_e_mult: float, sm: Dictionary) -> float:
-	if (move_e_override is float or move_e_override is int) and float(move_e_override) > 0.0:
-		return float(move_e_override)
-	if arch_e_mult >= 0.0:
-		return sm.get(DataKeys.ATK_MOD_STRIKE_ENERGY_MULT, arch_e_mult)
-	return sm.get(DataKeys.ATK_MOD_STRIKE_ENERGY_MULT, 1.0)
+

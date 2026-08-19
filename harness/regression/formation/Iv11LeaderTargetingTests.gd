@@ -291,7 +291,6 @@ static func _run_iv11_f5_leader_order_trace_suite(failures: PackedStringArray) -
     OperationalLog.clear_capture()
     OperationalLog.begin_play_session("test", "", false, true)
     F5SoakTrace.note_leader_formation_command_pick("Captain", CombatConstants.MOVE_ID_ORDER_PROBING, "player", "player")
-    F5SoakTrace.note_leader_formation_command_pick("Captain", CombatConstants.MOVE_ID_ORDER_PROBING, "player", "player")
     F5SoakTrace.note_leader_formation_command_pick("Warlord", CombatConstants.MOVE_ID_ORDER_HOLD_LANE, "enemy", "enemy")
     var count: int = 0
     var player_sample: String = ""

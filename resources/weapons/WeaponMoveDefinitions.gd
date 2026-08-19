@@ -253,18 +253,19 @@ static func _move_definitions_build() -> Dictionary:
         },
         "poll_strike":
         {
-            # Axe poll strike uses blunt haft contact — swing path with long lever creates excess KE;
-            # reduce archetype's 1.3e_mult to ~0.65 so the move lands in the 55-155J axe band at realistic intensity.
+            # Axe poll strike uses blunt haft contact — swing path with long lever creates excess KE due to high inertia;
+            # ARCHETYPE_POLL_STRIKE has velocity_factor=0.62 to cap rotational KE to ~151J (in 40-155J axe band).
             "name": "Back-of-head strike (blunt)",
             "contact_type": ATTACK_TYPE_BLUNT,
-            "archetype_id": WeaponTemplateDefinitions.ARCHETYPE_OVERHEAD,
+            "archetype_id": WeaponTemplateDefinitions.ARCHETYPE_POLL_STRIKE,
             "base_cooldown": 3.0,
             "attack_line": "high",
             "preferred_parts": ["head"],
             "angle_variance_deg": 11,
             "impact_station_mean": 0.22,
             "impact_station_spread": 0.02,
-            "strike_energy_mult_override": 0.65
+            # strike_energy_mult_override retained for historical reference; no longer consumed by attack pipeline.
+            "strike_energy_mult_override": 0.40
         },
         "parry_chop":
         {
@@ -421,21 +422,27 @@ static func _move_definitions_build() -> Dictionary:
         },
         "spear_slash":
         {
+            # Spear cut: very long lever (2.05m) kills angular velocity — low KE even at band-max (~46J).
+            # Uses ARCHETYPE_POLE_SWING (vf=0.46, swing) to cap rotational KE into the 45-130J spear band.
             "name": "Slash with spearhead",
             "contact_type": ATTACK_TYPE_CUT,
-            "archetype_id": WeaponTemplateDefinitions.ARCHETYPE_SLASH,
+            "archetype_id": WeaponTemplateDefinitions.ARCHETYPE_POLE_SWING,
             "base_cooldown": 2.8,
             "attack_line": "left",
             "preferred_parts": ["left_arm", "right_arm"],
             "angle_variance_deg": 10,
             "impact_station_mean": 0.72,
-            "impact_station_spread": 0.05
+            "impact_station_spread": 0.05,
+            # strike_energy_mult_override retained for historical reference; no longer consumed by attack pipeline.
+            "strike_energy_mult_override": 1.5
         },
         "pole_swing":
         {
+            # Pole swing uses shaft butt/head — long weapon but strike occurs near grip (shaft COM).
+            # ARCHETYPE_POLE_SWING has velocity_factor=0.55 and inertia_scale=0.85 to keep KE in realistic range.
             "name": "Pole swing (blunt)",
             "contact_type": ATTACK_TYPE_BLUNT,
-            "archetype_id": WeaponTemplateDefinitions.ARCHETYPE_HEAVY_BLUNT,
+            "archetype_id": WeaponTemplateDefinitions.ARCHETYPE_POLE_SWING,
             "base_cooldown": 2.5,
             "attack_line": "left",
             "preferred_parts": ["left_arm", "right_arm", "head"],

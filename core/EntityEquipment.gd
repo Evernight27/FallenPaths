@@ -89,9 +89,19 @@ static func _get_attack_base_modifier(entity: Node, arm: String) -> float:
 
 
 static func get_attack_damage_modifier(entity: Node) -> float:
+    return attack_damage_modifier_factors(entity).get("total", 0.0)
+
+
+## Breakdown of the attack damage modifier into its multiplicative factors so a low KE strike is
+## explainable at a glance (tuning log `ke_low_by=arm`). Returns factor name -> value for each factor
+## that deviates from 1.0, plus "total" = their product and "arm" = the attacking limb. Empty arm maps to total 0.0.
+static func attack_damage_modifier_factors(entity: Node) -> Dictionary:
+    var out: Dictionary = {}
     var arm: String = get_attacking_arm(entity)
     if arm.is_empty():
-        return 0.0
+        out["total"] = 0.0
+        out["arm"] = ""
+        return out
     var base: float = _get_attack_base_modifier(entity, arm)
     var arm_func: float = BodyPartQuery.get_arm_functionality(entity, arm)
     var arm_pain_mod: float = 1.0
@@ -100,4 +110,14 @@ static func get_attack_damage_modifier(entity: Node) -> float:
             entity._get_effective_pain_for_region("arms")
         )
     var grip_mult: float = BodyPartQuery.get_arm_wound_function_mult(entity, arm)
-    return base * arm_func * arm_pain_mod * grip_mult
+    out["arm"] = arm
+    if absf(base - 1.0) > 0.001:
+        out["base"] = base
+    if absf(arm_func - 1.0) > 0.001:
+        out["func"] = arm_func
+    if absf(arm_pain_mod - 1.0) > 0.001:
+        out["pain"] = arm_pain_mod
+    if absf(grip_mult - 1.0) > 0.001:
+        out["grip"] = grip_mult
+    out["total"] = base * arm_func * arm_pain_mod * grip_mult
+    return out

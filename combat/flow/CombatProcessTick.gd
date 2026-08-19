@@ -32,7 +32,10 @@ static func tick(manager: Node, delta: float) -> void:
     if not manager.medical_phase:
         var early_victor: String = manager._check_for_winner()
         if not early_victor.is_empty() and MedicalPhaseController.should_apply_phase_end(manager, early_victor):
-            CombatDebug.harness_diag("winner_check_1 victor=%s" % early_victor)
+            # The [Fight end] line already carries winner + cause; this internal state-machine narration is
+            # redundant for realism debugging. Gate behind the calibration trace.
+            if CombatDebug.dc_trace_active():
+                CombatDebug.harness_diag("winner_check_1 victor=%s" % early_victor)
             manager._end_combat_phase(early_victor, null)
             return
     var fast_forward: bool = MedicalPhaseController.medical_fast_forward_active(manager)
@@ -95,7 +98,9 @@ static func tick(manager: Node, delta: float) -> void:
         and not manager.medical_phase
         and MedicalPhaseController.should_apply_phase_end(manager, victor)
     ):
-        CombatDebug.harness_diag("winner_check_2 victor=%s" % victor)
+        # Redundant with the [Fight end] line; gate behind the calibration trace.
+        if CombatDebug.dc_trace_active():
+            CombatDebug.harness_diag("winner_check_2 victor=%s" % victor)
         manager._end_combat_phase(victor, last_death_node)
         return
     victor = manager._check_for_winner()
@@ -104,7 +109,9 @@ static func tick(manager: Node, delta: float) -> void:
         and not manager.medical_phase
         and MedicalPhaseController.should_apply_phase_end(manager, victor)
     ):
-        CombatDebug.harness_diag("winner_check_3 victor=%s" % victor)
+        # Redundant with the [Fight end] line; gate behind the calibration trace.
+        if CombatDebug.dc_trace_active():
+            CombatDebug.harness_diag("winner_check_3 victor=%s" % victor)
         manager._end_combat_phase(victor, null)
         return
     for c in manager.combatants:

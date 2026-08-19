@@ -31,7 +31,10 @@ static func _log_fp_tempo_wind_up(
 	if line == _last_fp_tempo_wind_up_line:
 		return
 	_last_fp_tempo_wind_up_line = line
-	CombatDebug.combat_session(line)
+	# The per-exchange [HEMA] line already carries wind_up + riposte/counter context; this F5-soak tracer is
+	# otherwise redundant for realism debugging. Gate behind the calibration trace so the always-on log stays dense.
+	if CombatDebug.dc_trace_active():
+		CombatDebug.combat_session(line)
 
 
 ## Starts an attack wind-up: power/follow-through roll, intensity, weapon selection, wind-up duration.
@@ -56,7 +59,10 @@ static func start(
 		return
 	if CombatMobilityRetreat.cannot_commit_melee(atk_d):
 		var atk_name_skip: String = CombatantEntityAccess.get_display_name(atk_d, attacker_id)
-		CombatDebug.combat_session("%s has no functional arm; skip attack (short recovery)." % atk_name_skip)
+		# This fires every time the AI tries to attack with a destroyed arm (potentially many times per fight).
+		# The INCAPACITATED/cowering lines already announce the arm loss once; gate the repeat behind calibration.
+		if CombatDebug.dc_trace_active():
+			CombatDebug.combat_session("%s has no functional arm; skip attack (short recovery)." % atk_name_skip)
 		CombatMobilityRetreat.sync_cowering_state_if_no_functional_arm(atk_d)
 		CombatStateHandlers.enter_short_recovery(atk_d, manager)
 		if manager != null and atk_d.state_duration > 0.0:

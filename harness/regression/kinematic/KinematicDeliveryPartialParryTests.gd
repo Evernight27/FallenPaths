@@ -284,7 +284,6 @@ static func _kin_expected_pre_armor_cut_blunt(
     var ai: AttackInstance = AttackInstance.new(move_id, intensity)
     ai.archetype = arch
     ai.velocity_m_s = v_m_s
-    ai.strike_energy_mult = float(strike_mods.get("strike_energy_mult", 1.0))
     ai.strike_momentum_mult = float(strike_mods.get("strike_momentum_mult", 1.0))
     var atk_n: Node = EntityAccess.scene_node(atk)
     var arm_mod: float = EntityAccess.get_attack_damage_modifier(atk)
@@ -936,6 +935,7 @@ static func _run_kinematic_delivery_misaligned_guard_scales_sharp_and_blunt_pen(
             if absf(r_blunt - want) > 0.03:
                 _fail(failures, "%s: kin_misalign_both blunt mpa ratio %.4f want %.4f" % [tag, r_blunt, want])
 
-## Tier 5.1 (optional long-tail): **`strike_mods.strike_energy_mult`** in **`compute_and_apply_damage`**  -
-## **`strike_ke_j`** * mult; **`pre_cut`** * **`sqrt(mult)`**; **`penetration_sharp`** * **`mult^PENETRATION_EXPONENT`**
-## -  cut swings.
+## Tier 5.1 (optional long-tail): **`strike_mods.cut_damage_mult`** and **`blunt_damage_mult`** in
+## **`compute_and_apply_damage`** — `pre_cut` * cut_damage_mult; `penetration_sharp` * sharp_penetration_mult^exp
+## — swing delivery with parry redirection.
+

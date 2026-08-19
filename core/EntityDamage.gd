@@ -515,11 +515,14 @@ static func apply_damage_split(
 		)
 	# Stab wounds use INJURY_TYPE_STAB (narrow deep channel; forensic: stab:cut external bleed ratio ~1:2-3).
 	var contact_type: String = extras.get("contact_type", WeaponConstants.ATTACK_TYPE_CUT)
+	var wound_extras: Dictionary = {}
+	if weapon_type == "DAGGER":
+		wound_extras["dagger_wound"] = true
 	if to_cut > 0.0:
 		var injury_type_for_wound: String = (
 			BleedingConstants.INJURY_TYPE_STAB if contact_type == WeaponConstants.ATTACK_TYPE_STAB else BleedingConstants.INJURY_TYPE_CUT
 		)
-		EntityWounds.add_wound(entity, part, injury_type_for_wound, to_cut, sub_region, "", impact_ke, wound_pen_mm)
+		EntityWounds.add_wound(entity, part, injury_type_for_wound, to_cut, sub_region, "", impact_ke, wound_pen_mm, wound_extras)
 	if to_blunt > 0.0:
 		var total_blunt_source: float = blunt_from_deflection + blunt_from_direct
 		var to_blunt_deflected: float = 0.0

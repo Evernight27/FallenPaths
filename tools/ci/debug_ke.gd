@@ -118,10 +118,6 @@ func _init() -> void:
 		
 		print("station_mean=%.4f coup=%.4f vel_m_station=%.4f vel_m_meas=%.4f vel_m=%.4f" % [station_mean, coup, vel_m_station, vel_m_meas, vel_m])
 		
-		var e_mult_val = vel_m * vel_m * coup * clampf(0.78, 0.3, 1.0)
-		print("strike_energy_mult=%.6f" % e_mult_val)
-		
-		ai.strike_energy_mult = e_mult_val
 		var ke_research = _WDH.compute_kinetic_energy_j(sword_def, ai)
 		print("research_KE=%.4f (want 65-145)" % ke_research)
 	

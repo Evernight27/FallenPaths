@@ -166,12 +166,16 @@ static func metabolic_stress_gain_from_stamina_spend(stamina_spent: float, endur
 ## with separate curves for short-term (stamina) and medium-term (exhaustion/metabolic stress).
 
 # At zero stamina, velocity retains this fraction after all other modifiers — a fighter can still throw weak strikes.
-const FATIGUE_VELOCITY_FLOOR_AT_ZERO_STAMINA: float = 0.45
+# Cited Häkkinen et al. boxing data: punch velocity declines ~8-12% after ~90s of high-intensity work (peak power only
+# 3-5%). A floor near 0.80 keeps committed swings in the HEMA KE band; a steeper floor (old 0.45) drove KE to ~6% of
+# full (KE ∝ v²), far below observed combat impact energy.
+const FATIGUE_VELOCITY_FLOOR_AT_ZERO_STAMINA: float = 0.80
 # How quickly velocity degrades as stamina drops — steeper than damage because RFD is sensitive to ATP availability.
 const FATIGUE_VELOCITY_POWER_EXPONENT: float = 0.7   # power < 1.0 means degradation accelerates faster at low stamina
 # Exhaustion adds a multiplicative layer on top of stamina-based velocity loss, modeling glycogen depletion over time.
-# At max exhaustion, this factor multiplies the already-reduced velocity further.
-const FATIGUE_VELOCITY_EXHAUSTION_FLOOR: float = 0.55
+# At max exhaustion, this factor multiplies the already-reduced velocity further. Kept shallow (old 0.55) so the
+# combined stamina×exhaustion floor stays above ~0.64 velocity → KE ≥ ~40% of full, consistent with sustained-effort data.
+const FATIGUE_VELOCITY_EXHAUSTION_FLOOR: float = 0.80
 # Delay before exhaustion starts affecting velocity — short burst attacks aren't impacted by medium-term fatigue.
 const FATIGUE_VELOCITY_EXHAUSTION_DELAY_S: float = 3.0
 

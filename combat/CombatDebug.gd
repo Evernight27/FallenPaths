@@ -74,6 +74,12 @@ static func finish_instant_turn_and_schedule_ready(manager: Node, combatant: Dic
     CombatEventScheduler.schedule_action_ready_for_combatant(manager, combatant)
 
 
+## Optional file sink for `combat_session` lines (set by tools/combat_tuning; null in production/harness).
+## When set, `[Combat]` session lines are written to the sink instead of stdout so tuning runs keep
+## the Output panel compact — the sink owns the full verbose log.
+static var _session_sink: Variant = null
+
+
 ## Milestone combat lines during editor play (`FP_COMBAT`); falls back to `[Combat]` elsewhere.
 static func combat_session(msg: String) -> void:
     if msg == _last_combat_session_line:
@@ -81,6 +87,8 @@ static func combat_session(msg: String) -> void:
     _last_combat_session_line = msg
     if OperationalLog.is_play_session_active():
         OperationalLog.play_combat(msg)
+    elif _session_sink != null and _session_sink.has_method("store_line"):
+        _session_sink.store_line("[Combat] " + msg)
     else:
         print("[Combat] ", msg)
 
@@ -111,6 +119,13 @@ static func log(msg: String) -> void:
 static func calibration_log(msg: String) -> void:
     if CombatConstants.COMBAT_DEBUG_CALIBRATION:
         print("[Combat.Cal] ", msg)
+
+
+## True when the verbose defense-choice pipeline trace (dc_pre_align/defense_choose/dc_enter_def/dc_sub/dc_out)
+## should be emitted. Off by default so the always-on session log carries only the condensed `dc` outcome line;
+## flip COMBAT_DEBUG_CALIBRATION to restore the full per-stage decision trace for deep debugging.
+static func dc_trace_active() -> bool:
+    return CombatConstants.COMBAT_DEBUG_CALIBRATION
 
 
 ## True when `flow_log` prints (both event-debug toggles on). Use to skip expensive log prep work.

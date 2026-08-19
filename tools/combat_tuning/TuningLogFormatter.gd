@@ -9,6 +9,7 @@ const _CombatLogFormatter := preload("res://ui/battle/CombatLogFormatter.gd")
 const _DesignAnchors := preload("res://core/CombatDesignAnchors.gd")
 const _Bleeding := preload("res://core/BleedingConstants.gd")
 const _WeaponDamageHelper := preload("res://resources/weapons/WeaponDamageHelper.gd")
+const _WeaponConstants := preload("res://resources/weapons/WeaponConstants.gd")
 
 static var _bbcode_strip_re: RegEx
 
@@ -104,7 +105,11 @@ static func _ke_sample_meta(result: Dictionary) -> Dictionary:
 	var delivery: String = str(sample.get("kinematic_delivery", ""))
 	if delivery.is_empty():
 		var move_id: String = str(sample.get("move_id", ""))
-		if not move_id.is_empty():
+		var weapon_id: String = str(sample.get("weapon_id", ""))
+		if not move_id.is_empty() and not weapon_id.is_empty():
+			var arch_for_infer: Dictionary = _build_archetype_for_inference(weapon_id, move_id)
+			sample["kinematic_delivery"] = _WeaponDamageHelper.kinematic_delivery(arch_for_infer, move_id)
+		elif not move_id.is_empty():
 			sample["kinematic_delivery"] = _WeaponDamageHelper.kinematic_delivery({}, move_id)
 	return sample
 
@@ -227,6 +232,89 @@ static func format_vitals_suffix(entity: Node) -> String:
 	return "blood=%.0f%% %s consc=%.0f" % [blood, atls, float(entity.consciousness)]
 
 
+## Compact bleed-cause tag for a contact line so "why is this fighter's blood dropping" is answerable
+## without cross-referencing the fight-end wound table. Returns e.g. `bleed=12.3%/s (forearm arterial, severe)` —
+## the target part's total bleed rate, its worst sub-region when that wound is arterial, and the highest
+## injury severity present (so a single hit's catastrophic blood loss is judgeable at a glance). Empty when
+## the entity has no active bleeding (so clean hits add no noise).
+static func format_bleed_cause(entity: Node, part: String) -> String:
+	if entity == null or not is_instance_valid(entity):
+		return ""
+	if not ("wounds" in entity) or not (entity.wounds is Dictionary):
+		return ""
+	var wounds: Dictionary = entity.wounds as Dictionary
+	var rate: float = EntityWounds.get_bleeding_rate_for_part(entity, part) if part != "" else EntityWounds.get_total_bleeding_rate(entity)
+	if rate <= 0.001:
+		return ""
+	var worst_sub: String = ""
+	var worst_arterial_rate: float = -1.0
+	var worst_sev_rank: int = -1
+	var scope_parts: Array = [part] if not part.is_empty() else wounds.keys()
+	for p in scope_parts:
+		if not wounds.has(p):
+			continue
+		for injury in wounds[p]:
+			if not (injury is Dictionary):
+				continue
+			var r: float = float(injury.get("current_bleeding_rate", 0.0))
+			var arterial: bool = bool(injury.get("is_arterial", false))
+			var sub: String = str(injury.get("sub_region", ""))
+			# Surface the highest-rate arterial wound's sub-region (the realistic "which vessel" signal).
+			if arterial and not sub.is_empty() and r > worst_arterial_rate:
+				worst_arterial_rate = r
+				worst_sub = sub
+			var sev_rank: int = _severity_rank(str(injury.get("severity", "")))
+			if sev_rank > worst_sev_rank:
+				worst_sev_rank = sev_rank
+	var tag := PackedStringArray()
+	tag.append("bleed=%.1f%%/s" % rate)
+	# Detail is optional: a wound can bleed without an arterial sub-region or a recognized severity
+	# string (e.g. compound-fracture / stabilized), so only emit parens when there is something to say.
+	var detail := PackedStringArray()
+	if not worst_sub.is_empty():
+		detail.append("%s arterial" % worst_sub)
+	if worst_sev_rank >= 0:
+		# Index 0 ("minor") is intentionally blank in the label table; only append when it adds text.
+		var sev_label: String = ["", "minor", "moderate", "severe", "critical"][clampi(worst_sev_rank, 0, 4)]
+		if not sev_label.is_empty():
+			detail.append(sev_label)
+	if not detail.is_empty():
+		tag.append("(%s)" % ", ".join(detail))
+	return " ".join(tag)
+
+
+## Maps a BleedingConstants severity string to a comparable rank (higher = worse). -1 when unrecognized.
+static func _severity_rank(severity: String) -> int:
+	match severity:
+		"minor":
+			return 0
+		"moderate":
+			return 1
+		"severe":
+			return 2
+		"critical":
+			return 3
+	return -1
+
+
+## Arm-modifier breakdown for a KE-dragging strike (`ke_low_by=arm`), so an agent can tell "injured at spawn"
+## from "mid-fight pain/grip loss". Returns e.g. `arm=0.35 (pain 0.42 grip 0.83)` or "" when the arm factor
+## is healthy or the entity is unavailable.
+static func format_arm_breakdown(entity: Node, arm_value: float) -> String:
+	if entity == null or not is_instance_valid(entity):
+		return ""
+	if arm_value <= 0.0 or arm_value >= 0.98:
+		return ""
+	var factors: Dictionary = EntityEquipment.attack_damage_modifier_factors(entity)
+	var bits := PackedStringArray()
+	for key in ["base", "func", "pain", "grip"]:
+		if factors.has(key):
+			bits.append("%s %.2f" % [key, float(factors[key])])
+	if bits.is_empty():
+		return ""
+	return "arm=%.2f (%s)" % [float(factors.get("total", arm_value)), " ".join(bits)]
+
+
 ## One grep-friendly line per exchange (replaces production combat log in tuning).
 static func format_exchange_line(
 	atk_name: String,
@@ -315,9 +403,12 @@ static func format_exchange_line(
 
 	if gauge_atk >= 0.0 or gauge_def >= 0.0:
 		bits.append("gauge_atk=%.3f gauge_def=%.3f" % [maxf(gauge_atk, 0.0), maxf(gauge_def, 0.0)])
-	var gauge_atk_pre: float = float(result.get("gauge_atk_pre", _resolved_payload(result).get("gauge_atk_pre", -1.0)))
-	var gauge_def_pre: float = float(result.get("gauge_def_pre", _resolved_payload(result).get("gauge_def_pre", -1.0)))
-	if gauge_atk_pre >= 0.0 or gauge_def_pre >= 0.0:
+	# Pre-gauge is only informative when it differs from the post value (a gauge spent during the exchange).
+	# Skip the otherwise-identical repeat to keep grep density high.
+	var gauge_atk_pre: float = float(result.get("gauge_atk_pre", rd.get("gauge_atk_pre", -1.0)))
+	var gauge_def_pre: float = float(result.get("gauge_def_pre", rd.get("gauge_def_pre", -1.0)))
+	var pre_changed: bool = (gauge_atk_pre >= 0.0 and absf(gauge_atk_pre - maxf(gauge_atk, 0.0)) > 0.05) or (gauge_def_pre >= 0.0 and absf(gauge_def_pre - maxf(gauge_def, 0.0)) > 0.05)
+	if pre_changed:
 		bits.append("gauge_pre_atk=%.3f gauge_pre_def=%.3f" % [maxf(gauge_atk_pre, 0.0), maxf(gauge_def_pre, 0.0)])
 	var parent_idx: int = int(
 		result.get("parent_exchange_index", _resolved_payload(result).get("parent_exchange_index", -1))
@@ -335,6 +426,14 @@ static func format_exchange_line(
 			var low_cause: String = _format_ke_low_cause(rd)
 			if not low_cause.is_empty():
 				bits.append("ke_low_by=%s" % low_cause)
+			# When the arm factor dragged KE below band, surface *why* (pain/grip/function) so an agent can
+			# distinguish spawn-injury from mid-fight degradation without re-deriving it.
+			var perf: Variant = rd.get("attack_perf", {})
+			if perf is Dictionary and (perf as Dictionary).has("arm"):
+				var arm_val: float = float((perf as Dictionary)["arm"])
+				var arm_bit: String = format_arm_breakdown(atk_entity, arm_val)
+				if not arm_bit.is_empty():
+					bits.append(arm_bit)
 	else:
 		bits.append("KE=n/a")
 
@@ -364,6 +463,9 @@ static func format_exchange_line(
 		var ha: float = float(rd.get("health_after", 0.0))
 		if hb > 0.0 or ha > 0.0:
 			bits.append("part_hp=%.0f->%.0f delta=%.0f" % [hb, ha, ha - hb])
+		var bleed_bit: String = format_bleed_cause(tgt_entity, part)
+		if not bleed_bit.is_empty():
+			bits.append(bleed_bit)
 
 	if outcome in ["parry_deflect", "parry_partial"]:
 		var bind: bool = bool(result.get("parry_bind", false))
@@ -497,12 +599,57 @@ static func format_matchup_banner(atk_cfg: Variant, def_cfg: Variant) -> String:
 	)
 
 
+## Stable machine-readable token for a free-text fight-end cause (see CombatTuningMain._infer_end_cause) so agents
+## can aggregate outcomes across batches without parsing prose. Falls back to OTHER when unrecognized.
+static func _cause_code(cause: String) -> String:
+	var c: String = cause.to_lower().strip_edges()
+	if c.is_empty():
+		return "OTHER"
+	if c == "bled_out":
+		return "BLEED_OUT"
+	if c == "kill":
+		return "KILL"
+	if c.begins_with("head"):
+		return "HEAD_TRAUMA"
+	if c.begins_with("blood loss"):
+		return "BLEED_OUT"
+	if c.begins_with("unconscious"):
+		return "UNCONSCIOUS"
+	if c.begins_with("leg") or c.begins_with("arm destruction"):
+		return "INCAPACITATED_LIMB"
+	if c.begins_with("incapacitated"):
+		return "INCAPACITATED"
+	if c == "yield":
+		return "YIELD"
+	if c == "flee":
+		return "FLEE"
+	if c == "stalemate":
+		return "STALEMATE"
+	if c == "draw" or c == "standing":
+		return "DRAW"
+	return "OTHER"
+
+
+## Compact stable token for a verbose death reason (see CoreEntity._get_death_reason) so the always-on DEATH line
+## carries a machine-readable code instead of duplicating the numeric prose already summarized by cause_code.
+## The verbose numbers remain available behind COMBAT_DEBUG_CALIBRATION.
+static func _death_token(reason: String) -> String:
+	var r: String = reason.to_lower().strip_edges()
+	if r.is_empty():
+		return "UNKNOWN"
+	if r.begins_with("blood_loss"):
+		return "BLEED_OUT"
+	if r.begins_with("vital_part_destroyed") or r.begins_with("vital_part_zero"):
+		return "VITAL_DESTROYED"
+	return "OTHER"
+
+
 static func format_fight_end(
 	winner_side: String, end_cause: String, atk_name: String, def_name: String, atk_entity: Node, def_entity: Node
 ) -> String:
 	var winner_name: String = atk_name if winner_side == "player" else def_name
 	var lines := PackedStringArray()
-	lines.push_back("[Fight end] winner=%s (%s) cause=%s" % [winner_name, winner_side, end_cause])
+	lines.push_back("[Fight end] winner=%s (%s) cause=%s cause_code=%s" % [winner_name, winner_side, end_cause, _cause_code(end_cause)])
 	if atk_entity != null:
 		lines.push_back("  %s vitals: %s" % [atk_name, format_vitals_suffix(atk_entity)])
 		lines.push_back("  %s %s" % [atk_name, format_entity_tissue_oneline(atk_entity)])
@@ -558,8 +705,8 @@ static func format_cycle_hema_summary(
 	if effective_total < 0:
 		effective_total = contact_strikes
 	lines.push_back(
-        "--- Cycle %d: %s wins (%s) | exchanges=%d strikes=%d contacts=%d —"
-		% [cycle_index, winner_name, end_cause, total_exchanges, effective_total, effective_contacts]
+        "--- Cycle %d: %s wins (%s) | exchanges=%d strikes=%d contacts=%d cause_code=%s —"
+		% [cycle_index, winner_name, end_cause, total_exchanges, effective_total, effective_contacts, _cause_code(end_cause)]
 	)
 	if not scenario_key.is_empty():
 		lines.push_back("  scenario: %s" % scenario_key)
@@ -615,6 +762,49 @@ static func format_cycle_hema_summary(
 		lines.push_back("  " + " | ".join(vitals_bit))
 	lines.push_back("  " + aggregate_line)
 	return "\n".join(lines)
+
+
+## One-line stdout form of the cycle summary (the full block above stays in the log file).
+static func format_cycle_hema_summary_oneline(
+	winner_name: String,
+	end_cause: String,
+	contact_strikes: int,
+	total_strikes: int = -1,
+	outcome_counts: Dictionary = {},
+	ke_samples: Array = [],
+	atk_dmg: float = 0.0,
+	def_dmg: float = 0.0,
+	atk_vitals: String = "",
+	def_vitals: String = ""
+) -> String:
+	var total_exchanges: int = 0
+	for k in outcome_counts:
+		if k != "reject" and k != "parry_bind":
+			total_exchanges += int(outcome_counts[k])
+	var effective_contacts: int = contact_strikes
+	var effective_total: int = total_strikes
+	if effective_total < 0:
+		effective_total = contact_strikes
+	var parts := PackedStringArray()
+	parts.append("exch=%d" % total_exchanges)
+	parts.append("strk=%d" % effective_total)
+	parts.append("cont=%d" % effective_contacts)
+	parts.append("code=%s" % _cause_code(end_cause))
+	var hit_n: int = int(outcome_counts.get("hit", 0)) + int(outcome_counts.get("glancing", 0)) + int(outcome_counts.get("negligible", 0))
+	if total_exchanges > 0:
+		parts.append("hit=%.0f%%" % (float(hit_n) / float(total_exchanges) * 100.0))
+	var ke_line: String = _format_ke_aggregate(ke_samples)
+	if not ke_line.is_empty():
+		parts.append(ke_line.trim_prefix("KE_all: "))
+	parts.append("dmg=%d/%d" % [int(atk_dmg), int(def_dmg)])
+	var vitals_bit := PackedStringArray()
+	if not atk_vitals.is_empty():
+		vitals_bit.append(atk_vitals)
+	if not def_vitals.is_empty():
+		vitals_bit.append(def_vitals)
+	if not vitals_bit.is_empty():
+		parts.append(" | ".join(vitals_bit))
+	return "--- Cycle: %s wins (%s) — %s" % [winner_name, end_cause, " ".join(parts)]
 
 
 static func _format_outcome_counts(counts: Dictionary) -> String:
@@ -852,3 +1042,16 @@ static func csv_row(
 	var perf_bit: String = format_attack_perf(rd)
 	parts.push_back(perf_bit.replace(",", " ") if not perf_bit.is_empty() else "")
 	return ",".join(parts)
+
+
+static func _build_archetype_for_inference(weapon_id: String, move_id: String) -> Dictionary:
+	# Reconstruct a minimal archetype dict from weapon+move definitions so that
+	# WeaponDamageHelper.kinematic_delivery() can consult explicit archetype fields
+	# instead of falling back to contact_type inference (which misclassifies moves
+	# like "shaft_thrust" as swing when the archetype context is missing).
+	var move_def: Dictionary = WeaponConstants.get_move(move_id)
+	if not move_def.is_empty():
+		var arch_id: String = str(move_def.get("archetype_id", ""))
+		if not arch_id.is_empty():
+			return WeaponConstants.get_archetype(arch_id)
+	return {}

@@ -78,14 +78,13 @@ var attacker_config: Variant = _Config.default_attacker_config()
 var defender_config: Variant = _Config.default_defender_config()
 
 var _current_move_id: String = "oberhau"
-var _current_intensity: float = 0.62
 var _strike_count: int = 0
 
 # Auto-combat settings
 var _auto_enabled: bool = false
 var _auto_waiting_for_death: bool = false
 var _auto_respawn_delay: float = 0.0
-var _auto_medical_ff: bool = false  # fast-forward medical in auto mode
+
 
 # Cycle tracking (auto mode)
 var _cycle_count: int = 0
@@ -98,10 +97,8 @@ var _cycle_outcome_counts: Dictionary = {}
 var _cycle_ke_samples: Array = []
 var _last_end_cause: String = ""
 
-# Override state: maps combatant_id -> {move_id, target_id, intensity}
+# Override state: maps combatant_id -> {move_id, target_id}
 var _tuning_override: Dictionary = {}
-# Set to true when we've injected an override and are waiting for it to resolve
-var _override_pending: bool = false
 
 # --- UI references (built in _build_ui) ---
 var _attacker_health_labels: Dictionary = {}
@@ -114,9 +111,11 @@ var _attacker_header_label: Label = null
 var _defender_header_label: Label = null
 var _log_rtl: RichTextLabel = null
 var _plain_log: PackedStringArray = []
+var _log_file: FileAccess = null
+var _log_file_path: String = ""
+# When false, stdout gets only [Matchup]/--- Cycle/[Batch] summary lines; the full verbose log goes to the file.
+static var _stdout_full_mirror: bool = false
 var _move_option: OptionButton = null
-var _intensity_slider: HSlider = null
-var _intensity_label: Label = null
 var _status_bar: Label = null
 var _strike_btn: Button = null
 var _exchange_btn: Button = null
@@ -128,12 +127,43 @@ var _active_scenario_key: String = "Random"
 
 
 func _ready() -> void:
+	_Spawner.log_sink = Callable(self, "_log_line")
+	_open_log_file()
+	var debug_script: Variant = load("res://combat/CombatDebug.gd")
+	if debug_script != null:
+		debug_script._session_sink = self
 	_build_ui()
 	_apply_configs_for_active_scenario()
 	_spawn_combatants()
 
 
-func _apply_configs_for_active_scenario(randomize_intensity: bool = true) -> void:
+func _open_log_file() -> void:
+	var now: String = Time.get_datetime_string_from_system(false)
+	_log_file_path = "user://tuning_log_%s.txt" % now.replace(":", "-")
+	_log_file = FileAccess.open(_log_file_path, FileAccess.WRITE)
+	if _log_file != null:
+		_log_file.store_line("[Tuning] log file: %s" % ProjectSettings.globalize_path(_log_file_path))
+
+
+func store_line(line: String) -> void:
+	if _log_file != null:
+		_log_file.store_line(line)
+
+
+func _close_log_file() -> void:
+	var debug_script: Variant = load("res://combat/CombatDebug.gd")
+	if debug_script != null and debug_script._session_sink == self:
+		debug_script._session_sink = null
+	if _log_file != null:
+		_log_file.flush()
+		_log_file = null
+
+
+func _exit_tree() -> void:
+	_close_log_file()
+
+
+func _apply_configs_for_active_scenario() -> void:
 	var configs: Array = []
 	if _active_scenario_key == "Random":
 		configs = _ConfigData.TuningCombatantConfig.random_configs_pair()
@@ -144,16 +174,11 @@ func _apply_configs_for_active_scenario(randomize_intensity: bool = true) -> voi
 			configs = _ConfigData.TuningCombatantConfig.random_configs_pair()
 	attacker_config = configs[0]
 	defender_config = configs[1]
-	if randomize_intensity or _active_scenario_key == "Random":
-		_current_intensity = randf_range(0.4, 0.9)
 	if _attacker_header_label != null:
 		_attacker_header_label.text = attacker_config.display_name
 	if _defender_header_label != null:
 		_defender_header_label.text = defender_config.display_name
-	if _intensity_slider != null:
-		_intensity_slider.value = _current_intensity
-	if _intensity_label != null:
-		_intensity_label.text = "%.2f" % _current_intensity
+
 
 
 func _apply_random_matchup_configs() -> void:
@@ -235,33 +260,12 @@ func _auto_try_respawn(delta: float) -> bool:
 		_auto_respawn_delay += delta
 		if _auto_respawn_delay >= 0.1:
 			_auto_respawn_delay = 0.0
-			_apply_configs_for_active_scenario(false)
+			_apply_configs_for_active_scenario()
 			_spawn_combatants()
 		return true
 	return false
 
 
-func _fast_forward_medical_phase():
-	if manager == null or not is_instance_valid(manager):
-		_auto_medical_ff = false
-		_spawn_combatants()
-		return
-	if not manager.medical_phase:
-		_auto_medical_ff = false
-		_spawn_combatants()
-		return
-	if manager.has_method("finish_battle_interactive"):
-		manager.set_process(false)
-		await manager.finish_battle_interactive()
-		_auto_medical_ff = false
-		if not is_instance_valid(manager):
-			_spawn_combatants()
-			return
-	if manager.medical_phase:
-		manager.set_process(false)
-		_cleanup_manager()
-	_auto_medical_ff = false
-	_spawn_combatants()
 
 
 # ============================================================
@@ -279,18 +283,15 @@ func _on_turn_ready(combatant_id: int) -> void:
 			var override = _tuning_override[combatant_id]
 			var target_id: int = override.get("target_id", -1)
 			var move_id: String = override.get("move_id", "oberhau")
-			var intensity: float = override.get("intensity", 0.62)
 
-			# Build a single-action list for the picker
+			# Build a single-action list for the picker (intensity rolled per-strike from CombatConstants)
 			var action: Dictionary = {
 				"move_id": move_id,
 				"target_id": target_id,
-				"intensity": intensity,
 				"weight": 999999,
 				"target_part": "",
 			}
 			_tuning_override.erase(combatant_id)
-			_override_pending = false
 
 			var actions: Array = [action]
 			_get_combat_ai_picker().resolve_picked_turn_or_skip(
@@ -367,7 +368,12 @@ func _on_action_resolved(attacker_id_sig: int, target_id_sig: int, result: Dicti
 		if rd_inner is Dictionary:
 			death_reason = str((rd_inner as Dictionary).get("death_reason", "")).strip_edges()
 	if not death_reason.is_empty():
-		print("[Combat] DEATH %s -- %s" % [tgt_name, death_reason])
+		# Compact stable token instead of the verbose numeric prose (which cause_code already summarizes).
+		var death_line := "[Combat] DEATH %s -- %s" % [tgt_name, _Formatter._death_token(death_reason)]
+		if _log_file != null:
+			_log_file.store_line(death_line)
+		elif _stdout_full_mirror:
+			print(death_line)
 
 	if outcome in ["hit", "glancing", "negligible"]:
 		var rd: Dictionary = log_result
@@ -399,65 +405,9 @@ func _on_combat_ended(winner_side: String, _defeated_node: Node) -> void:
 		_show_end_battle_button()
 
 
-func _on_enemies_eliminated(_winner_side: String) -> void:
-	pass
-
-
-var _in_medical_phase: bool = false
-
-
-func _in_medical_phase_start() -> void:
-	_in_medical_phase = true
-	_append_log("[color=orange]------ Enemies eliminated. Medical phase active. ------[/color]", false)
-	if not _auto_enabled and not _batch_running:
-		_show_end_battle_button()
-
 
 func _on_combatant_health_changed(_cid: int) -> void:
 	_refresh_meter_display()
-
-
-func _on_formation_changed(_side: String) -> void:
-	pass
-
-
-func _on_engagement_state_changed(_formation_id: String, _line_cohesion: float, _engagement_posture: String) -> void:
-	pass
-
-
-func _on_combat_ui_hint(message: String) -> void:
-	# Combat UI hints are noisy for paste-to-AI workflows; omit from plain log.
-	if _log_rtl != null:
-		var hint := message.strip_edges()
-		if not hint.is_empty():
-			if _log_rtl.text.is_empty():
-				_log_rtl.append_text("[color=#666666][UI] %s[/color]" % hint)
-			else:
-				_log_rtl.append_text("\n[color=#666666][UI] %s[/color]" % hint)
-
-
-# ============================================================
-#  Override Provider (called from TuningCombatManager)
-# ============================================================
-
-
-func _override_provider(combatant_id: int) -> Array:
-	if _tuning_override.has(combatant_id):
-		var override = _tuning_override[combatant_id]
-		var target_id: int = override.get("target_id", -1)
-		var move_id: String = override.get("move_id", "oberhau")
-		var intensity: float = override.get("intensity", 0.62)
-		_tuning_override.erase(combatant_id)
-		_override_pending = false
-		return [
-			{
-				"move_id": move_id,
-				"target_id": target_id,
-				"intensity": intensity,
-				"weight": 999999,
-			}
-		]
-	return []
 
 
 # ============================================================
@@ -539,7 +489,7 @@ func _build_top_bar() -> HBoxContainer:
 
 	_strike_btn = Button.new()
 	_strike_btn.text = "Strike (Atk)"
-	_strike_btn.tooltip_text = "Force attacker's next turn to use selected move + intensity"
+	_strike_btn.tooltip_text = "Force attacker's next turn to use selected move"
 	_strike_btn.pressed.connect(_on_strike_pressed)
 	hbox.add_child(_strike_btn)
 
@@ -750,26 +700,6 @@ func _build_controls_row() -> HBoxContainer:
 	_move_option.item_selected.connect(_on_move_selected)
 	hbox.add_child(_move_option)
 
-	var int_label: Label = Label.new()
-	int_label.text = " Intensity:"
-	int_label.add_theme_color_override("font_color", Color(0.7, 0.7, 0.8))
-	hbox.add_child(int_label)
-
-	_intensity_slider = HSlider.new()
-	_intensity_slider.min_value = 0.1
-	_intensity_slider.max_value = 1.0
-	_intensity_slider.step = 0.01
-	_intensity_slider.value = _current_intensity
-	_intensity_slider.value_changed.connect(_on_intensity_changed)
-	_intensity_slider.custom_minimum_size.x = 120
-	hbox.add_child(_intensity_slider)
-
-	_intensity_label = Label.new()
-	_intensity_label.text = "%.2f" % _current_intensity
-	_intensity_label.custom_minimum_size.x = 40
-	_intensity_label.add_theme_color_override("font_color", Color(0.7, 0.7, 0.8))
-	hbox.add_child(_intensity_label)
-
 	return hbox
 
 
@@ -783,7 +713,7 @@ func _build_tuning_log_panel() -> VBoxContainer:
 	vbox.add_child(header_row)
 
 	var log_header: Label = Label.new()
-	log_header.text = "HEMA Tuning Log — Copy Log for AI review; structured lines also print to Output"
+	log_header.text = "HEMA Tuning Log — full log auto-saves to user://tuning_log_*.txt; Output gets summary lines only (enable mirror in Batch window for full stdout)"
 	log_header.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	log_header.add_theme_font_size_override("font_size", 13)
 	log_header.add_theme_color_override("font_color", Color(0.8, 0.8, 0.85))
@@ -822,7 +752,6 @@ func _build_tuning_log_panel() -> VBoxContainer:
 
 
 func _spawn_combatants() -> void:
-	_auto_medical_ff = false
 	_cleanup_manager()
 
 	manager = _get_mgr_script().new()
@@ -836,9 +765,6 @@ func _spawn_combatants() -> void:
 	attacker_id = result.get("attacker_id", -1)
 	defender_id = result.get("defender_id", -1)
 
-	# Wire the override provider
-	manager.tuning_override_provider = Callable(self, "_override_provider")
-
 	# Create formation presets for 1v1
 	_player_preset = _FormationPreset.default_for_count(1)
 	_enemy_preset = _FormationPreset.default_for_count(1)
@@ -847,10 +773,7 @@ func _spawn_combatants() -> void:
 	manager.connect("turn_ready", Callable(self, "_on_turn_ready"))
 	manager.connect("action_resolved", Callable(self, "_on_action_resolved"))
 	manager.connect("combat_ended", Callable(self, "_on_combat_ended"))
-	manager.connect("enemies_eliminated", Callable(self, "_on_enemies_eliminated"))
 	manager.connect("combatant_health_changed", Callable(self, "_on_combatant_health_changed"))
-	manager.connect("formation_changed", Callable(self, "_on_formation_changed"))
-	manager.connect("engagement_state_changed", Callable(self, "_on_engagement_state_changed"))
 	manager.connect("combat_ui_hint", Callable(self, "_on_combat_ui_hint"))
 
 	# Start the manager -- builds formations, assigns rank/file, seeds events
@@ -879,7 +802,6 @@ func _spawn_combatants() -> void:
 
 	_auto_waiting_for_death = false
 	_auto_respawn_delay = 0.0
-	_in_medical_phase = false
 	_reset_cycle_exchange_stats()
 	# Clear tuning pain-shock lock so each cycle starts fresh (CON monotonicity per-cycle).
 	if attacker_entity != null and is_instance_valid(attacker_entity):
@@ -888,8 +810,16 @@ func _spawn_combatants() -> void:
 	if defender_entity != null and is_instance_valid(defender_entity):
 		defender_entity.remove_meta("_tuning_pain_shock_locked")
 		defender_entity.remove_meta("_tuning_pain_shock_locked_value")
-	_log_line(_Formatter.format_calibration_preamble(), "#aaccff")
-	_log_line(_Formatter.format_matchup_banner(attacker_config, defender_config), "#88ff88")
+	# Emit the calibration-anchors block once per run (batch or manual); the matchup banner is per-cycle.
+	if not _batch_preamble_emitted:
+		_log_line(_Formatter.format_calibration_preamble(), "#aaccff")
+		_batch_preamble_emitted = true
+	# Pre-batch scene setup fights are noise for AI review; keep them in the file only.
+	var quiet: bool = not _auto_enabled and not _batch_running
+	if quiet:
+		_log_line(_Formatter.format_matchup_banner(attacker_config, defender_config), "#88ff88", false)
+	else:
+		_log_line(_Formatter.format_matchup_banner(attacker_config, defender_config), "#88ff88")
 	_populate_move_dropdown()
 	_refresh_display()
 
@@ -1062,14 +992,8 @@ func _cleanup_manager() -> void:
 			manager.disconnect("action_resolved", Callable(self, "_on_action_resolved"))
 		if manager.is_connected("combat_ended", Callable(self, "_on_combat_ended")):
 			manager.disconnect("combat_ended", Callable(self, "_on_combat_ended"))
-		if manager.is_connected("enemies_eliminated", Callable(self, "_on_enemies_eliminated")):
-			manager.disconnect("enemies_eliminated", Callable(self, "_on_enemies_eliminated"))
 		if manager.is_connected("combatant_health_changed", Callable(self, "_on_combatant_health_changed")):
 			manager.disconnect("combatant_health_changed", Callable(self, "_on_combatant_health_changed"))
-		if manager.is_connected("formation_changed", Callable(self, "_on_formation_changed")):
-			manager.disconnect("formation_changed", Callable(self, "_on_formation_changed"))
-		if manager.is_connected("engagement_state_changed", Callable(self, "_on_engagement_state_changed")):
-			manager.disconnect("engagement_state_changed", Callable(self, "_on_engagement_state_changed"))
 		if manager.is_connected("combat_ui_hint", Callable(self, "_on_combat_ui_hint")):
 			manager.disconnect("combat_ui_hint", Callable(self, "_on_combat_ui_hint"))
 		manager.queue_free()
@@ -1116,9 +1040,7 @@ func _set_tuning_override(combatant_id: int, target_id: int) -> void:
 	_tuning_override[combatant_id] = {
 		"move_id": _current_move_id,
 		"target_id": target_id,
-		"intensity": _current_intensity,
 	}
-	_override_pending = true
 
 	# Expedite this combatant's next turn by rescheduling
 	# Cancel any existing action_ready and schedule one soon
@@ -1311,8 +1233,10 @@ func _batch_run_cycle_to_completion():
 func _log_line_should_mirror(plain: String) -> bool:
 	if plain.is_empty():
 		return false
+	if _stdout_full_mirror:
+		return true
 	var first: String = plain.split("\n", false)[0]
-	for prefix in ["[HEMA]", "[Matchup]", "[Fight end]", "[Tuning]", "--- Cycle", "[Batch]", "=== BATCH"]:
+	for prefix in ["[Matchup]", "--- Cycle", "[Batch]", "=== BATCH"]:
 		if first.begins_with(prefix):
 			return true
 	return false
@@ -1325,6 +1249,8 @@ func _log_line(plain: String, color: String = "", mirror: bool = true) -> void:
 	for line in plain.split("\n", false):
 		if not line.is_empty():
 			_plain_log.append(line)
+	if _log_file != null and mirror:
+		_log_file.store_line(plain)
 	if _log_rtl != null:
 		var display: String
 		if "\n" in plain and not color.is_empty():
@@ -1561,14 +1487,6 @@ func _resolve_tuning_matchup_winner(atk_c: Dictionary, def_c: Dictionary) -> Str
 			return "attacker"
 		if atk_con <= PainConsciousnessConstants.INCAPACITATION_CONSCIOUSNESS_THRESHOLD and def_con <= PainConsciousnessConstants.INCAPACITATION_CONSCIOUSNESS_THRESHOLD:
 			return "mutual"
-	var atk_incap_final = _get_entity_access().is_incapacitated(atk_c) if not atk_c.is_empty() else false
-	var def_incap_final = _get_entity_access().is_incapacitated(def_c) if not def_c.is_empty() else false
-	if atk_incap_final and not def_incap_final:
-		return "defender"
-	if def_incap_final and not atk_incap_final:
-		return "attacker"
-	if atk_incap_final and def_incap_final:
-		return "mutual"
 	# Stalemate resolution tiebreaker: remaining HP, then blood volume.
 	if atk_node != null and is_instance_valid(atk_node) and def_node != null and is_instance_valid(def_node):
 		var atk_hp := 0.0
@@ -1688,7 +1606,24 @@ func _log_cycle_summary() -> void:
 		atk_vitals,
 		def_vitals
 	)
-	_log_line(summary, "#88ccff")
+	_log_line(summary, "#88ccff", false)
+	if not _stdout_full_mirror:
+		print(
+			_Formatter.format_cycle_hema_summary_oneline(
+				winner_name,
+				end_cause,
+				contacts_this_cycle,
+				strikes_this_cycle,
+				_cycle_outcome_counts,
+				_cycle_ke_samples,
+				_cycle_attacker_dmg_dealt,
+				_cycle_defender_dmg_dealt,
+				atk_vitals,
+				def_vitals
+			)
+		)
+		if not _log_file_path.is_empty():
+			print("[Tuning] per-strike detail: %s (grep [HEMA])" % ProjectSettings.globalize_path(_log_file_path))
 
 	_cycle_attacker_dmg_dealt = 0.0
 	_cycle_defender_dmg_dealt = 0.0
@@ -1774,6 +1709,23 @@ func _log_batch_cycle_summary(
 		def_vitals
 	)
 	_log_line(summary, "#88ccff")
+	if not _stdout_full_mirror:
+		print(
+			_Formatter.format_cycle_hema_summary_oneline(
+				winner_name,
+				end_cause,
+				contacts_this_cycle,
+				strikes_this_cycle,
+				_cycle_outcome_counts.duplicate(),
+				_cycle_ke_samples.duplicate(true),
+				_cycle_attacker_dmg_dealt,
+				_cycle_defender_dmg_dealt,
+				atk_vitals,
+				def_vitals
+			)
+		)
+		if not _log_file_path.is_empty():
+			print("[Tuning] per-strike detail: %s (grep [HEMA])" % ProjectSettings.globalize_path(_log_file_path))
 	_cycle_attacker_dmg_dealt = 0.0
 	_cycle_defender_dmg_dealt = 0.0
 	_last_end_cause = ""
@@ -1792,8 +1744,8 @@ func _on_strike_pressed() -> void:
 	_set_tuning_override(attacker_id, defender_id)
 	_append_log(
 		(
-            "[color=#ffcc88]Override set: %s -> %s (%s, int=%.2f)[/color]"
-			% [attacker_config.display_name, defender_config.display_name, _current_move_id, _current_intensity]
+            "[color=#ffcc88]Override set: %s -> %s (%s)[/color]"
+			% [attacker_config.display_name, defender_config.display_name, _current_move_id]
 		)
 	)
 
@@ -1829,12 +1781,14 @@ func _on_exchange_pressed() -> void:
 
 func _on_reset_pressed() -> void:
 	_auto_enabled = false
+	_batch_preamble_emitted = false
 	_spawn_combatants()
 	_append_log("[color=#8888ff]Reset: fresh combatants spawned (waiting for action).[/color]")
 
 
 func _on_randomize_pressed() -> void:
 	_apply_random_matchup_configs()
+	_batch_preamble_emitted = false
 	_spawn_combatants()
 	var atk_species := "Human" if attacker_config.species_tres_path.contains("human") else "Goblin"
 	var def_species := "Human" if defender_config.species_tres_path.contains("human") else "Goblin"
@@ -1867,12 +1821,6 @@ func _on_scenario_pressed() -> void:
 
 func _on_move_selected(idx: int) -> void:
 	_current_move_id = _move_option.get_item_text(idx)
-
-
-func _on_intensity_changed(value: float) -> void:
-	_current_intensity = value
-	if _intensity_label != null:
-		_intensity_label.text = "%.2f" % value
 
 
 func _toggle_auto() -> void:
@@ -1990,6 +1938,7 @@ func _open_presets_window() -> void:
 					_attacker_header_label.text = attacker_config.display_name
 				if _defender_header_label != null:
 					_defender_header_label.text = defender_config.display_name
+				_batch_preamble_emitted = false
 				_spawn_combatants()
 				_append_log("[color=#ff88ff]Preset '%s' loaded.[/color]" % skey)
 			_close_presets_window()
@@ -2039,7 +1988,6 @@ func _reset_combat_for_batch() -> void:
 	_auto_enabled = false
 	_auto_waiting_for_death = false
 	_auto_respawn_delay = 0.0
-	_in_medical_phase = false
 	_cleanup_manager()
 	_reset_cycle_exchange_stats()
 	_cycle_attacker_dmg_dealt = 0.0
@@ -2116,15 +2064,21 @@ func _open_batch_window() -> void:
 	var cycle_spin := SpinBox.new()
 	cycle_spin.min_value = 1
 	cycle_spin.max_value = 10000
-	cycle_spin.value = 3
+	cycle_spin.value = 10
 	cycle_spin.step = 1
 	cycle_spin.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	cycle_row.add_child(cycle_spin)
 
 	var csv_toggle := CheckBox.new()
-	csv_toggle.text = "Write per-strike CSV to stdout"
+	csv_toggle.text = "Write per-strike CSV to log file"
 	csv_toggle.button_pressed = true
 	inner_vbox.add_child(csv_toggle)
+
+	var mirror_toggle := CheckBox.new()
+	mirror_toggle.text = "Mirror full log to stdout (disables compact summaries)"
+	mirror_toggle.tooltip_text = "When off, stdout gets only [Matchup]/--- Cycle/[Batch] summary lines; the full verbose log is written to the tuning_log file."
+	mirror_toggle.button_pressed = false
+	inner_vbox.add_child(mirror_toggle)
 
 	var progress_bar := ProgressBar.new()
 	progress_bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -2176,6 +2130,7 @@ func _open_batch_window() -> void:
 			_auto_enabled = false
 			var n_cycles: int = int(cycle_spin.value)
 			var csv_enabled: bool = csv_toggle.button_pressed
+			_stdout_full_mirror = mirror_toggle.button_pressed
 			var s_idx := scenario_opt.selected
 			var s_key: String = (
 				batch_item_keys[s_idx] if s_idx >= 0 and s_idx < batch_item_keys.size() else "HEMA Sword Duel"
@@ -2212,6 +2167,9 @@ var _batch_running: bool = false
 var _batch_abort: bool = false
 var _batch_csv_lines: PackedStringArray = []
 var _batch_strike_idx: int = 0
+## True once the calibration-anchors preamble has been emitted for the current batch, so `_spawn_combatants`
+## prints it once per batch rather than repeating the identical anchor block before every cycle.
+var _batch_preamble_emitted: bool = false
 
 
 func _close_batch_window() -> void:
@@ -2368,6 +2326,7 @@ func _run_batch(
 ):
 	_batch_csv_lines.clear()
 	_batch_strike_idx = 0
+	_batch_preamble_emitted = false
 	var _batch_lines: PackedStringArray = []
 	if is_instance_valid(result_label):
 		result_label.clear()
@@ -2421,15 +2380,18 @@ func _run_batch(
 			def_cfg = defender_config
 		elif not sweep_weapon.is_empty():
 			var sweep_pair: Array = _Config.weapon_sweep_configs(sweep_weapon)
-			atk_cfg = sweep_pair[0]
-			def_cfg = sweep_pair[1]
+			if cycle % 2 == 1 and sweep_pair.size() >= 2:
+				atk_cfg = sweep_pair[1]
+				def_cfg = sweep_pair[0]
+			else:
+				atk_cfg = sweep_pair[0]
+				def_cfg = sweep_pair[1]
 			attacker_config = atk_cfg
 			defender_config = def_cfg
 			if _attacker_header_label != null:
 				_attacker_header_label.text = atk_cfg.display_name
 			if _defender_header_label != null:
 				_defender_header_label.text = def_cfg.display_name
-		_current_intensity = randf_range(0.4, 0.9)
 
 		var cycle_atk_cfg = atk_cfg
 		var cycle_def_cfg = def_cfg
@@ -2549,9 +2511,12 @@ func _run_batch(
 	_log_line(batch_line, "#88ff88")
 
 	if csv_enabled and _batch_csv_lines.size() > 1:
-		print("=== BATCH CSV (%s, %d cycles) ===" % [scenario_key, b_total_cycles])
-		for line in _batch_csv_lines:
-			print(line)
+		var csv_block := "=== BATCH CSV (%s, %d cycles) ===\n" % [scenario_key, b_total_cycles]
+		csv_block += "\n".join(_batch_csv_lines)
+		if _log_file != null:
+			_log_file.store_line(csv_block)
+		if _stdout_full_mirror:
+			print(csv_block)
 
 	if reset_batch_ui and not _batch_running:
 		_auto_waiting_for_death = true

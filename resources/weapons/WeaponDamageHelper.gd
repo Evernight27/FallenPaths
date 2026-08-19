@@ -7,12 +7,15 @@ const INTENSITY_VELOCITY_FLOOR_FACTOR := 0.50
 ## Floor for effective delivery intensity (intensity - -  extension commit).
 const DELIVERY_INTENSITY_FLOOR := 0.05
 const DELIVERY_COMMIT_FLOOR := 0.05
-## R5: Sub-band energy penalty — if KE is below 20% of band-minimum expected KE, scale damage by a smooth ramp.
+## R5: Sub-band energy penalty — strikes below band-minimum energy get a smooth damage/KE ramp.
 ## Replaces the harsh sqrt(ratio) floor (which zeroed out low-energy hits at ratio<0.04).
-## New model: linear interpolation from ratio=1.0 (full damage) to ratio=ratio_floor (50% minimum),
-## with a hard cutoff below ratio_floor so strikes genuinely below band minimum deal 0 damage.
-const SUB_BAND_MINIMUM_RATIO := 0.20
-const SUB_BAND_RAMP_FLOOR := 0.50    # minimum damage fraction at the ramp floor (ratio=0.20 → 50% damage)
+## Model: full value above SUB_BAND_RAMP_FULL_RATIO; linear ramp down to 25% at SUB_BAND_MINIMUM_RATIO;
+## hard cutoff below that so strikes genuinely below band minimum deal no energy. The same factor scales
+## BOTH the reported KE and the pre-armor damage (sqrt for cut, linear for blunt momentum) so a weak
+## strike can't report low energy while still dealing full tissue deformation.
+const SUB_BAND_MINIMUM_RATIO := 0.30    # hard cutoff: below this fraction of band-min KE → 0
+const SUB_BAND_RAMP_FULL_RATIO := 1.0   # at/above band-min KE → full energy, no penalty
+const SUB_BAND_RAMP_FLOOR := 0.25       # damage/KE fraction at the ramp floor (ratio=0.30)
 ## Hard cap for cut ratio on blunt-damage weapons (mace, pollarm). Prevents archetype overrides from giving
 ## these weapons significant cutting capability — they can nick skin but remain primarily blunt tools.
 const CUT_RATIO_BLUNT_WEAPON_MAX := 0.15
@@ -46,9 +49,7 @@ const UNARMED_FIST_EFFECTIVE_MASS_KG := 0.55
 const UNARMED_TYPICAL_HAND_SPEED_M_S := 7.0
 const UNARMED_MOMENTUM_TO_PREARMOR := 2.10
 
-# --- Option C: Kinetic energy (J) drives both damage and penetration ---
-# Impact speed: Tier A default tip-speed bands per weapon template + Tier C per-weapon overrides; see ImpactVelocityModel.gd.
-
+# --- Impact speed: Tier A default tip-speed bands per weapon template + Tier C per-weapon overrides; see ImpactVelocityModel.gd.
 
 ## Two-body collision: effective mass for linear momentum when target presents finite inertia (blunt).
 static func reduced_mass_pair_kg(m_weapon: float, m_target: float) -> float:
@@ -120,8 +121,8 @@ static func effective_intensity_for_delivery(intensity: float, _commit_frac: flo
 
 
 ## Velocity multiplier for weapon extension commit — higher commit delivers more follow-through
-## energy to impact. Uncommitted (commit < 0) returns 1.0 (no boost). Capped at 1.04 so committed
-## strikes never exceed bare speed by more than ~8% in KE terms.
+## energy to impact. Uncommitted (commit < 0) returns 1.0 (no boost). Capped at 1.04 velocity
+## (~8% speed, ~16% in KE terms since KE ∝ v²) so committed strikes stay near the bare-speed band.
 static func velocity_mult_for_delivery_commit(commit_frac: float) -> float:
     if commit_frac < 0.0:
         return 1.0
@@ -180,18 +181,32 @@ static func strike_mass_kg(weapon: RefCounted, attack_instance: RefCounted) -> f
                 return 2.0
             "SWORD":
                 return 1.5
+            ## Dagger thrusts drive the point with arm + shoulder behind the short blade; calibrated so that at
+            ## v=[4,14] m/s the KE lands in the [3,55]J audit band (0.5×0.28×v² → 4.5J @ 4 m/s → 54.9J @ 14 m/s).
+            "DAGGER":
+                return 0.28
+            _:
+                # No explicit entry for this template: derive from the isolated striking-part mass plus a
+                # torso/shoulder drive so unknown thrusting weapons don't fall to the bare point-mass default.
+                return _thrust_body_coupled_mass_from_part_kg(weapon, ct)
     if weapon.has_method("get_striking_part_mass_kg"):
         return maxf(0.02, float(weapon.get_striking_part_mass_kg(ct)))
     # Velocity band is tip speed; effective mass is the part mass at contact point.
     # Blunt impacts concentrate more mass (head/haft); edged strikes use blade mass fraction.
-    var is_thrust: bool = ct == WeaponConstants.ATTACK_TYPE_STAB
     var is_blunt: bool = ct == WeaponConstants.ATTACK_TYPE_BLUNT
-    if is_thrust:
-        var wt: String = str(weapon.weapon_type).to_upper() if "weapon_type" in weapon else ""
-        match wt:
-            "MACE":
-                return 2.5
     return 0.55 if is_blunt else 0.40
+
+
+## Body-coupled thrust mass for templates without an explicit entry: isolated striking-part mass × 3
+## (torso/shoulder drive), clamped to [0.5, 1.5] kg — a conservative band between a bare-hand stab and the
+## lightest body-coupled entry that stays below the explicit per-weapon table values (SWORD 1.5 .. SPEAR 3.5).
+static func _thrust_body_coupled_mass_from_part_kg(weapon: RefCounted, ct: String) -> float:
+    var part_m: float = (
+        maxf(0.02, float(weapon.get_striking_part_mass_kg(ct)))
+        if weapon.has_method("get_striking_part_mass_kg")
+        else 0.40
+    )
+    return clampf(part_m * 3.0, 0.5, 1.5)
 
 
 ## Thrust / swing / mixed from archetype; if missing, infer from move contact (stab â thrust).
@@ -296,12 +311,12 @@ static func get_effective_velocity_m_s(
     return vel
 
 
-static func _ke_thrust_point_mass(weapon: RefCounted, attack_instance: RefCounted, v: float, e_mult: float) -> float:
+static func _ke_thrust_point_mass(weapon: RefCounted, attack_instance: RefCounted, v: float) -> float:
     var m_strike: float = strike_mass_kg(weapon, attack_instance)
-    return 0.5 * m_strike * v * v * maxf(0.05, e_mult)
+    return 0.5 * m_strike * v * v
 
 
-static func _ke_swing_rotational(weapon: RefCounted, attack_instance: RefCounted, v: float, e_mult: float) -> float:
+static func _ke_swing_rotational(weapon: RefCounted, attack_instance: RefCounted, v: float) -> float:
     var move_id: String = move_id_from_attack_instance(attack_instance)
     var ct: String = WeaponConstants.contact_type_for_move_id(move_id)
     if weapon.has_method("has_parts") and weapon.has_parts():
@@ -310,57 +325,75 @@ static func _ke_swing_rotational(weapon: RefCounted, attack_instance: RefCounted
         ## Velocity bands are tip-speed at the strike lever; omega = v/r converts to angular velocity.
         ## Previous code rescaled via r_tip (v * r / r_tip / r) which introduced geometry-dependent error when lever ≠ tip length.
         var omega: float = v / r
-        return WeaponSwingPhysics.rotational_ke_j(inertia_full, omega) * maxf(0.05, e_mult)
-    return _ke_thrust_point_mass(weapon, attack_instance, v, e_mult)
+        return WeaponSwingPhysics.rotational_ke_j(inertia_full, omega)
+    return _ke_thrust_point_mass(weapon, attack_instance, v)
 
 
-# Kinetic energy (J): thrust â Â½ m_strike vÂ²; swing â Â½ I ÏÂ² (full I); mixed â blend. Unarmed/no parts uses
-# thrust path on swing fallback.
-static func compute_kinetic_energy_j(weapon: RefCounted, attack_instance: RefCounted) -> float:
+# Kinetic energy (J): thrust -> 1/2 m_strike v^2; swing -> 1/2 I omega^2 (full I); mixed -> blend. Unarmed/no parts uses
+# thrust path on swing fallback. strike_energy_mult is intentionally NOT applied here — it models damage transfer
+# efficiency, not kinetic energy. The same information lives in cut_damage_mult/blunt_damage_mult from StrikeRealismProfile.
+static func _raw_kinetic_energy_j(weapon: RefCounted, attack_instance: RefCounted) -> float:
     if weapon == null:
         return 0.0
     var v: float = get_effective_velocity_m_s(weapon, attack_instance)
-    var e_mult: float = _attack_float_or_default(attack_instance, "strike_energy_mult", 1.0)
     var move_id: String = move_id_from_attack_instance(attack_instance)
     var arch: Dictionary = attack_instance.get("archetype") if attack_instance.get("archetype") is Dictionary else {}
     var delivery: String = kinematic_delivery(arch, move_id)
-    var ct: String = WeaponConstants.contact_type_for_move_id(move_id)
-    var band: Vector2 = ImpactVelocityModel.resolve_band_m_s(weapon, ct)
-    var ke_j: float
     match delivery:
         WeaponConstants.KINEMATIC_DELIVERY_THRUST:
-            ke_j = _ke_thrust_point_mass(weapon, attack_instance, v, e_mult)
+            return _ke_thrust_point_mass(weapon, attack_instance, v)
         WeaponConstants.KINEMATIC_DELIVERY_SWING:
-            ke_j = _ke_swing_rotational(weapon, attack_instance, v, e_mult)
+            return _ke_swing_rotational(weapon, attack_instance, v)
         WeaponConstants.KINEMATIC_DELIVERY_MIXED:
             var b: float = 0.5
             if arch.has("kinematic_mixed_blend"):
                 var bm: Variant = arch.get("kinematic_mixed_blend")
                 if bm is float or bm is int:
                     b = clampf(float(bm), 0.0, 1.0)
-            ke_j = lerpf(
-                _ke_thrust_point_mass(weapon, attack_instance, v, e_mult),
-                _ke_swing_rotational(weapon, attack_instance, v, e_mult),
+            return lerpf(
+                _ke_thrust_point_mass(weapon, attack_instance, v),
+                _ke_swing_rotational(weapon, attack_instance, v),
                 b
             )
         _:
-            ke_j = _ke_swing_rotational(weapon, attack_instance, v, e_mult)
-    if SUB_BAND_MINIMUM_RATIO > 0.0 and band.x > 0.0:
-        var ke_at_band_min: float
-        match delivery:
-            WeaponConstants.KINEMATIC_DELIVERY_THRUST:
-                ke_at_band_min = _ke_thrust_point_mass(weapon, attack_instance, band.x, e_mult)
-            WeaponConstants.KINEMATIC_DELIVERY_SWING:
-                ke_at_band_min = _ke_swing_rotational(weapon, attack_instance, band.x, e_mult)
-            _:
-                ke_at_band_min = _ke_swing_rotational(weapon, attack_instance, band.x, e_mult)
-        if ke_at_band_min > 0.0 and ke_j < SUB_BAND_MINIMUM_RATIO * ke_at_band_min:
-            var ratio: float = ke_j / ke_at_band_min
-            ## Smooth ramp from full damage (ratio=1.0) to SUB_BAND_RAMP_FLOOR (ratio=SUB_BAND_MINIMUM_RATIO).
-            ## Below SUB_BAND_MINIMUM_RATIO, strikes are genuinely below minimum band energy — scale by linear ramp.
-            var t: float = clampf(1.0 - ratio / SUB_BAND_MINIMUM_RATIO, 0.0, 1.0)
-            ke_j *= lerpf(SUB_BAND_RAMP_FLOOR, 0.0, t)
-    return ke_j
+            return _ke_swing_rotational(weapon, attack_instance, v)
+
+
+## Sub-band energy ramp factor (0..1): 1.0 at/above band-minimum KE, linear down to SUB_BAND_RAMP_FLOOR at
+## SUB_BAND_MINIMUM_RATIO of band-min KE, hard zero below that. Shared by reported KE and pre-armor damage so
+## a weak strike can't report low energy while still dealing full tissue deformation.
+static func sub_band_energy_factor(weapon: RefCounted, attack_instance: RefCounted) -> float:
+    if weapon == null or SUB_BAND_MINIMUM_RATIO <= 0.0:
+        return 1.0
+    var move_id: String = move_id_from_attack_instance(attack_instance)
+    var arch: Dictionary = attack_instance.get("archetype") if attack_instance.get("archetype") is Dictionary else {}
+    var delivery: String = kinematic_delivery(arch, move_id)
+    var ct: String = WeaponConstants.contact_type_for_move_id(move_id)
+    var band: Vector2 = ImpactVelocityModel.resolve_band_m_s(weapon, ct)
+    if band.x <= 0.0:
+        return 1.0
+    var ke_at_band_min: float
+    match delivery:
+        WeaponConstants.KINEMATIC_DELIVERY_THRUST:
+            ke_at_band_min = _ke_thrust_point_mass(weapon, attack_instance, band.x)
+        WeaponConstants.KINEMATIC_DELIVERY_SWING:
+            ke_at_band_min = _ke_swing_rotational(weapon, attack_instance, band.x)
+        _:
+            ke_at_band_min = _ke_swing_rotational(weapon, attack_instance, band.x)
+    if ke_at_band_min <= 0.0:
+        return 1.0
+    var ratio: float = _raw_kinetic_energy_j(weapon, attack_instance) / ke_at_band_min
+    if ratio >= SUB_BAND_RAMP_FULL_RATIO:
+        return 1.0
+    if ratio <= SUB_BAND_MINIMUM_RATIO:
+        return 0.0
+    var t: float = (ratio - SUB_BAND_MINIMUM_RATIO) / maxf(0.0001, SUB_BAND_RAMP_FULL_RATIO - SUB_BAND_MINIMUM_RATIO)
+    return lerpf(SUB_BAND_RAMP_FLOOR, 1.0, clampf(t, 0.0, 1.0))
+
+
+# Kinetic energy (J): raw delivery energy scaled by the sub-band ramp.
+static func compute_kinetic_energy_j(weapon: RefCounted, attack_instance: RefCounted) -> float:
+    return _raw_kinetic_energy_j(weapon, attack_instance) * sub_band_energy_factor(weapon, attack_instance)
 
 
 # Pre-armor CUT (sharp) from KE and effective edge: scale * sqrt(KE) * strength_mod * arm_mod * contact_factor(effective
@@ -369,6 +402,8 @@ static func compute_pre_armor_cut(
     weapon: RefCounted, attack_instance: RefCounted, strength: float, arm_mod: float
 ) -> float:
     var ke_j: float = compute_kinetic_energy_j(weapon, attack_instance)
+    # The sub-band ramp is already folded into ke_j (sqrt for cut), so no separate factor here — damage and
+    # reported energy stay consistent by construction.
     var strength_mod: float = maxf(0.1, float(strength) / 100.0)
     var raw: float = WeaponConstants.DAMAGE_KE_SCALE * sqrt(maxf(0.0, ke_j)) * strength_mod * arm_mod
     var at: String = attack_instance.get("attack_type")
@@ -386,6 +421,19 @@ static func compute_pre_armor_cut(
     # prevents genuine contact hits from rounding to zero HP.
     var min_cut: float = WeaponConstants.DAMAGE_KE_MIN if ke_j > 0.0 else 0.0
     return clampf(raw, min_cut, WeaponConstants.DAMAGE_KE_MAX)
+
+
+## Impact contact duration (s) at tip speed v: the calibrated 12 ms constant is anchored at
+## BLUNT_IMPACT_REFERENCE_SPEED_M_S; faster impacts compress the pulse (Δt ∝ v^-0.4), slower ones widen it.
+## Clamped to [BLUNT_CONTACT_TIME_MIN_S, BLUNT_CONTACT_TIME_MAX_S] so sub-band or pinned velocities stay physical.
+static func impact_contact_time_s(v_m_s: float) -> float:
+    var base_s: float = WeaponConstants.BLUNT_IMPACT_CONTACT_TIME_MS / 1000.0
+    if WeaponConstants.BLUNT_CONTACT_TIME_SPEED_EXPONENT <= 0.0:
+        return base_s
+    var v_ref: float = maxf(1.0, WeaponConstants.BLUNT_IMPACT_REFERENCE_SPEED_M_S)
+    var ratio: float = maxf(0.25, absf(v_m_s)) / v_ref
+    var dt: float = base_s * pow(ratio, -WeaponConstants.BLUNT_CONTACT_TIME_SPEED_EXPONENT)
+    return clampf(dt, WeaponConstants.BLUNT_CONTACT_TIME_MIN_S, WeaponConstants.BLUNT_CONTACT_TIME_MAX_S)
 
 
 # Pre-armor BLUNT from momentum: scale * (mass * velocity) * strength_mod * arm_mod * contact_factor (unclamped).
@@ -412,10 +460,12 @@ static func compute_pre_armor_blunt_momentum_raw(
     var contact_cm: float = _get_blunt_contact_for_damage(weapon, attack_instance)
     contact_cm = maxf(contact_cm, WeaponConstants.MIN_CONTACT_WIDTH_CM)
     var contact_area_m2: float = PI * (contact_cm / 200.0) * (contact_cm / 200.0)   # diameter in cm → radius in m → circular area
-    var delta_t_s: float = WeaponConstants.BLUNT_IMPACT_CONTACT_TIME_MS / 1000.0
-    var pressure_pa: float = momentum / (maxf(contact_area_m2, 0.0001) * maxf(delta_t_s, 0.001))
+    var delta_t_s: float = impact_contact_time_s(v)
+    var pressure_pa: float = momentum / (maxf(contact_area_m2, 0.0001) * maxf(delta_t_s, WeaponConstants.BLUNT_CONTACT_TIME_MIN_S))
     var raw: float = pressure_pa * WeaponConstants.BLUNT_DAMAGE_PER_UNIT_PRESSURE * strength_mod * arm_mod
-    return raw
+    # Blunt damage is linear in momentum (v), so the sub-band ramp applies linearly — matching the KE factor
+    # that cut damage receives through sqrt(KE). Keeps weak strikes' blunt channel consistent with reported energy.
+    return raw * sub_band_energy_factor(weapon, attack_instance)
 
 
 ## Cut-induced blunt slip: momentum raw - -  **`(1 - cut_ratio)`** - -  optional **`blunt_damage_mult`**, max-only clamp
@@ -539,7 +589,15 @@ static func _get_blunt_contact_for_penetration(
         var armor_rha: float = maxf(armor_resistance_rha_mm, 0.1)
         var depth_factor: float = clampf(pen_sharp_mm / armor_rha, 0.0, 1.0)
         return point + (head - point) * depth_factor
-    return _get_blunt_contact_cm(weapon, attack_type)
+    var contact_pen_raw: float = _get_blunt_contact_cm(weapon, attack_type)
+    # Mirror the damage channel's BLUNT head cap so momentum/area for armor absorption uses the same
+    # effective face as pre-armor pressure — without it a large head (mace 8 cm) dissipates over an
+    # oversized area here but is capped in _get_blunt_contact_for_damage, desyncing the two channels.
+    if contact_pen == WeaponConstants.ATTACK_TYPE_STAB:
+        return maxf(contact_pen_raw, WeaponConstants.BLUNT_STAB_MIN_CONTACT_CM)
+    if contact_pen == WeaponConstants.ATTACK_TYPE_BLUNT:
+        return minf(contact_pen_raw, WeaponConstants.BLUNT_HEAD_MAX_CONTACT_CM)
+    return contact_pen_raw
 
 
 # Blunt cushion: momentum per area (kg·m/s)/mÂ². Used by armor for transmission absorption.
@@ -583,8 +641,8 @@ static func compute_blunt_pressure_damage(
     var p_mult: float = _attack_float_or_default(attack_instance, "strike_momentum_mult", 1.0)
     var momentum: float = mass_kg * v * maxf(0.05, p_mult)
     ## Pressure at interface: P = m·v/(A·Δt), converted to game damage via BLUNT_DAMAGE_PER_UNIT_PRESSURE.
-    var delta_t_s: float = WeaponConstants.BLUNT_IMPACT_CONTACT_TIME_MS / 1000.0
-    var pressure_pa: float = momentum / (maxf(area_m2, 0.0001) * maxf(delta_t_s, 0.001))
+    var delta_t_s: float = impact_contact_time_s(v)
+    var pressure_pa: float = momentum / (maxf(area_m2, 0.0001) * maxf(delta_t_s, WeaponConstants.BLUNT_CONTACT_TIME_MIN_S))
     return pressure_pa * WeaponConstants.BLUNT_DAMAGE_PER_UNIT_PRESSURE
 
 

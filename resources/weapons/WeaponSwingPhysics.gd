@@ -9,8 +9,7 @@ const MIN_LEVER_M := 0.12
 const MIN_INERTIA_KG_M2 := 0.001
 
 
-## Maximum distance from grip to the weapon tip (m). Used by KE formula to compute angular velocity
-## from tip speed: ω = v / tip_radius, independent of which part strikes.
+## Maximum distance from grip to the weapon tip (m). Currently unused in KE formula — `_ke_swing_rotational` uses `strike_lever_arm_m` instead; kept for debugging and potential future use.
 static func tip_radius_m(weapon: Object) -> float:
     if weapon == null or not weapon.has_method("has_parts") or not weapon.has_parts():
         return MIN_LEVER_M
@@ -113,8 +112,20 @@ static func inertia_about_grip_kg_m2(weapon: Object) -> float:
                 l_default = float(mr)
         var eff_radius: float = l_default * WeaponConstants.INERTIA_EFF_RADIUS_FRACTION
         return maxf(MIN_INERTIA_KG_M2, total_mass * eff_radius * eff_radius)
-    ## For weapons with explicit part definitions, compute point-mass inertia directly — no correction needed
-    ## since mass_fraction per segment captures the tapered profile naturally.
+    ## Uniform-rod segments via parallel-axis theorem (see inertia_from_parts_kg_m2); the per-weapon
+    ## strike_physics.inertia_scale remains as a calibration trim on top of the physically-derived base.
+    var inertia_kg_m2: float = inertia_from_parts_kg_m2(parts, total_mass)
+    if weapon is Object and weapon.has_method("get"):
+        var sp: Variant = weapon.get("strike_physics")
+        if sp is Dictionary and sp.has("inertia_scale"):
+            inertia_kg_m2 *= float(sp.inertia_scale)
+    return maxf(MIN_INERTIA_KG_M2, inertia_kg_m2)
+
+
+## Inertia about grip for a parts array (kg·m²): each segment is a uniform rod, I = m·d² + (1/12)mL²,
+## where d is the grip→segment-COM distance and L the segment length. The (1/12)mL² term is the
+## distributed-mass correction a point mass at the COM misses (~33% for long thin segments).
+static func inertia_from_parts_kg_m2(parts: Array, total_mass: float) -> float:
     var inertia_kg_m2: float = 0.0
     for i in range(parts.size()):
         if not parts[i] is Dictionary:
@@ -122,12 +133,8 @@ static func inertia_about_grip_kg_m2(weapon: Object) -> float:
         var frac: float = clampf(parts[i].get("mass_fraction", 1.0), 0.0, 1.0)
         var m_i: float = maxf(0.0, total_mass * frac)
         var d: float = com_distance_from_grip_m(parts, i)
-        inertia_kg_m2 += m_i * d * d
-    ## Per-weapon inertia scaling from strike_physics (calibrated per weapon to hit HEMA KE bands).
-    if weapon is Object and weapon.has_method("get"):
-        var sp: Variant = weapon.get("strike_physics")
-        if sp is Dictionary and sp.has("inertia_scale"):
-            inertia_kg_m2 *= float(sp.inertia_scale)
+        var seg_m: float = maxf(0.0, parts[i].get("length_cm", 0.0)) / 100.0
+        inertia_kg_m2 += m_i * d * d + (m_i * seg_m * seg_m) / 12.0
     return maxf(MIN_INERTIA_KG_M2, inertia_kg_m2)
 
 

@@ -275,24 +275,6 @@ static func committed_oberhau_ke_j() -> float:
     var ai: AttackInstance = AttackInstance.new("oberhau", 1.0)
     ai.archetype = {"kinematic_delivery": WeaponConstants.KINEMATIC_DELIVERY_SWING}
     ai.delivery_commit_fraction = 0.78
-    # Real-combat strike_energy_mult from compute_strike_modifiers: vel_m^2 * coup * clampf(commit, 0.3, 1.0).
-    # Delegates to StrikeRealismProfile helpers so the formula stays in sync with combat pipeline.
-    var sp: Variant = (sword as Object).get("strike_physics")
-    var phys: Dictionary = sp if sp is Dictionary else {}
-    var station_mean: float = float(phys.get("station_mean", 0.54))
-    var coup: float = StrikeRealismProfile._coupling(WeaponConstants.ATTACK_TYPE_CUT, phys)
-    # Station velocity mult (cut contact): lerpf(station_cut_vel_guard, station_cut_vel_tip, station)
-    var vel_m_station: float = StrikeRealismProfile._station_velocity_mult(
-        WeaponConstants.ATTACK_TYPE_CUT, station_mean, phys
-    )
-    # Measure velocity mult at default measure=1.0 (null-manager fallback):
-    # t=(meas-0.78)/0.34; lerpf(0.97, 1.02, t) for non-stab contact.
-    var meas: float = 1.0
-    var t_measure: float = clampf((meas - 0.78) / 0.34, 0.0, 1.0)
-    var vel_m_meas: float = lerpf(0.97, 1.02, t_measure)
-    var vel_m: float = vel_m_station * vel_m_meas
-    var commit_frac: float = 0.78
-    ai.strike_energy_mult = vel_m * vel_m * coup * clampf(commit_frac, 0.3, 1.0)
     return WeaponDamageHelper.compute_kinetic_energy_j(sword, ai)
 
 

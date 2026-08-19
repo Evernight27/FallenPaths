@@ -942,6 +942,7 @@ static func _run_f5_soak_trace_fixtures() -> PackedStringArray:
             "f5_trace_camp_med_exit_refresh: want camp_medical_exit supplement pass got %d" % camp_med_refresh
         )
     _CombatRegressionHarness._free_manager(camp_mgr)
+    BattleScene._destroy_battle_ui_for_harness(camp_battle as BattleScene)
     camp_battle.free()
     camp_world.free()
     OperationalLog.play_world("settlement_continue paid=120 renown=1")

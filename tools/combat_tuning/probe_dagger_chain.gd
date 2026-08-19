@@ -8,7 +8,6 @@ const MAX_SEC := 90.0
 
 const _Helpers := preload("res://harness/d001/D001RunnerHelpers.gd")
 const _SoakPresets := preload("res://world/SoakEncounterPresets.gd")
-const _CombatRegressionHarness := preload("res://harness/regression/CombatRegressionHarness.gd")
 
 
 func _init() -> void:

@@ -73,13 +73,18 @@ static func ke_band_min_max_for_weapon(weapon_id: String, kinematic_delivery: St
     if wid == "DAGGER":
         return Vector2(3.0, 55.0)
     if delivery == "thrust" and wid == "SPEAR":
-        # Spear thrust: m=3.5kg body-transfer × v²/2 at v=[5,8.5] → [64,127]J; matches committed strike ceiling (145J max)
+        # Spear thrust: m=3.5kg body-transfer × v²/2 at v=[5,8.0] → [56,112]J; matches committed strike ceiling (145J max)
         return Vector2(40.0, 130.0)
     match wid:
         "AXE":
-            return Vector2(55.0, 155.0)
+            # Axe cut: short blade (25cm) on long lever (1.105m → low omega) produces less KE than sword.
+            # Band-min lowered from 55J to 40J; swing at i=0.6 lands ~38-45J, committed (~0.75) ~50-60J with inertia_scale=0.80 (pure physics).
+            return Vector2(40.0, 155.0)
         "MACE":
-            return Vector2(75.0, 220.0)
+            # Committed-delivery band from the template's rotational physics: I≈0.415 kg·m² (head 0.7 + shaft
+            # 0.3, ×inertia_scale 0.80), lever r=0.625 m (head COM from grip). Committed overhead i=1 → v≈13.1 m/s
+            # → ω=v/r≈21 rad/s → KE≈91 J (pure physics, no e_mult); a quick low/side blow (i≈0.4) lands ~40 J.
+            return Vector2(40.0, 190.0)
         "SPEAR":
             return Vector2(45.0, 130.0)
         _:
