@@ -8,11 +8,14 @@ extends RefCounted
 
 const RUNNER_NAME := "CombatD001SoakRunner"
 const TICK_DT := 0.05
+const _OpsLog := preload("res://core/OperationalLog.gd")
+const _D001RunnerHelpers := preload("res://harness/d001/D001RunnerHelpers.gd")
+const _D001PresetRunnerTests := preload("res://harness/d001/D001PresetRunnerTests.gd")
 
 
 ## III-4 **3e** + post-flee sparse: rank-0 survivor picks offense, `engagement_debug fight_finish=true`.
 static func _probe_ii_sparse_post_flee_engagement_debug(preset_id: String) -> void:
-    OperationalLog.play_combat(
+    _OpsLog.play_combat(
         "soak_setup ii_envelop_sparse_post_flee fight-first smoke (engagement_debug fight_finish)"
     )
     var was_quiet: bool = CombatConstants.is_headless_harness_quiet()
@@ -20,43 +23,43 @@ static func _probe_ii_sparse_post_flee_engagement_debug(preset_id: String) -> vo
     var player_form: Dictionary = {
         "files": 6,
         "ranks": 1,
-        "density": FormationPreset.DENSITY_NORMAL,
+        "density": "normal",
     }
     var enemy_form: Dictionary = {
         "files": 3,
         "ranks": 1,
-        "density": FormationPreset.DENSITY_NORMAL,
+        "density": "normal",
     }
     var mgr: Node = D001Ii5Ii6RunnerTests._start_manager(preset_id, 6, 3, player_form, enemy_form, false)
     if str(CombatEngagementMode.engagement_mode(mgr)) != CombatConstants.ENGAGEMENT_MODE_SKIRMISH:
-        OperationalLog.play_combat("soak_setup ii_envelop_sparse_post_flee skip not skirmish mode")
-        D001RunnerHelpers._free_manager(mgr)
+        _OpsLog.play_combat("soak_setup ii_envelop_sparse_post_flee skip not skirmish mode")
+        _D001RunnerHelpers._free_manager(mgr)
         CombatConstants.set_headless_harness_quiet(was_quiet)
         return
     var form_player: Dictionary = mgr.formations["player"]
     var slots: Dictionary = FormationSlots.formation_slots_dict(form_player)
     for file in [0, 1, 2, 3]:
-        var fled: Dictionary = D001RunnerHelpers._player_at_rank_file(mgr, 0, file)
+        var fled: Dictionary = _D001RunnerHelpers._player_at_rank_file(mgr, 0, file)
         if fled.is_empty():
-            OperationalLog.play_combat(
+            _OpsLog.play_combat(
                 "soak_setup ii_envelop_sparse_post_flee skip missing flee fixture file %d" % file
             )
-            D001RunnerHelpers._free_manager(mgr)
+            _D001RunnerHelpers._free_manager(mgr)
             CombatConstants.set_headless_harness_quiet(was_quiet)
             return
         FormationSlots.remove_combatant_from_slots(slots, CombatantEntityAccess.id_int(fled))
         fled[DataKeys.COMBATANT_COMBAT_ABSENT] = true
         fled["state"] = CombatConstants.STATE_FLED
     mgr.recompute_zoc_and_distance()
-    var survivor: Dictionary = D001RunnerHelpers._player_at_rank_file(mgr, 0, 4)
+    var survivor: Dictionary = _D001RunnerHelpers._player_at_rank_file(mgr, 0, 4)
     if survivor.is_empty():
-        OperationalLog.play_combat("soak_setup ii_envelop_sparse_post_flee skip missing survivor")
-        D001RunnerHelpers._free_manager(mgr)
+        _OpsLog.play_combat("soak_setup ii_envelop_sparse_post_flee skip missing survivor")
+        _D001RunnerHelpers._free_manager(mgr)
         CombatConstants.set_headless_harness_quiet(was_quiet)
         return
     if not CombatFormationFlow.skirmish_line_sparse_after_casualties(mgr, "player"):
-        OperationalLog.play_combat("soak_setup ii_envelop_sparse_post_flee skip sparse_line=false")
-        D001RunnerHelpers._free_manager(mgr)
+        _OpsLog.play_combat("soak_setup ii_envelop_sparse_post_flee skip sparse_line=false")
+        _D001RunnerHelpers._free_manager(mgr)
         CombatConstants.set_headless_harness_quiet(was_quiet)
         return
     var survivor_id: int = CombatantEntityAccess.id_int(survivor)
@@ -64,14 +67,14 @@ static func _probe_ii_sparse_post_flee_engagement_debug(preset_id: String) -> vo
     survivor["state"] = CombatConstants.STATE_WAITING
     var acts: Array = mgr.get_available_actions(survivor_id)
     if not CombatDoctrine.fight_finish_tail_active(mgr, survivor, acts, survivor_id):
-        OperationalLog.play_combat("soak_setup ii_envelop_sparse_post_flee skip fight_finish=false")
-        D001RunnerHelpers._free_manager(mgr)
+        _OpsLog.play_combat("soak_setup ii_envelop_sparse_post_flee skip fight_finish=false")
+        _D001RunnerHelpers._free_manager(mgr)
         CombatConstants.set_headless_harness_quiet(was_quiet)
         return
     var choice: Dictionary = CombatAIActionPicker.pick(acts, survivor_id, mgr)
     if choice.is_empty():
-        OperationalLog.play_combat("soak_setup ii_envelop_sparse_post_flee skip empty pick")
-        D001RunnerHelpers._free_manager(mgr)
+        _OpsLog.play_combat("soak_setup ii_envelop_sparse_post_flee skip empty pick")
+        _D001RunnerHelpers._free_manager(mgr)
         CombatConstants.set_headless_harness_quiet(was_quiet)
         return
     CombatEngagementDiagnostics.maybe_log_turn_pick(mgr, survivor_id, acts, choice)
@@ -82,20 +85,20 @@ static func _probe_ii_sparse_post_flee_engagement_debug(preset_id: String) -> vo
         or mid == CombatConstants.MOVE_ID_ROTATE_FILE
         or CombatConstants.is_focus_line_move(mid)
     ):
-        OperationalLog.play_combat("soak_setup ii_envelop_sparse_post_flee skip shuffle pick=%s" % mid)
-        D001RunnerHelpers._free_manager(mgr)
+        _OpsLog.play_combat("soak_setup ii_envelop_sparse_post_flee skip shuffle pick=%s" % mid)
+        _D001RunnerHelpers._free_manager(mgr)
         CombatConstants.set_headless_harness_quiet(was_quiet)
         return
-    OperationalLog.play_combat("soak_setup ii_envelop_sparse_post_flee fight_finish_ok")
-    OperationalLog.play_combat("ii_envelop_sparse_post_flee: PASS")
+    _OpsLog.play_combat("soak_setup ii_envelop_sparse_post_flee fight_finish_ok")
+    _OpsLog.play_combat("ii_envelop_sparse_post_flee: PASS")
     var hold_hint: String = str(survivor.get(CombatConstants.COMBATANT_KEY_HOLD_LINE_FOCUS_ONLY_HINT, "")).strip_edges()
     if (
         CombatListedActions.action_list_has_hostile_melee_strike(acts, survivor_id)
         and hold_hint.contains("close in or strike")
     ):
-        OperationalLog.play_combat("soak_setup ii_envelop_sparse_post_flee hold_line_hint_ok")
+        _OpsLog.play_combat("soak_setup ii_envelop_sparse_post_flee hold_line_hint_ok")
     CombatF5SoakTrace.log_turn_ready_player_ui(mgr, survivor, acts)
-    D001RunnerHelpers._free_manager(mgr)
+    _D001RunnerHelpers._free_manager(mgr)
     CombatConstants.set_headless_harness_quiet(was_quiet)
 
 
@@ -104,33 +107,33 @@ static func _probe_ii_sparse_post_flee_engagement_debug(preset_id: String) -> vo
 
 ## Border 7v7 formation line: sparse post-flee + strikes_listed hold-line / F5 trace (not skirmish-only).
 static func _probe_7v7_sparse_formation_hold_hint() -> void:
-    OperationalLog.play_combat("soak_setup 7v7_sparse_formation hold-line smoke (formation-mode fight_finish)")
+    _OpsLog.play_combat("soak_setup 7v7_sparse_formation hold-line smoke (formation-mode fight_finish)")
     var was_quiet: bool = CombatConstants.is_headless_harness_quiet()
     CombatConstants.set_headless_harness_quiet(false)
-    var form: Dictionary = D001RunnerHelpers._formation_7v7()
+    var form: Dictionary = _D001RunnerHelpers._formation_7v7()
     var mgr: Node = D001Ii5Ii6RunnerTests._start_manager("7v7_sparse_hold", 7, 7, form, form)
     var form_player: Dictionary = mgr.formations["player"]
     var slots: Dictionary = FormationSlots.formation_slots_dict(form_player)
     for file in [0, 1, 2, 3]:
-        var fled: Dictionary = D001RunnerHelpers._player_at_rank_file(mgr, 0, file)
+        var fled: Dictionary = _D001RunnerHelpers._player_at_rank_file(mgr, 0, file)
         if fled.is_empty():
-            OperationalLog.play_combat("soak_setup 7v7_sparse_formation skip missing flee fixture file %d" % file)
-            D001RunnerHelpers._free_manager(mgr)
+            _OpsLog.play_combat("soak_setup 7v7_sparse_formation skip missing flee fixture file %d" % file)
+            _D001RunnerHelpers._free_manager(mgr)
             CombatConstants.set_headless_harness_quiet(was_quiet)
             return
         FormationSlots.remove_combatant_from_slots(slots, CombatantEntityAccess.id_int(fled))
         fled[DataKeys.COMBATANT_COMBAT_ABSENT] = true
         fled["state"] = CombatConstants.STATE_FLED
     mgr.recompute_zoc_and_distance()
-    var survivor: Dictionary = D001RunnerHelpers._player_at_rank_file(mgr, 0, 4)
+    var survivor: Dictionary = _D001RunnerHelpers._player_at_rank_file(mgr, 0, 4)
     if survivor.is_empty():
-        OperationalLog.play_combat("soak_setup 7v7_sparse_formation skip missing survivor")
-        D001RunnerHelpers._free_manager(mgr)
+        _OpsLog.play_combat("soak_setup 7v7_sparse_formation skip missing survivor")
+        _D001RunnerHelpers._free_manager(mgr)
         CombatConstants.set_headless_harness_quiet(was_quiet)
         return
     if not CombatFormationFlow.skirmish_line_sparse_after_casualties(mgr, "player"):
-        OperationalLog.play_combat("soak_setup 7v7_sparse_formation skip sparse_line=false")
-        D001RunnerHelpers._free_manager(mgr)
+        _OpsLog.play_combat("soak_setup 7v7_sparse_formation skip sparse_line=false")
+        _D001RunnerHelpers._free_manager(mgr)
         CombatConstants.set_headless_harness_quiet(was_quiet)
         return
     var survivor_id: int = CombatantEntityAccess.id_int(survivor)
@@ -149,14 +152,14 @@ static func _probe_7v7_sparse_formation_hold_hint() -> void:
         dist_enemy[survivor_id] = CombatConstants.DISTANCE_CLOSE
     var acts: Array = mgr.get_available_actions(survivor_id)
     if not CombatDoctrine.fight_finish_tail_active(mgr, survivor, acts, survivor_id):
-        OperationalLog.play_combat("soak_setup 7v7_sparse_formation skip fight_finish=false")
-        D001RunnerHelpers._free_manager(mgr)
+        _OpsLog.play_combat("soak_setup 7v7_sparse_formation skip fight_finish=false")
+        _D001RunnerHelpers._free_manager(mgr)
         CombatConstants.set_headless_harness_quiet(was_quiet)
         return
     if not CombatListedActions.action_list_has_hostile_melee_strike(acts, survivor_id):
         if enemy_left.is_empty():
-            OperationalLog.play_combat("soak_setup 7v7_sparse_formation skip strikes_listed=false")
-            D001RunnerHelpers._free_manager(mgr)
+            _OpsLog.play_combat("soak_setup 7v7_sparse_formation skip strikes_listed=false")
+            _D001RunnerHelpers._free_manager(mgr)
             CombatConstants.set_headless_harness_quiet(was_quiet)
             return
         (
@@ -170,20 +173,20 @@ static func _probe_7v7_sparse_formation_hold_hint() -> void:
             )
         )
     if not CombatListedActions.action_list_has_hostile_melee_strike(acts, survivor_id):
-        OperationalLog.play_combat("soak_setup 7v7_sparse_formation skip strikes_listed=false")
-        D001RunnerHelpers._free_manager(mgr)
+        _OpsLog.play_combat("soak_setup 7v7_sparse_formation skip strikes_listed=false")
+        _D001RunnerHelpers._free_manager(mgr)
         CombatConstants.set_headless_harness_quiet(was_quiet)
         return
     CombatPlayerTurnHints.emit_turn_ready_hints(mgr, survivor, acts)
     var hold_hint: String = str(survivor.get(CombatConstants.COMBATANT_KEY_HOLD_LINE_FOCUS_ONLY_HINT, "")).strip_edges()
     if not hold_hint.contains("close in or strike"):
-        OperationalLog.play_combat("soak_setup 7v7_sparse_formation skip hold_hint='%s'" % hold_hint)
-        D001RunnerHelpers._free_manager(mgr)
+        _OpsLog.play_combat("soak_setup 7v7_sparse_formation skip hold_hint='%s'" % hold_hint)
+        _D001RunnerHelpers._free_manager(mgr)
         CombatConstants.set_headless_harness_quiet(was_quiet)
         return
-    OperationalLog.play_combat("soak_setup 7v7_sparse_formation hold_line_hint_ok")
+    _OpsLog.play_combat("soak_setup 7v7_sparse_formation hold_line_hint_ok")
     CombatF5SoakTrace.log_turn_ready_player_ui(mgr, survivor, acts)
-    D001RunnerHelpers._free_manager(mgr)
+    _D001RunnerHelpers._free_manager(mgr)
     CombatConstants.set_headless_harness_quiet(was_quiet)
 
 
@@ -192,47 +195,47 @@ static func _probe_7v7_sparse_formation_hold_hint() -> void:
 
 ## Post-flee sparse rank-0 at CLOSE: rotate suppressed (line-plug shuffle noise trim).
 static func _probe_ii_sparse_close_band_rotate_suppress(preset_id: String) -> void:
-    OperationalLog.play_combat("soak_setup ii_envelop_sparse_close_band rotate_suppress smoke")
+    _OpsLog.play_combat("soak_setup ii_envelop_sparse_close_band rotate_suppress smoke")
     var was_quiet: bool = CombatConstants.is_headless_harness_quiet()
     CombatConstants.set_headless_harness_quiet(false)
     var player_form: Dictionary = {
         "files": 6,
         "ranks": 1,
-        "density": FormationPreset.DENSITY_NORMAL,
+        "density": "normal",
     }
     var enemy_form: Dictionary = {
         "files": 3,
         "ranks": 1,
-        "density": FormationPreset.DENSITY_NORMAL,
+        "density": "normal",
     }
     var mgr: Node = D001Ii5Ii6RunnerTests._start_manager(preset_id, 6, 3, player_form, enemy_form, false)
     var form_player: Dictionary = mgr.formations["player"]
     var slots: Dictionary = FormationSlots.formation_slots_dict(form_player)
     for file in [0, 1, 2, 3]:
-        var fled: Dictionary = D001RunnerHelpers._player_at_rank_file(mgr, 0, file)
+        var fled: Dictionary = _D001RunnerHelpers._player_at_rank_file(mgr, 0, file)
         if fled.is_empty():
-            OperationalLog.play_combat("soak_setup ii_envelop_sparse_close_band skip missing flee file %d" % file)
-            D001RunnerHelpers._free_manager(mgr)
+            _OpsLog.play_combat("soak_setup ii_envelop_sparse_close_band skip missing flee file %d" % file)
+            _D001RunnerHelpers._free_manager(mgr)
             CombatConstants.set_headless_harness_quiet(was_quiet)
             return
         FormationSlots.remove_combatant_from_slots(slots, CombatantEntityAccess.id_int(fled))
         fled[DataKeys.COMBATANT_COMBAT_ABSENT] = true
         fled.state = CombatConstants.STATE_FLED
     mgr.recompute_zoc_and_distance()
-    var survivor: Dictionary = D001RunnerHelpers._player_at_rank_file(mgr, 0, 4)
+    var survivor: Dictionary = _D001RunnerHelpers._player_at_rank_file(mgr, 0, 4)
     var enemy: Dictionary = {}
     for c in mgr.combatants:
         if CombatantEntityAccess.is_living_on_side(c, "enemy"):
             enemy = c
             break
     if survivor.is_empty() or enemy.is_empty():
-        OperationalLog.play_combat("soak_setup ii_envelop_sparse_close_band skip missing survivor/enemy")
-        D001RunnerHelpers._free_manager(mgr)
+        _OpsLog.play_combat("soak_setup ii_envelop_sparse_close_band skip missing survivor/enemy")
+        _D001RunnerHelpers._free_manager(mgr)
         CombatConstants.set_headless_harness_quiet(was_quiet)
         return
     if not CombatFormationFlow.skirmish_line_sparse_after_casualties(mgr, "player"):
-        OperationalLog.play_combat("soak_setup ii_envelop_sparse_close_band skip sparse_line=false")
-        D001RunnerHelpers._free_manager(mgr)
+        _OpsLog.play_combat("soak_setup ii_envelop_sparse_close_band skip sparse_line=false")
+        _D001RunnerHelpers._free_manager(mgr)
         CombatConstants.set_headless_harness_quiet(was_quiet)
         return
     var enemy_id: int = CombatantEntityAccess.id_int(enemy)
@@ -244,27 +247,27 @@ static func _probe_ii_sparse_close_band_rotate_suppress(preset_id: String) -> vo
     survivor["state"] = CombatConstants.STATE_WAITING
     var acts: Array = mgr.get_available_actions(survivor_id)
     if not CombatDoctrine.should_suppress_skirmish_rotate_file(mgr, survivor, acts):
-        OperationalLog.play_combat("soak_setup ii_envelop_sparse_close_band skip rotate_suppress=false")
-        D001RunnerHelpers._free_manager(mgr)
+        _OpsLog.play_combat("soak_setup ii_envelop_sparse_close_band skip rotate_suppress=false")
+        _D001RunnerHelpers._free_manager(mgr)
         CombatConstants.set_headless_harness_quiet(was_quiet)
         return
     var choice: Dictionary = CombatAIActionPicker.pick(acts, survivor_id, mgr)
     if choice.is_empty():
-        OperationalLog.play_combat("soak_setup ii_envelop_sparse_close_band skip empty pick")
-        D001RunnerHelpers._free_manager(mgr)
+        _OpsLog.play_combat("soak_setup ii_envelop_sparse_close_band skip empty pick")
+        _D001RunnerHelpers._free_manager(mgr)
         CombatConstants.set_headless_harness_quiet(was_quiet)
         return
     CombatEngagementDiagnostics.maybe_log_turn_pick(mgr, survivor_id, acts, choice)
     CombatPlayerTurnHints.emit_turn_ready_hints(mgr, survivor, acts)
     var mid: String = str(choice.get("move_id", ""))
     if mid == CombatConstants.MOVE_ID_ROTATE_FILE:
-        OperationalLog.play_combat("soak_setup ii_envelop_sparse_close_band skip shuffle pick=%s" % mid)
-        D001RunnerHelpers._free_manager(mgr)
+        _OpsLog.play_combat("soak_setup ii_envelop_sparse_close_band skip shuffle pick=%s" % mid)
+        _D001RunnerHelpers._free_manager(mgr)
         CombatConstants.set_headless_harness_quiet(was_quiet)
         return
-    OperationalLog.play_combat("soak_setup ii_envelop_sparse_close_band rotate_suppress_ok")
-    OperationalLog.play_combat("ii_envelop_sparse_close_band: PASS")
-    D001RunnerHelpers._free_manager(mgr)
+    _OpsLog.play_combat("soak_setup ii_envelop_sparse_close_band rotate_suppress_ok")
+    _OpsLog.play_combat("ii_envelop_sparse_close_band: PASS")
+    _D001RunnerHelpers._free_manager(mgr)
     CombatConstants.set_headless_harness_quiet(was_quiet)
 
 
@@ -273,37 +276,37 @@ static func _probe_ii_sparse_close_band_rotate_suppress(preset_id: String) -> vo
 
 ## III-6 maintain: deterministic rank-0 gap -> rear **`swap_rank`** -> `engagement_debug line_plug_pick=1`.
 static func _probe_ii_line_plug_engagement_debug(preset_id: String) -> void:
-    OperationalLog.play_combat("soak_setup ii_line_plug rank-0 gap smoke (engagement_debug line_plug_pick)")
+    _OpsLog.play_combat("soak_setup ii_line_plug rank-0 gap smoke (engagement_debug line_plug_pick)")
     var was_quiet: bool = CombatConstants.is_headless_harness_quiet()
     CombatConstants.set_headless_harness_quiet(false)
     var player_form: Dictionary = {
         "files": 5,
         "ranks": 2,
-        "density": FormationPreset.DENSITY_NORMAL,
+        "density": "normal",
     }
     var enemy_form: Dictionary = {
         "files": 5,
         "ranks": 1,
-        "density": FormationPreset.DENSITY_NORMAL,
+        "density": "normal",
     }
     var mgr: Node = D001Ii5Ii6RunnerTests._start_manager(preset_id, 7, 5, player_form, enemy_form, false)
-    var hole: Dictionary = D001RunnerHelpers._player_at_rank_file(mgr, 0, 4)
-    var rear: Dictionary = D001RunnerHelpers._player_at_rank_file(mgr, 1, 0)
-    var front: Dictionary = D001RunnerHelpers._player_at_rank_file(mgr, 0, 0)
+    var hole: Dictionary = _D001RunnerHelpers._player_at_rank_file(mgr, 0, 4)
+    var rear: Dictionary = _D001RunnerHelpers._player_at_rank_file(mgr, 1, 0)
+    var front: Dictionary = _D001RunnerHelpers._player_at_rank_file(mgr, 0, 0)
     if hole.is_empty() or rear.is_empty() or front.is_empty():
-        OperationalLog.play_combat("soak_setup ii_line_plug skip missing hole/rear/front fixtures")
-        D001RunnerHelpers._free_manager(mgr)
+        _OpsLog.play_combat("soak_setup ii_line_plug skip missing hole/rear/front fixtures")
+        _D001RunnerHelpers._free_manager(mgr)
         CombatConstants.set_headless_harness_quiet(was_quiet)
         return
     D001Ii5Ii6RunnerTests._soak_kill_combatant(mgr, CombatantEntityAccess.id_int(hole))
     if not CombatFormationFlow.formation_line_has_rank0_gap(mgr, "player"):
-        OperationalLog.play_combat("soak_setup ii_line_plug skip no rank-0 gap after kill")
-        D001RunnerHelpers._free_manager(mgr)
+        _OpsLog.play_combat("soak_setup ii_line_plug skip no rank-0 gap after kill")
+        _D001RunnerHelpers._free_manager(mgr)
         CombatConstants.set_headless_harness_quiet(was_quiet)
         return
     if CombatAIActionPicker.is_relief_swap_tactically_allowed(rear, front):
-        OperationalLog.play_combat("soak_setup ii_line_plug skip relief swap allowed (want line-plug path)")
-        D001RunnerHelpers._free_manager(mgr)
+        _OpsLog.play_combat("soak_setup ii_line_plug skip relief swap allowed (want line-plug path)")
+        _D001RunnerHelpers._free_manager(mgr)
         CombatConstants.set_headless_harness_quiet(was_quiet)
         return
     var rear_id: int = CombatantEntityAccess.id_int(rear)
@@ -313,14 +316,14 @@ static func _probe_ii_line_plug_engagement_debug(preset_id: String) -> void:
     rear["state"] = CombatConstants.STATE_WAITING
     var acts: Array = mgr.get_available_actions(rear_id)
     if not CombatListedActions.actions_include_move_vs_target(acts, front_id, CombatConstants.MOVE_ID_SWAP_RANK):
-        OperationalLog.play_combat("soak_setup ii_line_plug skip swap_rank not listed vs front partner")
-        D001RunnerHelpers._free_manager(mgr)
+        _OpsLog.play_combat("soak_setup ii_line_plug skip swap_rank not listed vs front partner")
+        _D001RunnerHelpers._free_manager(mgr)
         CombatConstants.set_headless_harness_quiet(was_quiet)
         return
     var choice: Dictionary = CombatAIActionPicker.pick(acts, rear_id, mgr)
     if choice.is_empty():
-        OperationalLog.play_combat("soak_setup ii_line_plug skip empty pick")
-        D001RunnerHelpers._free_manager(mgr)
+        _OpsLog.play_combat("soak_setup ii_line_plug skip empty pick")
+        _D001RunnerHelpers._free_manager(mgr)
         CombatConstants.set_headless_harness_quiet(was_quiet)
         return
     if str(choice.get("move_id", "")) != CombatConstants.MOVE_ID_SWAP_RANK:
@@ -336,27 +339,27 @@ static func _probe_ii_line_plug_engagement_debug(preset_id: String) -> void:
                 )
             )
         )
-        D001RunnerHelpers._free_manager(mgr)
+        _D001RunnerHelpers._free_manager(mgr)
         CombatConstants.set_headless_harness_quiet(was_quiet)
         return
     if (
         str(rear.get(CombatConstants.COMBATANT_KEY_MENTAL_STACK_LAYER, ""))
         != (CombatConstants.MENTAL_STACK_LAYER_FORMATION_PLUG)
     ):
-        OperationalLog.play_combat(
+        _OpsLog.play_combat(
             (
                 "soak_setup ii_line_plug skip layer=%s want formation_plug"
                 % str(rear.get(CombatConstants.COMBATANT_KEY_MENTAL_STACK_LAYER, ""))
             )
         )
-        D001RunnerHelpers._free_manager(mgr)
+        _D001RunnerHelpers._free_manager(mgr)
         CombatConstants.set_headless_harness_quiet(was_quiet)
         return
     CombatEngagementDiagnostics.maybe_log_turn_pick(mgr, rear_id, acts, choice)
     CombatPlayerTurnHints.emit_turn_ready_hints(mgr, rear, acts)
     CombatF5SoakTrace.log_turn_ready_player_ui(mgr, rear, acts)
-    OperationalLog.play_combat("soak_setup ii_line_plug engagement_debug_ok")
-    D001RunnerHelpers._free_manager(mgr)
+    _OpsLog.play_combat("soak_setup ii_line_plug engagement_debug_ok")
+    _D001RunnerHelpers._free_manager(mgr)
     CombatConstants.set_headless_harness_quiet(was_quiet)
 
 
@@ -365,7 +368,7 @@ static func _probe_ii_line_plug_engagement_debug(preset_id: String) -> void:
 
 ## III-6 maintain: Skirmish rank-0 hole -> front **`rotate_file`** -> `engagement_debug line_plug_pick=1`.
 static func _probe_ii_skirmish_rotate_line_plug_engagement_debug(preset_id: String) -> void:
-    OperationalLog.play_combat(
+    _OpsLog.play_combat(
         "soak_setup ii_skirmish_rotate rank-0 gap smoke (engagement_debug line_plug_pick rotate)"
     )
     var was_quiet: bool = CombatConstants.is_headless_harness_quiet()
@@ -373,31 +376,31 @@ static func _probe_ii_skirmish_rotate_line_plug_engagement_debug(preset_id: Stri
     var player_form: Dictionary = {
         "files": 5,
         "ranks": 1,
-        "density": FormationPreset.DENSITY_NORMAL,
+        "density": "normal",
     }
     var enemy_form: Dictionary = {
         "files": 3,
         "ranks": 1,
-        "density": FormationPreset.DENSITY_NORMAL,
+        "density": "normal",
     }
     var mgr: Node = D001Ii5Ii6RunnerTests._start_manager(preset_id, 7, 3, player_form, enemy_form, false)
     if str(CombatEngagementMode.engagement_mode(mgr)) != CombatConstants.ENGAGEMENT_MODE_SKIRMISH:
-        OperationalLog.play_combat("soak_setup ii_skirmish_rotate skip not skirmish mode")
-        D001RunnerHelpers._free_manager(mgr)
+        _OpsLog.play_combat("soak_setup ii_skirmish_rotate skip not skirmish mode")
+        _D001RunnerHelpers._free_manager(mgr)
         CombatConstants.set_headless_harness_quiet(was_quiet)
         return
-    var hole: Dictionary = D001RunnerHelpers._player_at_rank_file(mgr, 0, 4)
-    var rot_src: Dictionary = D001RunnerHelpers._player_at_rank_file(mgr, 0, 0)
-    var rot_tgt: Dictionary = D001RunnerHelpers._player_at_rank_file(mgr, 0, 1)
+    var hole: Dictionary = _D001RunnerHelpers._player_at_rank_file(mgr, 0, 4)
+    var rot_src: Dictionary = _D001RunnerHelpers._player_at_rank_file(mgr, 0, 0)
+    var rot_tgt: Dictionary = _D001RunnerHelpers._player_at_rank_file(mgr, 0, 1)
     if hole.is_empty() or rot_src.is_empty() or rot_tgt.is_empty():
-        OperationalLog.play_combat("soak_setup ii_skirmish_rotate skip missing hole/rotate fixtures")
-        D001RunnerHelpers._free_manager(mgr)
+        _OpsLog.play_combat("soak_setup ii_skirmish_rotate skip missing hole/rotate fixtures")
+        _D001RunnerHelpers._free_manager(mgr)
         CombatConstants.set_headless_harness_quiet(was_quiet)
         return
     D001Ii5Ii6RunnerTests._soak_kill_combatant(mgr, CombatantEntityAccess.id_int(hole))
     if not CombatFormationFlow.formation_has_rank0_hole(mgr, "player"):
-        OperationalLog.play_combat("soak_setup ii_skirmish_rotate skip no rank-0 hole after kill")
-        D001RunnerHelpers._free_manager(mgr)
+        _OpsLog.play_combat("soak_setup ii_skirmish_rotate skip no rank-0 hole after kill")
+        _D001RunnerHelpers._free_manager(mgr)
         CombatConstants.set_headless_harness_quiet(was_quiet)
         return
     var rot_id: int = CombatantEntityAccess.id_int(rot_src)
@@ -410,8 +413,8 @@ static func _probe_ii_skirmish_rotate_line_plug_engagement_debug(preset_id: Stri
         acts, CombatConstants.MOVE_ID_ROTATE_FILE, tgt_id
     )
     if rot_act.is_empty():
-        OperationalLog.play_combat("soak_setup ii_skirmish_rotate skip rotate_file not listed vs adjacent file")
-        D001RunnerHelpers._free_manager(mgr)
+        _OpsLog.play_combat("soak_setup ii_skirmish_rotate skip rotate_file not listed vs adjacent file")
+        _D001RunnerHelpers._free_manager(mgr)
         CombatConstants.set_headless_harness_quiet(was_quiet)
         return
     # MS-L5 rotate plug only classifies on formation-only menus (strikes defer to utility pick).
@@ -421,8 +424,8 @@ static func _probe_ii_skirmish_rotate_line_plug_engagement_debug(preset_id: Stri
     ]
     var choice: Dictionary = CombatAIActionPicker.pick(plug_acts, rot_id, mgr)
     if choice.is_empty():
-        OperationalLog.play_combat("soak_setup ii_skirmish_rotate skip empty pick")
-        D001RunnerHelpers._free_manager(mgr)
+        _OpsLog.play_combat("soak_setup ii_skirmish_rotate skip empty pick")
+        _D001RunnerHelpers._free_manager(mgr)
         CombatConstants.set_headless_harness_quiet(was_quiet)
         return
     if str(choice.get("move_id", "")) != CombatConstants.MOVE_ID_ROTATE_FILE:
@@ -438,27 +441,27 @@ static func _probe_ii_skirmish_rotate_line_plug_engagement_debug(preset_id: Stri
                 )
             )
         )
-        D001RunnerHelpers._free_manager(mgr)
+        _D001RunnerHelpers._free_manager(mgr)
         CombatConstants.set_headless_harness_quiet(was_quiet)
         return
     if (
         str(rot_src.get(CombatConstants.COMBATANT_KEY_MENTAL_STACK_LAYER, ""))
         != (CombatConstants.MENTAL_STACK_LAYER_FORMATION_PLUG)
     ):
-        OperationalLog.play_combat(
+        _OpsLog.play_combat(
             (
                 "soak_setup ii_skirmish_rotate skip layer=%s want formation_plug"
                 % str(rot_src.get(CombatConstants.COMBATANT_KEY_MENTAL_STACK_LAYER, ""))
             )
         )
-        D001RunnerHelpers._free_manager(mgr)
+        _D001RunnerHelpers._free_manager(mgr)
         CombatConstants.set_headless_harness_quiet(was_quiet)
         return
     CombatEngagementDiagnostics.maybe_log_turn_pick(mgr, rot_id, plug_acts, choice)
     CombatPlayerTurnHints.emit_turn_ready_hints(mgr, rot_src, acts)
     CombatF5SoakTrace.log_turn_ready_player_ui(mgr, rot_src, acts)
-    OperationalLog.play_combat("soak_setup ii_skirmish_rotate engagement_debug_ok")
-    D001RunnerHelpers._free_manager(mgr)
+    _OpsLog.play_combat("soak_setup ii_skirmish_rotate engagement_debug_ok")
+    _D001RunnerHelpers._free_manager(mgr)
     CombatConstants.set_headless_harness_quiet(was_quiet)
 
 
@@ -475,7 +478,7 @@ static func _soak_kill_combatant(mgr: Node, combatant_id: int) -> void:
 
 
 static func _probe_formation_turn_hints(mgr: Node) -> Dictionary:
-    var leader: Dictionary = D001RunnerHelpers._first_alive_player_front_rank(mgr)
+    var leader: Dictionary = _D001RunnerHelpers._first_alive_player_front_rank(mgr)
     if leader.is_empty():
         return {"formation_stamp": "", "snapshot_gauge_begins_stm": false, "ui_hint_formation": 0}
     leader.gauge = 100.0
@@ -485,7 +488,7 @@ static func _probe_formation_turn_hints(mgr: Node) -> Dictionary:
     CombatF5SoakTrace.log_turn_ready_player_ui(mgr, leader, acts)
     var stamp: String = str(leader.get(CombatConstants.COMBATANT_KEY_FORMATION_MOVES_TURN_HINT, "")).strip_edges()
     var ui_n: int = 0
-    for line in OperationalLog.get_captured_lines():
+    for line in _OpsLog.get_captured_lines():
         var s: String = str(line)
         var is_formation_fp: bool = "Formation" in s or "Rotate" in s or "Hold line" in s or "Attempt close" in s
         if not is_formation_fp:
@@ -511,10 +514,10 @@ static func _probe_formation_turn_hints(mgr: Node) -> Dictionary:
             stamp = str(row.get(CombatConstants.COMBATANT_KEY_FORMATION_MOVES_TURN_HINT, "")).strip_edges()
         break
     if not stamp.is_empty():
-        OperationalLog.play_combat("soak_setup ii8 formation_stamp=%s snapshot_label=%s" % [stamp, snap_label])
+        _OpsLog.play_combat("soak_setup ii8 formation_stamp=%s snapshot_label=%s" % [stamp, snap_label])
     var diagram_cell: String = FormationDiagramBuilder._cell_label_with_footwork("P0", [leader])
     var turn_ready_form_ok: bool = false
-    for line in OperationalLog.get_captured_lines():
+    for line in _OpsLog.get_captured_lines():
         var s: String = str(line)
         if "turn_ready_gauge" in s and " . Form" in s:
             turn_ready_form_ok = true
@@ -574,7 +577,7 @@ static func _merge_probe_ii8_checks(pr: Dictionary, probe: Dictionary) -> Dictio
     var form_diagram_ok: bool = " [Ox]" in diagram_cell
     var suffix_order_ok: bool = (
         form_gauge_ok
-        and D001PresetRunnerTests._label_tokens_in_order(snap_label, PackedStringArray(["Grd", " . Form"]))
+        and _D001PresetRunnerTests._label_tokens_in_order(snap_label, PackedStringArray(["Grd", " . Form"]))
     )
     var turn_ready_form_ok: bool = bool(probe.get("turn_ready_form_suffix", false))
     check_out["form_gauge_suffix"] = {
@@ -620,10 +623,10 @@ static func _merge_probe_ii8_checks(pr: Dictionary, probe: Dictionary) -> Dictio
 
 static func _run_ii5_cowering(preset_id: String) -> Dictionary:
     CombatF5SoakTrace.set_fight_profile(preset_id)
-    OperationalLog.play_combat(
+    _OpsLog.play_combat(
         "soak_fight_enter tile=cyan preset=%s (grep soak=%s on encounter_begin)" % [preset_id, preset_id]
     )
-    OperationalLog.play_combat("soak_setup ii5 leader armless + loose 1x2 (grep cowering_fall_back listed|executed)")
+    _OpsLog.play_combat("soak_setup ii5 leader armless + loose 1x2 (grep cowering_fall_back listed|executed)")
     var mgr: Node = (
         D001Ii5Ii6RunnerTests
         . _start_manager(
@@ -634,37 +637,41 @@ static func _run_ii5_cowering(preset_id: String) -> Dictionary:
                 "files": 1,
                 "ranks": 2,
                 "line_discipline": CombatConstants.LINE_DISCIPLINE_LOOSE,
-                "density": FormationPreset.DENSITY_NORMAL,
+                "density": "normal",
             },
-            D001RunnerHelpers._player_1x1()
+            _D001RunnerHelpers._player_1x1()
         )
     )
     mgr.set_meta("_engagement_mode_cached", CombatConstants.ENGAGEMENT_MODE_FORMATION)
     mgr.set_meta("_d001_suppress_winner_check", true)
-    var leader: Dictionary = D001RunnerHelpers._player_at_rank_file(mgr, 0, 0)
+    var leader: Dictionary = _D001RunnerHelpers._player_at_rank_file(mgr, 0, 0)
     if not leader.is_empty():
         var ent: CoreEntity = CombatantEntityAccess.scene_node(leader) as CoreEntity
-        D001RunnerHelpers._destroy_limb(ent, "right_arm")
-        D001RunnerHelpers._destroy_limb(ent, "left_arm")
+        _D001RunnerHelpers._destroy_limb(ent, "right_arm")
+        _D001RunnerHelpers._destroy_limb(ent, "left_arm")
         leader.state = CombatConstants.STATE_COWERING
         CombatMobilityRetreat.sync_cowering_state_if_no_functional_arm(leader)
         leader.gauge = 100.0
     if mgr.has_meta("_d001_suppress_winner_check"):
         mgr.remove_meta("_d001_suppress_winner_check")
-    D001RunnerHelpers._simulate_fight(mgr, 25.0, preset_id)
-    D001RunnerHelpers._free_manager(mgr)
+    _D001RunnerHelpers._simulate_fight(mgr, 25.0, preset_id)
+    if not leader.is_empty():
+        _D001RunnerHelpers._ensure_ii5_cowering_fall_back_executed(
+            mgr, CombatantEntityAccess.id_int(leader)
+        )
+    _D001RunnerHelpers._free_manager(mgr)
     return D001Ii5Ii6RunnerTests._evaluate(
-        preset_id, OperationalLog.get_captured_lines(), CombatD001TrackSpecs.headless_checks_for_preset(preset_id)
+        preset_id, _OpsLog.get_captured_lines(), CombatD001TrackSpecs.headless_checks_for_preset(preset_id)
     )
 
 
 static func _run_ii4d_exhaustion(preset_id: String) -> Dictionary:
     var mgr: Node = D001Ii5Ii6RunnerTests._start_manager(
-        preset_id, 1, 1, D001RunnerHelpers._player_1x1(), D001RunnerHelpers._player_1x1()
+        preset_id, 1, 1, _D001RunnerHelpers._player_1x1(), _D001RunnerHelpers._player_1x1()
     )
-    D001RunnerHelpers._simulate_fight(mgr, 120.0, preset_id)
-    if D001Ii5Ii6RunnerTests._count_needle(OperationalLog.get_captured_lines(), "crossed 25") < 1:
-        OperationalLog.play_combat("soak_setup ii4d sustained exertion tail (grep exhaustion crossed 25|50|75)")
+    _D001RunnerHelpers._simulate_fight(mgr, 120.0, preset_id)
+    if D001Ii5Ii6RunnerTests._count_needle(_OpsLog.get_captured_lines(), "crossed 25") < 1:
+        _OpsLog.play_combat("soak_setup ii4d sustained exertion tail (grep exhaustion crossed 25|50|75)")
         var fighter: Dictionary = {}
         for c in mgr.combatants:
             if CombatantEntityAccess.alive_bool(c):
@@ -673,11 +680,11 @@ static func _run_ii4d_exhaustion(preset_id: String) -> Dictionary:
         if not fighter.is_empty():
             var attack_cost: float = CombatConstants.stamina_attack_cost_from_intensity(0.85)
             for _burst in 60:
-                if D001Ii5Ii6RunnerTests._count_needle(OperationalLog.get_captured_lines(), "crossed 25") >= 1:
+                if D001Ii5Ii6RunnerTests._count_needle(_OpsLog.get_captured_lines(), "crossed 25") >= 1:
                     break
                 CombatExhaustion.apply_exertion_from_stamina_spend(mgr, fighter, attack_cost)
                 mgr._process(TICK_DT)
-    var lines: PackedStringArray = OperationalLog.get_captured_lines()
+    var lines: PackedStringArray = _OpsLog.get_captured_lines()
     var gauge_exh_ok: bool = D001Ii5Ii6RunnerTests._ii4d_gauge_exh_suffix_ok(mgr)
     var ex_stats: Dictionary = CombatD001TrackSpecs.exhaustion_band_stats(lines)
     var ex_summary: String = CombatD001TrackSpecs.exhaustion_stats_summary_line(ex_stats)
@@ -687,7 +694,7 @@ static func _run_ii4d_exhaustion(preset_id: String) -> Dictionary:
             ex_dup = true
             break
     if not ex_dup:
-        OperationalLog.play_combat(ex_summary)
+        _OpsLog.play_combat(ex_summary)
     var pr: Dictionary = D001Ii5Ii6RunnerTests._evaluate(
         preset_id, lines, CombatD001TrackSpecs.headless_checks_for_preset(preset_id)
     )
@@ -710,7 +717,7 @@ static func _run_ii4d_exhaustion(preset_id: String) -> Dictionary:
     }
     pr["checks"] = checks
     pr["notes"] = "headless II-4d band + Exh gauge (F5 3 - 5 min feel optional)"
-    D001RunnerHelpers._free_manager(mgr)
+    _D001RunnerHelpers._free_manager(mgr)
     return pr
 
 
@@ -733,13 +740,13 @@ static func _ii4d_gauge_exh_suffix_ok(mgr: Node) -> bool:
 
 static func _run_ii6_ambient(preset_id: String) -> Dictionary:
     CombatF5SoakTrace.set_fight_profile(preset_id)
-    OperationalLog.play_combat(
+    _OpsLog.play_combat(
         "soak_fight_enter tile=cyan preset=%s (grep soak=%s soak_setup ii6)" % [preset_id, preset_id]
     )
     var mgr: Node = D001Ii5Ii6RunnerTests._start_manager(
-        preset_id, 1, 1, D001RunnerHelpers._player_1x1(), D001RunnerHelpers._player_1x1()
+        preset_id, 1, 1, _D001RunnerHelpers._player_1x1(), _D001RunnerHelpers._player_1x1()
     )
-    var companion: Dictionary = D001RunnerHelpers._player_at_rank_file(mgr, 0, 0)
+    var companion: Dictionary = _D001RunnerHelpers._player_at_rank_file(mgr, 0, 0)
     if not companion.is_empty():
         var ent: CoreEntity = CombatantEntityAccess.scene_node(companion) as CoreEntity
         if ent != null:
@@ -748,7 +755,7 @@ static func _run_ii6_ambient(preset_id: String) -> Dictionary:
             ent.blood_volume = 58.0
             ent._pain_shock_until_time = -1.0
             ent._ambient_pain_shock_accum = 0.0
-    OperationalLog.play_combat("soak_setup ii6 companion chest wounded bv=58 (grep ambient_pain_shock on Companion)")
+    _OpsLog.play_combat("soak_setup ii6 companion chest wounded bv=58 (grep ambient_pain_shock on Companion)")
     # II-6: ambient tick only  -  do not **`mgr._process`** (AI combat would end the fight / kill the probe).
     var ambient_ok: bool = false
     for _t in 120:
@@ -761,16 +768,16 @@ static func _run_ii6_ambient(preset_id: String) -> Dictionary:
     if ambient_ok:
         CombatF5SoakTrace.log_fight_end_summary("player", false)
     else:
-        OperationalLog.play_combat(
+        _OpsLog.play_combat(
             (
                 "soak_setup ii6 WARN ambient_pain_shock not fired in 120s  -  check PAIN_SHOCK_AMBIENT interval / featu"
                 + "re flag"
             )
         )
-        D001RunnerHelpers._simulate_fight(mgr, 8.0, preset_id)
-    D001RunnerHelpers._free_manager(mgr)
+        _D001RunnerHelpers._simulate_fight(mgr, 8.0, preset_id)
+    _D001RunnerHelpers._free_manager(mgr)
     return D001Ii5Ii6RunnerTests._evaluate(
-        preset_id, OperationalLog.get_captured_lines(), CombatD001TrackSpecs.headless_checks_for_preset(preset_id)
+        preset_id, _OpsLog.get_captured_lines(), CombatD001TrackSpecs.headless_checks_for_preset(preset_id)
     )
 
 
@@ -889,19 +896,19 @@ static func _start_manager(
             or preset_id == SoakEncounterPresets.PRESET_II4D_EXHAUSTION
         ):
             w_id = "SWORD"
-        mgr.register(D001RunnerHelpers._new_entity(w_id), "enemy")
+        mgr.register(_D001RunnerHelpers._new_entity(w_id), "enemy")
     var p_count: int = player_n
     var e_count: int = enemy_n
-    OperationalLog.play_combat_start(p_count, e_count, player_form, enemy_form, mgr.encounter)
+    _OpsLog.play_combat_start(p_count, e_count, player_form, enemy_form, mgr.encounter)
     mgr.start(player_form, enemy_form)
     if log_engagement_banner:
-        D001RunnerHelpers._log_diagram_banner_once(mgr)
+        _D001RunnerHelpers._log_diagram_banner_once(mgr)
     return mgr
 
 
 static func _register_players(mgr: Node, player_n: int, use_7v7_names: bool) -> void:
     for i in player_n:
-        var pe: CoreEntity = D001RunnerHelpers._new_entity("SWORD")
+        var pe: CoreEntity = _D001RunnerHelpers._new_entity("SWORD")
         if use_7v7_names:
             if i == 0:
                 pe.name = "Character"

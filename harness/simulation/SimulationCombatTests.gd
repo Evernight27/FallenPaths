@@ -2,10 +2,8 @@ class_name SimulationCombatTests
 extends CombatRegressionHarnessCore
 ## Simulation realism track (S1 - S10): `_run_sim_*`  -  docs/LIVE_PATHS.md#harness-prefixes.
 
-const _CombatRegressionHarness := preload("res://harness/regression/CombatRegressionHarness.gd")
 const HumanSpecies := preload("res://resources/species/human.tres")
 const GoblinSpecies := preload("res://resources/species/goblin.tres")
-const _HarnessFixtures := preload("res://harness/HarnessFixtures.gd")
 
 ## Test tolerance thresholds — calibrated to floating-point variation in multi-step damage calculations.
 ## KE comparisons: 0.5J accounts for rounding in mass×velocity²/2 across weapon archetypes.
@@ -16,12 +14,8 @@ const TOLERANCE_SHARP: float = 0.01
 
 static func _sim_entity() -> CoreEntity:
     var ent: CoreEntity = CoreEntity.new()
-    _HarnessFixtures._track_harness_node(ent)
+    HarnessFixtures._track_harness_node(ent)
     return ent
-
-
-static func _fail(failures: PackedStringArray, msg: String) -> void:
-    CombatRegressionHarness._fail(failures, msg)
 
 
 static func _oberhau_swing_instance(intensity: float, commit_frac: float) -> AttackInstance:
@@ -143,13 +137,13 @@ static func _run_sim_subregion_high_line_arm(failures: PackedStringArray) -> voi
 static func _run_iv10_subregion_combat_mult_elbow_vs_upper_arm(failures: PackedStringArray) -> void:
     var sync_line: String = CombatHitSubRegion.iv10_doc_sync_line()
     if "mechanical=severity_modifier" not in sync_line:
-        CombatRegressionHarness._fail(failures, "iv10_mult: sync line missing token in %s" % sync_line)
+        _fail(failures, "iv10_mult: sync line missing token in %s" % sync_line)
     if not CombatConstants.is_feature_subregion_combat_mult_enabled():
-        CombatRegressionHarness._fail(failures, "iv10_mult: FEATURE_SUBREGION_COMBAT_MULT must be on in production")
+        _fail(failures, "iv10_mult: FEATURE_SUBREGION_COMBAT_MULT must be on in production")
         return
     var cut_pre: float = 18.0
-    var ent_upper: CoreEntity = CombatRegressionHarness._new_entity_unarmed()
-    var ent_elbow: CoreEntity = CombatRegressionHarness._new_entity_unarmed()
+    var ent_upper: CoreEntity = HarnessFixtures._new_entity_unarmed()
+    var ent_elbow: CoreEntity = HarnessFixtures._new_entity_unarmed()
     var r_upper: Dictionary = ent_upper.take_damage_split(
         cut_pre, 0.0, "right_arm", -1.0, -1.0, -1.0, {"hit_sub_region": "upper_arm"}
     )
@@ -159,7 +153,7 @@ static func _run_iv10_subregion_combat_mult_elbow_vs_upper_arm(failures: PackedS
     var mech_upper: float = float(r_upper.get("mechanical_post_armor", 0.0))
     var mech_elbow: float = float(r_elbow.get("mechanical_post_armor", 0.0))
     if mech_elbow <= mech_upper + 0.05:
-        CombatRegressionHarness._fail(
+        _fail(
             failures,
             (
                 "iv10_mult: elbow want higher mechanical_post_armor than upper_arm (%.2f vs %.2f)"
@@ -169,7 +163,7 @@ static func _run_iv10_subregion_combat_mult_elbow_vs_upper_arm(failures: PackedS
     var mult_upper: float = CombatHitSubRegion.combat_damage_mult("right_arm", "upper_arm")
     var mult_elbow: float = CombatHitSubRegion.combat_damage_mult("right_arm", "elbow")
     if mult_elbow <= mult_upper:
-        CombatRegressionHarness._fail(
+        _fail(
             failures, "iv10_mult: elbow mult want > upper_arm (%.3f vs %.3f)" % [mult_elbow, mult_upper]
         )
 
@@ -179,8 +173,8 @@ static func _run_iv10_subregion_combat_mult_flag_off_parity(failures: PackedStri
     var cut_pre: float = 16.0
     var saved: bool = CombatConstants.is_feature_subregion_combat_mult_enabled()
     CombatConstants.set_feature_subregion_combat_mult_load(false)
-    var ent_a: CoreEntity = CombatRegressionHarness._new_entity_unarmed()
-    var ent_b: CoreEntity = CombatRegressionHarness._new_entity_unarmed()
+    var ent_a: CoreEntity = HarnessFixtures._new_entity_unarmed()
+    var ent_b: CoreEntity = HarnessFixtures._new_entity_unarmed()
     var r_a: Dictionary = ent_a.take_damage_split(
         cut_pre, 0.0, "right_arm", -1.0, -1.0, -1.0, {"hit_sub_region": "elbow"}
     )
@@ -191,14 +185,14 @@ static func _run_iv10_subregion_combat_mult_flag_off_parity(failures: PackedStri
     var mech_a: float = float(r_a.get("mechanical_post_armor", 0.0))
     var mech_b: float = float(r_b.get("mechanical_post_armor", 0.0))
     if absf(mech_a - mech_b) > 0.05:
-        CombatRegressionHarness._fail(
+        _fail(
             failures, "iv10_mult_off: flag off want parity (elbow=%.2f forearm=%.2f)" % [mech_a, mech_b]
         )
 
 
 ## S2: packing eligibility still works when neck sub_region is explicit (medical harness pattern).
 static func _run_sim_pack_neck_requires_subregion(failures: PackedStringArray) -> void:
-    var ent: Node = CombatRegressionHarness._new_entity("SWORD")
+    var ent: Node = _new_entity("SWORD")
     EntityWounds.add_wound(
         ent, "head", BleedingConstants.INJURY_TYPE_CUT, 5.0, "neck", BleedingConstants.SEVERITY_MODERATE
     )
@@ -225,7 +219,7 @@ static func _has_fracture_wound(ent: Node, part: String) -> bool:
 
 ## S3: cut-dominant, low penetration -> no fracture (old pool would often chip bone).
 static func _run_sim_mfb_cut_only_no_fracture(failures: PackedStringArray) -> void:
-    var ent: Node = CombatRegressionHarness._new_entity("SWORD")
+    var ent: Node = _new_entity("SWORD")
     var res: Dictionary = ent.take_damage_split(16.0, 0.0, "right_arm", 0.4, -1.0, -1.0, {"hit_sub_region": "forearm"})
     if SimulationCombatTests._has_fracture_wound(ent, "right_arm") or float(res.get("final_bone", 0.0)) > 0.01:
         SimulationCombatTests._fail(failures, "sim_mfb_cut_low_pen: sharp-dominant low pen should not chip bone")
@@ -233,7 +227,7 @@ static func _run_sim_mfb_cut_only_no_fracture(failures: PackedStringArray) -> vo
 
 ## S3: blunt-dominant arm hit with KE above sub-region anchor -> fracture.
 static func _run_sim_mfb_mace_arm_fracture(failures: PackedStringArray) -> void:
-    var ent: Node = CombatRegressionHarness._new_entity("MACE")
+    var ent: Node = _new_entity("MACE")
     var j_anchor: float = CombatDamageMechanism.blunt_fracture_j_anchor("right_arm", "elbow")
     var strike_ke: float = j_anchor + 24.0
     var res: Dictionary = ent.take_damage_split(
@@ -247,7 +241,7 @@ static func _run_sim_mfb_mace_arm_fracture(failures: PackedStringArray) -> void:
 
 ## S3: deep cut (pen gate) allows bone; shallow pen at same cut damage does not.
 static func _run_sim_mfb_deep_cut_bone_optional(failures: PackedStringArray) -> void:
-    var shallow: Node = CombatRegressionHarness._new_entity("SWORD")
+    var shallow: Node = _new_entity("SWORD")
     var extras_mfb: Dictionary = {
         "hit_sub_region": "forearm",
         "disable_layer_tissue": true,
@@ -255,7 +249,7 @@ static func _run_sim_mfb_deep_cut_bone_optional(failures: PackedStringArray) -> 
     var res_sh: Dictionary = shallow.take_damage_split(11.0, 0.0, "right_arm", 0.5, -1.0, -1.0, extras_mfb)
     if SimulationCombatTests._has_fracture_wound(shallow, "right_arm") or float(res_sh.get("final_bone", 0.0)) > 0.01:
         SimulationCombatTests._fail(failures, "sim_mfb_deep_cut: shallow pen should not chip bone")
-    var deep: Node = CombatRegressionHarness._new_entity("SWORD")
+    var deep: Node = _new_entity("SWORD")
     var res_dp: Dictionary = deep.take_damage_split(
         11.0, 0.0, "right_arm", CombatDamageMechanism.MFB_CUT_BONE_MIN_PENETRATION_MM + 1.5, -1.0, -1.0, extras_mfb
     )
@@ -555,7 +549,7 @@ static func _run_sim_joule_armor_authoritative_ke_frac(failures: PackedStringArr
     ent.equip_armor("chest", armor)
     var strike_ke: float = 90.0
     var cut_pre: float = 14.0
-    var extras: Dictionary = {"strike_ke_j": strike_ke, "force_joule_armor_budget": true}
+    var extras: Dictionary = {"strike_ke_j": strike_ke, "force_joule_armor_budget": true, "hit_sub_region": "thoracic"}
     var res: Dictionary = EntityDamage.apply_damage_split(ent, cut_pre, 0.0, "chest", 2.0, -1.0, -1.0, extras)
     var frac: float = float(res.get("transmitted_ke_fraction", -1.0))
     var mech: float = float(res.get("mechanical_post_armor", 0.0))
@@ -689,7 +683,7 @@ static func _run_sim_notify_died_emits_once(failures: PackedStringArray) -> void
     ent._notify_died()
     if int(fired_box[0]) != 1:
         SimulationCombatTests._fail(failures, "notify_died: want 1 died signal got %d" % int(fired_box[0]))
-    var bleed_ent: CoreEntity = CombatRegressionHarness._new_entity("SWORD")
+    var bleed_ent: CoreEntity = _new_entity("SWORD")
     bleed_ent.take_damage_split(6.0, 2.0, "chest")
     if EntityWounds.get_total_bleeding_rate(bleed_ent) <= 0.0:
         SimulationCombatTests._fail(failures, "notify_died: need bleed rate on wounded entity")
@@ -890,8 +884,34 @@ static func _run_sim_atls_consciousness_class_boundaries(failures: PackedStringA
     )
     if not is_equal_approx(mod_85, 1.0):
         SimulationCombatTests._fail(failures, "sim_atls: mod at 85%% want 1.0 got %.3f" % mod_85)
-    if not is_equal_approx(mod_35, 0.25):
-        SimulationCombatTests._fail(failures, "sim_atls: mod at 35%% want 0.25 got %.3f" % mod_35)
+    if not is_equal_approx(mod_35, 0.04):
+        SimulationCombatTests._fail(failures, "sim_atls: mod at 35%% want 0.04 got %.3f" % mod_35)
+    # Realism gate: deep blood loss ALONE (healthy head) must drive unconsciousness (hypovolemic syncope).
+    # At the floor (35% remaining = 65% lost) a healthy-headed fighter's consciousness must fall below the
+    # incapacitation threshold; at 70% remaining (Class II/III) the same fighter must stay conscious.
+    var ent: CoreEntity = SimulationCombatTests._entity_for_species(HumanSpecies)
+    var head_max: int = ent.body_max.get(BodyPartConstants.PART_HEAD, 1)
+    ent.body_cutting[BodyPartConstants.PART_HEAD] = float(head_max)
+    ent.body_blunt[BodyPartConstants.PART_HEAD] = float(head_max)
+    ent.blood_volume = 35.0
+    ent._consciousness_dirty = true
+    EntityPainConsciousness.update_consciousness(ent)
+    if ent.effective_consciousness >= PainConsciousnessConstants.INCAPACITATION_CONSCIOUSNESS_THRESHOLD:
+        SimulationCombatTests._fail(
+            failures,
+            (
+                "sim_atls: blood-loss-alone at 35%% remaining should be unconscious (consc < %.1f) got %.2f"
+                % [PainConsciousnessConstants.INCAPACITATION_CONSCIOUSNESS_THRESHOLD, ent.effective_consciousness]
+            )
+        )
+    ent.blood_volume = 70.0
+    ent._consciousness_dirty = true
+    EntityPainConsciousness.update_consciousness(ent)
+    if ent.effective_consciousness < PainConsciousnessConstants.INCAPACITATION_CONSCIOUSNESS_THRESHOLD:
+        SimulationCombatTests._fail(
+            failures,
+            "sim_atls: 70%% remaining healthy head should stay conscious got %.2f" % ent.effective_consciousness
+        )
 
 
 ## S7: blood-loss consciousness modifier decreases monotonically with volume loss.
@@ -906,5 +926,70 @@ static func _run_sim_atls_consciousness_monotonic(failures: PackedStringArray) -
                 failures, "sim_atls_mono: mod %.3f at %.0f%% > prev %.3f (non-monotonic)" % [mod, pct, prev]
             )
         prev = mod
+
+
+## S9: overall damage ratio tracks real tissue loss (body_cutting/body_blunt store REMAINING health).
+## Guards the concussion-severity path: a healthy entity must read ~0% damaged, a destroyed one ~100%.
+## Regression: the old formula (max - remaining - remaining) inverted this, reporting healthy = 100% damaged.
+static func _run_sim_overall_damage_ratio_tracks_tissue(failures: PackedStringArray) -> void:
+    var healthy: CoreEntity = SimulationCombatTests._entity_for_species(HumanSpecies)
+    var healthy_ratio: float = EntityPainConsciousness._get_entity_overall_damage_ratio(healthy)
+    if healthy_ratio > 0.05:
+        SimulationCombatTests._fail(
+            failures, "sim_dmg_ratio: healthy entity want ~0%% damaged got %.2f" % healthy_ratio
+        )
+    # Destroy every part (cutting + blunt -> 0) -> fully damaged.
+    var destroyed: CoreEntity = SimulationCombatTests._entity_for_species(HumanSpecies)
+    for part in destroyed.body_max:
+        destroyed.body_cutting[part] = 0.0
+        destroyed.body_blunt[part] = 0.0
+    var destroyed_ratio: float = EntityPainConsciousness._get_entity_overall_damage_ratio(destroyed)
+    if destroyed_ratio < 0.95:
+        SimulationCombatTests._fail(
+            failures, "sim_dmg_ratio: destroyed entity want ~100%% damaged got %.2f" % destroyed_ratio
+        )
+    # Half-damage one part -> ratio strictly between healthy and destroyed.
+    var half: CoreEntity = SimulationCombatTests._entity_for_species(HumanSpecies)
+    var some_part: String = half.body_max.keys()[0]
+    var mx: float = half.body_max[some_part]
+    half.body_cutting[some_part] = mx * 0.5
+    half.body_blunt[some_part] = mx * 0.5
+    var half_ratio: float = EntityPainConsciousness._get_entity_overall_damage_ratio(half)
+    if half_ratio <= healthy_ratio or half_ratio >= destroyed_ratio:
+        SimulationCombatTests._fail(
+            failures,
+            "sim_dmg_ratio: half-damage %.2f must sit between healthy %.2f and destroyed %.2f"
+            % [half_ratio, healthy_ratio, destroyed_ratio]
+        )
+
+
+## S9: concussion severity scales with cumulative damage (weighted_severity blends head-bone + overall damage).
+## A heavily-damaged entity concussed by the same head-bone ratio must be at least as severe as a healthy one.
+static func _run_sim_concussion_severity_scales_with_damage(failures: PackedStringArray) -> void:
+    var healthy: CoreEntity = SimulationCombatTests._entity_for_species(HumanSpecies)
+    var damaged: CoreEntity = SimulationCombatTests._entity_for_species(HumanSpecies)
+    for part in damaged.body_max:
+        damaged.body_cutting[part] = 0.0
+        damaged.body_blunt[part] = 0.0
+    var bone_ratio: float = 2.5  # above CONCUSSION_BONE_THRESHOLD_MIN (1.8), below MAX (3.5)
+    EntityPainConsciousness.try_enter_concussion_from_head_bone_damage(healthy, bone_ratio)
+    EntityPainConsciousness.try_enter_concussion_from_head_bone_damage(damaged, bone_ratio)
+    var healthy_until: float = float(healthy.get_meta("_concussion_until_time", 0.0))
+    var damaged_until: float = float(damaged.get_meta("_concussion_until_time", 0.0))
+    if healthy_until <= 0.0 or damaged_until <= 0.0:
+        SimulationCombatTests._fail(
+            failures,
+            "sim_concussion: expected concussion on both (healthy_until=%.1f damaged_until=%.1f)"
+            % [healthy_until, damaged_until]
+        )
+        return
+    if damaged_until < healthy_until - 0.5:
+        SimulationCombatTests._fail(
+            failures,
+            (
+                "sim_concussion: damaged entity recovery %.1fs should be >= healthy %.1fs (severity scales with damage)"
+                % [damaged_until, healthy_until]
+            )
+        )
 
 ## S8: shallow post-armor penetration -> lower cut severity than deep track at same damage.

@@ -121,10 +121,7 @@ static func _stamina_attack_cost_for_attacker(manager: Node, atk: Dictionary, ta
 
 static func _consecutive_action_stamina_mult_for_combatant(c: Dictionary) -> float:
     var count: int = c.get(CombatConstantsStamina.COMBATANT_KEY_CONSECUTIVE_ACTIONS, 0)
-    if count <= 1:
-        return 1.0
-    var t: float = float(count - 1)
-    return lerpf(1.0, 2.5, clampf(t / 4.0, 0.0, 1.0))
+    return CombatConstantsStamina.consecutive_action_stamina_mult(count)
 
 
 static func _track_consecutive_action_start(c: Dictionary) -> void:
@@ -616,8 +613,10 @@ static func apply_result(manager: Node, attacker_id: int, result: Dictionary) ->
             var strike_ke_j: float = clash_data.get("strike_kinetic_energy_j", 0.0)
             var strike_momentum: float = clash_data.get("strike_momentum_kg_ms", 0.0)
             if strike_ke_j > 0.0 and strike_momentum > 0.0:
-                ## Momentum-based deflection damage: F = Δp/Δt, with Δp = momentum × deflection_fraction.
-                ## Scale converts impulse to game damage units calibrated for 5-15 blunt damage on typical parry.
+                ## Momentum-based deflection damage: F = Δp/Δt, with Δp = momentum × deflection_fraction. A parry
+                ## transmits a small fraction of the incoming blow into the defender's arm — typically a small damage
+                ## amount (~0.2-1.0), meaningful mainly for heavy blows. The >0.5 gate below suppresses the small
+                ## values, so light parries are effectively free.
                 var deflection_ratio: float = clampf(remaining_ratio - 0.1, 0.0, 0.9) / 0.9
                 var momentum_transfer: float = strike_momentum * deflection_ratio * WeaponConstants.PARRY_DEFLECTION_MOMENTUM_FRACTION
                 var base_deflect_dmg: float = momentum_transfer * WeaponConstants.IMPULSE_DAMAGE_SCALE

@@ -32,7 +32,7 @@ Entry: [`AGENTS_ENTRY`](AGENTS_ENTRY.md) · Expand: [#phase-4--new-systems-forma
 
 ## Tier 3 — parry / bind / guards
 
-`DefenseChoiceResolver`, `CombatIncomingParryChoice` (**D-007**), `CombatGuardLines` (**D-006**) · `PARRY_DEFLECT_THRESHOLD` **0.45**, `PARRY_BIND_CONTROL_THRESHOLD` **0.55** · `_run_parry_*`, `_run_bind_*`, `_run_*guard*`.
+`DefenseChoiceResolver`, `CombatIncomingParryChoice` (**D-007**), `CombatGuardLines` (**D-006**) · `PARRY_DEFLECT_THRESHOLD` **0.45**, `PARRY_BIND_CONTROL_THRESHOLD` **0.48** · `_run_parry_*`, `_run_bind_*`, `_run_*guard*`.
 
 **D-006 + WF:** eight-line **`guard_line`** is moment posture (L3). **`CombatWeaponForm.assign_form`** sets **home** line on spawn/switch; outcomes drift via **`GuardLineUpdater`**. Parry alignment and Tier **4.4** PA step read **live** line — not **`weapon_form`**. Attachment: [#wf-footing-guards-stances](#wf-footing-guards-stances) · [#wf-layer-labels](#wf-layer-labels).
 

@@ -20,12 +20,28 @@ const MFB_BLUNT_MAX_BONE_SHARE_OF_BLUNT := 0.45
 ## Skull ~70-130J, rib ~40-80J, humerus ~60-120J, radius/ulna ~60-120J, femur ~120-250J (combat) / 300-500J (polearm), tibia ~100-200J.
 const MFB_BLUNT_FRACTURE_J_BY_SUBREGION: Dictionary = {
 	BodyPartConstants.PART_HEAD: {"scalp": 80.0, "face": 60.0, "neck": 50.0},
-	BodyPartConstants.PART_CHEST: {"thoracic": 65.0, "abdominal": 80.0},
-	BodyPartConstants.PART_RIGHT_ARM: {"upper_arm": 100.0, "elbow": 45.0, "forearm": 70.0, "hand": 35.0},
-	BodyPartConstants.PART_LEFT_ARM: {"upper_arm": 100.0, "elbow": 45.0, "forearm": 70.0, "hand": 35.0},
-	BodyPartConstants.PART_RIGHT_LEG: {"thigh": 200.0, "knee": 60.0, "calf": 120.0, "foot": 55.0},
-	BodyPartConstants.PART_LEFT_LEG: {"thigh": 200.0, "knee": 60.0, "calf": 120.0, "foot": 55.0},
+	BodyPartConstants.PART_CHEST: {"thoracic": 65.0, "abdominal": 80.0, "sternum": 45.0},
+	BodyPartConstants.PART_RIGHT_ARM: {"upper_arm": 100.0, "elbow": 45.0, "forearm": 70.0, "hand": 35.0, "armpit": 50.0, "axillary": 50.0},
+	BodyPartConstants.PART_LEFT_ARM: {"upper_arm": 100.0, "elbow": 45.0, "forearm": 70.0, "hand": 35.0, "armpit": 50.0, "axillary": 50.0},
+	BodyPartConstants.PART_RIGHT_LEG: {"thigh": 200.0, "knee": 60.0, "calf": 120.0, "foot": 55.0, "inner_thigh": 130.0},
+	BodyPartConstants.PART_LEFT_LEG: {"thigh": 200.0, "knee": 60.0, "calf": 120.0, "foot": 55.0, "inner_thigh": 130.0},
 }
+
+# --- Blunt internal organ trauma thresholds (J) — visceral injury without penetration ---
+## Clinical basis: liver/spleen rupture requires ~30-70J blunt KE to capsule tear;
+## pulmonary contusion onset ~15-25J; aortic rupture ~80-150J. Visceral injury occurs at
+## lower KE than bone fracture in thoracic/abdominal regions because soft tissue fails first.
+## These thresholds apply when penetration_sharp < CUT_BONE_MIN_TISSUE_DEPTH_MM (no cut path).
+## NOTE: Thresholds set ABOVE COMBAT_REALISTIC_KE_J_MIN (35J) to avoid triggering on every
+## strike — organ trauma requires concentrated energy transfer beyond a normal glancing blow.
+const BLUNT_INTERNAL_ORGAN_TRAUMA_J: Dictionary = {
+	"thoracic": {"pulmonary_contusion": 55.0, "aortic_vessel": 120.0},  # lung contusion / great vessel rupture
+	"abdominal": {"liver_spleen_tear": 65.0, "bowel_injury": 80.0},     # solid organ capsule tear / mesenteric shear
+}
+
+# --- Internal organ trauma damage output (game HP applied to body_blunt as hidden tissue damage) ---
+const BLUNT_ORGAN_BLUNT_DAMAGE_MULT: float = 1.8    # organ trauma amplifies blunt channel (soft tissue crush)
+const BLUNT_ORGAN_PAIN_MULT: float = 2.5             # visceral pain is disproportionately severe (visceral nociceptors)
 const _PART_DEFAULT_BLUNT_J: Dictionary = {
 	BodyPartConstants.PART_HEAD: 70.0,
 	BodyPartConstants.PART_CHEST: 80.0,
@@ -96,9 +112,11 @@ static func j_excess_to_bone_damage(excess_j: float) -> float:
 
 
 ## Convert RHA-equivalent armor penetration (mm) to approximate tissue depth (mm).
-## Steel is ~3-5× harder than muscle/fat on Vickers hardness scale; a blade penetrating 2 mm RHA
-## typically reaches ~6-10 mm in tissue. Historical ballistic data for edged weapons suggests
-## tissue_depth ≈ rha_penetration × 3.0 (average compression factor through layered soft tissue).
+## NOTE: This is a game abstraction, not a clinical measurement. RHA penetration quantifies
+## armor-steel resistance; tissue depth measures actual blade travel through skin→fat→fascia→muscle.
+## The 3.0× factor absorbs the difference — calibrated so that weapon archetypes penetrating
+## ~2mm RHA reach cortical bone (~6mm tissue depth), matching anatomical expectations for mid-torso strikes.
+## A proper implementation would use a layered-anatomy lookup table (skin~1-2mm, fat~5-30mm variable, fascia~0.5mm).
 static func rha_penetration_to_tissue_depth_mm(rha_pen_mm: float) -> float:
 	return rha_pen_mm * 3.0
 
@@ -161,4 +179,50 @@ static func _pack(
 		"to_bone": to_bone,
 		"to_tissue_total": to_tissue_total,
 		"mechanism": mechanism,
+	}
+
+
+# --- Blunt internal organ trauma (visceral injury without penetration) ---
+
+## Checks for blunt-force internal organ damage in thoracic/abdominal sub-regions.
+## Returns {"organ_blunt_dmg": float, "organ_pain_mult": float, "trauma_type": String}.
+## When a high-KE blunt strike hits visceral regions WITHOUT penetrating to bone (no cut path),
+## the energy transfer can still rupture liver/spleen capsules, contuse lungs, or shear vessels.
+static func check_blunt_internal_organ_trauma(
+	part: String,
+	sub_region: String,
+	strike_ke_j: float,
+	penetration_sharp: float
+) -> Dictionary:
+	if part != BodyPartConstants.PART_CHEST:
+		return {"organ_blunt_dmg": 0.0, "organ_pain_mult": 1.0, "trauma_type": ""}
+	var organ_data: Variant = BLUNT_INTERNAL_ORGAN_TRAUMA_J.get(sub_region, {})
+	if organ_data is not Dictionary or strike_ke_j <= 0.0:
+		return {"organ_blunt_dmg": 0.0, "organ_pain_mult": 1.0, "trauma_type": ""}
+	## Only trigger when there's NO sharp penetration path to bone (pure blunt trauma).
+	if penetration_sharp >= CUT_BONE_MIN_TISSUE_DEPTH_MM:
+		return {"organ_blunt_dmg": 0.0, "organ_pain_mult": 1.0, "trauma_type": ""}
+	var organ_blunt_dmg: float = 0.0
+	var trauma_type: String = ""
+	if sub_region == "thoracic" and strike_ke_j >= organ_data.get("pulmonary_contusion", 999.0):
+		## Pulmonary contusion + potential aortic injury at higher KE.
+		organ_blunt_dmg = BLUNT_ORGAN_BLUNT_DAMAGE_MULT * sqrt(strike_ke_j)
+		if strike_ke_j >= organ_data.get("aortic_vessel", 999.0):
+			trauma_type = "aortic_trauma"  # great vessel rupture — near-instantaneous exsanguination risk
+		else:
+			trauma_type = "pulmonary_contusion"
+	elif sub_region == "abdominal":
+		if strike_ke_j >= organ_data.get("liver_spleen_tear", 999.0):
+			## Liver/spleen capsule tear — solid organs have rich blood supply; internal bleeding.
+			organ_blunt_dmg = BLUNT_ORGAN_BLUNT_DAMAGE_MULT * sqrt(strike_ke_j)
+			trauma_type = "liver_spleen_tear"
+		elif strike_ke_j >= organ_data.get("bowel_injury", 999.0):
+			## Bowel/mesenteric shear — less immediately lethal but causes peritonitis if untreated.
+			organ_blunt_dmg = BLUNT_ORGAN_BLUNT_DAMAGE_MULT * 0.6 * sqrt(strike_ke_j)
+			trauma_type = "bowel_injury"
+	var pain_mult: float = BLUNT_ORGAN_PAIN_MULT if organ_blunt_dmg > 0.0 else 1.0
+	return {
+		"organ_blunt_dmg": organ_blunt_dmg,
+		"organ_pain_mult": pain_mult,
+		"trauma_type": trauma_type,
 	}

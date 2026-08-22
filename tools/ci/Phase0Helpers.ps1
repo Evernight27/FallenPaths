@@ -174,7 +174,7 @@ function Invoke-Phase0RegressionHarness {
 
 		[System.Collections.Generic.List[string]]$Lines,
 
-		[string]$TeeLog = ".harness_out.txt"
+		[string]$TeeLog = ".phase0_fast_regression.txt"
 
 	)
 
@@ -182,23 +182,24 @@ function Invoke-Phase0RegressionHarness {
 
 	$teePath = Join-Path $Root $TeeLog
 
-	Invoke-FallenPathsGodotScript -HarnessMode "regression" -TeeLog $teePath *> $null
+	$null = Invoke-FallenPathsGodotScript -HarnessMode "regression"
 
 	$exitCode = Get-FallenPathsGodotExitCode
 
 
 
-	if (Test-Path $teePath) {
+	$harnessReportPath = Join-Path $Root ".harness_out.txt"
 
-		$out = @(Get-Content -Path $teePath -Encoding utf8)
+	if (Test-Path $harnessReportPath) {
 
-		$out | ForEach-Object { Write-Host $_ }
+		$out = @(Get-Content -Path $harnessReportPath -Encoding utf8)
 
-		$ok = [bool]($out | Where-Object { $_ -match "FP_HARNESS_OK:\s+CombatRegressionHarness" } | Select-Object -Last 1)
+		$ok = [bool]($out | Where-Object { $_ -match "ok=true" } | Select-Object -Last 1)
+		$nameMatch = [bool]($out | Where-Object { $_ -match "^name=CombatRegressionHarness$" } | Select-Object -Last 1)
 
-		if (-not $ok) {
+		if (-not $ok -or -not $nameMatch) {
 
-			$Lines.Add("REGRESSION: FAIL (exit=$exitCode)")
+			$Lines.Add("REGRESSION: FAIL (harness report invalid)")
 
 			return $false
 

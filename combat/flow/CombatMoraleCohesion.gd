@@ -89,7 +89,11 @@ static func _compute_cohesion_modifier(combatant_id: int, manager: Node) -> floa
     return clampf(modifier, 0.5, 1.5)
 
 
-## L6: morale check during rout — returns true when the side has sufficient collective morale to resist rout.
+## L6: prerequisite for the coordinated MS-L6 rout layer — returns true when the side is still coherent enough
+## (line cohesion + average morale above threshold) to make a *coordinated* rout decision. A side below the
+## threshold has already collapsed; its members flee via the individual personal-crisis / abandonment paths instead.
+## NOTE: this is a "coherent enough to coordinate" gate, NOT a "will resist rout" check — the caller uses it as a
+## permit to run the rout layer (see CombatFormationRout.rout_cognition_pressure).
 static func morale_check_during_rout(combatant_id: int, manager: Node) -> bool:
     if manager == null or combatant_id < 0:
         return false

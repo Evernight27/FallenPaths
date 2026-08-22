@@ -13,7 +13,7 @@ static func _run_parry_deflect_awards_end_gains(failures: PackedStringArray) -> 
 
     var data: Dictionary = ProficiencyAwardPersistenceTests._setup_proficiency_combat(failures)
     if data.is_empty():
-        CombatRegressionHarness._fail(failures, "parry_end_gains: setup failed")
+        _fail(failures, "parry_end_gains: setup failed")
         return
 
     var enemy_ent: Node = data.get("enemy_ent")
@@ -21,7 +21,7 @@ static func _run_parry_deflect_awards_end_gains(failures: PackedStringArray) -> 
     # Set up attack on player that will be parried.
     var atk: Dictionary = CombatantEntityAccess.manager_get_combatant(data.get("mgr"), data.get("p_id"))
     if atk.is_empty():
-        CombatRegressionHarness._fail(failures, "parry_end_gains: no player combatant")
+        _fail(failures, "parry_end_gains: no player combatant")
         return
 
     atk.state = CombatConstants.STATE_WIND_UP
@@ -36,7 +36,7 @@ static func _run_parry_deflect_awards_end_gains(failures: PackedStringArray) -> 
     if result.get("action", "") == "parry_deflect":
         var bonus_end: float = float(enemy_ent._proficiency_bonus.get("endurance", 0))
         if bonus_end < 0.1:
-            CombatRegressionHarness._fail(
+            _fail(
                 failures, "parry_end_gains: defender END gain too low on parry_deflect (got %.2f)" % bonus_end
             )
 
@@ -53,7 +53,7 @@ static func _run_parry_partial_no_defender_gain(failures: PackedStringArray) -> 
 
     var data: Dictionary = ProficiencyAwardPersistenceTests._setup_proficiency_combat(failures)
     if data.is_empty():
-        CombatRegressionHarness._fail(failures, "parry_partial_no_defender: setup failed")
+        _fail(failures, "parry_partial_no_defender: setup failed")
         return
 
     var enemy_ent: Node = data.get("enemy_ent")
@@ -62,7 +62,7 @@ static func _run_parry_partial_no_defender_gain(failures: PackedStringArray) -> 
     # Set up attack on player that will be partially parried.
     var atk: Dictionary = CombatantEntityAccess.manager_get_combatant(data.get("mgr"), data.get("p_id"))
     if atk.is_empty():
-        CombatRegressionHarness._fail(failures, "parry_partial_no_defender: no player combatant")
+        _fail(failures, "parry_partial_no_defender: no player combatant")
         return
 
     atk.state = CombatConstants.STATE_WIND_UP
@@ -78,7 +78,7 @@ static func _run_parry_partial_no_defender_gain(failures: PackedStringArray) -> 
     if not action.is_empty():
         var final_end: float = float(enemy_ent._proficiency_bonus.get("endurance", 0))
         if action == "parry_partial" and final_end > initial_end + 0.001:
-            CombatRegressionHarness._fail(
+            _fail(
                 failures,
                 (
                     "parry_partial_no_defender: defender END should not increase on parry_partial (initial=%.2f fin"
@@ -100,8 +100,8 @@ static func _run_medic_int_floor_per_entity_tracking(failures: PackedStringArray
     var Bridge := preload("res://world/CampaignEncounterBridge.gd")
 
     # Simulate two medic entities performing different numbers of actions.
-    var ent1: Node = CombatRegressionHarness._new_entity("SWORD")
-    var ent2: CoreEntity = CombatRegressionHarness._new_entity("SWORD")
+    var ent1: Node = _new_entity("SWORD")
+    var ent2: CoreEntity = _new_entity("SWORD")
     ent1._proficiency_bonus["intelligence"] = 0
     ent2._proficiency_bonus["intelligence"] = 0
 
@@ -123,19 +123,19 @@ static func _run_medic_int_floor_per_entity_tracking(failures: PackedStringArray
 
     var stored: Dictionary = world.get_meta("campaign_medic_actions_by")
     if int(stored.get(ent1.get_instance_id(), 0)) != 3:
-        CombatRegressionHarness._fail(
+        _fail(
             failures,
             "medic_int_floor: entity1 should have 3 actions (got %s)" % str(stored.get(ent1.get_instance_id()))
         )
     if int(stored.get(ent2.get_instance_id(), 0)) != 5:
-        CombatRegressionHarness._fail(
+        _fail(
             failures,
             "medic_int_floor: entity2 should have 5 actions (got %s)" % str(stored.get(ent2.get_instance_id()))
         )
 
     world.queue_free()
-    CombatRegressionHarness._free_harness_node(ent1)
-    CombatRegressionHarness._free_harness_node(ent2)
+    HarnessFixtures._free_harness_node(ent1)
+    HarnessFixtures._free_harness_node(ent2)
 
 
 ## merge_training_pending is wired into camp heal flow.
@@ -146,7 +146,7 @@ static func _run_merge_training_pending_wired_in_camp_heal(failures: PackedStrin
     if not CompanyState.read_stub_proficiency_enabled():
         return
 
-    var ent: CoreEntity = CombatRegressionHarness._new_entity("SWORD")
+    var ent: CoreEntity = _new_entity("SWORD")
     ProficiencyAwardPersistenceTests._set_prof_bonus(ent, "strength", 5.0)
     ent.training_pending["strength"] = 3.0
     ent.training_pending["intelligence"] = 2.0
@@ -155,9 +155,9 @@ static func _run_merge_training_pending_wired_in_camp_heal(failures: PackedStrin
     EntityProficiency.merge_training_pending(ent)
     var merged_str: float = ProficiencyAwardPersistenceTests._get_prof_bonus(ent, "strength")
     if absf(merged_str - 8.0) > 0.01:
-        CombatRegressionHarness._fail(failures, "merge_wired: STR should be 8.0 after merge (got %.2f)" % merged_str)
+        _fail(failures, "merge_wired: STR should be 8.0 after merge (got %.2f)" % merged_str)
 
-    CombatRegressionHarness._free_harness_node(ent)
+    HarnessFixtures._free_harness_node(ent)
 
 
 ## Decay applies on defeat (not just player victory).
@@ -167,7 +167,7 @@ static func _run_merge_training_pending_wired_in_camp_heal(failures: PackedStrin
 static func _run_decay_applies_on_defeat(failures: PackedStringArray) -> void:
     var old_stub: bool = CompanyState.read_stub_proficiency_enabled()
     CompanyState.proficiency_enabled = true
-    var ent: CoreEntity = CombatRegressionHarness._new_entity("SWORD")
+    var ent: CoreEntity = _new_entity("SWORD")
     ent._proficiency_bonus["strength"] = 15.0
     ent.last_fought_day = -3
 
@@ -176,21 +176,21 @@ static func _run_decay_applies_on_defeat(failures: PackedStringArray) -> void:
     var defeated_decay: float = float(ent._proficiency_bonus.get("strength", 15))
 
     # Compare with victory scenario (same decay expected).
-    var ent2: CoreEntity = CombatRegressionHarness._new_entity("SWORD")
+    var ent2: CoreEntity = _new_entity("SWORD")
     ent2._proficiency_bonus["strength"] = 15.0
     ent2.last_fought_day = -3
     EntityProficiency.apply_decay(ent2, 0)
     var victory_decay: float = float(ent2._proficiency_bonus.get("strength", 15))
 
     if absf(defeated_decay - victory_decay) > 0.001:
-        CombatRegressionHarness._fail(
+        _fail(
             failures,
             "decay_defeat: defeated decay (%.4f) should match victory decay (%.4f)" % [defeated_decay, victory_decay]
         )
 
     CompanyState.proficiency_enabled = old_stub
-    CombatRegressionHarness._free_harness_node(ent)
-    CombatRegressionHarness._free_harness_node(ent2)
+    HarnessFixtures._free_harness_node(ent)
+    HarnessFixtures._free_harness_node(ent2)
 
 
 ## Medical item multipliers scale INT gain correctly.
@@ -200,19 +200,19 @@ static func _run_decay_applies_on_defeat(failures: PackedStringArray) -> void:
 static func _run_medical_item_multipliers(failures: PackedStringArray) -> void:
     var bandage_mult: float = EntityProficiency.get_medical_item_mult("bandage")
     if absf(bandage_mult - 0.8) > 0.001:
-        CombatRegressionHarness._fail(failures, "med_item: bandage mult should be 0.8 (got %.2f)" % bandage_mult)
+        _fail(failures, "med_item: bandage mult should be 0.8 (got %.2f)" % bandage_mult)
 
     var pack_mult: float = EntityProficiency.get_medical_item_mult("pack")
     if absf(pack_mult - 1.2) > 0.001:
-        CombatRegressionHarness._fail(failures, "med_item: pack mult should be 1.2 (got %.2f)" % pack_mult)
+        _fail(failures, "med_item: pack mult should be 1.2 (got %.2f)" % pack_mult)
 
     var tkt_mult: float = EntityProficiency.get_medical_item_mult("tourniquet")
     if absf(tkt_mult - 1.5) > 0.001:
-        CombatRegressionHarness._fail(failures, "med_item: tourniquet mult should be 1.5 (got %.2f)" % tkt_mult)
+        _fail(failures, "med_item: tourniquet mult should be 1.5 (got %.2f)" % tkt_mult)
 
     var unknown_mult: float = EntityProficiency.get_medical_item_mult("unknown")
     if absf(unknown_mult - 1.0) > 0.001:
-        CombatRegressionHarness._fail(
+        _fail(
             failures, "med_item: unknown type should default to 1.0 (got %.2f)" % unknown_mult
         )
 
@@ -224,10 +224,10 @@ static func _run_medical_item_multipliers(failures: PackedStringArray) -> void:
 static func _run_decay_low_blood_volume_protection(failures: PackedStringArray) -> void:
     var old_stub: bool = CompanyState.read_stub_proficiency_enabled()
     CompanyState.proficiency_enabled = true
-    var ent: CoreEntity = CombatRegressionHarness._new_entity("SWORD")
+    var ent: CoreEntity = _new_entity("SWORD")
     ProficiencyAwardPersistenceTests._set_prof_bonus(ent, "strength", 15.0)
     ent.last_fought_day = -3
-    var ent_low_bv := CombatRegressionHarness._new_entity("SWORD")
+    var ent_low_bv := _new_entity("SWORD")
     ProficiencyAwardPersistenceTests._set_prof_bonus(ent_low_bv, "strength", 15.0)
     ent_low_bv.last_fought_day = -3
 
@@ -240,7 +240,7 @@ static func _run_decay_low_blood_volume_protection(failures: PackedStringArray) 
     var low_bv_remaining: float = ProficiencyAwardPersistenceTests._get_prof_bonus(ent_low_bv, "strength")
 
     if low_bv_remaining <= normal_remaining:
-        CombatRegressionHarness._fail(
+        _fail(
             failures,
             (
                 "decay_low_blood: low blood volume remaining (%.4f) should exceed normal (%.4f)"
@@ -249,8 +249,8 @@ static func _run_decay_low_blood_volume_protection(failures: PackedStringArray) 
         )
 
     CompanyState.proficiency_enabled = old_stub
-    CombatRegressionHarness._free_harness_node(ent)
-    CombatRegressionHarness._free_harness_node(ent_low_bv)
+    HarnessFixtures._free_harness_node(ent)
+    HarnessFixtures._free_harness_node(ent_low_bv)
 
 
 ## Medical wind-up speed uses effective INT when stub is on.
@@ -262,12 +262,12 @@ static func _run_medical_windup_uses_effective_int(failures: PackedStringArray) 
         return
 
     var mgr: Node = CombatManager.new()
-    var medic_ent: CoreEntity = CombatRegressionHarness._new_entity("SWORD")
+    var medic_ent: CoreEntity = _new_entity("SWORD")
     medic_ent.intelligence = 100
     medic_ent._proficiency_bonus["intelligence"] = 20.0  # Effective INT = 120.
     mgr.register(medic_ent, "player")
 
-    var patient_ent: CoreEntity = CombatRegressionHarness._new_entity("SWORD")
+    var patient_ent: CoreEntity = _new_entity("SWORD")
     patient_ent.intelligence = 100
     mgr.register(patient_ent, "enemy")
     mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
@@ -281,11 +281,11 @@ static func _run_medical_windup_uses_effective_int(failures: PackedStringArray) 
     )
 
     if absf(eff_speed - base_speed) < 0.01:
-        CombatRegressionHarness._fail(
+        _fail(
             failures, "windup_eff_int: effective (%.2f) should differ from base (%.2f)" % [eff_speed, base_speed]
         )
 
-    CombatRegressionHarness._free_harness_node(mgr)
+    HarnessFixtures._free_harness_node(mgr)
 
 
 ## Pain shock END slope constant is correctly named and usable.
@@ -295,7 +295,7 @@ static func _run_medical_windup_uses_effective_int(failures: PackedStringArray) 
 static func _run_pain_shock_end_slope_constant(failures: PackedStringArray) -> void:
     var slope: float = PainConsciousnessConstants.ENDURANCE_PAIN_SHOCK_SLOPE_PER_POINT
     if absf(slope - 0.02) > 0.001:
-        CombatRegressionHarness._fail(failures, "pain_shock_slope: constant should be 0.02 (got %.4f)" % slope)
+        _fail(failures, "pain_shock_slope: constant should be 0.02 (got %.4f)" % slope)
 
 
 ## Medical effectiveness formula uses correct clamp.
@@ -303,30 +303,30 @@ static func _run_pain_shock_end_slope_constant(failures: PackedStringArray) -> v
 
 ## Medical effectiveness formula uses correct clamp.
 static func _run_medical_effectiveness_formula(failures: PackedStringArray) -> void:
-    var ent: CoreEntity = CombatRegressionHarness._new_entity("SWORD")
+    var ent: CoreEntity = _new_entity("SWORD")
 
     ent.intelligence = 100
     if absf(ent._get_medical_effectiveness() - 1.0) > 0.001:
-        CombatRegressionHarness._fail(
+        _fail(
             failures, "med_eff@100: should be 1.0 (got %.4f)" % ent._get_medical_effectiveness()
         )
 
     ent.intelligence = 50
     var eff_50: float = ent._get_medical_effectiveness()
     if absf(eff_50 - 0.5) > 0.001:
-        CombatRegressionHarness._fail(failures, "med_eff@50: should be 0.5 (got %.4f)" % eff_50)
+        _fail(failures, "med_eff@50: should be 0.5 (got %.4f)" % eff_50)
 
     ent.intelligence = 150
     var eff_150: float = ent._get_medical_effectiveness()
     if absf(eff_150 - 1.5) > 0.001:
-        CombatRegressionHarness._fail(failures, "med_eff@150: should be 1.5 (got %.4f)" % eff_150)
+        _fail(failures, "med_eff@150: should be 1.5 (got %.4f)" % eff_150)
 
     ent.intelligence = 200
     var eff_200: float = ent._get_medical_effectiveness()
     if absf(eff_200 - 1.5) > 0.001:
-        CombatRegressionHarness._fail(failures, "med_eff@200: should still be 1.5 (got %.4f)" % eff_200)
+        _fail(failures, "med_eff@200: should still be 1.5 (got %.4f)" % eff_200)
 
-    CombatRegressionHarness._free_harness_node(ent)
+    HarnessFixtures._free_harness_node(ent)
 
 
 ## Dodge formula uses /100 divisor instead of /200.
@@ -334,22 +334,22 @@ static func _run_medical_effectiveness_formula(failures: PackedStringArray) -> v
 
 ## Dodge formula uses /100 divisor instead of /200.
 static func _run_dodge_formula_divisor(failures: PackedStringArray) -> void:
-    var ent: CoreEntity = CombatRegressionHarness._new_entity("SWORD")
+    var ent: CoreEntity = _new_entity("SWORD")
     ent.agility = 150
 
     # Dodge factor should be (AGI-100)/100 * 0.5 = 50/100 * 0.5 = 0.25
     var dodge_factor: float = float(ent.agility - 100) / 100.0 * 0.5
     if absf(dodge_factor - 0.25) > 0.001:
-        CombatRegressionHarness._fail(failures, "dodge_divisor: expected 0.25 (got %.4f)" % dodge_factor)
+        _fail(failures, "dodge_divisor: expected 0.25 (got %.4f)" % dodge_factor)
 
     # Old formula would have given: 50/200 * 0.5 = 0.125 — half as much.
     var old_dodge_factor: float = float(ent.agility - 100) / 200.0 * 0.5
     if absf(old_dodge_factor - 0.125) > 0.001:
-        CombatRegressionHarness._fail(
+        _fail(
             failures, "dodge_divisor: old formula should give 0.125 (got %.4f)" % old_dodge_factor
         )
 
-    CombatRegressionHarness._free_harness_node(ent)
+    HarnessFixtures._free_harness_node(ent)
 
 
 ## Parry multipliers extract to named constants with correct values.
@@ -359,15 +359,15 @@ static func _run_dodge_formula_divisor(failures: PackedStringArray) -> void:
 static func _run_parry_constants_correct_values(failures: PackedStringArray) -> void:
     var parry_deflect_str: float = EntityProficiency.GAIN_PARRY_DEFLECT_STR_MULT
     if absf(parry_deflect_str - 0.5) > 0.001:
-        CombatRegressionHarness._fail(failures, "parry_deflect_str_mult: expected 0.5 (got %.4f)" % parry_deflect_str)
+        _fail(failures, "parry_deflect_str_mult: expected 0.5 (got %.4f)" % parry_deflect_str)
 
     var parry_deflect_end: float = EntityProficiency.GAIN_PARRY_DEFLECT_END_MULT
     if absf(parry_deflect_end - 0.5) > 0.001:
-        CombatRegressionHarness._fail(failures, "parry_deflect_end_mult: expected 0.5 (got %.4f)" % parry_deflect_end)
+        _fail(failures, "parry_deflect_end_mult: expected 0.5 (got %.4f)" % parry_deflect_end)
 
     var parry_partial_str: float = EntityProficiency.GAIN_PARRY_PARTIAL_STR_MULT
     if absf(parry_partial_str - 0.3) > 0.001:
-        CombatRegressionHarness._fail(failures, "parry_partial_str_mult: expected 0.3 (got %.4f)" % parry_partial_str)
+        _fail(failures, "parry_partial_str_mult: expected 0.3 (got %.4f)" % parry_partial_str)
 
 
 ## Direct pressure awards INT to medic and small END to patient.
@@ -375,8 +375,8 @@ static func _run_parry_constants_correct_values(failures: PackedStringArray) -> 
 
 ## Direct pressure awards INT to medic and small END to patient.
 static func _run_direct_pressure_awards_gains(failures: PackedStringArray) -> void:
-    var ent1: Node = CombatRegressionHarness._new_entity("SWORD")
-    var ent2: CoreEntity = CombatRegressionHarness._new_entity("SPEAR")
+    var ent1: Node = _new_entity("SWORD")
+    var ent2: CoreEntity = _new_entity("SPEAR")
 
     # Simulate stub being ON by temporarily enabling it.
     var old_stub: bool = CompanyState.read_stub_proficiency_enabled()
@@ -392,7 +392,7 @@ static func _run_direct_pressure_awards_gains(failures: PackedStringArray) -> vo
     EntityProficiency.award_stat_gain(ent1, "intelligence", expected_int_gain)
 
     if absf(float(ent1._proficiency_bonus.get("intelligence", 0)) - expected_int_gain) > 0.001:
-        CombatRegressionHarness._fail(
+        _fail(
             failures,
             (
                 "dp INT gain: expected %.4f (got %.4f)"
@@ -408,14 +408,14 @@ static func _run_direct_pressure_awards_gains(failures: PackedStringArray) -> vo
     EntityProficiency.award_stat_gain(ent2, "endurance", expected_end_gain)
 
     if absf(float(ent2._proficiency_bonus.get("endurance", 0)) - expected_end_gain) > 0.001:
-        CombatRegressionHarness._fail(
+        _fail(
             failures,
             "dp END gain: expected %.4f (got %.4f)" % [expected_end_gain, ent2._proficiency_bonus.get("endurance", 0)]
         )
 
     CompanyState.proficiency_enabled = old_stub
-    CombatRegressionHarness._free_harness_node(ent1)
-    CombatRegressionHarness._free_harness_node(ent2)
+    HarnessFixtures._free_harness_node(ent1)
+    HarnessFixtures._free_harness_node(ent2)
 
 
 ## Decay skips entities that never fought (_last_fought_day == 0).
@@ -425,7 +425,7 @@ static func _run_direct_pressure_awards_gains(failures: PackedStringArray) -> vo
 static func _run_decay_skips_never_fought_entities(failures: PackedStringArray) -> void:
     var old_stub: bool = CompanyState.read_stub_proficiency_enabled()
     CompanyState.proficiency_enabled = true
-    var ent: CoreEntity = CombatRegressionHarness._new_entity("SWORD")
+    var ent: CoreEntity = _new_entity("SWORD")
 
     ent._proficiency_bonus = {"strength": 0, "endurance": 25, "intelligence": 0, "agility": 0, "perception": 0}
     ent.last_fought_day = 0  # Never fought — should NOT decay
@@ -433,7 +433,7 @@ static func _run_decay_skips_never_fought_entities(failures: PackedStringArray) 
     EntityProficiency.apply_decay(ent, 1)  # Day 1, last_fought=0 |' skip
 
     if float(ent._proficiency_bonus.get("endurance", 0)) != 25.0:
-        CombatRegressionHarness._fail(
+        _fail(
             failures,
             "never-fought decay: endurance should stay 25 (got %.4f)" % ent._proficiency_bonus.get("endurance", 0)
         )
@@ -446,7 +446,7 @@ static func _run_decay_skips_never_fought_entities(failures: PackedStringArray) 
     EntityProficiency.apply_decay(ent, 1)
 
     if absf(float(ent._proficiency_bonus.get("endurance", 0)) - expected_after_decay) > 0.01:
-        CombatRegressionHarness._fail(
+        _fail(
             failures,
             (
                 "post-fight decay: expected %.4f (got %.4f)"
@@ -455,7 +455,7 @@ static func _run_decay_skips_never_fought_entities(failures: PackedStringArray) 
         )
 
     CompanyState.proficiency_enabled = old_stub
-    CombatRegressionHarness._free_harness_node(ent)
+    HarnessFixtures._free_harness_node(ent)
 
 
 ## Outnumbered dodge bonus uses proper slot-group alive count.
@@ -478,7 +478,7 @@ static func _run_outnumbered_dodge_bonus_with_slot_group_check(failures: PackedS
     var AttackResultApplierScript = preload("res://combat/strike/AttackResultApplier.gd")
     var is_outnumbered: bool = AttackResultApplierScript._is_defender_outnumbered(mock_mgr, defender)
     if is_outnumbered:
-        CombatRegressionHarness._fail(
+        _fail(
             failures, "outnumbered: production func returns false without get_combatants (expected)"
         )
 
@@ -499,7 +499,7 @@ static func _run_outnumbered_dodge_bonus_with_slot_group_check(failures: PackedS
             continue
         group_count += 1
     if group_count != 2:
-        CombatRegressionHarness._fail(failures, "outnumbered count: should be 2 with ally (got %d)" % group_count)
+        _fail(failures, "outnumbered count: should be 2 with ally (got %d)" % group_count)
 
     # Enemy in different group and side should not count.
     group_count = 0
@@ -513,7 +513,7 @@ static func _run_outnumbered_dodge_bonus_with_slot_group_check(failures: PackedS
             continue
         group_count += 1
     if group_count != 1:
-        CombatRegressionHarness._fail(failures, "outnumbered count: enemy should not count (got %d)" % group_count)
+        _fail(failures, "outnumbered count: enemy should not count (got %d)" % group_count)
 
 
 ## Post-combat stub gating: apply_decay respects read_stub_proficiency_enabled().
@@ -521,7 +521,7 @@ static func _run_outnumbered_dodge_bonus_with_slot_group_check(failures: PackedS
 
 ## Post-combat stub gating: apply_decay respects read_stub_proficiency_enabled().
 static func _run_stub_gating_post_combat(failures: PackedStringArray) -> void:
-    var ent: CoreEntity = CombatRegressionHarness._new_entity("SWORD")
+    var ent: CoreEntity = _new_entity("SWORD")
 
     ent._proficiency_bonus = {"strength": 0, "endurance": 0, "intelligence": 20, "agility": 0, "perception": 0}
     ent.last_fought_day = -5  # Simulate last fought 6 days before day 1
@@ -532,7 +532,7 @@ static func _run_stub_gating_post_combat(failures: PackedStringArray) -> void:
     EntityProficiency.apply_decay(ent, 1)
 
     if float(ent._proficiency_bonus.get("intelligence", 0)) != 20.0:
-        CombatRegressionHarness._fail(
+        _fail(
             failures,
             (
                 "post_combat_stub_off: intelligence should stay 20 (got %.4f)"
@@ -547,7 +547,7 @@ static func _run_stub_gating_post_combat(failures: PackedStringArray) -> void:
     EntityProficiency.apply_decay(ent, 1)
 
     if absf(float(ent._proficiency_bonus.get("intelligence", 0)) - expected_after_decay) > 0.01:
-        CombatRegressionHarness._fail(
+        _fail(
             failures,
             (
                 "post_combat_stub_on: intelligence should decay to %.4f (got %.4f)"
@@ -556,7 +556,7 @@ static func _run_stub_gating_post_combat(failures: PackedStringArray) -> void:
         )
 
     CompanyState.proficiency_enabled = old_stub
-    CombatRegressionHarness._free_harness_node(ent)
+    HarnessFixtures._free_harness_node(ent)
 
 
 ## Batch resolve medical actions award proficiency gains.
@@ -564,8 +564,8 @@ static func _run_stub_gating_post_combat(failures: PackedStringArray) -> void:
 
 ## Batch resolve medical actions award proficiency gains.
 static func _run_batch_resolve_awards_medical_gains(failures: PackedStringArray) -> void:
-    var medic_ent: CoreEntity = CombatRegressionHarness._new_entity("SWORD")
-    var patient_ent: CoreEntity = CombatRegressionHarness._new_entity("SPEAR")
+    var medic_ent: CoreEntity = _new_entity("SWORD")
+    var patient_ent: CoreEntity = _new_entity("SPEAR")
 
     var old_stub: bool = CompanyState.read_stub_proficiency_enabled()
     CompanyState.proficiency_enabled = true
@@ -580,7 +580,7 @@ static func _run_batch_resolve_awards_medical_gains(failures: PackedStringArray)
         EntityProficiency.GAIN_MEDICAL_ACTION_BASE * EntityProficiency.get_medical_item_mult("bandage")
     )
     if absf(float(medic_ent._proficiency_bonus.get("intelligence", 0)) - 0.4) > 0.001:
-        CombatRegressionHarness._fail(
+        _fail(
             failures, "batch bandage INT: expected 0.4 (got %.4f)" % medic_ent._proficiency_bonus.get("intelligence", 0)
         )
 
@@ -591,7 +591,7 @@ static func _run_batch_resolve_awards_medical_gains(failures: PackedStringArray)
         EntityProficiency.GAIN_BLOOD_PERIL_BASE * EntityProficiency.GAIN_MEDICAL_PATIENT_END_MULT
     )
     if absf(float(patient_ent._proficiency_bonus.get("endurance", 0)) - 0.4) > 0.001:
-        CombatRegressionHarness._fail(
+        _fail(
             failures, "batch bandage END: expected 0.4 (got %.4f)" % patient_ent._proficiency_bonus.get("endurance", 0)
         )
 
@@ -603,14 +603,14 @@ static func _run_batch_resolve_awards_medical_gains(failures: PackedStringArray)
         EntityProficiency.GAIN_MEDICAL_ACTION_BASE * EntityProficiency.get_medical_item_mult("tourniquet")
     )
     if absf(float(medic_ent._proficiency_bonus.get("intelligence", 0)) - 0.75) > 0.001:
-        CombatRegressionHarness._fail(
+        _fail(
             failures,
             "batch tourniquet INT: expected 0.75 (got %.4f)" % medic_ent._proficiency_bonus.get("intelligence", 0)
         )
 
     CompanyState.proficiency_enabled = old_stub
-    CombatRegressionHarness._free_harness_node(medic_ent)
-    CombatRegressionHarness._free_harness_node(patient_ent)
+    HarnessFixtures._free_harness_node(medic_ent)
+    HarnessFixtures._free_harness_node(patient_ent)
 
 
 ## Weapon/form proficiency channels and Layer C intended-part boost scaling.
@@ -620,18 +620,18 @@ static func _run_batch_resolve_awards_medical_gains(failures: PackedStringArray)
 static func _run_targeting_proficiency_channels(failures: PackedStringArray) -> void:
     var old_stub: bool = CompanyState.read_stub_proficiency_enabled()
     CompanyState.proficiency_enabled = true
-    var ent: CoreEntity = CombatRegressionHarness._new_entity("SWORD")
+    var ent: CoreEntity = _new_entity("SWORD")
     EntityProficiency.award_weapon_proficiency(ent, "SWORD", 20.0)
     EntityProficiency.award_form_proficiency(ent, CombatWeaponForm.FORM_WRATH, 20.0)
     var boost_vet: float = EntityProficiency.intended_part_boost_mult(ent, "SWORD", CombatWeaponForm.FORM_WRATH)
     if boost_vet < 2.95:
-        CombatRegressionHarness._fail(
+        _fail(
             failures, "targeting_prof: veteran intended_part boost want ~3.0 got %.2f" % boost_vet
         )
-    var ent_nov: CoreEntity = CombatRegressionHarness._new_entity("SWORD")
+    var ent_nov: CoreEntity = _new_entity("SWORD")
     var boost_nov: float = EntityProficiency.intended_part_boost_mult(ent_nov, "SWORD", CombatWeaponForm.FORM_BALANCED)
     if absf(boost_nov - 2.0) > 0.05:
-        CombatRegressionHarness._fail(
+        _fail(
             failures, "targeting_prof: novice intended_part boost want 2.0 got %.2f" % boost_nov
         )
     var atk: Dictionary = {
@@ -643,16 +643,16 @@ static func _run_targeting_proficiency_channels(failures: PackedStringArray) -> 
         "high", "low", ["head", "chest", "left_arm"], {}, "chest", {}, {}, atk, move_def
     )
     if part.is_empty():
-        CombatRegressionHarness._fail(failures, "targeting_prof: resolve_hit_part returned empty")
+        _fail(failures, "targeting_prof: resolve_hit_part returned empty")
     EntityProficiency.notify_targeting_gains_from_hit(
         ent, "SWORD", CombatWeaponForm.FORM_WRATH, move_def, "chest", "chest", "head"
     )
     if float(ent._weapon_proficiency.get("SWORD", 0.0)) <= 20.0:
-        CombatRegressionHarness._fail(failures, "targeting_prof: weapon prof should increase on hit")
+        _fail(failures, "targeting_prof: weapon prof should increase on hit")
     if float(ent._form_proficiency.get(CombatWeaponForm.FORM_WRATH, 0.0)) <= 20.0:
-        CombatRegressionHarness._fail(failures, "targeting_prof: form prof should increase on hit")
+        _fail(failures, "targeting_prof: form prof should increase on hit")
     CompanyState.proficiency_enabled = old_stub
-    CombatRegressionHarness._free_harness_node(ent)
-    CombatRegressionHarness._free_harness_node(ent_nov)
+    HarnessFixtures._free_harness_node(ent)
+    HarnessFixtures._free_harness_node(ent_nov)
 
 ## Run all proficiency harness tests.

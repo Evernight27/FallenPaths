@@ -101,6 +101,7 @@ static func _headless_preset_checks(preset_id: String) -> Array:
                     "needle": "solo fall_back blocked: cowering unit alone on side",
                     "min": 1,
                 },
+                {"id": "cowering_executed", "needle": "cowering_fall_back executed", "min": 1},
             ]
         SoakEncounterPresets.PRESET_II6_AMBIENT_SHOCK:
             return [
@@ -398,6 +399,12 @@ static func _validator_ii5_tracks() -> Array:
         {
             "id": "ii5_no_solo_fall_back_alone",
             "needle": "solo fall_back blocked: cowering unit alone on side",
+            "min": 1,
+            "profiles": [PROFILE_PRESET_II5],
+        },
+        {
+            "id": "ii5_cowering_executed",
+            "needle": "cowering_fall_back executed",
             "min": 1,
             "profiles": [PROFILE_PRESET_II5],
         },

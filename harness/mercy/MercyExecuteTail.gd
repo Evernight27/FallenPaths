@@ -10,7 +10,7 @@ const CombatConstants := preload("res://combat/CombatConstants.gd")
 const CombatExecute := preload("res://combat/ai/CombatExecute.gd")
 const CombatMeleeListing := preload("res://combat/ai/CombatMeleeListing.gd")
 const CombatResolveAction := preload("res://combat/flow/CombatResolveAction.gd")
-const CombatConstantsFeatureFlags := preload("res://combat/constants/CombatConstantsFeatureFlags.gd")
+const FeatureFlags := preload("res://combat/constants/CombatConstantsFeatureFlags.gd")
 const AvailableActionsBuilder := preload("res://combat/ai/AvailableActionsBuilder.gd")
 const CombatantEntityAccess := preload("res://combat/access/CombatantEntityAccess.gd")
 const CombatantIdentityAccess := preload("res://combat/access/CombatantIdentityAccess.gd")
@@ -368,7 +368,7 @@ static func _run_combat_log_execute_outcome_format(failures: PackedStringArray) 
 ## Phase 0/1c: FEATURE_MERCY_EXECUTE=false suppresses execute listing.
 static func _run_execute_suppressed_when_feature_flag_off(failures: PackedStringArray) -> void:
     var was_on: bool = CombatConstants.FEATURE_MERCY_EXECUTE
-    CombatConstantsFeatureFlags.set_feature_mercy_execute_load(false)
+    FeatureFlags.set_feature_mercy_execute_load(false)
     # Re-check: even with feature off, the listing function returns early.
     # Since we can't reload features at runtime easily in headless, verify the guard exists.
     if was_on:
@@ -387,7 +387,7 @@ static func _run_execute_suppressed_when_feature_flag_off(failures: PackedString
             _fail(failures, "execute_suppressed: listing must be empty when feature off")
         HarnessFixtures.flush_harness_live_nodes()
         _free_manager_restore_global_rng(mgr)
-    CombatConstantsFeatureFlags.set_feature_mercy_execute_load(was_on)
+    FeatureFlags.set_feature_mercy_execute_load(was_on)
 
 
 ## Phase 0/1c: append_execute_actions_for_combatant is idempotent (no duplicates).

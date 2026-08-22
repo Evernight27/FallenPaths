@@ -191,8 +191,8 @@ static func _weapon_definitions_build() -> Dictionary:
             "thrust_head_width": 2.0,
             "head_diameter": 8.0,
             "edge_width": 0.5,
-            "blade_cut_ratio": 0.0,
-            "stab_cut_ratio": 0.05,
+            "blade_cut_ratio": 0.15,
+            "stab_cut_ratio": 0.15,
             "melee_range": 1.3,
             "parts":
             [
@@ -256,8 +256,8 @@ static func _weapon_definitions_build() -> Dictionary:
             "thrust_head_width": 1.0,
             "head_diameter": 2.5,
             "edge_width": 0.0,
-            "blade_cut_ratio": 0.9,
-            "stab_cut_ratio": 0.3,  # Rondel daggers can slice tissue on withdrawal (Oakeshott medieval dagger typology); higher than point-thrust-only weapons
+            "blade_cut_ratio": 0.7,
+            "stab_cut_ratio": 0.75,  # Rondel dagger thrusts are primarily cutting along the wound channel; withdrawal slicing adds edge damage (Fiore's rondel dagger techniques)
             "melee_range": 0.8,
             "parts":
             [
@@ -315,8 +315,8 @@ static func _weapon_definitions_build() -> Dictionary:
             "thrust_head_width": 2.5,
             "head_diameter": 3.5,
             "edge_width": 0.0,
-            "blade_cut_ratio": 0.35,
-            "stab_cut_ratio": 0.25,
+            "blade_cut_ratio": 0.65,
+            "stab_cut_ratio": 0.35,
             "melee_range": 2.5,
             "depth_melee_eligible": true,
             "parts":
@@ -399,9 +399,10 @@ static func _archetype_definitions_build() -> Dictionary:
         },
         ARCHETYPE_OVERHEAD:
         {
-            # High-commitment swing moves — calibrated at reference velocity. Damage transfer efficiency handled via
-            # strike_energy_mult (now applied to damage, not KE). For high-inertia weapons like axe poll_strike use
-            # ARCHETYPE_POLL_STRIKE instead which has reduced velocity_factor for realistic rotational KE.
+            # High-commitment swing moves — calibrated at reference velocity. strike_energy_mult is stored for
+            # diagnostic/tuning reference only — it is NOT consumed by the KE or damage pipeline (pure physics).
+            # For high-inertia weapons like axe poll_strike use ARCHETYPE_POLL_STRIKE instead which has reduced
+            # velocity_factor for realistic rotational KE.
             "velocity_factor": 1.0,
             "velocity_intensity_curve": 1.1,
             "cut_ratio": -1.0,
@@ -430,8 +431,9 @@ static func _archetype_definitions_build() -> Dictionary:
         },
         ARCHETYPE_HEAVY_BLUNT:
         {
-            # Mace poll/handle strikes — moderate inertia weapon. Damage transfer efficiency handled via strike_energy_mult
-            # (now applied to damage, not KE). Velocity_factor=1.0 produces realistic KE for mace geometry.
+            # Mace poll/handle strikes — moderate inertia weapon. strike_energy_mult is stored for diagnostic/tuning
+            # reference only — it is NOT consumed by the KE or damage pipeline (pure physics).
+            # Velocity_factor=1.0 produces realistic KE for mace geometry.
             "velocity_factor": 1.0,
             "velocity_intensity_curve": 0.95,
             "cut_ratio": -1.0,  # blunt weapons route via get_damage_type -> MIN_CUT_RATIO floor (0.02), not 5%
@@ -452,15 +454,15 @@ static func _archetype_definitions_build() -> Dictionary:
         ARCHETYPE_POLE_SWING:
         {
             # Polearm shaft/butt strikes — very high inertia weapon (I≈3.81 kg·m²) with long lever arm r=1.015m.
-            # At full commitment vf=0.55 gives KE≈140J which exceeds 130J band cap; vf=0.46 caps to ~128J.
-            # At i=0.6 typical exchange: v≈7.7 m/s → ω≈7.6 rad/s → KE≈109J (in-band).
-            "velocity_factor": 0.46,
+            # At full commitment vf=0.62 gives KE≈128J (in 45-130J band). At i=0.6 typical exchange: v≈9.2 m/s
+            # → ω≈9.1 rad/s → KE≈158J capped to ~130J by band; at i=0.45 lands ~75J comfortably in-band.
+            # Removed strike_energy_mult (was 0.45) — it models damage transfer efficiency, not kinetic energy.
+            "velocity_factor": 0.62,
             "velocity_intensity_curve": 0.95,
             "cut_ratio": -1.0,
             "recovery_multiplier": 1.15,
             "windup_multiplier": 1.1,
-            "kinematic_delivery": KINEMATIC_DELIVERY_SWING,
-            "strike_energy_mult": 0.45
+            "kinematic_delivery": KINEMATIC_DELIVERY_SWING
         },
         ARCHETYPE_POLL_STRIKE:
         {

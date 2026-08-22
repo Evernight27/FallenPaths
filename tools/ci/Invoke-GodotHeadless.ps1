@@ -36,12 +36,14 @@ function Invoke-FallenPathsGodotScript {
 	}
 	$godotInvokeArgs = @("--headless", "--path", $Root, "-s", $Script) + $GodotExtraArgs
 	# No downstream pipe — $LASTEXITCODE after `| Tee-Object` / `ForEach-Object` is not Godot's.
-	$godotOut = @(& $Godot @godotInvokeArgs 2>&1)
-	$script:LastFallenPathsGodotExitCode = $LASTEXITCODE
+	# Note: capturing Godot's output via 2>&1 into an array can interfere with GDScript file I/O
+	# (Godot's internal logging interacts poorly with active pipeline consumers on Windows).
+	# Use --log-file for log capture instead of stdout redirection.
 	if ($TeeLog -ne "") {
-		$godotOut | Set-Content -Path $TeeLog -Encoding utf8
+		$godotInvokeArgs += @("--log-file", $TeeLog)
 	}
-	$godotOut
+	& $Godot @godotInvokeArgs 2>&1 | Out-Null
+	$script:LastFallenPathsGodotExitCode = $LASTEXITCODE
 	if ($hadMode) {
 		Remove-Item Env:FP_HARNESS_MODE -ErrorAction SilentlyContinue
 	}

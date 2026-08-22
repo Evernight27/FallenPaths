@@ -40,6 +40,8 @@ static func run(failures: PackedStringArray) -> void:
     SimulationCombatTests._run_sim_pen_entity_damage_armor_reduces_bone(failures)
     SimulationCombatTests._run_sim_atls_consciousness_class_boundaries(failures)
     SimulationCombatTests._run_sim_atls_consciousness_monotonic(failures)
+    SimulationCombatTests._run_sim_overall_damage_ratio_tracks_tissue(failures)
+    SimulationCombatTests._run_sim_concussion_severity_scales_with_damage(failures)
     SimulationMaterialTests._run_sim_depth_shallow_pen_lowers_severity(failures)
     SimulationMaterialTests._run_sim_depth_deep_pen_raises_severity(failures)
     SimulationMaterialTests._run_sim_blunt_tissue_ke_reduces_fracture(failures)

@@ -375,7 +375,7 @@ static func run(failures: PackedStringArray) -> void:
         var result: Dictionary = runner.call()
         var total_rounds: int = result.get("total_rounds_played", 0)
         if total_rounds == 0:
-            CombatRegressionHarness._fail(failures, "proficiency_1v1_%s: no rounds played" % name)
+            HarnessFixtures._fail(failures, "proficiency_1v1_%s: no rounds played" % name)
             continue
 
         var pgains: Dictionary = result.get("cumulative_player_gains", {})
@@ -384,7 +384,7 @@ static func run(failures: PackedStringArray) -> void:
             total_gain += absf(pgains[stat])
 
         if total_gain < 0.1:
-            CombatRegressionHarness._fail(
+            HarnessFixtures._fail(
                 failures,
                 "proficiency_1v1_%s: player gains too low (%.3f over %d rounds)" % [name, total_gain, total_rounds]
             )

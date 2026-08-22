@@ -7,6 +7,9 @@ const DAMAGE_TYPE_BLUNT := "BLUNT"
 const MISS_CHANCE_BASE := 0.08
 const HIT_CHANCE_PERCEPTION_MIN := 0.8
 const HIT_CHANCE_PERCEPTION_MAX := 1.2
+## Minimum cap on effective hit chance after all multiplicative penalties (stamina, pain, fatigue).
+## HEMA shows ~50-70% contact rate at close range; compounding penalties were collapsing to 20-40%.
+const HIT_CHANCE_MIN_CAP := 0.45
 const GLANCING_DAMAGE_RATIO := 0.1
 const GLANCING_DAMAGE_ABSOLUTE_FLOOR := 0.3
 const PHYSICAL_DAMAGE_ZERO_EPS := 1e-4

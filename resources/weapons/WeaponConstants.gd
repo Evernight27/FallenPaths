@@ -41,11 +41,11 @@ const VELOCITY_MAX_M_S: float = 24.0
 # sqrt(KE) is a game abstraction — Yoganandan et al. (J. Trauma) reports LINEAR energy thresholds
 # for tissue severance (~400-600 J sharp for arm), but a square-root flattens the damage curve so
 # extreme strikes don't trivialize armor. Calibrated so DESIGN_KE_ARM_J=100 gives ~35 pre_armor,
-# and DAMAGE_KE_MAX=80 corresponds to KE=(80/3.5)^2 ≈ 522 J — within the arm-severance band.
+# and DAMAGE_KE_MAX=90 corresponds to KE=(90/3.5)^2 ≈ 661 J — within the arm-severance band.
 const DAMAGE_KE_SCALE: float = 3.5  # Game-tuning constant; sqrt(KE) flattening calibrated so 100J→35 dmg, cap at ~522J≈arm-severance
 const DAMAGE_KE_MIN: float = 1.0
 
-# Pre-armor sharp damage hard cap — corresponds to KE=(80/3.5)^2 ≈ 522 J, within the Yoganandan arm-severance band (400-600J).
+# Pre-armor sharp damage hard cap — corresponds to KE=(90/3.5)^2 ≈ 661 J, within the Yoganandan arm-severance band (400-600J).
 const DAMAGE_KE_MAX: float = 90.0
 
 # Cap penetration (mm RHA) from KE — physically grounded: Williams formula at max realistic combat KE (~130-160J spear thrust / mace overhead)
@@ -126,8 +126,11 @@ const BLUNT_DAMAGE_MAX: float = 90.0      # Same ceiling as DAMAGE_KE_MAX; singl
 # --- Parry deflection damage transfer (Issue 4 + physics audit MEDIUM #7) ---
 ## Momentum-based impulse model: F = Δp/Δt where blade contact time ≈ 20ms (HEMA force-plate studies).
 ## Deflected momentum transmits to defender's arm at ~20% of incoming momentum fraction.
-## Damage = momentum_transfer × IMPULSE_DAMAGE_SCALE, calibrated so typical parry deflection deals
-## 5-15 blunt damage (bruising/nerve shock) vs full hit of 30-50.
+## Damage = momentum_transfer × IMPULSE_DAMAGE_SCALE × PARRY_DEFLECTION_SHOCK_TRANSFER. A parry transmits a small
+## fraction of the incoming blow's momentum into the defender's arm (HEMA force-plate: ~20% of incoming momentum).
+## Energy analysis: a sword parry deposits ~0.1-0.3 J into the arm (vs ~100 J for a full hit), so a typical parry
+## deals a SMALL amount (~0.2-1.0), meaningful mainly for heavy blows (mace). The >0.5 apply-gate suppresses the
+## small values, so light parries are effectively free.
 const PARRY_DEFLECTION_MOMENTUM_FRACTION: float = 0.20   # fraction of incoming momentum transferred to defender's arm
 const IMPULSE_DAMAGE_SCALE: float = 0.6                   # converts (kg·m/s) impulse to game damage units
 ## Fraction of calculated impulse damage actually applied as tissue/bone blunt damage (rest absorbed by armor/weapon).

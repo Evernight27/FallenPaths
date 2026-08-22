@@ -23,6 +23,7 @@ static func _run_validator_fixture_tests() -> PackedStringArray:
             "soak_setup ii5 leader armless",
             "cowering_fall_back listed for Leader",
             "solo fall_back blocked: cowering unit alone on side (Leader)",
+            "cowering_fall_back executed Leader rank 0->1 file 0",
             "soak_fight_end winner=player medical_phase=false fight_profile=ii5",
         ]
     )
@@ -801,7 +802,7 @@ static func _ii6_probe_entity() -> CoreEntity:
     ent.blood_volume = II6_PROBE_BV_PCT
     ent._pain_shock_until_time = -1.0
     ent._ambient_pain_shock_accum = 0.0
-    _CombatRegressionHarness._track_harness_node(ent)
+    HarnessFixtures._track_harness_node(ent)
     return ent
 
 
@@ -909,7 +910,7 @@ static func _run_f5_soak_trace_fixtures() -> PackedStringArray:
         failures.append("f5_trace_early_medical_exit: want soak_coverage after finish_battle got %d" % early_exit_cov)
     if medical_exit_log > 0:
         failures.append("f5_trace_early_medical_exit: campaign_medical_exit should not log without contract world")
-    _CombatRegressionHarness._free_harness_node(exit_mgr)
+    HarnessFixtures._free_harness_node(exit_mgr)
     CombatF5SoakTrace.prepare_fight_end_log()
     CombatF5SoakTrace.set_fight_profile("7v7")
     OperationalLog.clear_capture()
@@ -941,7 +942,7 @@ static func _run_f5_soak_trace_fixtures() -> PackedStringArray:
         failures.append(
             "f5_trace_camp_med_exit_refresh: want camp_medical_exit supplement pass got %d" % camp_med_refresh
         )
-    _CombatRegressionHarness._free_manager(camp_mgr)
+    HarnessFixtures._free_manager(camp_mgr)
     BattleScene._destroy_battle_ui_for_harness(camp_battle as BattleScene)
     camp_battle.free()
     camp_world.free()

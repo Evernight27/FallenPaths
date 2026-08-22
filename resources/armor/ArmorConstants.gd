@@ -73,6 +73,9 @@ const LAYER_CLOTH: Dictionary = {
 }
 
 # Leather: buff coat, boiled leather. Williams: buff 30 J, cuir-bouilli 20 - 30 J. pen=(30/55)^0.6 ' 0.6 mm.
+# NOTE: leather (0.6) reads as LESS cut-resistant than cloth (0.9) only because the cloth value models a 16-layer
+# gambeson (thick) while leather models a single buff coat (thin). At equivalent thickness leather (denser, tougher)
+# stops cuts better than linen — the ordering reflects thickness, not material quality.
 const LAYER_LEATHER: Dictionary = {
     "sharp_resistance_rha_mm": 0.6,
     "blunt_cushion": 0.5,
@@ -84,13 +87,17 @@ const LAYER_LEATHER: Dictionary = {
 }
 
 # Mail: chainmail + jack. Williams: 80 - 120 J. pen=(120/55)^0.6 ' 1.5 mm.
+## Adjusted to ~1.0 RHA equiv — historical chainmail (~1mm rings) is more vulnerable than plate suggests; sword thrusts
+## and glancing cuts penetrate more readily than the old 1.5 value implied (experimental HEMA armor penetration tests).
 const LAYER_MAIL: Dictionary = {
-    "sharp_resistance_rha_mm": 1.5,
+    "sharp_resistance_rha_mm": 1.0,
     "blunt_cushion": 0.1,
     "blunt_transmission": 0.62,
     "rigidity": 0.2,
     "durability_loss_rate": 0.12,
-    "sharp_deflect_transmission": 0.36,
+    # Capped at the penetrated-boundary value (1 - PENETRATION_DAMAGE_REDUCTION_MAX = 0.25) so the damage curve is
+    # monotonic at the penetration threshold: a cut that just penetrates must do >= a glancing deflection.
+    "sharp_deflect_transmission": 0.25,
     "mass_kg": 2.45
 }
 

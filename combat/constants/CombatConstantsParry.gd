@@ -4,7 +4,7 @@ extends RefCounted
 const PARRY_V_FRACTION_OF_MAX_STRIKE := 0.5
 const PARRY_STRENGTH_NORM := 100.0
 const PARRY_DEFLECT_THRESHOLD := 0.45
-const PARRY_TECHNIQUE_VARIANCE := 0.08
+const PARRY_TECHNIQUE_VARIANCE := 0.12
 const PARRY_V_MIN_FRACTION := 0.2
 const PARRY_V_MIN_NEAR_DEFLECT := 0.1
 const PASSIVE_PARRY_MIN_TIME_FOR_FULL_S := 0.25
@@ -73,7 +73,7 @@ const PARRY_MAX_DAMAGE_REDUCTION := 0.85  # best case: 85% reduction for perfect
 ## pre_blunt scales by lerp(0.5, 1, parry_remaining_ratio) — max 50% reduction).
 const PARRY_UNARMED_MAX_DAMAGE_REDUCTION := 0.5
 
-const PARRY_BIND_CONTROL_THRESHOLD := 0.55
+const PARRY_BIND_CONTROL_THRESHOLD := 0.48
 const PARRY_CONTROL_ALIGNMENT_FLOOR := 0.15
 ## Thrust-specific parry modifiers — HEMA thrusts are linear commitments with distinct geometry:
 ## No-glance: thrust contact is point-based; a glancing blade-parry cannot "slide" off the point like it would a cutting edge.
@@ -82,7 +82,7 @@ const PARRY_CONTROL_ALIGNMENT_FLOOR := 0.15
 const PARRY_THRUST_NO_GLANCE := false             ## Thrusts can glancing at high obliquity (>cos60) — point contact slides off blade edge.
 const PARRY_THRUST_LINEAR_COMMITMENT_PENALTY := 0.18   ## Extra momentum carry when thrust parry fails (attacker drives through).
 const PARRY_THRUST_RECOVERY_MULT := 1.25           ## Thrust deflections cost 25% more recovery — linear force requires full repositioning.
-const PARRY_THRUST_BLOCK_ONLY_THRESHOLD := 1.03    ## Thrusts require slightly higher capacity to fully stop (body weight behind thrust).
+const PARRY_THRUST_BLOCK_ONLY_THRESHOLD := 0.88    ## Thrusts can be deflected via blade leverage (strong vs weak) — below 1.0 reflects cross-guard catch.
 const PARRY_THRUST_GLANCE_ALIGNMENT_FLOOR := 0.5   ## cos60 — thrust glancing requires this alignment; below this it's a miss, not a glancing parry.
 const ARCHETYPES_NEVER_BIND: Array[String] = ["heavy_blunt"]
 const PARRY_BIND_RIPOSTE_BY_PART_CONTACT: Dictionary = {
@@ -113,6 +113,13 @@ const PARRY_LATE_CAPACITY_FLOOR := 0.45
 ## Prevents the multiplicative modifier cascade from reducing parry_c_d below functional levels — even with heavy
 ## stamina/exhaustion/pain penalties, a well-aligned defender should always have meaningful parry options.
 const PARRY_CAPACITY_FLOOR_RATIO := 0.35
+## Cascade floor: minimum fraction of raw c_d retained after multiplicative modifiers (alignment, fatigue, etc.).
+## Applied in DefenseChoiceResolver before small gameplay modifiers (spacing/reach/fatigue); guards:
+## raw c_d must exceed PARRY_CASCADE_FLOOR_RAW_MIN and guard must exceed PARRY_CASCADE_FLOOR_GUARD_MIN.
+## Separate from PARRY_CAPACITY_FLOOR_RATIO — that one governs on-time partial viability, this governs the cascade.
+const PARRY_CASCADE_CAPACITY_FLOOR := 0.35
+const PARRY_CASCADE_FLOOR_RAW_MIN := 2.0  ## Minimum raw c_d for cascade floor to apply — below this, capacity is genuinely low
+const PARRY_CASCADE_FLOOR_GUARD_MIN := 0.15  ## Minimum guard for cascade floor — unguarded defenders should not benefit
 const PARRY_CONTACT_MODIFIERS: Dictionary = {"blade": 1.0, "shaft": 0.94, "haft": 0.96}
 const PARRY_DEF_VS_ATK_MOD: Dictionary = {
     "AXE": {"stab": 0.85, "cut": 0.92, "blunt": 0.95},
@@ -316,7 +323,7 @@ static func parry_control_for_bind_deflect(
         # HEMA realism — even overwhelmed defenders create blade friction and structural disruption.
         # A parry absorbing 80% of momentum should grant ~2x the control of one absorbing 40%.
         # The contact floor ensures ANY blade contact produces non-zero control (HEMA: Waffenfühlen).
-        var contact_floor: float = margin_ratio * 0.7 + 0.35  # [0.35, 1.05] when margin_ratio in [0, 1]; raised from 0.25 floor to give partial parry meaningful bind potential (HEMA: any sustained blade contact creates leverage)
+        var contact_floor: float = margin_ratio * 0.7 + 0.42  # [0.42, 1.12] when margin_ratio in [0, 1]; gives partial parry meaningful bind potential (HEMA: any sustained blade contact creates leverage)
         effective_margin = contact_floor + parry_readiness * 0.5
 
     var p: float = alignment_weight * (effective_margin / 2.0)
@@ -369,7 +376,7 @@ static func parry_timing_capacity_mult(timing_class: String) -> float:
 ## Velocity-based parry difficulty: faster attacks are harder to time/read.
 const PARRY_VELOCITY_INTENSITY_MIN_THRESHOLD := 0.75  # Only apply velocity penalty at high intensity (real fast strikes)
 const PARRY_VELOCITY_DIFFICULTY_REF_M_S := 8.0  # Below this, no penalty (reasonable strike speed)
-const PARRY_VELOCITY_DIFFICULTY_MAX_PENALTY := 0.35  # Max capacity reduction at extreme velocities
+const PARRY_VELOCITY_DIFFICULTY_MAX_PENALTY := 0.25  # Max capacity reduction — fast attacks harder but not devastating for trained fencers
 
 static func parry_timing_control_bonus(timing_class: String) -> float:
     if timing_class == "proactive":

@@ -80,7 +80,7 @@ const MOBILITY_FLEE_THRESHOLD: float = 0.2
 const BLOOD_CONSCIOUSNESS_START_THRESHOLD: float = 85.0  # No effect above this (Class I: <15% lost)
 # Max reduction at/below this (align with BLOOD_LOSS_DEATH_THRESHOLD)
 const BLOOD_CONSCIOUSNESS_FLOOR_THRESHOLD: float = 35.0
-const BLOOD_CONSCIOUSNESS_REDUCTION_MAX: float = 0.75  # At floor: modifier = 0.25 (Class IV ATLS: lethargic to unresponsive)
+const BLOOD_CONSCIOUSNESS_REDUCTION_MAX: float = 0.96  # At floor: modifier = 0.04 (Class IV ATLS: obtunded/unresponsive; hypovolemic syncope — blood loss alone drives unconsciousness)
 
 # --- Pain shock (temporary; reduces effective consciousness for combat, not incapacitation). ---
 # Research: Lighter impacts cause brief grogginess; more severe single impacts cause longer confusion/disorientation
@@ -121,11 +121,11 @@ const BODY_PART_PAIN_MULTIPLIERS: Dictionary = {
 # --- Sub-region pain multipliers (hand, face, neck higher; foot lower). ---
 const SUB_REGION_PAIN_MULTIPLIERS: Dictionary = {
     BodyPartConstants.PART_HEAD: {"scalp": 1.3, "face": 1.4, "neck": 1.35},
-    BodyPartConstants.PART_CHEST: {"thoracic": 1.2, "abdominal": 1.15},
-    BodyPartConstants.PART_RIGHT_ARM: {"upper_arm": 0.95, "elbow": 1.1, "forearm": 1.05, "hand": 1.35},
-    BodyPartConstants.PART_LEFT_ARM: {"upper_arm": 0.95, "elbow": 1.1, "forearm": 1.05, "hand": 1.35},
-    BodyPartConstants.PART_RIGHT_LEG: {"thigh": 0.95, "knee": 1.1, "calf": 1.0, "foot": 0.9},
-    BodyPartConstants.PART_LEFT_LEG: {"thigh": 0.95, "knee": 1.1, "calf": 1.0, "foot": 0.9}
+    BodyPartConstants.PART_CHEST: {"thoracic": 1.2, "abdominal": 1.15, "sternum": 1.6},
+    BodyPartConstants.PART_RIGHT_ARM: {"upper_arm": 0.95, "elbow": 1.1, "forearm": 1.05, "hand": 1.35, "armpit": 1.45, "axillary": 1.45},
+    BodyPartConstants.PART_LEFT_ARM: {"upper_arm": 0.95, "elbow": 1.1, "forearm": 1.05, "hand": 1.35, "armpit": 1.45, "axillary": 1.45},
+    BodyPartConstants.PART_RIGHT_LEG: {"thigh": 0.95, "knee": 1.1, "calf": 1.0, "foot": 0.9, "inner_thigh": 1.3},
+    BodyPartConstants.PART_LEFT_LEG: {"thigh": 0.95, "knee": 1.1, "calf": 1.0, "foot": 0.9, "inner_thigh": 1.3}
 }
 
 # --- Injury type pain multipliers (fracture/crush often more debilitating than cut). ---
@@ -243,14 +243,16 @@ const ARM_HIT_CHANCE_PENALTIES: Dictionary = {
 }
 
 # Scaling: penalty = key_penalty * damage_ratio (linear interpolation from 0 at ratio=0).
+# body_cutting stores REMAINING tissue health, so damage = max - body_cutting; a destroyed arm
+# (body_cutting -> 0) takes the full penalty, a healthy arm (body_cutting = max) takes none.
 static func get_arm_hit_chance_penalty(entity: Node, arm_part: String) -> float:
-    if not entity.has_method("body_max") or not entity.has_method("body_cutting"):
+    if not ("body_max" in entity) or not ("body_cutting" in entity):
         return 0.0
     var max_val: float = entity.body_max.get(arm_part, 1.0)
     if max_val <= 0.0:
         return 0.0
-    var remaining: float = maxf(0.0, max_val - entity.body_cutting.get(arm_part, 0.0))
-    var damage_ratio: float = clampf(1.0 - (remaining / max_val), 0.0, 1.0)
+    var damage: float = maxf(0.0, max_val - entity.body_cutting.get(arm_part, 0.0))
+    var damage_ratio: float = clampf(damage / max_val, 0.0, 1.0)
     var base_penalty: float = ARM_HIT_CHANCE_PENALTIES.get(arm_part, 0.0)
     return base_penalty * damage_ratio
 
@@ -285,4 +287,11 @@ const CONCUSSION_HEALING_CRITICAL_MULT: float = 0.75   # -25% healing in critica
 const CONCUSSION_HEALING_ACUTE_MULT: float = 0.80      # -20% healing in acute phase
 const CONCUSSION_HEALING_SUBACUTE_MULT: float = 0.90   # -10% healing in subacute phase
 const CONCUSSION_HEALING_RECOVERY_MULT: float = 0.95   # -5% healing in recovery phase
+
+# --- Blunt head trauma energy threshold (Issue: dagger HEAD_TRAUMA at 17J) ---
+## Minimum single-strike blunt KE to classify a death/incapacitation as "head trauma" (TBI/cranial fracture).
+## Clinical basis: skull fracture requires ~47-130J (depending on impact area and angle); diffuse axonal injury
+## typically requires 50-80J+. Strikes below this threshold that destroy head tissue are bleed_out from
+## accumulated wounds, not acute traumatic brain injury.
+const BLUNT_HEAD_TRAUMA_MIN_KE_J: float = 50.0
 

@@ -391,7 +391,7 @@ static func format_exchange_line(
 		bits
 		. append(
 			(
-                "line=%s atk_grd=%s def_grd=%s"
+				"line=%s atk_grd=%s def_grd=%s"
 				% [
 					atk_line if not atk_line.is_empty() else "-",
 					atk_guard if not atk_guard.is_empty() else "-",
@@ -571,7 +571,7 @@ static func format_matchup_banner(atk_cfg: Variant, def_cfg: Variant) -> String:
 	var def_armor: String = str(def_cfg.armor_overrides.keys()) if not def_cfg.armor_overrides.is_empty() else "none"
 	var ke_band: Vector2 = _DesignAnchors.ke_band_min_max_for_weapon(str(atk_cfg.weapon_id))
 	return (
-        "[Matchup] %s (%s %s %s/%s/%s/%s/%s grd=%s) vs %s (%s %s %s/%s/%s/%s/%s grd=%s) | armor: %s / %s | HEMA KE ref %.0f-%.0fJ"
+		"[Matchup] %s (%s %s %s/%s/%s/%s/%s grd=%s) vs %s (%s %s %s/%s/%s/%s/%s grd=%s) | armor: %s / %s | HEMA KE ref %.0f-%.0fJ"
 		% [
 			atk_cfg.display_name,
 			atk_species,
@@ -663,7 +663,7 @@ static func format_matchup_compact(atk_cfg: Variant, def_cfg: Variant) -> String
 	var atk_sp: String = "human" if str(atk_cfg.species_tres_path).contains("human") else "goblin"
 	var def_sp: String = "human" if str(def_cfg.species_tres_path).contains("human") else "goblin"
 	return (
-        "atk=%s/%s/%s arm=%d def=%s/%s/%s arm=%d"
+		"atk=%s/%s/%s arm=%d def=%s/%s/%s arm=%d"
 		% [
 			atk_sp,
 			atk_cfg.weapon_id,
@@ -705,7 +705,7 @@ static func format_cycle_hema_summary(
 	if effective_total < 0:
 		effective_total = contact_strikes
 	lines.push_back(
-        "--- Cycle %d: %s wins (%s) | exchanges=%d strikes=%d contacts=%d cause_code=%s —"
+		"--- Cycle %d: %s wins (%s) | exchanges=%d strikes=%d contacts=%d cause_code=%s —"
 		% [cycle_index, winner_name, end_cause, total_exchanges, effective_total, effective_contacts, _cause_code(end_cause)]
 	)
 	if not scenario_key.is_empty():
@@ -724,13 +724,12 @@ static func format_cycle_hema_summary(
 			lines
 			. push_back(
 				(
-                    "  rates: hit=%.1f%% parry=%.1f%% dodge=%.1f%% miss=%.1f%% deflected=%.1f%%"
+					"  rates: hit=%.1f%% parry=%.1f%% dodge=%.1f%% miss=%.1f%%"
 					% [
 						float(hit_n) / float(total_exchanges) * 100.0,
 						float(total_parry_count) / float(total_exchanges) * 100.0,
 						float(outcome_counts.get("dodge", 0)) / float(total_exchanges) * 100.0,
 						float(outcome_counts.get("miss", 0)) / float(total_exchanges) * 100.0,
-						float(int(outcome_counts.get("deflected", 0))) / float(total_exchanges) * 100.0,
 					]
 				)
 			)
@@ -740,11 +739,11 @@ static func format_cycle_hema_summary(
 				lines
 				. push_back(
 					(
-                        "  parry_rates: deflect=%.1f%% bind=%.1f%% partial=%.1f%%"
+						"  parry_rates: deflect=%.1f%% partial=%.1f%% (bind=%.1f%% of parries)"
 						% [
 							float(deflect_n) / float(total_parry_count) * 100.0,
-							float(bind_n) / float(total_parry_count) * 100.0,
 							float(partial_n) / float(total_parry_count) * 100.0,
+							float(bind_n) / float(total_parry_count) * 100.0,
 						]
 					)
 				)
@@ -812,6 +811,11 @@ static func _format_outcome_counts(counts: Dictionary) -> String:
 	keys.sort()
 	var parts := PackedStringArray()
 	for k in keys:
+		# parry_bind is a subset annotation on parry_deflect/parry_partial (not a distinct strike
+		# outcome); listing it here inflates the sum so it no longer reconciles with `strikes`.
+		# It is already shown in the `parry:` taxonomy line.
+		if str(k) == "parry_bind":
+			continue
 		parts.append("%s=%d" % [str(k), int(counts[k])])
 	return ", ".join(parts)
 
@@ -866,7 +870,7 @@ static func _format_ke_bucket_line(
 	if use_weapon_band:
 		var band: Vector2 = _DesignAnchors.ke_band_min_max_for_weapon(band_weapon_id, band_delivery)
 		return (
-            "KE_%s: n=%d mean=%.0fJ in_band=%.0f%% (ref %.0f-%.0fJ %s)"
+			"KE_%s: n=%d mean=%.0fJ in_band=%.0f%% (ref %.0f-%.0fJ %s)"
 			% [
 				label,
 				n,
@@ -985,7 +989,7 @@ static func format_combatant_state(c: Dictionary) -> String:
 	if c.is_empty():
 		return "(no combatant)"
 	return (
-        "state=%s stamina=%.0f%% gauge=%.0f%% guard=%s form=%s"
+		"state=%s stamina=%.0f%% gauge=%.0f%% guard=%s form=%s"
 		% [
 			c.get("state", "?"),
 			float(c.get("stamina", 0.0)) / maxf(float(c.get("stamina_max", 100.0)), 1.0) * 100.0,
@@ -998,7 +1002,7 @@ static func format_combatant_state(c: Dictionary) -> String:
 
 static func csv_header() -> String:
 	return (
-        "strike_index,outcome,move_id,part,intensity,power,follow_through,wind_up_s,"
+		"strike_index,outcome,move_id,part,intensity,power,follow_through,wind_up_s,"
 		+ "attack_line,atk_guard,def_guard,strike_ke_j,hema_ke_band,pen_mm,"
 		+ "dmg,phys,cut,blunt,bone,pre_armor,mech_post_armor,recovery_s,"
 		+ "gauge_atk,gauge_def,health_before,health_after,note,perf"
@@ -1044,7 +1048,7 @@ static func csv_row(
 	return ",".join(parts)
 
 
-static func _build_archetype_for_inference(weapon_id: String, move_id: String) -> Dictionary:
+static func _build_archetype_for_inference(_weapon_id: String, move_id: String) -> Dictionary:
 	# Reconstruct a minimal archetype dict from weapon+move definitions so that
 	# WeaponDamageHelper.kinematic_delivery() can consult explicit archetype fields
 	# instead of falling back to contact_type inference (which misclassifies moves

@@ -32,7 +32,7 @@ const MASS_SCALING_MAX_FACTOR := 1.40
 ## SWORD: I≈0.42 (approx; actual computed from weapon geometry), r=0.75, cut_band_max=16.0 → KE≈93J at committed (mass=1.30 kg; HEMA force-plate shows typical cuts 8-14 m/s); stab_band_max=13.0 → thrust KE≈127J
 ## AXE:   I≈1.07 (approx; actual computed from weapon geometry), r=1.11, band_max=14.0 → KE≈82J at committed with inertia_scale=0.80 (heavy head swings slower); stab_band_max=12.0 → thrust KE≈144J
 ## MACE:  I≈0.50 (approx; actual computed from weapon geometry), r=0.63, band_max=14.0 → KE≈123J at committed (heavy weapon; peak combat velocities ~8-14 m/s per Lehmann HEMA studies); stab_band_max=10.0 → thrust KE≈125J
-## DAGGER: I≈0.013 (blade 20cm×0.55 + handle 12cm×0.45 at mass=0.45 kg), r=0.29, band_max=10.0 → KE≈7-18J at committed (hand-speed limited)
+## DAGGER: I≈0.013 (blade 20cm×0.55 + handle 12cm×0.45 at mass=0.45 kg), r=0.29, stab band [3.5,7.5] m/s with body-coupled mass 2.5 kg → KE≈39-70J (matches audit band 15-70J for Fiore's dente di porco thrusts).
 ## SPEAR: shaft mass dominates. Swing tip speeds (cut/blunt) capped ~12 m/s by physics; THRUST tip
 ## speed is far lower (5-8.0 m/s — a linear push, not a lever arc), so thrust KE (½·3.5kg·v² with body
 ## transfer) lands in the 40-130 J band at full commitment (audit band Vector2(40,130)). Swing uses full rotational inertia (~3.05 kg·m² after parts);
@@ -41,7 +41,7 @@ static var _default_bands: Dictionary = {
     "SWORD": {"stab": Vector2(5.5, 13.0), "cut": Vector2(7.5, 16.0), "blunt": Vector2(6.0, 14.0)},
     "AXE": {"stab": Vector2(3.5, 12.0), "cut": Vector2(5.0, 14.0), "blunt": Vector2(5.0, 14.0)},
     "MACE": {"stab": Vector2(5.5, 10.0), "cut": Vector2(6.5, 14.0), "blunt": Vector2(6.5, 15.0)},
-    "DAGGER": {"stab": Vector2(4.0, 10.0), "cut": Vector2(5.5, 10.0), "blunt": Vector2(4.0, 10.0)},
+    "DAGGER": {"stab": Vector2(3.5, 7.5), "cut": Vector2(5.5, 10.0), "blunt": Vector2(4.0, 10.0)},
     "SPEAR": {"stab": Vector2(5.0, 8.0), "cut": Vector2(4.0, 12.0), "blunt": Vector2(3.5, 12.0)}
 }
 
@@ -164,6 +164,13 @@ static func resolve_band_m_s(weapon: RefCounted, contact_type: String) -> Vector
         vmax = base.y
     ## Tier C overrides are authored per-weapon and already reflect that weapon's mass — do not re-scale.
     var m_scale: float = 1.0 if (c_band.x >= 0.0 and c_band.y > c_band.x) else mass_scaling_factor(weapon)
+    ## Mass scaling models rotational tip speed (∝ sqrt(tau·r/I)) and is valid for swings. A linear thrust is
+    ## body-driven (strike_mass_kg returns the body-coupled mass), so a lighter weapon does not thrust faster
+    ## than the reference — never let the scaling BOOST a stab band (heavier weapons keep their down-scaling).
+    ## Without this, a light dagger (0.45 kg → factor 1.40) boosts its 7.5 m/s stab cap to 10.5 m/s, turning the
+    ## calibrated ~70 J thrust into ~138 J and making the dagger sword-level.
+    if ct == WeaponConstants.ATTACK_TYPE_STAB:
+        m_scale = minf(m_scale, 1.0)
     return Vector2(
         clampf(vmin, ABS_VELOCITY_MIN_M_S, ABS_VELOCITY_MAX_M_S),
         clampf(vmax * m_scale, vmin + 0.55, ABS_VELOCITY_MAX_M_S)

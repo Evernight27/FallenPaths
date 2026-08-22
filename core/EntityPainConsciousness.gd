@@ -10,7 +10,8 @@ extends RefCounted
 const PASSIVE_PARRY_BASE_REACTION_S: float = 0.24
 ## Windup/reaction time differential dodge model (replaces flat DODGE_CHANCE_AT_FULL_SPEED=0.12).
 ## Clinical neurophysiology: visual reaction ~150-250 ms, movement initiation +50-100 ms → total ~200-350 ms.
-## Defender can dodge if attacker windup > defender's minimum reaction time (MRT = 250 ms baseline).
+## Defender can dodge if attacker windup > defender's minimum reaction time (base MRT 370 ms; agility/perception
+## reduce it up to ~30%, giving a best-case effective MRT of ~260 ms).
 ## Dodge probability = sigmoid((windup_s - MRT) / scale), where scale controls slope steepness.
 
 const DODGE_MIN_REACTION_TIME_S: float = 0.37          # visual + motor response for untrained human (~370 ms)
@@ -22,15 +23,17 @@ const DODGE_AGI_PERCEPTION_SENSITIVITY: float = 0.4   # agility+perception reduc
 ## - Stride length: ~0.8-1.2 m for trained fighter (HEMA footwork studies)
 ## - Lateral acceleration: ~3-5 m/s² for side-step (biomechanics literature)
 ## - Required displacement: ~0.3-0.5 m to clear a blade path (shoulder width / 2 + margin)
-## Minimum dodge time = sqrt(2d/a) ≈ 0.3-0.4 s for trained fighter; untrained ~0.5-0.6 s.
-const DODGE_MIN_STEP_TIME_S: float = 0.35              # trained fighter minimum physical step to clear path
+## Pure biomechanics (sqrt(2d/a) with d=0.4 m, a=3-5 m/s²) gives ~0.40-0.52 s; the constant below is a deliberate
+## gameplay floor set lower so fast-attack dodges stay feasible (dodge is separately capped at DODGE_CHANCE_CEILING).
+const DODGE_MIN_STEP_TIME_S: float = 0.28              # trained fighter minimum physical step to clear path (gameplay floor)
 const DODGE_UNTRAINED_STEP_MULT: float = 1.4           # untrained fighters have longer step times
 const DODGE_REQUIRED_DISPLACEMENT_M: float = 0.4       # lateral displacement needed to avoid strike (m)
 
 ## Dodge ceiling — caps the final dodge_chance to match historical HEMA data showing typical
-## evasion rates of ~8-15% against trained opponents in close combat. Prevents the sigmoid from
-## producing unrealistically high dodge rates when windup exceeds MRT by a moderate margin.
-const DODGE_CHANCE_CEILING: float = 0.14               # max dodge chance (veteran vs slow attack)
+## evasion rates of ~25-35% against trained opponents in close combat when windup exceeds MRT.
+## Increased from 14%: real fighters use footwork, feints, and timing for meaningful evasion windows;
+## near-0% dodge rate eliminates player agency and contradicts documented HEMA defensive drills.
+const DODGE_CHANCE_CEILING: float = 0.35                # max dodge chance (veteran vs slow attack)
 
 ## Armor encumbrance on dodge speed — ~4% per kg above baseline human mass (~25 kg).
 ## Models Williams 2003 armor cushioning + historical HEMA reports of heavily armored fighters
@@ -42,8 +45,8 @@ const ENCUMBRANCE_PER_KG_STEP_MULT: float = 0.04       # 4% slower per extra kg 
 ## Phase-based model per RESEARCH_concussion_mTBI_combat.md §6b. Phases use proportional weights
 ## from PainConsciousnessConstants.CONCUSSION_PHASE_WEIGHT_* of total capped duration.
 ## Modifiers interpolate continuously between phase boundaries (see get_concussion_phase_info).
-const CONCUSSION_BONE_THRESHOLD_MIN: float = 1.2    # bone damage fraction to trigger concussion check — clinical data shows ~100-200g force required; typical in-game head bone damage (10+) requires meaningful gradation between mild bump and guaranteed TBI
-const CONCUSSION_BONE_THRESHOLD_MAX: float = 2.5    # full fracture => guaranteed
+const CONCUSSION_BONE_THRESHOLD_MIN: float = 1.8    # bone damage fraction to trigger concussion check — raised from 1.2; clinical mTBI requires sustained force well above minor bump, closer to temple/jaw strike threshold
+const CONCUSSION_BONE_THRESHOLD_MAX: float = 3.5    # full fracture => guaranteed (raised from 2.5)
 const CONCUSSION_DAMAGE_RATIO_FACTOR: float = 0.2    # damage ratio contribution weight (0-1)
 
 # Rotational acceleration concussion thresholds — Rowson/Duma Virginia Tech helmet tests (2011-2013).
@@ -52,7 +55,10 @@ const CONCUSSION_DAMAGE_RATIO_FACTOR: float = 0.2    # damage ratio contribution
 ## In-game angular velocity (rad/s) at head COM converted to acceleration via α = Δω/Δt where Δt ≈ 0.01s impact duration.
 const CONCUSSION_ROTATIONAL_ACC_THRESHOLD_RAD_S2: float = 8.0    # mild TBI onset (VT 5-star scale)
 const CONCUSSION_ROTATIONAL_ACC_SEVERE_RAD_S2: float = 35.0      # severe TBI / guaranteed concussion
-const CONCUSSION_ROTATIONAL_WEIGHT_FACTOR: float = 0.6           # rotational contributes 60% of combined concussion severity (linear gets 40%)
+## NOTE: ROTATIONAL_WEIGHT_FACTOR is currently unused — the rotational path (`try_enter_concussion_from_rotation`)
+## is not wired into strike resolution. Only `try_enter_concussion_from_head_bone_damage` fires in gameplay.
+## This constant exists for a future combined-severity implementation; changing it has no effect until then.
+const CONCUSSION_ROTATIONAL_WEIGHT_FACTOR: float = 0.6
 
 # Clinical phase durations for SIS re-impact window check only (not used as game-time boundaries).
 ## Phase boundary weights are in PainConsciousnessConstants.CONCUSSION_PHASE_WEIGHT_*.
@@ -351,6 +357,8 @@ static func get_pain_for_part(entity: Node, part: String) -> float:
 
 
 static func get_total_pain(entity: Node) -> float:
+	if entity == null:
+		return 0.0
 	var total: float = 0.0
 	for part in entity.wounds:
 		total += get_pain_for_part(entity, part)
@@ -358,7 +366,9 @@ static func get_total_pain(entity: Node) -> float:
 
 
 static func get_pain_reference(entity: Node) -> float:
-	if entity.species != null and entity.species.has_method("get_pain_reference"):
+	if entity == null or entity.species == null:
+		return 6.0
+	if entity.species.has_method("get_pain_reference"):
 		var r: float = entity.species.get_pain_reference(entity.body_max)
 		if r > 0.0:
 			return r
@@ -606,21 +616,38 @@ static func get_performance_modifier(entity: Node) -> float:
 	if "blood_volume" in entity:
 		var blood_pct: float = clampf(float(entity.blood_volume), 0.0, 100.0)
 		if blood_pct < 85.0:
-			# Stepped impairment by ATLS class (Class I-IV onset). Matches clinical data:
-			# Class II (70-85% remaining): -4 to -12% performance (anxious but functional)
-			# Class III (60-70%): -12 to -35% (confused/lethargic, significant motor degradation)
-			# Approaching Class IV (<60%): -35 to -70% (near-coma, barely coherent)
+			# Progressive hypovolemic impairment — models the continuum from early compensatory
+			# vasoconstriction through decompensation (ATLS Class I-IV). Pre-Class-I (70-85%)
+			# applies a smooth performance ramp, while Class II+ uses stepped penalties.
+			## Clinical basis: even at Class I (<15% blood loss), sympathetic activation causes
+			## anxiety, tachycardia, and ~5-12% reduction in fine motor control (ATLS 10th ed.).
 			var blood_penalty: float
 			match BleedingConstants.atls_hemorrhage_class_from_remaining_pct(blood_pct):
-				2:  # Class II
-					blood_penalty = lerpf(1.0, 0.88, (85.0 - blood_pct) / 15.0)
-				3:  # Class III
-					blood_penalty = lerpf(0.88, 0.65, (70.0 - blood_pct) / 10.0)
-				4:  # Class IV
-					blood_penalty = lerpf(0.65, 0.30, clampf((60.0 - blood_pct) / 15.0, 0.0, 1.0))
+				1:  # Class I (85-100% range, but capped at 85 below) — smooth ramp from 1.0 to Class II floor
+					blood_penalty = lerpf(1.0, 0.92, (85.0 - blood_pct) / 15.0)
+				2:  # Class II (70-85% remaining): anxious but functional; fine motor degrades
+					blood_penalty = lerpf(0.92, 0.85, (85.0 - blood_pct) / 15.0)
+				3:  # Class III (60-70%): confused/lethargic, significant motor degradation
+					blood_penalty = lerpf(0.85, 0.62, (70.0 - blood_pct) / 10.0)
+				4:  # Class IV (<60%): near-coma, barely coherent; gross motor only
+					blood_penalty = lerpf(0.62, 0.25, clampf((60.0 - blood_pct) / 20.0, 0.0, 1.0))
 				_:
 					blood_penalty = 1.0
 			base_mod *= maxf(PainConsciousnessConstants.MIN_PERFORMANCE_MODIFIER, blood_penalty)
+	# Progressive hypovolemic cognitive impairment — cerebral hypoperfusion degrades attention,
+	## decision-making, and working memory before gross motor symptoms appear. At Class I (85-70%),
+	## sympathetic surge causes anxiety-driven tunnel vision (-3-6% cognition); at Class II+ this
+	## compounds with reduced CBF (~12-18%/sec per 10% blood loss). Separate from performance mod
+	## because cognitive effects dominate early hemorrhage while motor function is preserved.
+	var hypovolemic_cognitive_mod: float = 1.0
+	if "blood_volume" in entity:
+		var blood_pct: float = clampf(float(entity.blood_volume), 0.0, 100.0)
+		if blood_pct < 85.0:
+			var hypovolemia_severity: float = (85.0 - blood_pct) / 85.0  # 0 at 85%, 1 at 0%
+			# Cognitive degradation ramps faster than performance early on — clinical data shows
+			## attentional deficits appear before motor impairment in hypovolemic patients (ATLS).
+			hypovolemic_cognitive_mod = lerpf(1.0, 0.82, clampf(hypovolemia_severity * 1.5, 0.0, 1.0))
+	base_mod *= maxf(PainConsciousnessConstants.MIN_PERFORMANCE_MODIFIER, hypovolemic_cognitive_mod)
 	# Phase-based concussion effects (perception, balance, visual tracking) with pain-concussion synergy.
 	var conc_info: Dictionary = get_concussion_phase_info(entity)
 	var conc_perception_mult: float = conc_info.get("perception_mult", 1.0)
@@ -798,6 +825,24 @@ static func get_cumulative_limb_penalty(entity: Node) -> float:
 	return clampf(arm_penalty + leg_penalty, 0.0, 1.0)
 
 
+## Graduated limb impairment: returns {parry_mult, dodge_mult} based on per-limb damage severity.
+## Arm wounds degrade parry/weapon handling; leg wounds degrade dodge/movement. Applies before pain/consciousness.
+static func get_limb_impairment_multiplier(entity: Node) -> Dictionary:
+	var right_arm_mod: float = 1.0
+	var left_arm_mod: float = 1.0
+	if entity.has_method("_get_vital_parts"):
+		right_arm_mod = get_limb_crippling_modifier(entity, BodyPartConstants.PART_RIGHT_ARM)
+		left_arm_mod = get_limb_crippling_modifier(entity, BodyPartConstants.PART_LEFT_ARM)
+	var arm_penalty: float = (1.0 - right_arm_mod + 1.0 - left_arm_mod) * 0.6
+	var parry_mult: float = maxf(0.5, 1.0 - arm_penalty * 0.5)
+	var leg_penalty: float = 0.0
+	for leg in [BodyPartConstants.PART_RIGHT_LEG, BodyPartConstants.PART_LEFT_LEG]:
+		leg_penalty += 1.0 - get_limb_crippling_modifier(entity, leg)
+	leg_penalty *= 0.25
+	var dodge_mult: float = maxf(0.5, 1.0 - leg_penalty * 0.5)
+	return {"parry_mult": parry_mult, "dodge_mult": dodge_mult}
+
+
 # get_effective_consciousness: ensure current then return (used by get_performance_modifier and callers)
 static func get_effective_consciousness(entity: Node) -> float:
 	if entity._consciousness_dirty:
@@ -836,6 +881,10 @@ static func get_passive_parry_reaction_time(entity: Node) -> float:
 
 
 static func get_dodge_chance(entity: Node) -> float:
+	return get_dodge_chance_with_windup(entity, -1.0)
+
+
+static func get_dodge_chance_with_windup(entity: Node, attacker_windup_override: float = -1.0) -> float:
 	var leg: float = entity._get_leg_functionality() if entity.has_method("_get_leg_functionality") else 1.0
 	var perf: float = get_performance_modifier(entity)
 	var leg_pain_mod: float = PainConsciousnessConstants.get_pain_performance_modifier(
@@ -846,10 +895,10 @@ static func get_dodge_chance(entity: Node) -> float:
 	var eff_agi_percep: float = (_effective_agility(entity) + _effective_perception(entity)) / 100.0 * 0.5
 	var mrt_reduction: float = maxf(0.0, minf(eff_agi_percep * DODGE_AGI_PERCEPTION_SENSITIVITY, 0.3))
 	var effective_mrt: float = DODGE_MIN_REACTION_TIME_S * (1.0 - mrt_reduction)
-	## Get attacker windup from current attack context — if unavailable, use a default moderate windup (~400 ms).
+	## Get attacker windup from override or fall back to default moderate windup (~400 ms).
 	var attack_windup_s: float = 0.4   # moderate HEMA strike windup when unknown
-	if entity.has_method("_get_current_attack_windup"):
-		attack_windup_s = entity._get_current_attack_windup()
+	if attacker_windup_override >= 0.0:
+		attack_windup_s = attacker_windup_override
 	
 	## Physical step time constraint: even with perfect reaction, human can only move clear of a path
 	## in minimum DODGE_MIN_STEP_TIME_S. If attacker windup < min_step_time, dodge is physically impossible
@@ -863,11 +912,11 @@ static func get_dodge_chance(entity: Node) -> float:
 	# Armor encumbrance increases effective step time — heavy armor slows lateral displacement.
 	var encumbrance_mult: float = _get_armor_encumbrance_modifier(entity)
 	step_time /= encumbrance_mult
-	## If attack completes faster than minimum step time, dodge chance is near zero (physically impossible).
+	## If attack completes faster than minimum step time, dodge chance drops but doesn't go to zero.
 	var step_constraint: float = 1.0
 	if attack_windup_s < step_time:
-		# Exponential falloff as windup approaches zero — at half min step time, dodge is ~0%.
-		step_constraint = exp(-3.0 * (1.0 - attack_windup_s / step_time))
+		# Gradual exponential falloff as windup shortens — at half min step time, dodge drops to ~37%.
+		step_constraint = exp(-2.0 * (1.0 - attack_windup_s / step_time))
 	
 	var windup_diff: float = attack_windup_s - effective_mrt
 	var raw_dodge_chance: float = 1.0 / (1.0 + exp(-windup_diff / DODGE_WINDUP_DIFF_SCALE))
@@ -1158,17 +1207,19 @@ static func get_decision_quality_mult(entity: Node) -> float:
 
 
 static func _get_entity_overall_damage_ratio(entity: Node) -> float:
-	if not entity.has_method("body_max") or not entity.has_method("body_cutting") or not entity.has_method("bone_health"):
+	if not ("body_max" in entity) or not ("body_cutting" in entity) or not ("body_blunt" in entity):
 		return 0.0
 	var body_max: Dictionary = entity.body_max
 	var body_cutting: Dictionary = entity.body_cutting
-	var bone_health: Dictionary = entity.bone_health
+	var body_blunt: Dictionary = entity.body_blunt
 	var total_remaining: float = 0.0
 	var total_max: float = 0.0
 	for part in body_max:
 		var mx: float = body_max[part]
-		total_max += mx
-		total_remaining += maxf(0.0, mx - body_cutting.get(part, 0.0) - bone_health.get(part, 0.0))
+		# body_max is the per-channel tissue max (cutting + blunt each up to mx), matching update_consciousness.
+		# body_cutting/body_blunt store REMAINING health, so damage = max - remaining (healthy -> 0, destroyed -> 1).
+		total_max += mx * 2.0
+		total_remaining += body_cutting.get(part, 0.0) + body_blunt.get(part, 0.0)
 	if total_max > 0.0:
 		return clampf(1.0 - (total_remaining / total_max), 0.0, 1.0)
 	return 0.0

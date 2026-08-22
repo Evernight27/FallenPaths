@@ -34,6 +34,7 @@ const _MedicalPhaseTail := preload("res://harness/medical_phase/MedicalPhaseTail
 const _F5Validator := preload("res://harness/CombatF5SoakLogValidator.gd")
 const _QTrackAudits := preload("res://harness/CombatQTrackAudits.gd")
 const _RegHarness := preload("res://harness/regression/CombatRegressionHarness.gd")
+const _HarnessFixtures := preload("res://harness/HarnessFixtures.gd")
 const _SoakPresets := preload("res://world/SoakEncounterPresets.gd")
 
 func _init() -> void:

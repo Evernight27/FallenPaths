@@ -26,8 +26,8 @@ const LATERAL_STEP_DELTA := 0.2
 ## Max bind pressure a combatant can sustain before their blade slips and wrestling transition becomes available.
 ## Models HEMA reality: prolonged binds cause blade fatigue — the defender's control degrades over time.
 const BIND_WRESTLING_TRANSITION_THRESHOLD := 0.85
-## Pressure loss per second during sustained bind (progressive leverage degradation).
-## Represents muscle fatigue from maintaining pressure against resistance.
+## Multiplier on the base per-second pressure decay (0.04/s) once the grace period elapses, giving 0.10/s of
+## progressive leverage degradation. Represents muscle fatigue from maintaining pressure against resistance.
 const BIND_PROGRESSIVE_LEVERAGE_DECAY_MULT: float = 2.5
 ## Time threshold before progressive leverage degradation kicks in (seconds of sustained bind).
 const BIND_LEVERAGE_GRACE_PERIOD_S := 1.0

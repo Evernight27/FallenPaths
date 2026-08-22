@@ -1,4 +1,4 @@
-﻿class_name WeaponAfterblowGuardTests
+class_name WeaponAfterblowGuardTests
 extends CombatRegressionHarnessCore
 const _AFTERBLOW_EXECUTE_HIT_SEED: int = 1
 ## **`seed(2)`**: hybrid hindrance in **(ALLOW, BLOCK)** and first **`randf()` < hindrance** -> **`try_afterblow`
@@ -230,7 +230,7 @@ static func _afterblow_harness_seed_pending_cut(mgr: Node, attacker_index: int, 
     atk["pending_attack"] = pa
     defc.erase("off_balance_until")
     # Afterblow: attacker (index) executes against defender (index). The guard value must be set on the
-    # combatant that will DEFEND during _execute_attack — i.e. the defender. In the harness tests,
+     # combatant that will DEFEND during _execute_attack -- i.e. the defender. In the harness tests,
     # _afterblow_harness_seed_pending_cut(mgr, 1, 0) sets up combatant 1 as initial attacker and
     # combatant 0 as initial defender. But afterblow reverses roles: combatant 0 attacks, combatant 1 defends.
     # Set guard=0 on the actual defender (combatant at defender_index from caller's perspective = mgr.combatants[defender_index]).

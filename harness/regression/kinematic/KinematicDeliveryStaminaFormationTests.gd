@@ -340,10 +340,13 @@ static func _run_tier7_stamina_depletion_five_heavy_attacks_exhaust_pool(failure
         stamina_left = maxf(0.0, stamina_left - cost_heavy)
     if stamina_left > 0.01:
         _fail(failures, "tier7_stam_deplete: five heavy attacks should exhaust pool, left %.2f" % stamina_left)
-    if CombatConstants.STAMINA_REFILL_RATE > 5.5:
+    # Exponential refill: the peak (initial, fully-depleted) rate is k * MAX. Guard that it stays under the
+    # pacing ceiling so a short rest can't fully restore a spent combatant.
+    var initial_refill_hp_s: float = CombatConstants.STAMINA_REFILL_RATE * CombatConstants.STAMINA_MAX
+    if initial_refill_hp_s > 5.5:
         _fail(
             failures,
-            "tier7_stam_deplete: refill rate %.2f too high for 7.2 pacing target" % CombatConstants.STAMINA_REFILL_RATE
+            "tier7_stam_deplete: initial refill rate %.2f HP/s too high for 7.2 pacing target" % initial_refill_hp_s
         )
 
 
@@ -362,7 +365,11 @@ static func _run_tier7_stamina_depletion_sustained_exchange_sim(failures: Packed
             stamina = maxf(0.0, stamina - attack_cost)
             next_attack += 3.0
         else:
-            stamina = minf(CombatConstants.STAMINA_MAX, stamina + CombatConstants.STAMINA_REFILL_RATE * dt)
+            # Exponential (first-order) refill: rate proportional to the deficit (MAX - stamina).
+            stamina = minf(
+                CombatConstants.STAMINA_MAX,
+                stamina + CombatConstants.STAMINA_REFILL_RATE * (CombatConstants.STAMINA_MAX - stamina) * dt
+            )
         elapsed += dt
     if stamina > CombatConstants.STAMINA_MAX * 0.35:
         _fail(failures, "tier7_stam_deplete_sim: after 120s intense exchange want <=35%% stamina got %.1f" % stamina)
@@ -421,6 +428,27 @@ static func _run_stamina_effective_refill_slows_with_exhaustion(failures: Packed
     var want_spent: float = CombatConstants.STAMINA_REFILL_RATE * CombatConstants.STAMINA_REFILL_EXHAUSTION_MULT_FLOOR
     if not is_equal_approx(rate_spent, want_spent):
         _fail(failures, "stam_eff_refill: exhausted want %.3f got %.3f" % [want_spent, rate_spent])
+
+
+## ATP-PCr refill is first-order (exponential): refilling from empty for one half-time (~30 s) reaches ~50% of the
+## pool, and the per-second refill rate tapers as the pool fills (fast when depleted, slow near full).
+static func _run_stamina_refill_exponential_half_time_and_taper(failures: PackedStringArray) -> void:
+    var k: float = CombatConstants.STAMINA_REFILL_RATE
+    var max_s: float = CombatConstants.STAMINA_MAX
+    var dt: float = 0.05
+    var s: float = 0.0
+    var elapsed: float = 0.0
+    var half_time: float = CombatConstants.STAMINA_REFILL_HALF_TIME_S
+    while elapsed < half_time - 0.001:
+        s = minf(max_s, s + k * (max_s - s) * dt)
+        elapsed += dt
+    var want_half: float = max_s * 0.5
+    if absf(s - want_half) > max_s * 0.05:
+        _fail(failures, "stam_refill_half: want ~50%% (%.1f) after half-time got %.1f" % [want_half, s])
+    var rate_low: float = k * (max_s - max_s * 0.1)   # per-second refill at 10%% stamina
+    var rate_high: float = k * (max_s - max_s * 0.9)  # per-second refill at 90%% stamina
+    if not (rate_low > rate_high):
+        _fail(failures, "stam_refill_taper: want rate_low > rate_high (exponential) got low=%.3f high=%.3f" % [rate_low, rate_high])
 
 
 ## Formation pressure: defensive threshold uses burst ratio vs effective max (not absolute / STAMINA_MAX).

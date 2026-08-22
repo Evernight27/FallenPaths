@@ -240,6 +240,9 @@ static func compute_and_apply_damage(
 	var wt: String = str(weapon.weapon_type).to_upper() if weapon != null and "weapon_type" in weapon else ""
 	if not wt.is_empty():
 		dmg_extras["weapon_type"] = wt
+	var eff_atk_line: String = pa.get(DataKeys.ATTACK_EFFECTIVE_ATTACK_LINE, "")
+	if not eff_atk_line.is_empty():
+		dmg_extras["attack_line"] = eff_atk_line
 	var take_result: Dictionary = tgt_n.take_damage_split(
 		pre_cut, pre_blunt, part, pen_sharp, pen_blunt_momentum_per_area, blunt_contact_cm, dmg_extras
 	)
@@ -427,6 +430,11 @@ static func compute_and_apply_damage(
 		atk_stats.get(DataKeys.ENTITY_AGILITY, CombatConstants.DEFAULT_STAT_VALUE),
 		glancing_severity
 	)
+	# Tactical breathing / pacing offset: deliberate wind-up beyond optimal reduces post-strike recovery.
+	## Models HEMA principle of taking time between actions to breathe and reset rather than rushing.
+	var attacker_wind_up_s: float = float(pa.get(DataKeys.PA_WIND_UP_DURATION, 0.0))
+	if attacker_wind_up_s > CombatTiming.WIND_UP_FACTOR_OPTIMAL_S:
+		rec_dur = CombatTiming.apply_tactical_breathing_offset(attacker_wind_up_s, rec_dur)
 	return {"result_dict": result_dict, "outcome": outcome, "recovery_duration": rec_dur}
 
 
@@ -618,6 +626,7 @@ static func resolve_attack(manager: Node, attacker_id: int) -> Dictionary:
 	elif distance_band == "mid":
 		dist_hit_mult = 1.10
 	var effective_hit_chance: float = (1.0 - CombatConstants.MISS_CHANCE_BASE) * perf_mod * perception_factor * melee_skill_factor * measure_hit_mult * dist_hit_mult
+	effective_hit_chance = maxf(effective_hit_chance, CombatConstants.HIT_CHANCE_MIN_CAP)
 	var miss_chance: float = 1.0 - effective_hit_chance
 	var miss_roll: float = randf()
 	if miss_roll < miss_chance:
@@ -845,16 +854,17 @@ static func check_close_quarters_grapple_escalation(
 	if outcome not in ["hit", "glancing"]:
 		return {}
 	var dmg_val: float = strike_damage if strike_damage > 0.0 else float(strike_damage)
+
+	var atk: Dictionary = CombatantEntityAccess.manager_get_combatant(manager, attacker_id)
+	var tgt: Dictionary = CombatantEntityAccess.manager_get_combatant(manager, target_id)
+	if atk.is_empty() or tgt.is_empty():
+		return {}
+
 	var atk_weapon_type: String = CombatantEntityAccess.weapon_type_id(atk)
 	var grapple_max_dmg: float = CombatConstants.CLOSE_QUARTERS_GRAPPLE_MAX_DAMAGE_FOR_TRIGGER
 	if atk_weapon_type == "DAGGER":
 		grapple_max_dmg = 18.0
 	if dmg_val >= grapple_max_dmg:
-		return {}
-
-	var atk: Dictionary = CombatantEntityAccess.manager_get_combatant(manager, attacker_id)
-	var tgt: Dictionary = CombatantEntityAccess.manager_get_combatant(manager, target_id)
-	if atk.is_empty() or tgt.is_empty():
 		return {}
 
 	var band: String = CombatantEntityAccess.distance_to_opponent_band(atk, target_id)
@@ -940,6 +950,3 @@ static func _make_pair_key(atk: Dictionary, tgt: Dictionary) -> String:
 	if id_a < id_b:
 		return "%d-%d" % [id_a, id_b]
 	return "%d-%d" % [id_b, id_a]
-
-
-

@@ -28,15 +28,16 @@ const RECOVERY_EXTRA_MISS_BASE_S: float = 0.20
 const RECOVERY_MISS_COMMITMENT_SCALE_S: float = 0.60
 const RECOVERY_EXTRA_FULL_STOP_BASE_S: float = 0.5
 const RECOVERY_FULL_STOP_COMMITMENT_SCALE_S: float = 0.35
-## Wind-up energy cap (T_optimal): beyond this duration, no additional strike energy is gained.
-## Models HEMA biomechanics — a human holding a weapon at full extension for >0.8s is telegraphing and losing balance.
-## Research confirms optimal wind-up is ~0.40s; by 0.7-0.8s the quadratic factor hits 1.0 (full energy).
+## Reference wind-up energy cap (T_optimal): the quadratic wind-up energy factor min(1.0,(t/0.40)²) reaches full
+## energy at t=0.40s (WIND_UP_FACTOR_OPTIMAL_S), so no additional energy is gained beyond that. Kept as a tuning
+## reference; the live duration clamp is WIND_UP_DURATION_MAX_S.
 const WIND_UP_ENERGY_CAP_S: float = 0.75
 ## Maximum effective wind-up duration after soft cap — absolute ceiling on how long an attack can take.
 ## Capped at 0.8s to prevent telegraphed attacks with no penalty; any input held beyond this should trigger
 ## a "committed strike" state where the fighter cannot cancel or redirect the attack without penalty.
 const WIND_UP_DURATION_MAX_S: float = 0.8
-## Soft cap for wind-up duration — above this, diminishing returns apply (each extra 0.1s costs only 0.2s real time).
+## Soft cap for wind-up duration — above this, diminishing returns apply (each extra 0.1s of input adds only
+## 0.05s of real wind-up, i.e. duration is compressed toward the hard cap WIND_UP_DURATION_MAX_S).
 ## Set at 0.5s so that most attacks naturally fall below the energy cap; power swings get a modest bonus but
 ## cannot exceed the hard cap of WIND_UP_DURATION_MAX_S.
 const WIND_UP_SOFT_CAP_S: float = 0.5

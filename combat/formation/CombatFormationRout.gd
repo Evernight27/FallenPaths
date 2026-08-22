@@ -180,7 +180,10 @@ static func casualty_ratio_for_combatant(manager: Node, c: Dictionary) -> float:
 static func _morale_offset_for_combatant(c: Dictionary) -> float:
     if c.is_empty():
         return 0.0
-    var raw: float = (fmod(hash(str(c.id)), FLEE_MORALE_VARIANCE_RANGE * 100.0)) / 100.0 - FLEE_MORALE_VARIANCE_RANGE * 0.5
+    # Deterministic uniform offset in [-RANGE, +RANGE) per entity ID (the old fmod(..., RANGE*100)/100 form only
+    # spanned ±RANGE/2, half the documented ±5%).
+    var u: float = fmod(hash(str(c.id)), 1000.0) / 1000.0
+    var raw: float = (u - 0.5) * 2.0 * FLEE_MORALE_VARIANCE_RANGE
     return clampf(raw, -FLEE_MORALE_VARIANCE_RANGE, FLEE_MORALE_VARIANCE_RANGE)
 
 
@@ -274,7 +277,8 @@ static func flee_ai_pick_mult(manager: Node, c: Dictionary) -> float:
     var mult: float = coh_m * cas_m
     if formation_stressed_for_rout(manager, c) and not side_holding_field(manager, c):
         mult *= CombatConstants.AI_FLEE_LOSING_SIDE_MULT
-    # Personal crisis flee stays urgent even when the side still has numbers.
+    # Disciplined wounded stay when the side is winning: a personal-crisis unit in a holding, cohesive formation
+    # has its flee weight DAMPENED (x0.55) — cohesion holds them in the line despite their injuries.
     if side_holding_field(manager, c) and formation_stress_abandonment_path(manager, c):
         mult *= PERSONAL_CRISIS_COHESION_MULT
     return mult

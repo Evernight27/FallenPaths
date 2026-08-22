@@ -44,21 +44,21 @@ const _PART_BONE_FRACTION: Dictionary = {
 # Per-sub-region bone threshold (damage above this can go to bone). Lower = bone involved earlier.
 const _SUB_REGION_BONE_THRESHOLD: Dictionary = {
     "head": {"scalp": 4, "face": 5, "neck": 7},
-    "chest": {"thoracic": 8, "abdominal": 12},
-    "right_arm": {"upper_arm": 4, "elbow": 3, "forearm": 5, "hand": 4},
-    "left_arm": {"upper_arm": 4, "elbow": 3, "forearm": 5, "hand": 4},
-    "right_leg": {"thigh": 6, "knee": 5, "calf": 7, "foot": 6},
-    "left_leg": {"thigh": 6, "knee": 5, "calf": 7, "foot": 6}
+    "chest": {"thoracic": 8, "abdominal": 12, "sternum": 6},
+    "right_arm": {"upper_arm": 4, "elbow": 3, "forearm": 5, "hand": 4, "armpit": 3, "axillary": 3},
+    "left_arm": {"upper_arm": 4, "elbow": 3, "forearm": 5, "hand": 4, "armpit": 3, "axillary": 3},
+    "right_leg": {"thigh": 6, "knee": 5, "calf": 7, "foot": 6, "inner_thigh": 5},
+    "left_leg": {"thigh": 6, "knee": 5, "calf": 7, "foot": 6, "inner_thigh": 5}
 }
 
 # Per-sub-region fraction of damage (above threshold) that goes to bone vs tissue.
 const _SUB_REGION_BONE_FRACTION: Dictionary = {
     "head": {"scalp": 0.42, "face": 0.55, "neck": 0.30},
-    "chest": {"thoracic": 0.32, "abdominal": 0.20},
-    "right_arm": {"upper_arm": 0.40, "elbow": 0.45, "forearm": 0.35, "hand": 0.30},
-    "left_arm": {"upper_arm": 0.40, "elbow": 0.45, "forearm": 0.35, "hand": 0.30},
-    "right_leg": {"thigh": 0.44, "knee": 0.40, "calf": 0.42, "foot": 0.35},
-    "left_leg": {"thigh": 0.44, "knee": 0.40, "calf": 0.42, "foot": 0.35}
+    "chest": {"thoracic": 0.32, "abdominal": 0.20, "sternum": 0.35},
+    "right_arm": {"upper_arm": 0.40, "elbow": 0.45, "forearm": 0.35, "hand": 0.30, "armpit": 0.25, "axillary": 0.25},
+    "left_arm": {"upper_arm": 0.40, "elbow": 0.45, "forearm": 0.35, "hand": 0.30, "armpit": 0.25, "axillary": 0.25},
+    "right_leg": {"thigh": 0.44, "knee": 0.40, "calf": 0.42, "foot": 0.35, "inner_thigh": 0.38},
+    "left_leg": {"thigh": 0.44, "knee": 0.40, "calf": 0.42, "foot": 0.35, "inner_thigh": 0.38}
 }
 
 # --- Targeting (weapon hit probability by body part) ---

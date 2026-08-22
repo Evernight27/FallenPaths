@@ -5,10 +5,11 @@ const _CombatRegressionHarness := preload("res://harness/regression/CombatRegres
 ## Tier 6.3 medical phase + treatment tests split from CombatRegressionHarness (compile size).
 
 const BattleScene := preload("res://ui/battle/BattleScene.gd")
+const HarnessFixtures := preload("res://harness/HarnessFixtures.gd")
 
 
 static func _free_entity_fixture(n: Node) -> void:
-    _CombatRegressionHarness._free_harness_node(n)
+    HarnessFixtures._free_harness_node(n)
 
 
 ## Medical phase: queued enemy melee and wind-up are torn down; dispatch does not resolve attacks.
@@ -17,8 +18,8 @@ static func _free_entity_fixture(n: Node) -> void:
 ## Medical phase: queued enemy melee and wind-up are torn down; dispatch does not resolve attacks.
 static func _run_medical_phase_cancels_pending_enemy_melee(failures: PackedStringArray) -> void:
     var mgr: Node = CombatManager.new()
-    mgr.register(_CombatRegressionHarness._new_entity("SWORD"), "player")
-    var ent_enemy := _CombatRegressionHarness._new_entity("SWORD")
+    mgr.register(_new_entity("SWORD"), "player")
+    var ent_enemy := _new_entity("SWORD")
     mgr.register(ent_enemy, "enemy")
     mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
     var p_id: int = CombatantEntityAccess.id_int(mgr.combatants[0])
@@ -48,36 +49,36 @@ static func _run_medical_phase_cancels_pending_enemy_melee(failures: PackedStrin
     mgr.action_resolved.connect(func(_a: int, _t: int, _r: Dictionary) -> void: fired_box[0] = int(fired_box[0]) + 1)
     mgr._end_combat_phase("player", ent_enemy)
     if not mgr.medical_phase:
-        _CombatRegressionHarness._fail(failures, "medical_phase_melee: expected medical_phase after player win")
-        _CombatRegressionHarness._free_manager(mgr)
+        _fail(failures, "medical_phase_melee: expected medical_phase after player win")
+        HarnessFixtures._free_manager(mgr)
         return
     if CombatantEntityAccess.state_str(en) == CombatConstants.STATE_WIND_UP:
-        _CombatRegressionHarness._fail(
+        _fail(
             failures, "medical_phase_melee: enemy should not remain in wind_up after teardown"
         )
     if CombatantEntityAccess.state_str(en) == CombatConstants.STATE_RECOVERING:
-        _CombatRegressionHarness._fail(
+        _fail(
             failures, "medical_phase_melee: enemy should not remain in recovering after teardown"
         )
     if CombatEventScheduler.get_pending_melee_attack_resolve_at(mgr, e_id) >= 0.0:
-        _CombatRegressionHarness._fail(failures, "medical_phase_melee: pending EVENT_MELEE_ATTACK should be cancelled")
+        _fail(failures, "medical_phase_melee: pending EVENT_MELEE_ATTACK should be cancelled")
     var enemy_actions: Array = mgr.get_available_actions(e_id)
     for raw in enemy_actions:
         if typeof(raw) != TYPE_DICTIONARY:
             continue
         var mid: String = str((raw as Dictionary).get("move_id", ""))
         if not CombatConstants.is_medical_move(mid) and mid != CombatConstants.MOVE_ID_WAIT:
-            _CombatRegressionHarness._fail(failures, "medical_phase_melee: enemy should not list combat move %s" % mid)
+            _fail(failures, "medical_phase_melee: enemy should not list combat move %s" % mid)
             break
     mgr.combat_clock = resolve_at + 0.01
     CombatEventDispatch.process_event_queue(mgr)
     if int(fired_box[0]) != 0:
-        _CombatRegressionHarness._fail(
+        _fail(
             failures, "medical_phase_melee: expected no action_resolved got fired=%d" % int(fired_box[0])
         )
     if CombatantEntityAccess.state_str(en) == CombatConstants.STATE_WIND_UP:
-        _CombatRegressionHarness._fail(failures, "medical_phase_melee: enemy still wind_up after queued melee dispatch")
-    _CombatRegressionHarness._free_manager(mgr)
+        _fail(failures, "medical_phase_melee: enemy still wind_up after queued melee dispatch")
+    HarnessFixtures._free_manager(mgr)
 
 
 ## After medical phase, afterblow must not resolve a losing-side wind-up.
@@ -85,7 +86,7 @@ static func _run_medical_phase_cancels_pending_enemy_melee(failures: PackedStrin
 
 ## After medical phase, afterblow must not resolve a losing-side wind-up.
 static func _run_medical_phase_blocks_afterblow_on_loser(failures: PackedStringArray) -> void:
-    var mgr: Node = _CombatRegressionHarness._harness_start_1v1()
+    var mgr: Node = HarnessFixtures._harness_start_1v1()
     var p_id: int = CombatantEntityAccess.id_int(mgr.combatants[0])
     var en: Dictionary = mgr.combatants[1]
     var e_id: int = CombatantEntityAccess.id_int(en)
@@ -101,16 +102,16 @@ static func _run_medical_phase_blocks_afterblow_on_loser(failures: PackedStringA
     var fired_box: Array = [0]
     mgr.action_resolved.connect(func(_a: int, _t: int, _r: Dictionary) -> void: fired_box[0] = int(fired_box[0]) + 1)
     if AfterblowHandler.try_afterblow(mgr, p_id, e_id, {"part": "chest", "outcome": "hit", "final_cut": 1.0}, 0.2):
-        _CombatRegressionHarness._fail(
+        _fail(
             failures, "medical_phase_afterblow: try_afterblow should be false for losing side"
         )
     if int(fired_box[0]) != 0:
-        _CombatRegressionHarness._fail(failures, "medical_phase_afterblow: expected no action_resolved")
+        _fail(failures, "medical_phase_afterblow: expected no action_resolved")
     if not CombatantEntityAccess.nested_dictionary_read(en, "pending_attack").is_empty():
-        _CombatRegressionHarness._fail(failures, "medical_phase_afterblow: pending_attack should clear")
+        _fail(failures, "medical_phase_afterblow: pending_attack should clear")
     if CombatantEntityAccess.state_str(en) == CombatConstants.STATE_WIND_UP:
-        _CombatRegressionHarness._fail(failures, "medical_phase_afterblow: enemy should not remain in wind_up")
-    _CombatRegressionHarness._free_manager(mgr)
+        _fail(failures, "medical_phase_afterblow: enemy should not remain in wind_up")
+    HarnessFixtures._free_manager(mgr)
 
 
 ## schedule_event / schedule_action_ready ignore losing-side combat queue entries during medical phase.
@@ -118,16 +119,16 @@ static func _run_medical_phase_blocks_afterblow_on_loser(failures: PackedStringA
 
 ## schedule_event / schedule_action_ready ignore losing-side combat queue entries during medical phase.
 static func _run_medical_phase_blocks_scheduled_enemy_events(failures: PackedStringArray) -> void:
-    var mgr: Node = _CombatRegressionHarness._harness_start_1v1()
+    var mgr: Node = HarnessFixtures._harness_start_1v1()
     var e_id: int = CombatantEntityAccess.id_int(mgr.combatants[1])
     var p_id: int = CombatantEntityAccess.id_int(mgr.combatants[0])
     mgr.medical_phase = true
     mgr.medical_phase_winner = "player"
     CombatEventScheduler.schedule_action_ready(mgr, e_id, 0.05)
     if CombatEventScheduler.get_next_action_ready_at(mgr, e_id) >= 0.0:
-        _CombatRegressionHarness._fail(failures, "medical_phase_schedule: enemy action_ready should not schedule")
+        _fail(failures, "medical_phase_schedule: enemy action_ready should not schedule")
     if CombatEventScheduler.get_pending_melee_attack_resolve_at(mgr, e_id) >= 0.0:
-        _CombatRegressionHarness._fail(failures, "medical_phase_schedule: enemy melee should not schedule")
+        _fail(failures, "medical_phase_schedule: enemy melee should not schedule")
     (
         CombatEventScheduler
         . schedule_event(
@@ -141,13 +142,13 @@ static func _run_medical_phase_blocks_scheduled_enemy_events(failures: PackedStr
         )
     )
     if CombatEventScheduler.get_pending_melee_attack_resolve_at(mgr, e_id) >= 0.0:
-        _CombatRegressionHarness._fail(
+        _fail(
             failures, "medical_phase_schedule: enemy melee via schedule_event should be blocked"
         )
     CombatEventScheduler.schedule_action_ready(mgr, p_id, 0.05)
     if CombatEventScheduler.get_next_action_ready_at(mgr, p_id) < 0.0:
-        _CombatRegressionHarness._fail(failures, "medical_phase_schedule: winner action_ready should schedule")
-    _CombatRegressionHarness._free_manager(mgr)
+        _fail(failures, "medical_phase_schedule: winner action_ready should schedule")
+    HarnessFixtures._free_manager(mgr)
 
 
 ## Teardown drops queued formation resolves for the losing side.
@@ -155,7 +156,7 @@ static func _run_medical_phase_blocks_scheduled_enemy_events(failures: PackedStr
 
 ## Teardown drops queued formation resolves for the losing side.
 static func _run_medical_phase_teardown_cancels_formation_resolve(failures: PackedStringArray) -> void:
-    var mgr: Node = _CombatRegressionHarness._harness_start_1v1()
+    var mgr: Node = HarnessFixtures._harness_start_1v1()
     var en: Dictionary = mgr.combatants[1]
     var e_id: int = CombatantEntityAccess.id_int(en)
     en.state = CombatConstants.STATE_SWAP_RANK
@@ -174,7 +175,7 @@ static func _run_medical_phase_teardown_cancels_formation_resolve(failures: Pack
     )
     mgr._end_combat_phase("player", CombatantEntityAccess.scene_node(en))
     if CombatantEntityAccess.state_str(en) == CombatConstants.STATE_SWAP_RANK:
-        _CombatRegressionHarness._fail(failures, "medical_phase_formation: enemy should leave swap_rank after teardown")
+        _fail(failures, "medical_phase_formation: enemy should leave swap_rank after teardown")
     var has_swap: bool = false
     for ev in mgr.event_queue:
         if (
@@ -184,8 +185,8 @@ static func _run_medical_phase_teardown_cancels_formation_resolve(failures: Pack
             has_swap = true
             break
     if has_swap:
-        _CombatRegressionHarness._fail(failures, "medical_phase_formation: swap_rank_resolve should be cancelled")
-    _CombatRegressionHarness._free_manager(mgr)
+        _fail(failures, "medical_phase_formation: swap_rank_resolve should be cancelled")
+    HarnessFixtures._free_manager(mgr)
 
 
 ## Purge pass + wind-up start guard: only winner combat events remain schedulable.
@@ -193,7 +194,7 @@ static func _run_medical_phase_teardown_cancels_formation_resolve(failures: Pack
 
 ## Purge pass + wind-up start guard: only winner combat events remain schedulable.
 static func _run_medical_phase_purge_queue_and_windup_blocked(failures: PackedStringArray) -> void:
-    var mgr: Node = _CombatRegressionHarness._harness_start_1v1()
+    var mgr: Node = HarnessFixtures._harness_start_1v1()
     var p_id: int = CombatantEntityAccess.id_int(mgr.combatants[0])
     var en: Dictionary = mgr.combatants[1]
     var e_id: int = CombatantEntityAccess.id_int(en)
@@ -215,15 +216,15 @@ static func _run_medical_phase_purge_queue_and_windup_blocked(failures: PackedSt
     mgr.medical_phase_winner = "player"
     MedicalPhaseController.halt_losing_side_combat(mgr)
     if CombatEventScheduler.get_pending_melee_attack_resolve_at(mgr, e_id) >= 0.0:
-        _CombatRegressionHarness._fail(failures, "medical_phase_purge: enemy melee should be purged from queue")
+        _fail(failures, "medical_phase_purge: enemy melee should be purged from queue")
     if CombatEventScheduler.get_next_action_ready_at(mgr, p_id) < 0.0:
-        _CombatRegressionHarness._fail(failures, "medical_phase_purge: winner action_ready should remain in queue")
+        _fail(failures, "medical_phase_purge: winner action_ready should remain in queue")
     AttackWindUpStarter.start(mgr, e_id, p_id, "thrust")
     if CombatantEntityAccess.state_str(en) == CombatConstants.STATE_WIND_UP:
-        _CombatRegressionHarness._fail(failures, "medical_phase_purge: losing-side wind-up start should be blocked")
+        _fail(failures, "medical_phase_purge: losing-side wind-up start should be blocked")
     if not CombatantEntityAccess.nested_dictionary_read(en, "pending_attack").is_empty():
-        _CombatRegressionHarness._fail(failures, "medical_phase_purge: losing-side pending_attack should stay empty")
-    _CombatRegressionHarness._free_manager(mgr)
+        _fail(failures, "medical_phase_purge: losing-side pending_attack should stay empty")
+    HarnessFixtures._free_manager(mgr)
 
 
 ## Loser skip_turn is a no-op during medical phase (no log spam / no reschedule).
@@ -231,7 +232,7 @@ static func _run_medical_phase_purge_queue_and_windup_blocked(failures: PackedSt
 
 ## Loser skip_turn is a no-op during medical phase (no log spam / no reschedule).
 static func _run_medical_phase_skip_turn_silent_for_loser(failures: PackedStringArray) -> void:
-    var mgr: Node = _CombatRegressionHarness._harness_start_1v1()
+    var mgr: Node = HarnessFixtures._harness_start_1v1()
     var en: Dictionary = mgr.combatants[1]
     var e_id: int = CombatantEntityAccess.id_int(en)
     en.state = CombatConstants.STATE_WAITING
@@ -242,10 +243,10 @@ static func _run_medical_phase_skip_turn_silent_for_loser(failures: PackedString
     mgr.action_resolved.connect(func(_a: int, _t: int, _r: Dictionary) -> void: fired_box[0] = int(fired_box[0]) + 1)
     CombatantEntityAccess.manager_skip_turn(mgr, e_id, CombatConstants.SKIP_TURN_LOG_PASS, "harness")
     if int(fired_box[0]) != 0:
-        _CombatRegressionHarness._fail(failures, "medical_phase_skip: loser skip_turn should not emit action_resolved")
+        _fail(failures, "medical_phase_skip: loser skip_turn should not emit action_resolved")
     if CombatEventScheduler.get_next_action_ready_at(mgr, e_id) >= 0.0:
-        _CombatRegressionHarness._fail(failures, "medical_phase_skip: loser skip_turn should not schedule action_ready")
-    _CombatRegressionHarness._free_manager(mgr)
+        _fail(failures, "medical_phase_skip: loser skip_turn should not schedule action_ready")
+    HarnessFixtures._free_manager(mgr)
 
 
 ## During medical phase the winner cannot start combat moves (thrust / wait / wind-up).
@@ -253,7 +254,7 @@ static func _run_medical_phase_skip_turn_silent_for_loser(failures: PackedString
 
 ## During medical phase the winner cannot start combat moves (thrust / wait / wind-up).
 static func _run_medical_phase_winner_combat_resolve_blocked(failures: PackedStringArray) -> void:
-    var mgr: Node = _CombatRegressionHarness._harness_start_1v1()
+    var mgr: Node = HarnessFixtures._harness_start_1v1()
     var p_id: int = CombatantEntityAccess.id_int(mgr.combatants[0])
     var e_id: int = CombatantEntityAccess.id_int(mgr.combatants[1])
     mgr.medical_phase = true
@@ -262,19 +263,19 @@ static func _run_medical_phase_winner_combat_resolve_blocked(failures: PackedStr
     mgr.action_resolved.connect(func(_a: int, _t: int, _r: Dictionary) -> void: fired_box[0] = int(fired_box[0]) + 1)
     mgr.resolve_action(p_id, e_id, "thrust", {})
     if CombatantEntityAccess.state_str(mgr.combatants[0]) == CombatConstants.STATE_WIND_UP:
-        _CombatRegressionHarness._fail(failures, "medical_phase_winner: thrust should not start wind-up")
+        _fail(failures, "medical_phase_winner: thrust should not start wind-up")
     mgr.resolve_action(p_id, p_id, CombatConstants.MOVE_ID_WAIT, {})
     if int(fired_box[0]) != 0:
-        _CombatRegressionHarness._fail(failures, "medical_phase_winner: wait should not emit during medical phase")
+        _fail(failures, "medical_phase_winner: wait should not emit during medical phase")
     AttackWindUpStarter.start(mgr, p_id, e_id, "thrust")
     if CombatantEntityAccess.state_str(mgr.combatants[0]) == CombatConstants.STATE_WIND_UP:
-        _CombatRegressionHarness._fail(failures, "medical_phase_winner: AttackWindUpStarter.start should be blocked")
+        _fail(failures, "medical_phase_winner: AttackWindUpStarter.start should be blocked")
     var res: Dictionary = AttackResolver.resolve_attack(mgr, p_id)
     if str(res.get("action", "")) != "skip":
-        _CombatRegressionHarness._fail(
+        _fail(
             failures, "medical_phase_winner: resolve_attack should skip got %s" % str(res.get("action", ""))
         )
-    _CombatRegressionHarness._free_manager(mgr)
+    HarnessFixtures._free_manager(mgr)
 
 
 ## Winner-side action listing during medical phase must not offer combat or flee moves.
@@ -283,12 +284,12 @@ static func _run_medical_phase_winner_combat_resolve_blocked(failures: PackedStr
 ## Winner-side action listing during medical phase must not offer combat or flee moves.
 static func _run_medical_phase_winner_listing_medical_only(failures: PackedStringArray) -> void:
     var mgr: Node = CombatManager.new()
-    var medic_ent: Node = _CombatRegressionHarness._new_entity("SWORD")
+    var medic_ent: Node = _new_entity("SWORD")
     mgr.register(medic_ent, "player")
-    var ally_ent: Node = _CombatRegressionHarness._new_entity("SWORD")
+    var ally_ent: Node = _new_entity("SWORD")
     ally_ent.take_damage_split(4.0, 1.0, "chest")
     mgr.register(ally_ent, "player")
-    mgr.register(_CombatRegressionHarness._new_entity("SWORD"), "enemy")
+    mgr.register(_new_entity("SWORD"), "enemy")
     mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
     mgr._end_combat_phase("player", CombatantEntityAccess.scene_node(mgr.combatants[2]))
     var medic: Dictionary = mgr.combatants[0]
@@ -308,10 +309,10 @@ static func _run_medical_phase_winner_listing_medical_only(failures: PackedStrin
     for a in actions:
         var mid: String = str(a.get("move_id", ""))
         if mid in blocked_move_ids:
-            _CombatRegressionHarness._fail(
+            _fail(
                 failures, "medical_phase_winner_listing: blocked move_id '%s' in %s" % [mid, str(actions)]
             )
-    _CombatRegressionHarness._free_manager(mgr)
+    HarnessFixtures._free_manager(mgr)
 
 
 ## AttackResultApplier must not apply combat outcomes during medical phase.
@@ -319,7 +320,7 @@ static func _run_medical_phase_winner_listing_medical_only(failures: PackedStrin
 
 ## AttackResultApplier must not apply combat outcomes during medical phase.
 static func _run_medical_phase_apply_result_blocked(failures: PackedStringArray) -> void:
-    var mgr: Node = _CombatRegressionHarness._harness_start_1v1()
+    var mgr: Node = HarnessFixtures._harness_start_1v1()
     var p_id: int = CombatantEntityAccess.id_int(mgr.combatants[0])
     var fired_box: Array = [0]
     mgr.action_resolved.connect(func(_a: int, _t: int, _r: Dictionary) -> void: fired_box[0] = int(fired_box[0]) + 1)
@@ -329,10 +330,10 @@ static func _run_medical_phase_apply_result_blocked(failures: PackedStringArray)
         mgr, p_id, {"action": "hit", "target_id": p_id, "recovery_duration": 0.5, "result_dict": {"died": false}}
     )
     if int(fired_box[0]) != 0:
-        _CombatRegressionHarness._fail(
+        _fail(
             failures, "medical_phase_applier: apply_result should not emit during medical phase"
         )
-    _CombatRegressionHarness._free_manager(mgr)
+    HarnessFixtures._free_manager(mgr)
 
 
 ## Second `_end_combat_phase("player")` refreshes teardown without re-emitting `enemies_eliminated`.
@@ -340,7 +341,7 @@ static func _run_medical_phase_apply_result_blocked(failures: PackedStringArray)
 
 ## Second `_end_combat_phase("player")` refreshes teardown without re-emitting `enemies_eliminated`.
 static func _run_medical_phase_end_combat_idempotent(failures: PackedStringArray) -> void:
-    var mgr: Node = _CombatRegressionHarness._harness_start_1v1()
+    var mgr: Node = HarnessFixtures._harness_start_1v1()
     var e_id: int = CombatantEntityAccess.id_int(mgr.combatants[1])
     var en: Dictionary = mgr.combatants[1]
     en.state = CombatConstants.STATE_WIND_UP
@@ -362,17 +363,17 @@ static func _run_medical_phase_end_combat_idempotent(failures: PackedStringArray
     mgr.enemies_eliminated.connect(func(_w: String) -> void: emit_box[0] = int(emit_box[0]) + 1)
     mgr._end_combat_phase("player", null)
     if not mgr.medical_phase:
-        _CombatRegressionHarness._fail(failures, "medical_phase_idempotent: expected medical_phase after first end")
+        _fail(failures, "medical_phase_idempotent: expected medical_phase after first end")
     mgr._end_combat_phase("player", null)
     if int(emit_box[0]) != 1:
-        _CombatRegressionHarness._fail(
+        _fail(
             failures, "medical_phase_idempotent: enemies_eliminated should emit once got %d" % int(emit_box[0])
         )
     if CombatEventScheduler.get_pending_melee_attack_resolve_at(mgr, e_id) >= 0.0:
-        _CombatRegressionHarness._fail(
+        _fail(
             failures, "medical_phase_idempotent: loser melee should stay cancelled after refresh"
         )
-    _CombatRegressionHarness._free_manager(mgr)
+    HarnessFixtures._free_manager(mgr)
 
 
 ## Tier 6.2: winner fled before medical phase  -  clear **`combat_absent`**, suspend bleed, list triage.
@@ -380,24 +381,24 @@ static func _run_medical_phase_end_combat_idempotent(failures: PackedStringArray
 
 ## Tier 6.2: winner fled before medical phase  -  clear **`combat_absent`**, suspend bleed, list triage.
 static func _run_medical_phase_winner_fled_suspends_bleed_tick(failures: PackedStringArray) -> void:
-    var mgr: Node = _CombatRegressionHarness._harness_start_1v1()
+    var mgr: Node = HarnessFixtures._harness_start_1v1()
     var c: Dictionary = mgr.combatants[0]
     c[DataKeys.COMBATANT_COMBAT_ABSENT] = true
     c.state = CombatConstants.STATE_FLED
     mgr._end_combat_phase("player", null)
     if bool(c.get(DataKeys.COMBATANT_COMBAT_ABSENT, false)):
-        _CombatRegressionHarness._fail(failures, "med_phase_fled: winner combat_absent should clear for medical listing")
+        _fail(failures, "med_phase_fled: winner combat_absent should clear for medical listing")
     if not bool(c.get(CombatConstants.COMBATANT_KEY_SUSPEND_BLEED_TICK, false)):
-        _CombatRegressionHarness._fail(failures, "med_phase_fled: winner should suspend bleed ticks after fleeing")
+        _fail(failures, "med_phase_fled: winner should suspend bleed ticks after fleeing")
     if CombatantEntityAccess.state_str(c) == CombatConstants.STATE_FLED:
-        _CombatRegressionHarness._fail(failures, "med_phase_fled: winner should leave STATE_FLED for medical listing")
+        _fail(failures, "med_phase_fled: winner should leave STATE_FLED for medical listing")
     if CombatantEntityAccess.state_str(c) != CombatConstants.STATE_WAITING:
-        _CombatRegressionHarness._fail(
+        _fail(
             failures, "med_phase_fled: want STATE_WAITING for triage got %s" % CombatantEntityAccess.state_str(c)
         )
     if not CombatantEntityAccess.is_alive_in_combat(c):
-        _CombatRegressionHarness._fail(failures, "med_phase_fled: fled winner should list medical actions")
-    _CombatRegressionHarness._free_manager(mgr)
+        _fail(failures, "med_phase_fled: fled winner should list medical actions")
+    HarnessFixtures._free_manager(mgr)
 
 
 ## Fled winner with active bleed: medical tick must not drain blood while suspend flag is set.
@@ -405,17 +406,17 @@ static func _run_medical_phase_winner_fled_suspends_bleed_tick(failures: PackedS
 
 ## Fled winner with active bleed: medical tick must not drain blood while suspend flag is set.
 static func _run_medical_phase_fled_winner_bleed_suspended_on_tick(failures: PackedStringArray) -> void:
-    var mgr: Node = _CombatRegressionHarness._harness_start_1v1()
+    var mgr: Node = HarnessFixtures._harness_start_1v1()
     var c: Dictionary = mgr.combatants[0]
     var node: Node = CombatantEntityAccess.scene_node(c)
     if node == null or not ("blood_volume" in node):
-        _CombatRegressionHarness._fail(failures, "med_phase_bleed_suspend: missing scene node blood")
-        _CombatRegressionHarness._free_manager(mgr)
+        _fail(failures, "med_phase_bleed_suspend: missing scene node blood")
+        HarnessFixtures._free_manager(mgr)
         return
     node.take_damage_split(6.0, 2.0, "chest")
     if EntityWounds.get_total_bleeding_rate(node) <= 0.0:
-        _CombatRegressionHarness._fail(failures, "med_phase_bleed_suspend: need active bleed on chest wound")
-        _CombatRegressionHarness._free_manager(mgr)
+        _fail(failures, "med_phase_bleed_suspend: need active bleed on chest wound")
+        HarnessFixtures._free_manager(mgr)
         return
     node._set_combat_blood_loss_mult(1.0)
     node._set_combat_blood_recovery_per_s(0.0)
@@ -425,7 +426,7 @@ static func _run_medical_phase_fled_winner_bleed_suspended_on_tick(failures: Pac
     mgr._end_combat_phase("player", null)
     CombatProcessTick.tick(mgr, 2.0)
     if float(node.blood_volume) < bv_before - 0.01:
-        _CombatRegressionHarness._fail(
+        _fail(
             failures,
             (
                 "med_phase_bleed_suspend: blood %.2f should not drop from %.2f on tick"
@@ -435,14 +436,14 @@ static func _run_medical_phase_fled_winner_bleed_suspended_on_tick(failures: Pac
     c.erase(CombatConstants.COMBATANT_KEY_SUSPEND_BLEED_TICK)
     CombatProcessTick.tick(mgr, 2.0)
     if float(node.blood_volume) >= bv_before - 0.01:
-        _CombatRegressionHarness._fail(
+        _fail(
             failures,
             (
                 "med_phase_bleed_suspend: blood should drain after suspend flag cleared (still %.2f)"
                 % float(node.blood_volume)
             )
         )
-    _CombatRegressionHarness._free_manager(mgr)
+    HarnessFixtures._free_manager(mgr)
 
 
 ## Winner who stayed on field: medical phase must keep bleed ticks (urgency / triage pressure).
@@ -450,33 +451,33 @@ static func _run_medical_phase_fled_winner_bleed_suspended_on_tick(failures: Pac
 
 ## Winner who stayed on field: medical phase must keep bleed ticks (urgency / triage pressure).
 static func _run_medical_phase_non_fled_winner_bleed_continues_on_tick(failures: PackedStringArray) -> void:
-    var mgr: Node = _CombatRegressionHarness._harness_start_1v1()
+    var mgr: Node = HarnessFixtures._harness_start_1v1()
     var c: Dictionary = mgr.combatants[0]
     var node: Node = CombatantEntityAccess.scene_node(c)
     if node == null or not ("blood_volume" in node):
-        _CombatRegressionHarness._fail(failures, "med_phase_bleed_continue: missing scene node blood")
-        _CombatRegressionHarness._free_manager(mgr)
+        _fail(failures, "med_phase_bleed_continue: missing scene node blood")
+        HarnessFixtures._free_manager(mgr)
         return
     node.take_damage_split(6.0, 2.0, "chest")
     if EntityWounds.get_total_bleeding_rate(node) <= 0.0:
-        _CombatRegressionHarness._fail(failures, "med_phase_bleed_continue: need active bleed on chest wound")
-        _CombatRegressionHarness._free_manager(mgr)
+        _fail(failures, "med_phase_bleed_continue: need active bleed on chest wound")
+        HarnessFixtures._free_manager(mgr)
         return
     node._set_combat_blood_loss_mult(1.0)
     node._set_combat_blood_recovery_per_s(0.0)
     var bv_before: float = float(node.blood_volume)
     mgr._end_combat_phase("player", null)
     if bool(c.get(CombatConstants.COMBATANT_KEY_SUSPEND_BLEED_TICK, false)):
-        _CombatRegressionHarness._fail(
+        _fail(
             failures, "med_phase_bleed_continue: non-fled winner must not suspend bleed ticks"
         )
     CombatProcessTick.tick(mgr, 2.0)
     if float(node.blood_volume) >= bv_before - 0.01:
-        _CombatRegressionHarness._fail(
+        _fail(
             failures,
             "med_phase_bleed_continue: blood should drop from %.2f (still %.2f)" % [bv_before, float(node.blood_volume)]
         )
-    _CombatRegressionHarness._free_manager(mgr)
+    HarnessFixtures._free_manager(mgr)
 
 
 ## Combat stop tears down suspend_bleed_tick so overworld bleed is not frozen on reused dicts.
@@ -484,19 +485,19 @@ static func _run_medical_phase_non_fled_winner_bleed_continues_on_tick(failures:
 
 ## Combat stop tears down suspend_bleed_tick so overworld bleed is not frozen on reused dicts.
 static func _run_medical_phase_stop_clears_suspend_bleed_tick(failures: PackedStringArray) -> void:
-    var mgr: Node = _CombatRegressionHarness._harness_start_1v1()
+    var mgr: Node = HarnessFixtures._harness_start_1v1()
     var c: Dictionary = mgr.combatants[0]
     c[DataKeys.COMBATANT_COMBAT_ABSENT] = true
     c.state = CombatConstants.STATE_FLED
     mgr._end_combat_phase("player", null)
     if not bool(c.get(CombatConstants.COMBATANT_KEY_SUSPEND_BLEED_TICK, false)):
-        _CombatRegressionHarness._fail(
+        _fail(
             failures, "med_phase_stop: setup want suspend_bleed_tick after fled medical entry"
         )
     mgr.stop()
     if bool(c.get(CombatConstants.COMBATANT_KEY_SUSPEND_BLEED_TICK, false)):
-        _CombatRegressionHarness._fail(failures, "med_phase_stop: stop() should erase suspend_bleed_tick")
-    _CombatRegressionHarness._free_manager(mgr)
+        _fail(failures, "med_phase_stop: stop() should erase suspend_bleed_tick")
+    HarnessFixtures._free_manager(mgr)
 
 
 ## Medical log: ally bandage uses clear procedure label (not bare **`bandage_self`**).
@@ -521,18 +522,22 @@ static func _run_combat_log_formatter_bandage_ally_label(failures: PackedStringA
         )
     )
     if not line.contains("bandage (ally)"):
-        _CombatRegressionHarness._fail(failures, "bandage_ally_log: want bandage (ally) got '%s'" % line)
+        _fail(failures, "bandage_ally_log: want bandage (ally) got '%s'" % line)
     if not line.contains("Bob"):
-        _CombatRegressionHarness._fail(failures, "bandage_ally_log: want target name in line")
+        _fail(failures, "bandage_ally_log: want target name in line")
 
 
+## Harness fixture: chest wound at severe (thoracic is strict sub-region) with moderate+ arterial so pack eligibility
+## and success chance are stable across the harness.
 static func _harness_wound_chest_for_packing(ent: Node) -> void:
     if ent == null:
         return
-    # Thoracic cut at moderate+ (>=25% of chest max) so pack eligibility is stable; keep damage below vital collapse.
     EntityWounds.add_wound(
-        ent, "chest", BleedingConstants.INJURY_TYPE_CUT, 9.0, "thoracic", BleedingConstants.SEVERITY_MODERATE
+        ent, "chest", BleedingConstants.INJURY_TYPE_CUT, 9.0, "thoracic", BleedingConstants.SEVERITY_SEVERE
     )
+    # Force deterministic arterial/non-arterial and bleeding rate so packing tests are reproducible.
+    if ent.wounds.has("chest") and ent.wounds["chest"].size() > 0:
+        ent.wounds["chest"][0]["is_arterial"] = false
 
 
 ## Hold compression when fixture still bleeds so dress/pack gates match TCCC production paths.
@@ -555,14 +560,14 @@ static func _harness_hold_pressure_if_bleeding(ent: Node, part: String) -> void:
 
 ## Tier 6.1: **`pack_wound`** legal only on **`PACKING_PARTS`** with open wounds.
 static func _run_pack_wound_strict_subregion_eligibility(failures: PackedStringArray) -> void:
-    var ent: Node = _CombatRegressionHarness._new_entity("SWORD")
+    var ent: Node = _new_entity("SWORD")
     EntityWounds.add_wound(
         ent, "head", BleedingConstants.INJURY_TYPE_CUT, 5.0, "neck", BleedingConstants.SEVERITY_MODERATE
     )
     if ent.wounds.get("head", []).size() > 0:
         ent.wounds["head"][0]["is_arterial"] = false
     if ent.can_apply_packing("head"):
-        _CombatRegressionHarness._fail(
+        _fail(
             failures, "pack_wound_strict: moderate non-arterial neck should not allow packing"
         )
     ent.wounds["head"].clear()
@@ -570,66 +575,66 @@ static func _run_pack_wound_strict_subregion_eligibility(failures: PackedStringA
         ent, "head", BleedingConstants.INJURY_TYPE_CUT, 5.0, "neck", BleedingConstants.SEVERITY_MODERATE
     )
     if ent.wounds["head"].size() != 1:
-        _CombatRegressionHarness._fail(failures, "pack_wound_strict: expected one neck wound")
+        _fail(failures, "pack_wound_strict: expected one neck wound")
     else:
         ent.wounds["head"][0]["is_arterial"] = true
     MedicalPhaseGateTests._harness_hold_pressure_if_bleeding(ent, "head")
     if not ent.can_apply_packing("head"):
-        _CombatRegressionHarness._fail(failures, "pack_wound_strict: moderate arterial neck should allow packing")
+        _fail(failures, "pack_wound_strict: moderate arterial neck should allow packing")
     ent.wounds["head"].clear()
     EntityWounds.add_wound(
         ent, "head", BleedingConstants.INJURY_TYPE_CUT, 12.0, "neck", BleedingConstants.SEVERITY_SEVERE
     )
     MedicalPhaseGateTests._harness_hold_pressure_if_bleeding(ent, "head")
     if not ent.can_apply_packing("head"):
-        _CombatRegressionHarness._fail(failures, "pack_wound_strict: severe neck should allow packing when linen ok")
+        _fail(failures, "pack_wound_strict: severe neck should allow packing when linen ok")
     MedicalPhaseGateTests._free_entity_fixture(ent)
 
 
 static func _run_pack_wound_can_apply_on_chest_wound(failures: PackedStringArray) -> void:
-    var ent: Node = _CombatRegressionHarness._new_entity("SWORD")
+    var ent: Node = _new_entity("SWORD")
     MedicalPhaseGateTests._harness_wound_chest_for_packing(ent)
     MedicalPhaseGateTests._harness_hold_pressure_if_bleeding(ent, "chest")
     if not ent.can_apply_packing("chest"):
-        _CombatRegressionHarness._fail(failures, "pack_wound_can: chest wound should allow packing")
+        _fail(failures, "pack_wound_can: chest wound should allow packing")
     if ent.can_apply_packing("left_arm"):
-        _CombatRegressionHarness._fail(failures, "pack_wound_can: left_arm not a packing part")
+        _fail(failures, "pack_wound_can: left_arm not a packing part")
     MedicalPhaseGateTests._free_entity_fixture(ent)
 
 
 static func _run_pack_wound_blocked_when_already_packed(failures: PackedStringArray) -> void:
-    var ent: Node = _CombatRegressionHarness._new_entity("SWORD")
+    var ent: Node = _new_entity("SWORD")
     MedicalPhaseGateTests._harness_wound_chest_for_packing(ent)
     MedicalPhaseGateTests._harness_hold_pressure_if_bleeding(ent, "chest")
     seed(88201)
     var ok: bool = ent._apply_packing("chest", 1.5)
-    seed(_CombatRegressionHarness._HARNESS_RESTORE_GLOBAL_SEED)
+    seed(_HARNESS_RESTORE_GLOBAL_SEED)
     if not ok:
-        _CombatRegressionHarness._fail(failures, "pack_wound_packed: setup apply_packing should succeed")
+        _fail(failures, "pack_wound_packed: setup apply_packing should succeed")
     if ent.can_apply_packing("chest"):
-        _CombatRegressionHarness._fail(failures, "pack_wound_packed: should not pack twice")
+        _fail(failures, "pack_wound_packed: should not pack twice")
     MedicalPhaseGateTests._free_entity_fixture(ent)
 
 
 static func _run_pack_wound_lists_in_medical_phase(failures: PackedStringArray) -> void:
     var mgr: Node = CombatManager.new()
-    mgr.register(_CombatRegressionHarness._new_entity("SWORD"), "player")
-    mgr.register(_CombatRegressionHarness._new_entity("SWORD"), "player")
-    var ent_enemy: Node = _CombatRegressionHarness._new_entity("SWORD")
+    mgr.register(_new_entity("SWORD"), "player")
+    mgr.register(_new_entity("SWORD"), "player")
+    var ent_enemy: Node = _new_entity("SWORD")
     mgr.register(ent_enemy, "enemy")
     mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
     var healer_id: int = CombatantEntityAccess.id_int(mgr.combatants[0])
     var ally: Dictionary = mgr.combatants[1]
     var ally_ent: Node = CombatantEntityAccess.get_entity_from_manager(mgr, ally)
     if ally_ent == null:
-        _CombatRegressionHarness._fail(failures, "pack_wound_list: need ally entity")
-        _CombatRegressionHarness._free_manager(mgr)
+        _fail(failures, "pack_wound_list: need ally entity")
+        HarnessFixtures._free_manager(mgr)
         return
     MedicalPhaseGateTests._harness_wound_chest_for_packing(ally_ent)
     mgr._end_combat_phase("player", ent_enemy)
     if not mgr.medical_phase:
-        _CombatRegressionHarness._fail(failures, "pack_wound_list: expected medical_phase")
-        _CombatRegressionHarness._free_manager(mgr)
+        _fail(failures, "pack_wound_list: expected medical_phase")
+        HarnessFixtures._free_manager(mgr)
         return
     mgr.combatants[0]["gauge"] = 100.0
     mgr.combatants[0].state = CombatConstants.STATE_WAITING
@@ -649,39 +654,39 @@ static func _run_pack_wound_lists_in_medical_phase(failures: PackedStringArray) 
             found_pressure = true
         elif CombatConstants.is_pack_wound_move(mid):
             found_pack = true
-    _CombatRegressionHarness._free_manager(mgr)
+    HarnessFixtures._free_manager(mgr)
     if not found_pressure:
-        _CombatRegressionHarness._fail(
+        _fail(
             failures, "pack_wound_list: actively bleeding chest should list apply_direct_pressure first"
         )
     if found_pack:
-        _CombatRegressionHarness._fail(
+        _fail(
             failures, "pack_wound_list: pack_wound should not list before pressure on active chest bleed"
         )
 
 
 static func _run_bandage_allowed_on_packed_part(failures: PackedStringArray) -> void:
-    var ent: Node = _CombatRegressionHarness._new_entity("SWORD")
+    var ent: Node = _new_entity("SWORD")
     MedicalPhaseGateTests._harness_wound_chest_for_packing(ent)
     MedicalPhaseGateTests._harness_hold_pressure_if_bleeding(ent, "chest")
     seed(88203)
     var packed: bool = ent._apply_packing("chest", 1.5)
-    seed(_CombatRegressionHarness._HARNESS_RESTORE_GLOBAL_SEED)
+    seed(_HARNESS_RESTORE_GLOBAL_SEED)
     if not packed:
-        _CombatRegressionHarness._fail(failures, "bandage_packed: setup packing should succeed")
+        _fail(failures, "bandage_packed: setup packing should succeed")
     # Packing clears pressure and reduces bleed rate; simulate clotting so compression gate clears.
     if ent.has_method("process_bleeding"):
         ent.process_bleeding(60.0)
     if not ent._can_apply_bandage("chest"):
-        _CombatRegressionHarness._fail(failures, "bandage_packed: should allow outer bandage over pack")
+        _fail(failures, "bandage_packed: should allow outer bandage over pack")
     MedicalPhaseGateTests._free_entity_fixture(ent)
 
 
 static func _run_direct_pressure_held_suppresses_bleed_rate(failures: PackedStringArray) -> void:
-    var ent: Node = _CombatRegressionHarness._new_entity("SWORD")
+    var ent: Node = _new_entity("SWORD")
     ent.take_damage_split(6.0, 2.0, "right_arm")
     if not ent.wounds.has("right_arm"):
-        _CombatRegressionHarness._fail(failures, "direct_pressure_held: need arm wound")
+        _fail(failures, "direct_pressure_held: need arm wound")
         MedicalPhaseGateTests._free_entity_fixture(ent)
         return
     # Venous compressible bleed: arterial retained-flow (~50%) is intentionally weaker than this gate.
@@ -692,16 +697,16 @@ static func _run_direct_pressure_held_suppresses_bleed_rate(failures: PackedStri
         )
     var raw: float = EntityWounds.get_bleeding_rate_for_part(ent, "right_arm")
     if raw <= BleedingConstants.BLEEDING_RATE_EPSILON:
-        _CombatRegressionHarness._fail(failures, "direct_pressure_held: wound should bleed before pressure")
+        _fail(failures, "direct_pressure_held: wound should bleed before pressure")
         MedicalPhaseGateTests._free_entity_fixture(ent)
         return
     if not ent.apply_direct_pressure("right_arm"):
-        _CombatRegressionHarness._fail(failures, "direct_pressure_held: apply_direct_pressure failed")
+        _fail(failures, "direct_pressure_held: apply_direct_pressure failed")
         MedicalPhaseGateTests._free_entity_fixture(ent)
         return
     var held: float = EntityWounds.get_bleeding_rate_for_part(ent, "right_arm")
     if held >= raw * 0.4:
-        _CombatRegressionHarness._fail(
+        _fail(
             failures,
             "direct_pressure_held: expected strong suppression while held got raw=%.3f held=%.3f" % [raw, held]
         )
@@ -709,10 +714,10 @@ static func _run_direct_pressure_held_suppresses_bleed_rate(failures: PackedStri
 
 
 static func _run_direct_pressure_release_rebleeds_without_dressing(failures: PackedStringArray) -> void:
-    var ent: Node = _CombatRegressionHarness._new_entity("SWORD")
+    var ent: Node = _new_entity("SWORD")
     ent.take_damage_split(6.0, 2.0, "left_leg")
     if not ent.wounds.has("left_leg"):
-        _CombatRegressionHarness._fail(failures, "direct_pressure_rebound: need leg wound")
+        _fail(failures, "direct_pressure_rebound: need leg wound")
         MedicalPhaseGateTests._free_entity_fixture(ent)
         return
     ent.apply_direct_pressure("left_leg")
@@ -720,7 +725,7 @@ static func _run_direct_pressure_release_rebleeds_without_dressing(failures: Pac
     EntityMedical.release_direct_pressure_on_part(ent, "left_leg")
     var after: float = EntityWounds.get_bleeding_rate_for_part(ent, "left_leg")
     if after <= held + BleedingConstants.BLEEDING_RATE_EPSILON:
-        _CombatRegressionHarness._fail(failures, "direct_pressure_rebound: expected higher bleed after early release")
+        _fail(failures, "direct_pressure_rebound: expected higher bleed after early release")
     MedicalPhaseGateTests._free_entity_fixture(ent)
 
 
@@ -729,7 +734,7 @@ static func _run_direct_pressure_release_rebleeds_without_dressing(failures: Pac
 
 ## III-5: multi-channel cavity pack scales success by **`PACKING_SUCCESS_PER_EXTRA_CHANNEL`** (depth / complexity).
 static func _run_iii5_packing_channel_success_depth(failures: PackedStringArray) -> void:
-    var ent: Node = _CombatRegressionHarness._new_entity("SWORD")
+    var ent: Node = _new_entity("SWORD")
     ent.linen_strips_remaining = BleedingConstants.PACKING_LINEN_PARTY_START
     EntityWounds.add_wound(
         ent, "chest", BleedingConstants.INJURY_TYPE_CUT, 8.0, "upper_thorax", BleedingConstants.SEVERITY_MODERATE
@@ -739,31 +744,31 @@ static func _run_iii5_packing_channel_success_depth(failures: PackedStringArray)
     )
     var channels: int = EntityMedical.get_treatment_channel_count(ent, "chest")
     if channels < 2:
-        _CombatRegressionHarness._fail(failures, "iii5_pack_depth: want 2+ treatment channels got %d" % channels)
+        _fail(failures, "iii5_pack_depth: want 2+ treatment channels got %d" % channels)
         MedicalPhaseGateTests._free_entity_fixture(ent)
         return
     var mult: float = EntityMedical.packing_channel_success_mult(ent, "chest")
     var want: float = pow(BleedingConstants.PACKING_SUCCESS_PER_EXTRA_CHANNEL, float(channels - 1))
     if absf(mult - want) > 0.001:
-        _CombatRegressionHarness._fail(
+        _fail(
             failures, "iii5_pack_depth: want mult=%.3f got %.3f (channels=%d)" % [want, mult, channels]
         )
     MedicalPhaseGateTests._free_entity_fixture(ent)
 
 
 static func _run_treatment_channel_count_not_raw_hit_count(failures: PackedStringArray) -> void:
-    var ent: Node = _CombatRegressionHarness._new_entity("SWORD")
+    var ent: Node = _new_entity("SWORD")
     for _i in 6:
         EntityWounds.add_wound(
             ent, "head", BleedingConstants.INJURY_TYPE_CUT, 2.0, "scalp", BleedingConstants.SEVERITY_MODERATE
         )
     if ent.wounds.get("head", []).size() != 1:
-        _CombatRegressionHarness._fail(failures, "treatment_channels: merge should leave one injury row")
+        _fail(failures, "treatment_channels: merge should leave one injury row")
         MedicalPhaseGateTests._free_entity_fixture(ent)
         return
     var channels: int = EntityMedical.get_treatment_channel_count(ent, "head")
     if channels != 1:
-        _CombatRegressionHarness._fail(
+        _fail(
             failures, "treatment_channels: expected 1 channel for one sub_region got %d" % channels
         )
     var pack_s: float = EntityMedical._get_packing_application_time_seconds_for_part(ent, "head")
@@ -771,45 +776,45 @@ static func _run_treatment_channel_count_not_raw_hit_count(failures: PackedStrin
         BleedingConstants.PACKING_APPLICATION_TIME_SECONDS + BleedingConstants.PACKING_PER_WOUND_EXTRA_SECONDS * 5.0
     )
     if pack_s >= raw_pack - 0.01:
-        _CombatRegressionHarness._fail(
+        _fail(
             failures, "treatment_channels: channel pack %.1f should beat six-hit raw %.1f" % [pack_s, raw_pack]
         )
     MedicalPhaseGateTests._free_entity_fixture(ent)
 
 
 static func _run_failed_dressing_retains_direct_pressure(failures: PackedStringArray) -> void:
-    var ent: Node = _CombatRegressionHarness._new_entity("SWORD")
+    var ent: Node = _new_entity("SWORD")
     ent.wounds["chest"] = [
         {"current_bleeding_rate": 0.6, "severity": "moderate"},
     ]
     if not ent.apply_direct_pressure("chest"):
-        _CombatRegressionHarness._fail(failures, "failed_dressing_retain: pressure setup failed")
+        _fail(failures, "failed_dressing_retain: pressure setup failed")
         MedicalPhaseGateTests._free_entity_fixture(ent)
         return
     if ent._apply_bandage("chest", 0.0):
-        _CombatRegressionHarness._fail(failures, "failed_dressing_retain: zero-eff bandage should fail")
+        _fail(failures, "failed_dressing_retain: zero-eff bandage should fail")
         MedicalPhaseGateTests._free_entity_fixture(ent)
         return
     if not EntityMedical.has_direct_pressure_on_part(ent, "chest"):
-        _CombatRegressionHarness._fail(failures, "failed_dressing_retain: failed bandage must keep direct pressure")
+        _fail(failures, "failed_dressing_retain: failed bandage must keep direct pressure")
     ent.bandaged_parts.erase("chest")
     ent.linen_strips_remaining = 4
     ent.wounds["chest"] = [
         {"current_bleeding_rate": 1.2, "is_arterial": true, "severity": "severe"},
     ]
     if ent._apply_packing("chest", 0.0):
-        _CombatRegressionHarness._fail(failures, "failed_dressing_retain: zero-eff packing should fail")
+        _fail(failures, "failed_dressing_retain: zero-eff packing should fail")
         MedicalPhaseGateTests._free_entity_fixture(ent)
         return
     if not EntityMedical.has_direct_pressure_on_part(ent, "chest"):
-        _CombatRegressionHarness._fail(failures, "failed_dressing_retain: failed packing must keep direct pressure")
+        _fail(failures, "failed_dressing_retain: failed packing must keep direct pressure")
     MedicalPhaseGateTests._free_entity_fixture(ent)
 
 
 static func _run_dressings_blocked_without_pressure_when_bleeding(failures: PackedStringArray) -> void:
     var mgr: Node = CombatManager.new()
-    var ally_ent := _CombatRegressionHarness._new_entity("SWORD")
-    var healer_ent := _CombatRegressionHarness._new_entity("SWORD")
+    var ally_ent := _new_entity("SWORD")
+    var healer_ent := _new_entity("SWORD")
     ally_ent.take_damage_split(8.0, 3.0, "head")
     mgr.register(healer_ent, "player")
     mgr.register(ally_ent, "player")
@@ -818,7 +823,7 @@ static func _run_dressings_blocked_without_pressure_when_bleeding(failures: Pack
     var healer_c: Dictionary = mgr.combatants[0]
     var ally_c: Dictionary = mgr.combatants[1]
     if MedicalPhaseController.dressings_allowed_for_part(mgr, ally_c, "head"):
-        _CombatRegressionHarness._fail(failures, "dressings_gate: should block dressings on active unheld head bleed")
+        _fail(failures, "dressings_gate: should block dressings on active unheld head bleed")
         return
     var acts: Array = MedicalPhaseController.get_ally_medical_actions(mgr, healer_c, ally_c, "head")
     var mids: Array = []
@@ -826,14 +831,14 @@ static func _run_dressings_blocked_without_pressure_when_bleeding(failures: Pack
         if raw is Dictionary:
             mids.append(str((raw as Dictionary).get("move_id", "")))
     if CombatConstants.MOVE_ID_BANDAGE_SELF in mids or CombatConstants.MOVE_ID_PACK_WOUND in mids:
-        _CombatRegressionHarness._fail(failures, "dressings_gate: bandage/pack listed without pressure")
-    _CombatRegressionHarness._free_manager(mgr)
+        _fail(failures, "dressings_gate: bandage/pack listed without pressure")
+    HarnessFixtures._free_manager(mgr)
 
 
 static func _run_dressings_still_offered_after_failure_out_of_peril(failures: PackedStringArray) -> void:
     var mgr: Node = CombatManager.new()
-    var ally_ent := _CombatRegressionHarness._new_entity("SWORD")
-    var healer_ent := _CombatRegressionHarness._new_entity("SWORD")
+    var ally_ent := _new_entity("SWORD")
+    var healer_ent := _new_entity("SWORD")
     ally_ent.wounds["chest"] = [
         {"current_bleeding_rate": 0.05, "base_bleeding_rate": 0.4, "severity": "moderate"},
     ]
@@ -846,12 +851,12 @@ static func _run_dressings_still_offered_after_failure_out_of_peril(failures: Pa
     var ally_c: Dictionary = mgr.combatants[1]
     ally_c["failed_medical_parts"] = ["chest"]
     if not MedicalPhaseController.has_left_immediate_peril_permanently(mgr, ally_c):
-        _CombatRegressionHarness._fail(
+        _fail(
             failures, "dressings_retry: ally should be out of immediate peril for this fixture"
         )
         return
     if not MedicalPhaseController.dressings_allowed_for_part(mgr, ally_c, "chest"):
-        _CombatRegressionHarness._fail(
+        _fail(
             failures, "dressings_retry: must still allow dressings after failed attempt when out of peril"
         )
         return
@@ -861,17 +866,17 @@ static func _run_dressings_still_offered_after_failure_out_of_peril(failures: Pa
         if raw is Dictionary:
             mids.append(str((raw as Dictionary).get("move_id", "")))
     if CombatConstants.MOVE_ID_BANDAGE_SELF not in mids:
-        _CombatRegressionHarness._fail(
+        _fail(
             failures, "dressings_retry: bandage_self should stay listed after failure (got %s)" % str(mids)
         )
-    _CombatRegressionHarness._free_manager(mgr)
+    HarnessFixtures._free_manager(mgr)
 
 
 static func _run_pending_retry_set_even_with_other_medics(failures: PackedStringArray) -> void:
     var mgr: Node = CombatManager.new()
-    var ally_ent := _CombatRegressionHarness._new_entity("SWORD")
-    var healer_a := _CombatRegressionHarness._new_entity("SWORD")
-    var healer_b := _CombatRegressionHarness._new_entity("SWORD")
+    var ally_ent := _new_entity("SWORD")
+    var healer_a := _new_entity("SWORD")
+    var healer_b := _new_entity("SWORD")
     ally_ent.wounds["chest"] = [
         {"current_bleeding_rate": 0.4, "severity": "moderate"},
     ]
@@ -889,21 +894,21 @@ static func _run_pending_retry_set_even_with_other_medics(failures: PackedString
     )
     var pending: Variant = healer_ac.get("pending_retry", null)
     if typeof(pending) != TYPE_DICTIONARY or (pending as Dictionary).is_empty():
-        _CombatRegressionHarness._fail(
+        _fail(
             failures, "pending_retry: performer should keep retry hint after dressing failure"
         )
     elif (pending as Dictionary).get("part", "") != "chest":
-        _CombatRegressionHarness._fail(failures, "pending_retry: expected chest part in retry hint")
+        _fail(failures, "pending_retry: expected chest part in retry hint")
     var failed: Variant = ally_c.get("failed_medical_parts", null)
     if not (failed is Array) or "chest" not in (failed as Array):
-        _CombatRegressionHarness._fail(failures, "pending_retry: failed_medical_parts should track chest")
-    _CombatRegressionHarness._free_manager(mgr)
+        _fail(failures, "pending_retry: failed_medical_parts should track chest")
+    HarnessFixtures._free_manager(mgr)
 
 
 static func _run_medical_ai_prefers_dressing_over_stabilize_out_of_peril(failures: PackedStringArray) -> void:
     var mgr: Node = CombatManager.new()
-    var healer_ent := _CombatRegressionHarness._new_entity("SWORD")
-    var ally_ent := _CombatRegressionHarness._new_entity("SWORD")
+    var healer_ent := _new_entity("SWORD")
+    var ally_ent := _new_entity("SWORD")
     ally_ent.wounds["chest"] = [
         {"current_bleeding_rate": 0.08, "severity": "moderate"},
     ]
@@ -916,8 +921,8 @@ static func _run_medical_ai_prefers_dressing_over_stabilize_out_of_peril(failure
     var healer_id: int = CombatantEntityAccess.id_int(mgr.combatants[0])
     var ally_id: int = CombatantEntityAccess.id_int(mgr.combatants[1])
     if MedicalPhaseController.is_in_immediate_peril(mgr, mgr.combatants[1]):
-        _CombatRegressionHarness._fail(failures, "medical_ai_dressing: fixture should be out of immediate peril")
-        _CombatRegressionHarness._free_manager(mgr)
+        _fail(failures, "medical_ai_dressing: fixture should be out of immediate peril")
+        HarnessFixtures._free_manager(mgr)
         return
     var bandage_act: Dictionary = {
         "move_id": "bandage_self",
@@ -932,9 +937,9 @@ static func _run_medical_ai_prefers_dressing_over_stabilize_out_of_peril(failure
     var w_bandage: float = CombatAIActionPicker._get_medical_weight(bandage_act, healer_id, mgr)
     var w_stab: float = CombatAIActionPicker._get_medical_weight(stab_act, healer_id, mgr)
     if w_bandage <= w_stab:
-        _CombatRegressionHarness._fail(
+        _fail(
             failures,
             "medical_ai_dressing: bandage weight %.3f should exceed stabilize %.3f out of peril" % [w_bandage, w_stab]
         )
-    _CombatRegressionHarness._free_manager(mgr)
+    HarnessFixtures._free_manager(mgr)
 

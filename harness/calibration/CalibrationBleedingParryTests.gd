@@ -631,7 +631,7 @@ static func _audit_new_entity(weapon_id: String) -> CoreEntity:
     var w: Weapon = HarnessFixtures.get_cached_weapon(weapon_id)
     if w != null:
         ent.equip_weapon(w)
-    _CombatRegressionHarness._track_harness_node(ent)
+    HarnessFixtures._track_harness_node(ent)
     return ent
 
 

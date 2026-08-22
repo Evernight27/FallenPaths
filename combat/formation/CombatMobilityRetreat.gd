@@ -104,7 +104,7 @@ static func sync_cowering_state_if_no_functional_arm(c: Dictionary) -> void:
     var st: String = CombatantEntityAccess.state_str(c)
     if st == CombatConstants.STATE_COWERING:
         return
-    if st in [CombatConstants.STATE_WIND_UP, CombatConstants.STATE_RECOVERING, CombatConstants.STATE_DEAD]:
+    if st in [CombatConstants.STATE_WIND_UP, CombatConstants.STATE_RECOVERING, CombatConstants.STATE_DEAD, CombatConstants.STATE_FALLING_BACK]:
         return
     CombatFootwork.return_to_cowering(c)
 

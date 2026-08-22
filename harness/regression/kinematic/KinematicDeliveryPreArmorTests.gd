@@ -220,7 +220,7 @@ static func _run_kinematic_delivery_thrust_body_coupled_strike_mass_and_ke_risin
         {"def": "SWORD", "move": "thrust", "expect_m": 1.5, "v_lo": 6.0, "v_hi": 14.0, "pfx": "kin_thrust_sw"},
         {"def": "MACE", "move": "thrust", "expect_m": 2.5, "v_lo": 6.0, "v_hi": 13.0, "pfx": "kin_thrust_mc"},
         {"def": "AXE", "move": "thrust", "expect_m": 2.0, "v_lo": 4.0, "v_hi": 13.0, "pfx": "kin_thrust_ax"},
-        {"def": "DAGGER", "move": "quick_thrust", "expect_m": 0.28, "v_lo": 4.0, "v_hi": 10.0, "pfx": "kin_thrust_dg"},
+        {"def": "DAGGER", "move": "quick_thrust", "expect_m": 2.5, "v_lo": 4.0, "v_hi": 10.0, "pfx": "kin_thrust_dg"},
         {"def": "SPEAR", "move": "spear_thrust", "expect_m": 3.5, "v_lo": 5.0, "v_hi": 8.0, "pfx": "kin_thrust_sp"},
     ]
     var resolved_mass: Dictionary = {}
@@ -272,12 +272,12 @@ static func _run_kinematic_delivery_thrust_body_coupled_strike_mass_and_ke_risin
                 resolved_mass["kin_thrust_sw"],
             ]
         )
-    if float(resolved_mass["kin_thrust_sw"]) <= float(resolved_mass["kin_thrust_dg"]) + 1e-4:
+    if float(resolved_mass["kin_thrust_dg"]) <= float(resolved_mass["kin_thrust_sw"]) + 1e-4:
         _fail(
             failures,
-            "kin_thrust_order: SWORD %.4f should exceed DAGGER %.4f" % [
-                resolved_mass["kin_thrust_sw"],
+            "kin_thrust_order: DAGGER %.4f should exceed SWORD %.4f (body-coupled arm+shoulder)" % [
                 resolved_mass["kin_thrust_dg"],
+                resolved_mass["kin_thrust_sw"],
             ]
         )
 

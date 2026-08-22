@@ -268,7 +268,14 @@ static func process_waiting(_manager: Node, c: Dictionary, delta: float) -> void
     CombatExhaustion.process_waiting_recovery(c, delta)
     var s: float = CombatantEntityAccess.stamina_float(c)
     var cap: float = CombatExhaustion.effective_stamina_max(c)
-    c[DataKeys.COMBATANT_STAMINA] = minf(cap, s + CombatExhaustion.effective_stamina_refill_rate(c) * delta)
+    # First-order (exponential) PCr resynthesis: refill rate is proportional to the deficit (cap - s), so the
+    # pool recovers fast when depleted and tapers as it approaches the (exhaustion-reduced) cap.
+    var refill_k: float = CombatExhaustion.effective_stamina_refill_rate(c)
+    c[DataKeys.COMBATANT_STAMINA] = minf(cap, s + refill_k * (cap - s) * delta)
+    # Standing-ready is a partial rest (limbs holding a guard, not fully at rest), so local limb fatigue
+    # recovers at the partial rate — matching the "recovers while waiting" tooltip. Cowering (limbs fully
+    # down) recovers at the full rate via process_cowering_idle.
+    _get_muscle_fatigue().process_recovering_recovery(c, delta)
     CounterTempo.process_waiting(_manager, c)
     CombatFlurryBind.process_waiting(_manager, c)
     CombatFootwork.reconcile_idle_offset(c)

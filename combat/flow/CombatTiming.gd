@@ -75,6 +75,15 @@ static func wind_up_factor(wind_up_s: float, t_optimal: float = WIND_UP_FACTOR_O
 ## achieves maximum practical energy delivery — the balance point of Hill's force-velocity curve.
 const WIND_UP_FACTOR_OPTIMAL_S: float = 0.40
 
+# --- Tactical breathing / recovery offset (Issue #8) ---
+## When a fighter deliberately extends wind-up beyond optimal, they can "recover" during the
+## preparation phase rather than after impact. This models the HEMA principle of taking time
+## between actions to breathe, reset posture, and reduce fatigue accumulation.
+## Recovery offset: each second of excess wind-up above optimal reduces post-strike recovery by up to 15%.
+const TACTICAL_BREATHING_EXCESS_WINDUP_THRESHOLD_S: float = WIND_UP_FACTOR_OPTIMAL_S
+const TACTICAL_BREATHING_RECOVERY_REFUND_MAX_RATIO: float = 0.15   # max 15% recovery reduction
+const TACTICAL_BREATHING_WINDUP_PER_SECOND_OF_REFUND: float = 0.20  # 0.2s excess windup = 1% refund
+
 
 ## Agility shortens recovery (higher = faster back to ready). agility 100 = 1.0; 50 = 0.7, 150 = 1.3.
 static func recovery_duration(
@@ -133,7 +142,9 @@ static func recovery_duration(
     # displacement penalty — blades don't snap back instantly after being pushed far from their rest position.
     if guard_transition_cost > 0.0:
         base += guard_transition_cost * (1.0 + 0.5 * commitment)
-    return base
+    # Hard cap: prevents compound scaling (wounded + low agility + full-stop whiff) from producing 7+ second
+    # recovery penalties that the RECOVERY_MAX_S guard is documented to prevent.
+    return minf(base, CombatConstantsTiming.RECOVERY_MAX_S)
 
 
 static func recovery_duration_with_form(
@@ -205,3 +216,33 @@ static func _angle_diff_deg(a: float, b: float) -> float:
     if diff > 180.0:
         diff -= 360.0
     return diff
+
+
+# --- Tactical breathing recovery offset (Issue #8) ---
+
+## Computes a recovery duration reduction based on how much the attacker's wind-up exceeded optimal.
+## When wind_up_s > TACTICAL_BREATHING_EXCESS_WINDUP_THRESHOLD_S, each extra second of deliberate
+## preparation reduces post-strike recovery (models breathing/pacing during combat).
+## The fighter trades attack speed for reduced commitment — slower strikes that recover faster.
+static func tactical_breathing_recovery_offset(
+    wind_up_s: float,
+    base_recovery_s: float
+) -> float:
+    var excess: float = wind_up_s - TACTICAL_BREATHING_EXCESS_WINDUP_THRESHOLD_S
+    if excess <= 0.0:
+        return 0.0
+    ## Linear scaling: each 0.2s of excess wind-up buys 1% refund (0.01 / WINDUP_PER_SECOND_OF_REFUND per second),
+    ## capped at the max ratio. The old formula multiplied by MAX_RATIO directly, saturating the full 15% at just
+    ## 0.2s of excess (a step function) instead of ramping over ~3s.
+    var raw_refund_ratio: float = excess * (0.01 / TACTICAL_BREATHING_WINDUP_PER_SECOND_OF_REFUND)
+    var refund_ratio: float = clampf(raw_refund_ratio, 0.0, TACTICAL_BREATHING_RECOVERY_REFUND_MAX_RATIO)
+    return base_recovery_s * refund_ratio
+
+
+## Applies the tactical breathing offset to a computed recovery duration. Returns adjusted duration.
+static func apply_tactical_breathing_offset(
+    wind_up_s: float,
+    recovery_s: float
+) -> float:
+    var offset: float = tactical_breathing_recovery_offset(wind_up_s, recovery_s)
+    return maxf(recovery_s - offset, recovery_s * 0.55)  # floor at 55% of base (never faster than rushed recovery)

@@ -9,27 +9,27 @@ const _CombatRegressionHarness := preload("res://harness/regression/CombatRegres
 ## Helper: set up a minimal manager with two combatants (player + enemy).
 static func _make_two_sided_manager() -> Node:
     var mgr: Node = CombatManager.new()
-    mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
-    mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
+    mgr.register(HarnessFixtures._new_entity("SWORD"), "player")
+    mgr.register(HarnessFixtures._new_entity("SWORD"), "enemy")
     return mgr
 
 
 ## Helper: set up a three-combatant manager (2 player + 1 enemy).
 static func _make_three_combatant_manager() -> Node:
     var mgr: Node = CombatManager.new()
-    mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
-    mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
-    mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
+    mgr.register(HarnessFixtures._new_entity("SWORD"), "player")
+    mgr.register(HarnessFixtures._new_entity("SWORD"), "player")
+    mgr.register(HarnessFixtures._new_entity("SWORD"), "enemy")
     return mgr
 
 
 ## Helper: set up a four-combatant manager (2 player + 2 enemy) for surround scenarios.
 static func _make_four_combatant_manager() -> Node:
     var mgr: Node = CombatManager.new()
-    mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
-    mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
-    mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
-    mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
+    mgr.register(HarnessFixtures._new_entity("SWORD"), "player")
+    mgr.register(HarnessFixtures._new_entity("SWORD"), "player")
+    mgr.register(HarnessFixtures._new_entity("SWORD"), "enemy")
+    mgr.register(HarnessFixtures._new_entity("SWORD"), "enemy")
     return mgr
 
 
@@ -75,19 +75,19 @@ static func _run_mental_stack_integration_exhausted_surrounded(failures: PackedS
 
     var picked: Dictionary = MentalStackDecider.try_pick(actions, fighter_id, mgr)
     if picked.is_empty():
-        CombatRegressionHarness._fail(
+        HarnessFixtures._fail(
             failures, "integration_exhausted_surrounded: expected exhaustion layer pick but got none"
         )
     else:
         var layer: String = str(fighter.get(CombatConstants.COMBATANT_KEY_MENTAL_STACK_LAYER, ""))
         if layer != CombatConstants.MENTAL_STACK_LAYER_EXHAUSTION:
-            CombatRegressionHarness._fail(
+            HarnessFixtures._fail(
                 failures, "integration_exhausted_surrounded: want exhaustion layer got %s" % layer
             )
 
     CombatConstants.set_feature_fight_exhaustion_index_load(-1)
     CombatConstants.set_feature_ms_positional_awareness_load(-1)
-    CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+    HarnessFixtures._free_manager_restore_global_rng(mgr)
 
 
 ## 2. Post-strike + surrounded + wounded: Phase 3 fires before Phase 6.
@@ -117,19 +117,19 @@ static func _run_mental_stack_integration_post_strike_surrounded_wounded(failure
 
     var picked: Dictionary = MentalStackDecider.try_pick(actions, fighter_id, mgr)
     if picked.is_empty():
-        CombatRegressionHarness._fail(
+        HarnessFixtures._fail(
             failures, "integration_post_strike_surrounded: expected post-strike layer pick but got none"
         )
     else:
         var layer: String = str(fighter.get(CombatConstants.COMBATANT_KEY_MENTAL_STACK_LAYER, ""))
         if layer != CombatConstants.MENTAL_STACK_LAYER_POST_STRIKE:
-            CombatRegressionHarness._fail(
+            HarnessFixtures._fail(
                 failures, "integration_post_strike_surrounded: want post-strike layer got %s" % layer
             )
 
     CombatConstants.set_feature_ms_post_strike_load(-1)
     CombatConstants.set_feature_ms_positional_awareness_load(-1)
-    CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+    HarnessFixtures._free_manager_restore_global_rng(mgr)
 
 
 ## 3. Rout + medical peril: Phase 7 (medical escalation) fires, rout blocked by peril.
@@ -161,17 +161,17 @@ static func _run_mental_stack_integration_rout_medical_peril(failures: PackedStr
 
     var picked: Dictionary = MentalStackDecider.try_pick(actions, medic_id, mgr)
     if picked.is_empty():
-        CombatRegressionHarness._fail(
+        HarnessFixtures._fail(
             failures, "integration_rout_medical_peril: expected medical layer pick but got none"
         )
     else:
         var layer: String = str(medic.get(CombatConstants.COMBATANT_KEY_MENTAL_STACK_LAYER, ""))
         if layer != CombatConstants.MENTAL_STACK_LAYER_MEDICAL:
-            CombatRegressionHarness._fail(failures, "integration_rout_medical_peril: want medical layer got %s" % layer)
+            HarnessFixtures._fail(failures, "integration_rout_medical_peril: want medical layer got %s" % layer)
 
     CombatConstants.set_feature_ms_l6_rout_load(-1)
     CombatConstants.set_feature_ms_medical_escalation_load(-1)
-    CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+    HarnessFixtures._free_manager_restore_global_rng(mgr)
 
 
 ## 4. Feint vs exhausted orthogonal: Phase 2 blocks feints on attacker, Phase 5 fires on defender.
@@ -205,19 +205,19 @@ static func _run_mental_stack_integration_feint_exhausted_orthogonal(failures: P
 
     var picked: Dictionary = MentalStackDecider.try_pick(actions, attacker_id, mgr)
     if picked.is_empty():
-        CombatRegressionHarness._fail(
+        HarnessFixtures._fail(
             failures, "integration_feint_exhausted_orthogonal: expected exhaustion layer pick but got none"
         )
     else:
         var layer: String = str(attacker.get(CombatConstants.COMBATANT_KEY_MENTAL_STACK_LAYER, ""))
         if layer != CombatConstants.MENTAL_STACK_LAYER_EXHAUSTION:
-            CombatRegressionHarness._fail(
+            HarnessFixtures._fail(
                 failures, "integration_feint_exhausted_orthogonal: want exhaustion layer got %s" % layer
             )
 
     CombatConstants.set_feature_ms_feint_resistance_load(-1)
     CombatConstants.set_feature_fight_exhaustion_index_load(-1)
-    CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+    HarnessFixtures._free_manager_restore_global_rng(mgr)
 
 
 ## 5. Medical escalation + rout: Rout doesn't trigger (medical peril), L1 medical fires with escalation boost.
@@ -250,26 +250,26 @@ static func _run_mental_stack_integration_medical_escalation_rout(failures: Pack
 
     var picked: Dictionary = MentalStackDecider.try_pick(actions, medic_id, mgr)
     if picked.is_empty():
-        CombatRegressionHarness._fail(
+        HarnessFixtures._fail(
             failures, "integration_medical_escalation_rout: expected medical layer pick but got none"
         )
     else:
         var layer: String = str(medic.get(CombatConstants.COMBATANT_KEY_MENTAL_STACK_LAYER, ""))
         if layer != CombatConstants.MENTAL_STACK_LAYER_MEDICAL:
-            CombatRegressionHarness._fail(
+            HarnessFixtures._fail(
                 failures, "integration_medical_escalation_rout: want medical layer got %s" % layer
             )
 
     # Verify pack was picked over bandage (escalation bonus).
     var move_id: String = str(picked.get("move_id", ""))
     if move_id != CombatConstants.MOVE_ID_PACK_WOUND:
-        CombatRegressionHarness._fail(
+        HarnessFixtures._fail(
             failures, "integration_medical_escalation_rout: want pack_wound got %s (escalation bonus)" % move_id
         )
 
     CombatConstants.set_feature_ms_l6_rout_load(-1)
     CombatConstants.set_feature_ms_medical_escalation_load(-1)
-    CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+    HarnessFixtures._free_manager_restore_global_rng(mgr)
 
 
 ## 6. Full stack: post-strike + surrounded + exhausted + medical (3+5+6+7).
@@ -316,11 +316,11 @@ static func _run_mental_stack_integration_full_stack_post_strike_surrounded_exha
 
     var picked: Dictionary = MentalStackDecider.try_pick(actions, fighter_id, mgr)
     if picked.is_empty():
-        CombatRegressionHarness._fail(failures, "integration_full_stack: expected medical layer pick but got none")
+        HarnessFixtures._fail(failures, "integration_full_stack: expected medical layer pick but got none")
     else:
         var layer: String = str(fighter.get(CombatConstants.COMBATANT_KEY_MENTAL_STACK_LAYER, ""))
         if layer != CombatConstants.MENTAL_STACK_LAYER_MEDICAL:
-            CombatRegressionHarness._fail(
+            HarnessFixtures._fail(
                 failures,
                 (
                     "integration_full_stack: want medical layer got %s (post-strike stamp set but ally peril should"
@@ -333,7 +333,7 @@ static func _run_mental_stack_integration_full_stack_post_strike_surrounded_exha
     CombatConstants.set_feature_ms_l6_rout_load(-1)
     CombatConstants.set_feature_ms_positional_awareness_load(-1)
     CombatConstants.set_feature_ms_medical_escalation_load(-1)
-    CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+    HarnessFixtures._free_manager_restore_global_rng(mgr)
 
 
 ## 7. Post-strike vs dead target (Phase 3 only, edge case).
@@ -368,7 +368,7 @@ static func _run_mental_stack_integration_post_strike_vs_dead_target(failures: P
     # try_pick should fall through and return {} (no stamp layer).
     var picked: Dictionary = MentalStackDecider.try_pick(actions, fighter_id, mgr)
     if not picked.is_empty():
-        CombatRegressionHarness._fail(
+        HarnessFixtures._fail(
             failures,
             (
                 "integration_post_strike_vs_dead_target: expected empty pick (dead target) but got %s"
@@ -377,7 +377,7 @@ static func _run_mental_stack_integration_post_strike_vs_dead_target(failures: P
         )
 
     CombatConstants.set_feature_ms_post_strike_load(-1)
-    CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+    HarnessFixtures._free_manager_restore_global_rng(mgr)
 
 
 ## 8. Post-strike stamp expires naturally (Phase 3 only, edge case).
@@ -411,13 +411,13 @@ static func _run_mental_stack_integration_post_strike_stamp_expires(failures: Pa
     var picked: Dictionary = MentalStackDecider.try_pick(actions, fighter_id, mgr)
     if not picked.is_empty():
         var layer: String = str(fighter.get(CombatConstants.COMBATANT_KEY_MENTAL_STACK_LAYER, ""))
-        CombatRegressionHarness._fail(
+        HarnessFixtures._fail(
             failures,
             "integration_post_strike_stamp_expires: expected empty pick (expired stamp) but got layer=%s" % layer
         )
 
     CombatConstants.set_feature_ms_post_strike_load(-1)
-    CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+    HarnessFixtures._free_manager_restore_global_rng(mgr)
 
 
 ## 9. Feint resistance + post-strike (2+3).
@@ -455,26 +455,26 @@ static func _run_mental_stack_integration_feint_resistance_plus_post_strike(fail
 
     var picked: Dictionary = MentalStackDecider.try_pick(actions, attacker_id, mgr)
     if picked.is_empty():
-        CombatRegressionHarness._fail(
+        HarnessFixtures._fail(
             failures, "integration_feint_resistance_plus_post_strike: expected post-strike layer pick but got none"
         )
     else:
         var layer: String = str(attacker.get(CombatConstants.COMBATANT_KEY_MENTAL_STACK_LAYER, ""))
         if layer != CombatConstants.MENTAL_STACK_LAYER_POST_STRIKE:
-            CombatRegressionHarness._fail(
+            HarnessFixtures._fail(
                 failures, "integration_feint_resistance_plus_post_strike: want post-strike layer got %s" % layer
             )
 
     # Verify feint was NOT picked (high readiness blocks it; stamp routes to press instead).
     var move_id: String = str(picked.get("move_id", ""))
     if move_id == "oberhau_feint":
-        CombatRegressionHarness._fail(
+        HarnessFixtures._fail(
             failures, "integration_feint_resistance_plus_post_strike: feint was picked but defender has high readiness"
         )
 
     CombatConstants.set_feature_ms_feint_resistance_load(-1)
     CombatConstants.set_feature_ms_post_strike_load(-1)
-    CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+    HarnessFixtures._free_manager_restore_global_rng(mgr)
 
 
 ## 10. Positional awareness vs rout priority (6+1).
@@ -521,7 +521,7 @@ static func _run_mental_stack_integration_positional_vs_rout_priority(failures: 
 
     var picked: Dictionary = MentalStackDecider.try_pick(actions, fighter_id, mgr)
     if picked.is_empty():
-        CombatRegressionHarness._fail(
+        HarnessFixtures._fail(
             failures, "integration_positional_vs_rout_priority: expected rout or positional pick but got none"
         )
     else:
@@ -530,13 +530,13 @@ static func _run_mental_stack_integration_positional_vs_rout_priority(failures: 
             layer != CombatConstants.MENTAL_STACK_LAYER_ROUT
             and layer != CombatConstants.MENTAL_STACK_LAYER_POSITIONAL_DIS
         ):
-            CombatRegressionHarness._fail(
+            HarnessFixtures._fail(
                 failures, "integration_positional_vs_rout_priority: want rout or positional layer got %s" % layer
             )
 
     CombatConstants.set_feature_ms_l6_rout_load(-1)
     CombatConstants.set_feature_ms_positional_awareness_load(-1)
-    CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+    HarnessFixtures._free_manager_restore_global_rng(mgr)
 
 
 ## 11. Medical escalation  -  no escalation path exists (Phase 7 only, weight-only).
@@ -547,10 +547,10 @@ static func _run_mental_stack_integration_medical_escalation_no_path(failures: P
     CombatConstants.set_feature_ms_medical_escalation_load(true)
 
     var mgr: Node = CombatManager.new()
-    var medic_ent := CombatRegressionHarness._new_entity("SWORD")
+    var medic_ent := HarnessFixtures._new_entity("SWORD")
     medic_ent.linen_strips_remaining = 0
     mgr.register(medic_ent, "medic")
-    mgr.register(CombatRegressionHarness._new_entity("SWORD"), "ally")
+    mgr.register(HarnessFixtures._new_entity("SWORD"), "ally")
     mgr.start({"files": 2, "ranks": 1}, {"files": 1, "ranks": 1})
     var medic: Dictionary = mgr.combatants[0]
     var ally: Dictionary = mgr.combatants[1]
@@ -578,13 +578,13 @@ static func _run_mental_stack_integration_medical_escalation_no_path(failures: P
     # Compute weight  -  should have retry bonus (2.8x) since escalation is impossible.
     var w_bandage: float = CombatMedicalWeighting.compute_weight(actions[0], medic_id, mgr)
     if w_bandage < 2.0:
-        CombatRegressionHarness._fail(
+        HarnessFixtures._fail(
             failures,
             "integration_med_escalation_no_path: bandage weight=%.4f (expected retry bonus boost >= 2.0)" % w_bandage
         )
 
     CombatConstants.set_feature_ms_medical_escalation_load(-1)
-    CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+    HarnessFixtures._free_manager_restore_global_rng(mgr)
 
 
 ## 12. Medical escalation  -  success clears path (Phase 7 only, weight-only).
@@ -595,10 +595,10 @@ static func _run_mental_stack_integration_medical_escalation_success_clears_path
     CombatConstants.set_feature_ms_medical_escalation_load(true)
 
     var mgr: Node = CombatManager.new()
-    var medic_ent := CombatRegressionHarness._new_entity("SWORD")
+    var medic_ent := HarnessFixtures._new_entity("SWORD")
     medic_ent.linen_strips_remaining = 0
     mgr.register(medic_ent, "medic")
-    mgr.register(CombatRegressionHarness._new_entity("SWORD"), "ally")
+    mgr.register(HarnessFixtures._new_entity("SWORD"), "ally")
     mgr.start({"files": 2, "ranks": 1}, {"files": 1, "ranks": 1})
     var medic: Dictionary = mgr.combatants[0]
     var ally: Dictionary = mgr.combatants[1]
@@ -628,7 +628,7 @@ static func _run_mental_stack_integration_medical_escalation_success_clears_path
     var w_pack_before: float = CombatMedicalWeighting.compute_weight(actions[1], medic_id, mgr)
     var w_bandage_before: float = CombatMedicalWeighting.compute_weight(actions[0], medic_id, mgr)
     if w_pack_before <= w_bandage_before:
-        CombatRegressionHarness._fail(
+        HarnessFixtures._fail(
             failures,
             (
                 "integration_med_escalation_success_clears_path: before success, pack weight=%.4f <= bandage weight"
@@ -647,7 +647,7 @@ static func _run_mental_stack_integration_medical_escalation_success_clears_path
     var w_pack_after: float = CombatMedicalWeighting.compute_weight(actions[1], medic_id, mgr)
     var w_bandage_after: float = CombatMedicalWeighting.compute_weight(actions[0], medic_id, mgr)
     if w_pack_after < 1.0:
-        CombatRegressionHarness._fail(
+        HarnessFixtures._fail(
             failures,
             (
                 "integration_med_escalation_success_clears_path: after success, pack weight=%.4f (should still be v"
@@ -656,7 +656,7 @@ static func _run_mental_stack_integration_medical_escalation_success_clears_path
         )
 
     CombatConstants.set_feature_ms_medical_escalation_load(-1)
-    CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+    HarnessFixtures._free_manager_restore_global_rng(mgr)
 
 
 ## Entry point: called from CombatRegressionHarness.run_all().

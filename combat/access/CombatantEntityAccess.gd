@@ -424,8 +424,8 @@ static func _get_part_dodge_modifier(combatant: Dictionary, part: String) -> flo
 	return _get_combat_state()._get_part_dodge_modifier(combatant, part)
 
 
-static func get_dodge_chance(combatant: Dictionary) -> float:
-	return _get_combat_state().get_dodge_chance(combatant)
+static func get_dodge_chance(combatant: Dictionary, attacker_windup_override: float = -1.0) -> float:
+	return _get_combat_state().get_dodge_chance_with_windup(combatant, attacker_windup_override)
 
 
 ## Parry capacity modifier: pain in arms + concussion balance impairment + limb crippling.

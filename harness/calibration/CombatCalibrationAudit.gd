@@ -104,8 +104,8 @@ static func tissue_energy_hp_vs_j_parity_metrics() -> Dictionary:
         + float(res_hp.get("final_blunt", 0.0))
         + float(res_hp.get("final_bone", 0.0))
     )
-    _CombatRegressionHarness._free_harness_node(ent_j)
-    _CombatRegressionHarness._free_harness_node(ent_hp)
+    HarnessFixtures._free_harness_node(ent_j)
+    HarnessFixtures._free_harness_node(ent_hp)
     return {"tissue_applied_j": tissue_j, "tissue_applied_hp": tissue_hp}
 
 
@@ -120,7 +120,7 @@ static func f5_forearm_graze_metrics() -> Dictionary:
         "penetration_to_tissue_mm": float(res.get("penetration_to_tissue_mm", -1.0)),
         "penetration_to_bone_mm": float(res.get("penetration_to_bone_mm", -1.0)),
     }
-    _CombatRegressionHarness._free_harness_node(ent)
+    HarnessFixtures._free_harness_node(ent)
     return out
 
 
@@ -160,8 +160,8 @@ static func f5_armored_chest_metrics() -> Dictionary:
         "transmitted_ke_fraction": float(res_arm.get("transmitted_ke_fraction", -1.0)),
         "armor_ke_absorbed_j": float(res_arm.get("armor_ke_absorbed_j", 0.0)),
     }
-    _CombatRegressionHarness._free_harness_node(bare)
-    _CombatRegressionHarness._free_harness_node(armored)
+    HarnessFixtures._free_harness_node(bare)
+    HarnessFixtures._free_harness_node(armored)
     return out
 
 
@@ -182,5 +182,5 @@ static func f5_mace_elbow_metrics() -> Dictionary:
         "final_bone": float(res.get("final_bone", 0.0)),
         "final_blunt": float(res.get("final_blunt", 0.0)),
     }
-    _CombatRegressionHarness._free_harness_node(ent)
+    HarnessFixtures._free_harness_node(ent)
     return out

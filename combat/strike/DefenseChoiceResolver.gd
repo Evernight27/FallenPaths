@@ -117,13 +117,15 @@ static func choose_defense(
 	var atk_stats := CombatantEntityAccess.stats_dict(atk)
 	var tgt_stats := CombatantEntityAccess.stats_dict(tgt)
 
-	var dodge_chance: float = CombatantEntityAccess.get_dodge_chance(tgt)
-	# Apply cumulative limb penalty to dodge — damaged legs reduce movement speed and reaction.
+	## Read attacker windup before dodge computation so the defender's dodge model uses realistic weapon-dependent timing.
+	var atk_windup: float = pa.get(DataKeys.PA_WIND_UP_DURATION, 0.5)
+	var dodge_chance: float = CombatantEntityAccess.get_dodge_chance(tgt, atk_windup)
+	# Apply graduated limb impairment to dodge — damaged legs reduce movement speed and reaction.
 	if not tgt.is_empty():
 		var node: Node = CombatantEntityAccess.scene_node(tgt)
 		if node != null and node.has_method("_get_vital_parts"):
-			var limb_penalty: float = EntityPainConsciousness.get_cumulative_limb_penalty(node)
-			dodge_chance *= maxf(CombatConstants.PERF_MOD_MIN, 1.0 - limb_penalty * 0.5)
+			var limb_impairment: Dictionary = EntityPainConsciousness.get_limb_impairment_multiplier(node)
+			dodge_chance *= limb_impairment.get("dodge_mult", 1.0)
 	dodge_chance *= CombatWeaponForm.mod(
 		CombatantEntityAccess.form_str(tgt), "evasion", CombatantEntityAccess.get_weapon(tgt)
 	)
@@ -169,6 +171,7 @@ static func choose_defense(
 	var can_parry_in_time: bool = false
 	var parry_p_a: float = 0.0
 	var parry_c_d: float = 0.0
+	var c_d_raw: float = 0.0
 	var parry_time_to_react: float = 0.0
 	var parry_capacity_mult: float = 0.0
 	var parry_readiness: float = 0.0
@@ -209,13 +212,17 @@ static func choose_defense(
 				var c_d_full: float = _compute_parry_c_d(def_weapon, tgt, contact_type)
 				parry_capacity_mult = _get_parry_capacity_mult(def_weapon, tgt, parry_time_to_react)
 				parry_c_d = c_d_full
+				c_d_raw = c_d_full
 				var pr_base: float = PassiveParryContext.get_passive_parry_readiness(tgt)
 				pr_base *= CombatConstants.passive_parry_readiness_incoming_contact_mult(contact_type)
 				var st_rd: float = _defender_passive_readiness_stamina_mult(tgt)
 				var ex_rd: float = _defender_passive_readiness_exhaustion_mult(tgt)
 				var yomi_rd: float = CombatAttention.yomi_defense_readiness_mult(tgt, CombatantEntityAccess.id_int(atk))
+				## P4: Long weapon parry advantage — spear/polearm reach extends the blade into the attack trajectory earlier,
+				## effectively increasing readiness. Models HEMA "Langen-ort" (long game) where polearms control distance.
+				var reach_readiness_bonus: float = _reach_parry_readiness_bonus(def_weapon, atk_weapon)
 				parry_readiness = clampf(
-					pr_base * st_rd * ex_rd * CombatAttention.focus_effective(tgt) * yomi_rd, 0.0, 1.0
+					pr_base * st_rd * ex_rd * CombatAttention.focus_effective(tgt) * yomi_rd * (1.0 + reach_readiness_bonus), 0.0, 1.0
 				)
 				var pr_guard_feint: float = (
 					parry_readiness
@@ -344,6 +351,7 @@ static func choose_defense(
 				parry_p_a = m_a_striking_late * v_intent * CombatTiming.velocity_curve_factor(1.0)
 				parry_time_to_react = 0.0
 				parry_c_d = _compute_parry_c_d(def_weapon, tgt, contact_type_late)
+				c_d_raw = parry_c_d
 				parry_c_d *= CombatConstants.PARRY_LATE_CAPACITY_FLOOR
 				# Attack arc: large span = blade moved far; harder to catch late.
 				var arc_span: float = pa.get("arc_span_deg", 0.0)
@@ -357,6 +365,8 @@ static func choose_defense(
 				var yomi_rd_late: float = CombatAttention.yomi_defense_readiness_mult(
 					tgt, CombatantEntityAccess.id_int(atk)
 				)
+				## P4: Long weapon parry advantage for late (reactive) parries too — reach still helps intercept closer to impact.
+				var reach_readiness_bonus_late: float = _reach_parry_readiness_bonus(def_weapon, atk_weapon)
 				parry_readiness = clampf(
 					(
 						pr_base_late
@@ -364,6 +374,7 @@ static func choose_defense(
 						* _defender_passive_readiness_exhaustion_mult(tgt)
 						* CombatAttention.focus_effective(tgt)
 						* yomi_rd_late
+						* (1.0 + reach_readiness_bonus_late)
 					),
 					0.0,
 					1.0
@@ -466,6 +477,25 @@ static func choose_defense(
 	parry_p_a *= depth_spear_open_lane_stab_parry_p_a_mult(pa, attack_type)
 	parry_c_d *= depth_spear_tight_lane_parry_c_d_mult(pa)
 	parry_c_d *= pa.get(DataKeys.PA_ZONE_ENGAGEMENT_PARRY_MULT, 1.0)
+	# Capacity cascade floor: applied BEFORE small gameplay modifiers (spacing, reach, weapon form,
+	# muscle fatigue) so those modifiers remain visible. Prevents the 15+ factor multiplicative
+	# cascade from collapsing capacity to ~25% of raw, which made deflects mathematically impossible.
+	# HEMA: trained fencers produce clean deflections ~20-30% of the time.
+	# Only applies when raw capacity is above a minimum threshold AND defender is not in a degraded
+	# state (recovering, off-balance) AND guard is non-trivial — degraded parries and unguarded
+	# defenders should genuinely have near-zero capacity.
+	var is_degraded_state: bool = (
+		parry_off_balance
+		or CombatantEntityAccess.state_str(tgt) == CombatConstants.STATE_RECOVERING
+		or CombatantEntityAccess.state_str(tgt) == CombatConstants.STATE_FORM_SWITCH
+	)
+	var def_guard: float = float(tgt.get("guard", 0.0))
+	if (
+		c_d_raw > CombatConstants.PARRY_CASCADE_FLOOR_RAW_MIN
+		and not is_degraded_state
+		and def_guard > CombatConstants.PARRY_CASCADE_FLOOR_GUARD_MIN
+	):
+		parry_c_d = maxf(parry_c_d, c_d_raw * CombatConstants.PARRY_CASCADE_CAPACITY_FLOOR)
 	parry_c_d *= _spacing_band_parry_capacity_mult(tgt, atk)
 	parry_c_d *= _reach_disparity_parry_penalty(atk, tgt)
 	parry_c_d *= CombatWeaponPosition.parry_capacity_mult_for_defender(tgt)
@@ -560,6 +590,8 @@ static func choose_defense(
 
 	var block_mass_t: float = parry_cfg.get("block_mass_threshold", CombatConstants.PARRY_BLOCK_MASS_THRESHOLD)
 	var block_str_t: float = parry_cfg.get("block_str_threshold", CombatConstants.PARRY_BLOCK_STR_THRESHOLD)
+	# KE-weighted block scaling skipped here — requires AttackInstance which isn't available in choose_defense.
+	# Has negligible effect vs the existing PARRY_BLOCK_MASS_THRESHOLD defaults.
 	var effective_redirect: float = _get_effective_redirect(tgt)
 	result.effective_redirect = effective_redirect
 	result.is_block_parry = m_d_parry >= m_a_parry * block_mass_t and s_d_parry >= s_atk_parry * block_str_t
@@ -991,22 +1023,24 @@ static func _reach_disparity_parry_penalty(atk: Dictionary, tgt: Dictionary) -> 
 	if atk_weapon == null:
 		return 1.0
 	var atk_range = 1.5
-	if atk_weapon.has_method("get") or atk_weapon is Dictionary:
+	if atk_weapon is Dictionary:
 		atk_range = float(atk_weapon.get("melee_range", 1.5))
-	elif "melee_range" in atk_weapon:
+	else:
 		atk_range = float(atk_weapon.melee_range)
 	var def_weapon = CombatantEntityAccess.get_weapon(tgt)
 	if def_weapon == null:
 		return 1.0
 	var def_range = 1.5
-	if def_weapon.has_method("get") or def_weapon is Dictionary:
+	if def_weapon is Dictionary:
 		def_range = float(def_weapon.get("melee_range", 1.5))
-	elif "melee_range" in def_weapon:
+	else:
 		def_range = float(def_weapon.melee_range)
 	var disparity = atk_range - def_range
 	if disparity <= 0.3:
 		return 1.0
-	var penalty = clampf(1.0 - (disparity - 0.3) * 0.5, 0.25, 1.0)
+	# Slope 0.3 (was 0.5): reach delta is already partly priced by _reach_parry_readiness_bonus, so a
+	# steeper slope double-counted the same advantage (sword 0.65 / dagger 0.30 -> 0.79 / 0.58).
+	var penalty = clampf(1.0 - (disparity - 0.3) * 0.3, 0.25, 1.0)
 	return penalty
 
 
@@ -1248,3 +1282,20 @@ static func _parry_velocity_difficulty_mult(attack_velocity_m_s: float, pa: Dict
 	var ratio: float = (attack_velocity_m_s - ref) / maxf(ref, 1.0)
 	var penalty: float = clampf(ratio * CombatConstants.PARRY_VELOCITY_DIFFICULTY_MAX_PENALTY / 2.0, 0.0, CombatConstants.PARRY_VELOCITY_DIFFICULTY_MAX_PENALTY)
 	return 1.0 - penalty
+
+
+## P4: Reach-based parry readiness bonus — longer weapons extend blade into attack trajectory earlier,
+## effectively increasing the reactive window. Spear/polearm defenders gain ~8-15% more readiness than
+## short weapons (dagger/short sword), reflecting HEMA "Langen-ort" distance control.
+static func _reach_parry_readiness_bonus(def_weapon: Variant, atk_weapon: Variant) -> float:
+	var def_len: float = 1.5
+	if def_weapon != null and "melee_range" in def_weapon:
+		def_len = maxf(0.0, float(def_weapon.melee_range))
+	var atk_len: float = 1.5
+	if atk_weapon != null and "melee_range" in atk_weapon:
+		atk_len = maxf(0.0, float(atk_weapon.melee_range))
+	## Net reach advantage (defender length - attacker length). Positive = defender reaches further.
+	## Scale factor: 6% readiness bonus per meter of net reach advantage, capped at +0.15 (2.5m advantage).
+	## Baseline ~1.0m weapons (short sword) vs ~2.0m spear → +0.06 bonus; vs dagger ~0.4m → -0.036 penalty.
+	var net_reach: float = def_len - atk_len
+	return clampf(net_reach * 0.06, -0.15, 0.15)

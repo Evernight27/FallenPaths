@@ -1,4 +1,4 @@
-﻿class_name SoakFpOperationalLogDedupeTests
+class_name SoakFpOperationalLogDedupeTests
 extends CombatRegressionHarnessCore
 
 

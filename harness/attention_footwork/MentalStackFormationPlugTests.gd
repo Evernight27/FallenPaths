@@ -13,25 +13,25 @@ const CombatWeaponFormConst := preload("res://combat/weapon_form/CombatWeaponFor
 static func _run_mental_stack_close_beats_focus_mop_up_under_telegraph(failures: PackedStringArray) -> void:
     var mgr: Node = MgrScript.new()
     for _i in 7:
-        mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
+        mgr.register(_new_entity("SWORD"), "player")
     for _j in 3:
-        mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
+        mgr.register(_new_entity("SWORD"), "enemy")
     mgr.start({"files": 7, "ranks": 1, "density": "normal"}, {"files": 3, "ranks": 1, "density": "normal"})
     var enemy_ids: Array = []
     for c in mgr.combatants:
         if CombatantEntityAccess.side_str(c) == "enemy":
             enemy_ids.append(CombatantEntityAccess.id_int(c))
     for k in range(mini(2, enemy_ids.size())):
-        CombatRegressionHarness._soak_kill_combatant(mgr, int(enemy_ids[k]))
-    var center: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(mgr, "player", 0, 3)
+        HarnessFixtures._soak_kill_combatant(mgr, int(enemy_ids[k]))
+    var center: Dictionary = HarnessFixtures._harness_find_living_at_rank_file(mgr, "player", 0, 3)
     var enemy: Dictionary = {}
     for c in mgr.combatants:
         if CombatantEntityAccess.is_living_on_side(c, "enemy"):
             enemy = c
             break
     if center.is_empty() or enemy.is_empty():
-        CombatRegressionHarness._fail(failures, "mental_stack_close_beats_focus_mop_up: missing center/enemy fixtures")
-        CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+        _fail(failures, "mental_stack_close_beats_focus_mop_up: missing center/enemy fixtures")
+        HarnessFixtures._free_manager_restore_global_rng(mgr)
         return
     var center_id: int = CombatantEntityAccess.id_int(center)
     var enemy_id: int = CombatantEntityAccess.id_int(enemy)
@@ -41,8 +41,8 @@ static func _run_mental_stack_close_beats_focus_mop_up_under_telegraph(failures:
     center["guard_line"] = "low"
     center[CombatConstants.COMBATANT_KEY_INCOMING_ATTACK_TELEGRAPH_PART] = "head"
     if not CombatAttention.is_being_wind_up_targeted(mgr, center_id):
-        CombatRegressionHarness._fail(failures, "mental_stack_close_beats_focus_mop_up: setup want wind_up targeted")
-        CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+        _fail(failures, "mental_stack_close_beats_focus_mop_up: setup want wind_up targeted")
+        HarnessFixtures._free_manager_restore_global_rng(mgr)
         return
     var actions: Array = [
         {"move_id": CombatConstants.MOVE_ID_WAIT, "target_id": center_id},
@@ -51,11 +51,11 @@ static func _run_mental_stack_close_beats_focus_mop_up_under_telegraph(failures:
     ]
     var picked: Dictionary = MentalStack.try_pick(actions, center_id, mgr)
     if str(picked.get("move_id", "")) != CombatConstants.MOVE_ID_ATTEMPT_CLOSE:
-        CombatRegressionHarness._fail(
+        _fail(
             failures,
             "mental_stack_close_beats_focus_mop_up: want attempt_close got %s" % str(picked.get("move_id", ""))
         )
-    CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+    HarnessFixtures._free_manager_restore_global_rng(mgr)
 
 
 ## III-4 **3e**: mop-up hold-line gauge hint when `attempt_close` is listed.
@@ -65,25 +65,25 @@ static func _run_mental_stack_close_beats_focus_mop_up_under_telegraph(failures:
 static func _run_hold_line_hint_mop_up(failures: PackedStringArray) -> void:
     var mgr: Node = MgrScript.new()
     for _i in 7:
-        mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
+        mgr.register(_new_entity("SWORD"), "player")
     for _j in 3:
-        mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
+        mgr.register(_new_entity("SWORD"), "enemy")
     mgr.start({"files": 7, "ranks": 1, "density": "normal"}, {"files": 3, "ranks": 1, "density": "normal"})
     var enemy_ids: Array = []
     for c in mgr.combatants:
         if CombatantEntityAccess.side_str(c) == "enemy":
             enemy_ids.append(CombatantEntityAccess.id_int(c))
     for k in range(mini(2, enemy_ids.size())):
-        CombatRegressionHarness._soak_kill_combatant(mgr, int(enemy_ids[k]))
-    var center: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(mgr, "player", 0, 3)
+        HarnessFixtures._soak_kill_combatant(mgr, int(enemy_ids[k]))
+    var center: Dictionary = HarnessFixtures._harness_find_living_at_rank_file(mgr, "player", 0, 3)
     var enemy: Dictionary = {}
     for c in mgr.combatants:
         if CombatantEntityAccess.is_living_on_side(c, "enemy"):
             enemy = c
             break
     if center.is_empty() or enemy.is_empty():
-        CombatRegressionHarness._fail(failures, "hold_line_hint_mop_up: missing center/enemy fixtures")
-        CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+        _fail(failures, "hold_line_hint_mop_up: missing center/enemy fixtures")
+        HarnessFixtures._free_manager_restore_global_rng(mgr)
         return
     var center_id: int = CombatantEntityAccess.id_int(center)
     var enemy_id: int = CombatantEntityAccess.id_int(enemy)
@@ -94,8 +94,8 @@ static func _run_hold_line_hint_mop_up(failures: PackedStringArray) -> void:
     ]
     var hint: String = PlayerTurnHints.hold_line_focus_only_hint(mgr, center, actions)
     if hint.is_empty() or not hint.contains("Mop-up"):
-        CombatRegressionHarness._fail(failures, "hold_line_hint_mop_up: want mop-up hint got '%s'" % hint)
-    CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+        _fail(failures, "hold_line_hint_mop_up: want mop-up hint got '%s'" % hint)
+    HarnessFixtures._free_manager_restore_global_rng(mgr)
 
 
 ## III-4 **3e**: mop-up hold-line hint when listed melee strikes finish the last enemy.
@@ -105,25 +105,25 @@ static func _run_hold_line_hint_mop_up(failures: PackedStringArray) -> void:
 static func _run_hold_line_hint_mop_up_strikes_listed(failures: PackedStringArray) -> void:
     var mgr: Node = MgrScript.new()
     for _i in 7:
-        mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
+        mgr.register(_new_entity("SWORD"), "player")
     for _j in 3:
-        mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
+        mgr.register(_new_entity("SWORD"), "enemy")
     mgr.start({"files": 7, "ranks": 1, "density": "normal"}, {"files": 3, "ranks": 1, "density": "normal"})
     var enemy_ids: Array = []
     for c in mgr.combatants:
         if CombatantEntityAccess.side_str(c) == "enemy":
             enemy_ids.append(CombatantEntityAccess.id_int(c))
     for k in range(mini(2, enemy_ids.size())):
-        CombatRegressionHarness._soak_kill_combatant(mgr, int(enemy_ids[k]))
-    var center: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(mgr, "player", 0, 3)
+        HarnessFixtures._soak_kill_combatant(mgr, int(enemy_ids[k]))
+    var center: Dictionary = HarnessFixtures._harness_find_living_at_rank_file(mgr, "player", 0, 3)
     var enemy: Dictionary = {}
     for c in mgr.combatants:
         if CombatantEntityAccess.is_living_on_side(c, "enemy"):
             enemy = c
             break
     if center.is_empty() or enemy.is_empty():
-        CombatRegressionHarness._fail(failures, "hold_line_hint_mop_up_strikes: missing center/enemy fixtures")
-        CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+        _fail(failures, "hold_line_hint_mop_up_strikes: missing center/enemy fixtures")
+        HarnessFixtures._free_manager_restore_global_rng(mgr)
         return
     var center_id: int = CombatantEntityAccess.id_int(center)
     var enemy_id: int = CombatantEntityAccess.id_int(enemy)
@@ -135,8 +135,8 @@ static func _run_hold_line_hint_mop_up_strikes_listed(failures: PackedStringArra
     ]
     var hint: String = PlayerTurnHints.hold_line_focus_only_hint(mgr, center, actions)
     if hint.is_empty() or not hint.contains("Mop-up"):
-        CombatRegressionHarness._fail(failures, "hold_line_hint_mop_up_strikes: want mop-up hint got '%s'" % hint)
-    CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+        _fail(failures, "hold_line_hint_mop_up_strikes: want mop-up hint got '%s'" % hint)
+    HarnessFixtures._free_manager_restore_global_rng(mgr)
 
 
 ## III-4 **3e**: rear rank reserve + `attempt_close` during mop-up beats generic back-rank copy.
@@ -146,25 +146,25 @@ static func _run_hold_line_hint_mop_up_strikes_listed(failures: PackedStringArra
 static func _run_hold_line_hint_mop_up_rear_rank(failures: PackedStringArray) -> void:
     var mgr: Node = MgrScript.new()
     for _i in 14:
-        mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
+        mgr.register(_new_entity("SWORD"), "player")
     for _j in 3:
-        mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
+        mgr.register(_new_entity("SWORD"), "enemy")
     mgr.start({"files": 7, "ranks": 2, "density": "normal"}, {"files": 3, "ranks": 1, "density": "normal"})
     var enemy_ids: Array = []
     for c in mgr.combatants:
         if CombatantEntityAccess.side_str(c) == "enemy":
             enemy_ids.append(CombatantEntityAccess.id_int(c))
     for k in range(mini(2, enemy_ids.size())):
-        CombatRegressionHarness._soak_kill_combatant(mgr, int(enemy_ids[k]))
-    var rear: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(mgr, "player", 1, 3)
+        HarnessFixtures._soak_kill_combatant(mgr, int(enemy_ids[k]))
+    var rear: Dictionary = HarnessFixtures._harness_find_living_at_rank_file(mgr, "player", 1, 3)
     var enemy: Dictionary = {}
     for c in mgr.combatants:
         if CombatantEntityAccess.is_living_on_side(c, "enemy"):
             enemy = c
             break
     if rear.is_empty() or enemy.is_empty():
-        CombatRegressionHarness._fail(failures, "hold_line_hint_mop_up_rear: missing rear/enemy fixtures")
-        CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+        _fail(failures, "hold_line_hint_mop_up_rear: missing rear/enemy fixtures")
+        HarnessFixtures._free_manager_restore_global_rng(mgr)
         return
     var rear_id: int = CombatantEntityAccess.id_int(rear)
     var enemy_id: int = CombatantEntityAccess.id_int(enemy)
@@ -175,8 +175,8 @@ static func _run_hold_line_hint_mop_up_rear_rank(failures: PackedStringArray) ->
     ]
     var hint: String = PlayerTurnHints.hold_line_focus_only_hint(mgr, rear, actions)
     if hint.is_empty() or not hint.contains("Mop-up"):
-        CombatRegressionHarness._fail(failures, "hold_line_hint_mop_up_rear: want mop-up hint got '%s'" % hint)
-    CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+        _fail(failures, "hold_line_hint_mop_up_rear: want mop-up hint got '%s'" % hint)
+    HarnessFixtures._free_manager_restore_global_rng(mgr)
 
 
 ## III-4 **3e**: rear rank with listed strikes during mop-up gets strike-finish mop-up copy.
@@ -186,25 +186,25 @@ static func _run_hold_line_hint_mop_up_rear_rank(failures: PackedStringArray) ->
 static func _run_hold_line_hint_mop_up_rear_rank_strikes(failures: PackedStringArray) -> void:
     var mgr: Node = MgrScript.new()
     for _i in 14:
-        mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
+        mgr.register(_new_entity("SWORD"), "player")
     for _j in 3:
-        mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
+        mgr.register(_new_entity("SWORD"), "enemy")
     mgr.start({"files": 7, "ranks": 2, "density": "normal"}, {"files": 3, "ranks": 1, "density": "normal"})
     var enemy_ids: Array = []
     for c in mgr.combatants:
         if CombatantEntityAccess.side_str(c) == "enemy":
             enemy_ids.append(CombatantEntityAccess.id_int(c))
     for k in range(mini(2, enemy_ids.size())):
-        CombatRegressionHarness._soak_kill_combatant(mgr, int(enemy_ids[k]))
-    var rear: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(mgr, "player", 1, 3)
+        HarnessFixtures._soak_kill_combatant(mgr, int(enemy_ids[k]))
+    var rear: Dictionary = HarnessFixtures._harness_find_living_at_rank_file(mgr, "player", 1, 3)
     var enemy: Dictionary = {}
     for c in mgr.combatants:
         if CombatantEntityAccess.is_living_on_side(c, "enemy"):
             enemy = c
             break
     if rear.is_empty() or enemy.is_empty():
-        CombatRegressionHarness._fail(failures, "hold_line_hint_mop_up_rear_strikes: missing rear/enemy fixtures")
-        CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+        _fail(failures, "hold_line_hint_mop_up_rear_strikes: missing rear/enemy fixtures")
+        HarnessFixtures._free_manager_restore_global_rng(mgr)
         return
     var rear_id: int = CombatantEntityAccess.id_int(rear)
     var enemy_id: int = CombatantEntityAccess.id_int(enemy)
@@ -216,10 +216,10 @@ static func _run_hold_line_hint_mop_up_rear_rank_strikes(failures: PackedStringA
     ]
     var hint: String = PlayerTurnHints.hold_line_focus_only_hint(mgr, rear, actions)
     if hint.is_empty() or not hint.contains("listed strike"):
-        CombatRegressionHarness._fail(
+        _fail(
             failures, "hold_line_hint_mop_up_rear_strikes: want strike mop-up hint got '%s'" % hint
         )
-    CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+    HarnessFixtures._free_manager_restore_global_rng(mgr)
 
 
 ## Back rank reserve-only when not mop-up stays generic back-rank copy.
@@ -229,14 +229,14 @@ static func _run_hold_line_hint_mop_up_rear_rank_strikes(failures: PackedStringA
 static func _run_hold_line_hint_back_rank_not_mopup(failures: PackedStringArray) -> void:
     var mgr: Node = MgrScript.new()
     for _i in 14:
-        mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
+        mgr.register(_new_entity("SWORD"), "player")
     for _j in 3:
-        mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
+        mgr.register(_new_entity("SWORD"), "enemy")
     mgr.start({"files": 7, "ranks": 2, "density": "normal"}, {"files": 3, "ranks": 1, "density": "normal"})
-    var rear: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(mgr, "player", 1, 3)
+    var rear: Dictionary = HarnessFixtures._harness_find_living_at_rank_file(mgr, "player", 1, 3)
     if rear.is_empty():
-        CombatRegressionHarness._fail(failures, "hold_line_hint_back_rank: missing rear fixture")
-        CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+        _fail(failures, "hold_line_hint_back_rank: missing rear fixture")
+        HarnessFixtures._free_manager_restore_global_rng(mgr)
         return
     var rear_id: int = CombatantEntityAccess.id_int(rear)
     var actions: Array = [
@@ -245,8 +245,8 @@ static func _run_hold_line_hint_back_rank_not_mopup(failures: PackedStringArray)
     ]
     var hint: String = PlayerTurnHints.hold_line_focus_only_hint(mgr, rear, actions)
     if hint.is_empty() or not hint.begins_with("Back rank"):
-        CombatRegressionHarness._fail(failures, "hold_line_hint_back_rank: want back-rank copy got '%s'" % hint)
-    CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+        _fail(failures, "hold_line_hint_back_rank: want back-rank copy got '%s'" % hint)
+    HarnessFixtures._free_manager_restore_global_rng(mgr)
 
 
 ## MS-L5: rank-0 gap -> rear **`swap_rank`** beats listed strikes; stamps **`formation_plug`**.
@@ -256,36 +256,36 @@ static func _run_hold_line_hint_back_rank_not_mopup(failures: PackedStringArray)
 static func _run_mental_stack_formation_plug_swap_rank_over_strike(failures: PackedStringArray) -> void:
     var mgr: Node = MgrScript.new()
     for _i in 7:
-        mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
+        mgr.register(_new_entity("SWORD"), "player")
     for _j in 5:
-        mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
+        mgr.register(_new_entity("SWORD"), "enemy")
     mgr.start({"files": 5, "ranks": 2, "density": "normal"}, {"files": 5, "ranks": 1, "density": "normal"})
-    var hole_front: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(mgr, "player", 0, 4)
-    var rear: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(mgr, "player", 1, 0)
-    var front: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(mgr, "player", 0, 0)
+    var hole_front: Dictionary = HarnessFixtures._harness_find_living_at_rank_file(mgr, "player", 0, 4)
+    var rear: Dictionary = HarnessFixtures._harness_find_living_at_rank_file(mgr, "player", 1, 0)
+    var front: Dictionary = HarnessFixtures._harness_find_living_at_rank_file(mgr, "player", 0, 0)
     if hole_front.is_empty() or rear.is_empty() or front.is_empty():
-        CombatRegressionHarness._fail(failures, "mental_stack_plug_swap: missing hole/rear/front fixtures")
-        CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+        _fail(failures, "mental_stack_plug_swap: missing hole/rear/front fixtures")
+        HarnessFixtures._free_manager_restore_global_rng(mgr)
         return
     hole_front["alive"] = false
     var form_player: Dictionary = mgr.formations["player"]
     var slots: Dictionary = FormationSlots.formation_slots_dict(form_player)
     FormationSlots.prune_dead_ids_from_formation_slots(mgr, slots)
     if not FormationFlow.formation_has_frontline_fill_opportunity(mgr, "player"):
-        CombatRegressionHarness._fail(failures, "mental_stack_plug_swap: want rank-0 hole on line after kill")
-        CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+        _fail(failures, "mental_stack_plug_swap: want rank-0 hole on line after kill")
+        HarnessFixtures._free_manager_restore_global_rng(mgr)
         return
     if CombatAIActionPicker.is_relief_swap_tactically_allowed(rear, front):
-        CombatRegressionHarness._fail(failures, "mental_stack_plug_swap: want relief swap blocked for plug test")
-        CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+        _fail(failures, "mental_stack_plug_swap: want relief swap blocked for plug test")
+        HarnessFixtures._free_manager_restore_global_rng(mgr)
         return
     var rear_id: int = CombatantEntityAccess.id_int(rear)
     var front_id: int = CombatantEntityAccess.id_int(front)
     rear["gauge"] = 100.0
     var acts: Array = AvailableActionsBuilder.build(mgr, rear_id)
     if not ListedActions.actions_include_move_vs_target(acts, front_id, CombatConstants.MOVE_ID_SWAP_RANK):
-        CombatRegressionHarness._fail(failures, "mental_stack_plug_swap: want swap_rank listed vs front partner")
-        CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+        _fail(failures, "mental_stack_plug_swap: want swap_rank listed vs front partner")
+        HarnessFixtures._free_manager_restore_global_rng(mgr)
         return
     if not ListedActions.action_list_has_hostile_strike(acts, rear_id):
         var enemy_id: int = -1
@@ -294,20 +294,20 @@ static func _run_mental_stack_formation_plug_swap_rank_over_strike(failures: Pac
                 enemy_id = CombatantEntityAccess.id_int(c)
                 break
         if enemy_id < 0:
-            CombatRegressionHarness._fail(failures, "mental_stack_plug_swap: missing enemy for strike fixture")
-            CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+            _fail(failures, "mental_stack_plug_swap: missing enemy for strike fixture")
+            HarnessFixtures._free_manager_restore_global_rng(mgr)
             return
         acts.append({"move_id": "thrust", "target_id": enemy_id, "target_part": "head"})
     var picked: Dictionary = MentalStack.try_pick(acts, rear_id, mgr)
     if picked.is_empty():
-        CombatRegressionHarness._fail(failures, "mental_stack_plug_swap: expected stack pick")
-        CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+        _fail(failures, "mental_stack_plug_swap: expected stack pick")
+        HarnessFixtures._free_manager_restore_global_rng(mgr)
         return
     if (
         str(rear.get(CombatConstants.COMBATANT_KEY_MENTAL_STACK_LAYER, ""))
         != CombatConstants.MENTAL_STACK_LAYER_FORMATION_PLUG
     ):
-        CombatRegressionHarness._fail(
+        _fail(
             failures,
             (
                 "mental_stack_plug_swap: want formation_plug got %s"
@@ -315,10 +315,10 @@ static func _run_mental_stack_formation_plug_swap_rank_over_strike(failures: Pac
             )
         )
     if str(picked.get("move_id", "")) != CombatConstants.MOVE_ID_SWAP_RANK:
-        CombatRegressionHarness._fail(
+        _fail(
             failures, "mental_stack_plug_swap: want swap_rank got %s" % str(picked.get("move_id", ""))
         )
-    CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+    HarnessFixtures._free_manager_restore_global_rng(mgr)
 
 
 ## MS-L5: incapacitated front partner -> rear **`swap_rank`** stamps **`formation_plug`**.
@@ -328,38 +328,38 @@ static func _run_mental_stack_formation_plug_swap_rank_over_strike(failures: Pac
 static func _run_mental_stack_formation_plug_incap_forward(failures: PackedStringArray) -> void:
     var mgr: Node = MgrScript.new()
     for _i in 7:
-        mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
+        mgr.register(_new_entity("SWORD"), "player")
     for _j in 5:
-        mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
+        mgr.register(_new_entity("SWORD"), "enemy")
     mgr.start({"files": 5, "ranks": 2, "density": "normal"}, {"files": 5, "ranks": 1, "density": "normal"})
-    var front: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(mgr, "player", 0, 0)
-    var rear: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(mgr, "player", 1, 0)
+    var front: Dictionary = HarnessFixtures._harness_find_living_at_rank_file(mgr, "player", 0, 0)
+    var rear: Dictionary = HarnessFixtures._harness_find_living_at_rank_file(mgr, "player", 1, 0)
     if front.is_empty() or rear.is_empty():
-        CombatRegressionHarness._fail(failures, "mental_stack_plug_incap: missing front/rear fixtures")
-        CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+        _fail(failures, "mental_stack_plug_incap: missing front/rear fixtures")
+        HarnessFixtures._free_manager_restore_global_rng(mgr)
         return
     var ent: CoreEntity = CombatantEntityAccess.scene_node(front) as CoreEntity
-    CombatRegressionHarness._harness_destroy_limb(ent, "right_arm")
-    CombatRegressionHarness._harness_destroy_limb(ent, "left_arm")
+    HarnessFixtures._harness_destroy_limb(ent, "right_arm")
+    HarnessFixtures._harness_destroy_limb(ent, "left_arm")
     front.state = CombatConstants.STATE_COWERING
     CombatMobilityRetreat.sync_cowering_state_if_no_functional_arm(front)
     rear["gauge"] = 100.0
     var rear_id: int = CombatantEntityAccess.id_int(rear)
     var acts: Array = AvailableActionsBuilder.build(mgr, rear_id)
     if not ListedActions.actions_include_move_id(acts, CombatConstants.MOVE_ID_SWAP_RANK):
-        CombatRegressionHarness._fail(failures, "mental_stack_plug_incap: want swap_rank listed over incap front")
-        CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+        _fail(failures, "mental_stack_plug_incap: want swap_rank listed over incap front")
+        HarnessFixtures._free_manager_restore_global_rng(mgr)
         return
     var picked: Dictionary = MentalStack.try_pick(acts, rear_id, mgr)
     if picked.is_empty():
-        CombatRegressionHarness._fail(failures, "mental_stack_plug_incap: expected stack pick")
-        CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+        _fail(failures, "mental_stack_plug_incap: expected stack pick")
+        HarnessFixtures._free_manager_restore_global_rng(mgr)
         return
     if (
         str(rear.get(CombatConstants.COMBATANT_KEY_MENTAL_STACK_LAYER, ""))
         != CombatConstants.MENTAL_STACK_LAYER_FORMATION_PLUG
     ):
-        CombatRegressionHarness._fail(
+        _fail(
             failures,
             (
                 "mental_stack_plug_incap: want formation_plug got %s"
@@ -367,10 +367,10 @@ static func _run_mental_stack_formation_plug_incap_forward(failures: PackedStrin
             )
         )
     if str(picked.get("move_id", "")) != CombatConstants.MOVE_ID_SWAP_RANK:
-        CombatRegressionHarness._fail(
+        _fail(
             failures, "mental_stack_plug_incap: want swap_rank got %s" % str(picked.get("move_id", ""))
         )
-    CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+    HarnessFixtures._free_manager_restore_global_rng(mgr)
 
 
 ## MS-L5: Skirmish rank-0 hole -> front **`rotate_file`** when formation-only menu; stamps **`formation_plug`**.
@@ -380,35 +380,35 @@ static func _run_mental_stack_formation_plug_incap_forward(failures: PackedStrin
 static func _run_mental_stack_formation_plug_rotate_skirmish_hole(failures: PackedStringArray) -> void:
     var mgr: Node = MgrScript.new()
     for _i in 7:
-        mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
+        mgr.register(_new_entity("SWORD"), "player")
     for _j in 3:
-        mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
+        mgr.register(_new_entity("SWORD"), "enemy")
     mgr.start({"files": 5, "ranks": 1, "density": "normal"}, {"files": 3, "ranks": 1, "density": "normal"})
     if str(EngagementMode.engagement_mode(mgr)) != CombatConstants.ENGAGEMENT_MODE_SKIRMISH:
-        CombatRegressionHarness._fail(failures, "mental_stack_plug_rotate: expected skirmish mode")
-        CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+        _fail(failures, "mental_stack_plug_rotate: expected skirmish mode")
+        HarnessFixtures._free_manager_restore_global_rng(mgr)
         return
-    var hole_front: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(mgr, "player", 0, 4)
-    var rot_src: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(mgr, "player", 0, 0)
-    var rot_tgt: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(mgr, "player", 0, 1)
+    var hole_front: Dictionary = HarnessFixtures._harness_find_living_at_rank_file(mgr, "player", 0, 4)
+    var rot_src: Dictionary = HarnessFixtures._harness_find_living_at_rank_file(mgr, "player", 0, 0)
+    var rot_tgt: Dictionary = HarnessFixtures._harness_find_living_at_rank_file(mgr, "player", 0, 1)
     if hole_front.is_empty() or rot_src.is_empty() or rot_tgt.is_empty():
-        CombatRegressionHarness._fail(failures, "mental_stack_plug_rotate: missing hole/rotate fixtures")
-        CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+        _fail(failures, "mental_stack_plug_rotate: missing hole/rotate fixtures")
+        HarnessFixtures._free_manager_restore_global_rng(mgr)
         return
     hole_front["alive"] = false
     var form_player: Dictionary = mgr.formations["player"]
     var slots: Dictionary = FormationSlots.formation_slots_dict(form_player)
     FormationSlots.prune_dead_ids_from_formation_slots(mgr, slots)
     if not FormationFlow.formation_has_rank0_hole(mgr, "player"):
-        CombatRegressionHarness._fail(failures, "mental_stack_plug_rotate: want rank-0 hole after kill")
-        CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+        _fail(failures, "mental_stack_plug_rotate: want rank-0 hole after kill")
+        HarnessFixtures._free_manager_restore_global_rng(mgr)
         return
     var rot_src_id: int = CombatantEntityAccess.id_int(rot_src)
     var rot_tgt_id: int = CombatantEntityAccess.id_int(rot_tgt)
     rot_src["gauge"] = 100.0
     if not FormationMoves.rotate_file_action_legal(mgr, rot_src, rot_tgt):
-        CombatRegressionHarness._fail(failures, "mental_stack_plug_rotate: want legal rotate_file vs adjacent file")
-        CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+        _fail(failures, "mental_stack_plug_rotate: want legal rotate_file vs adjacent file")
+        HarnessFixtures._free_manager_restore_global_rng(mgr)
         return
     # Rotate plug path matches utility weight: formation-only menu (no listed strikes).
     var acts: Array = [
@@ -417,14 +417,14 @@ static func _run_mental_stack_formation_plug_rotate_skirmish_hole(failures: Pack
     ]
     var picked: Dictionary = MentalStack.try_pick(acts, rot_src_id, mgr)
     if picked.is_empty():
-        CombatRegressionHarness._fail(failures, "mental_stack_plug_rotate: expected stack pick")
-        CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+        _fail(failures, "mental_stack_plug_rotate: expected stack pick")
+        HarnessFixtures._free_manager_restore_global_rng(mgr)
         return
     if (
         str(rot_src.get(CombatConstants.COMBATANT_KEY_MENTAL_STACK_LAYER, ""))
         != CombatConstants.MENTAL_STACK_LAYER_FORMATION_PLUG
     ):
-        CombatRegressionHarness._fail(
+        _fail(
             failures,
             (
                 "mental_stack_plug_rotate: want formation_plug got %s"
@@ -432,10 +432,10 @@ static func _run_mental_stack_formation_plug_rotate_skirmish_hole(failures: Pack
             )
         )
     if str(picked.get("move_id", "")) != CombatConstants.MOVE_ID_ROTATE_FILE:
-        CombatRegressionHarness._fail(
+        _fail(
             failures, "mental_stack_plug_rotate: want rotate_file got %s" % str(picked.get("move_id", ""))
         )
-    CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+    HarnessFixtures._free_manager_restore_global_rng(mgr)
 
 
 ## MS-L5: fight-finish tail with listed offense must not stamp **`formation_plug`**.
@@ -445,46 +445,46 @@ static func _run_mental_stack_formation_plug_rotate_skirmish_hole(failures: Pack
 static func _run_mental_stack_formation_plug_skipped_fight_finish(failures: PackedStringArray) -> void:
     var mgr: Node = MgrScript.new()
     for _i in 7:
-        mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
+        mgr.register(_new_entity("SWORD"), "player")
     for _j in 3:
-        mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
+        mgr.register(_new_entity("SWORD"), "enemy")
     mgr.start({"files": 7, "ranks": 1, "density": "normal"}, {"files": 3, "ranks": 1, "density": "normal"})
     var enemy_ids: Array = []
     for c in mgr.combatants:
         if CombatantEntityAccess.side_str(c) == "enemy":
             enemy_ids.append(CombatantEntityAccess.id_int(c))
     for k in range(mini(2, enemy_ids.size())):
-        CombatRegressionHarness._soak_kill_combatant(mgr, int(enemy_ids[k]))
+        HarnessFixtures._soak_kill_combatant(mgr, int(enemy_ids[k]))
     if not CombatDoctrine.envelop_mop_up_active(mgr, "player"):
-        CombatRegressionHarness._fail(failures, "mental_stack_plug_skip_ff: want envelop_mop_up_active")
-        CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+        _fail(failures, "mental_stack_plug_skip_ff: want envelop_mop_up_active")
+        HarnessFixtures._free_manager_restore_global_rng(mgr)
         return
-    var center: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(mgr, "player", 0, 3)
+    var center: Dictionary = HarnessFixtures._harness_find_living_at_rank_file(mgr, "player", 0, 3)
     if center.is_empty():
-        CombatRegressionHarness._fail(failures, "mental_stack_plug_skip_ff: missing center fixture")
-        CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+        _fail(failures, "mental_stack_plug_skip_ff: missing center fixture")
+        HarnessFixtures._free_manager_restore_global_rng(mgr)
         return
     center["gauge"] = 100.0
     var center_id: int = CombatantEntityAccess.id_int(center)
     var acts: Array = AvailableActionsBuilder.build(mgr, center_id)
     if not CombatDoctrine.fight_finish_tail_active(mgr, center, acts, center_id):
-        CombatRegressionHarness._fail(failures, "mental_stack_plug_skip_ff: want fight_finish_tail")
-        CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+        _fail(failures, "mental_stack_plug_skip_ff: want fight_finish_tail")
+        HarnessFixtures._free_manager_restore_global_rng(mgr)
         return
     if not ListedActions.action_list_has_hostile_strike(acts, center_id):
-        CombatRegressionHarness._fail(failures, "mental_stack_plug_skip_ff: want listed offense")
-        CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+        _fail(failures, "mental_stack_plug_skip_ff: want listed offense")
+        HarnessFixtures._free_manager_restore_global_rng(mgr)
         return
     var picked: Dictionary = MentalStack.try_pick(acts, center_id, mgr)
     if (
         str(center.get(CombatConstants.COMBATANT_KEY_MENTAL_STACK_LAYER, ""))
         == (CombatConstants.MENTAL_STACK_LAYER_FORMATION_PLUG)
     ):
-        CombatRegressionHarness._fail(
+        _fail(
             failures, "mental_stack_plug_skip_ff: formation_plug must not fire on fight-finish tail"
         )
     if picked.is_empty():
-        CombatRegressionHarness._fail(failures, "mental_stack_plug_skip_ff: expected stack pick on fight-finish")
+        _fail(failures, "mental_stack_plug_skip_ff: expected stack pick on fight-finish")
     if (
         (
             str(picked.get("move_id", ""))
@@ -509,7 +509,7 @@ static func _run_mental_stack_formation_plug_skipped_fight_finish(failures: Pack
                 )
             )
         )
-    CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+    HarnessFixtures._free_manager_restore_global_rng(mgr)
 
 
 ## MS-L5: envelop mop-up + listed strikes defers plug (rear rank with hole still finishes).
@@ -519,38 +519,38 @@ static func _run_mental_stack_formation_plug_skipped_fight_finish(failures: Pack
 static func _run_mental_stack_formation_plug_skipped_mop_up_offense(failures: PackedStringArray) -> void:
     var mgr: Node = MgrScript.new()
     for _i in 10:
-        mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
+        mgr.register(_new_entity("SWORD"), "player")
     for _j in 5:
-        mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
+        mgr.register(_new_entity("SWORD"), "enemy")
     mgr.start({"files": 5, "ranks": 2, "density": "normal"}, {"files": 5, "ranks": 1, "density": "normal"})
     var enemy_ids: Array = []
     for c in mgr.combatants:
         if CombatantEntityAccess.side_str(c) == "enemy":
             enemy_ids.append(CombatantEntityAccess.id_int(c))
     for k in range(mini(4, enemy_ids.size())):
-        CombatRegressionHarness._soak_kill_combatant(mgr, int(enemy_ids[k]))
+        HarnessFixtures._soak_kill_combatant(mgr, int(enemy_ids[k]))
     if not CombatDoctrine.envelop_mop_up_active(mgr, "player"):
-        CombatRegressionHarness._fail(failures, "mental_stack_plug_skip_mop: want envelop_mop_up_active")
-        CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+        _fail(failures, "mental_stack_plug_skip_mop: want envelop_mop_up_active")
+        HarnessFixtures._free_manager_restore_global_rng(mgr)
         return
-    var hole_front: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(mgr, "player", 0, 4)
-    var rear: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(mgr, "player", 1, 0)
-    var front: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(mgr, "player", 0, 0)
+    var hole_front: Dictionary = HarnessFixtures._harness_find_living_at_rank_file(mgr, "player", 0, 4)
+    var rear: Dictionary = HarnessFixtures._harness_find_living_at_rank_file(mgr, "player", 1, 0)
+    var front: Dictionary = HarnessFixtures._harness_find_living_at_rank_file(mgr, "player", 0, 0)
     if hole_front.is_empty() or rear.is_empty() or front.is_empty():
-        CombatRegressionHarness._fail(failures, "mental_stack_plug_skip_mop: missing hole/rear/front fixtures")
-        CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+        _fail(failures, "mental_stack_plug_skip_mop: missing hole/rear/front fixtures")
+        HarnessFixtures._free_manager_restore_global_rng(mgr)
         return
     if CombatAIActionPicker.is_relief_swap_tactically_allowed(rear, front):
-        CombatRegressionHarness._fail(failures, "mental_stack_plug_skip_mop: want relief swap blocked")
-        CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+        _fail(failures, "mental_stack_plug_skip_mop: want relief swap blocked")
+        HarnessFixtures._free_manager_restore_global_rng(mgr)
         return
     hole_front["alive"] = false
     var form_player: Dictionary = mgr.formations["player"]
     var slots: Dictionary = FormationSlots.formation_slots_dict(form_player)
     FormationSlots.prune_dead_ids_from_formation_slots(mgr, slots)
     if not FormationFlow.formation_has_frontline_fill_opportunity(mgr, "player"):
-        CombatRegressionHarness._fail(failures, "mental_stack_plug_skip_mop: want rank-0 hole on line after kill")
-        CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+        _fail(failures, "mental_stack_plug_skip_mop: want rank-0 hole on line after kill")
+        HarnessFixtures._free_manager_restore_global_rng(mgr)
         return
     rear["gauge"] = 100.0
     var rear_id: int = CombatantEntityAccess.id_int(rear)
@@ -562,31 +562,31 @@ static func _run_mental_stack_formation_plug_skipped_mop_up_offense(failures: Pa
                 enemy_id = CombatantEntityAccess.id_int(c)
                 break
         if enemy_id < 0:
-            CombatRegressionHarness._fail(failures, "mental_stack_plug_skip_mop: missing living enemy")
-            CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+            _fail(failures, "mental_stack_plug_skip_mop: missing living enemy")
+            HarnessFixtures._free_manager_restore_global_rng(mgr)
             return
         acts.append({"move_id": "thrust", "target_id": enemy_id, "target_part": "head"})
     var front_id: int = CombatantEntityAccess.id_int(front)
     if not ListedActions.actions_include_move_vs_target(acts, front_id, CombatConstants.MOVE_ID_SWAP_RANK):
         if not FormationMoves.swap_rank_action_legal(mgr, rear, front):
-            CombatRegressionHarness._fail(
+            _fail(
                 failures, "mental_stack_plug_skip_mop: want legal swap_rank for plug-defer fixture"
             )
-            CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+            HarnessFixtures._free_manager_restore_global_rng(mgr)
             return
         acts.append({"move_id": CombatConstants.MOVE_ID_SWAP_RANK, "target_id": front_id})
     if not FormationVacancyPlugs.formation_plug_layer_blocked(mgr, rear, acts, rear_id):
-        CombatRegressionHarness._fail(
+        _fail(
             failures, "mental_stack_plug_skip_mop: want formation_plug_layer_blocked during mop-up offense"
         )
-        CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+        HarnessFixtures._free_manager_restore_global_rng(mgr)
         return
     var picked: Dictionary = CombatAIActionPicker.pick(acts, rear_id, mgr)
     if (
         str(rear.get(CombatConstants.COMBATANT_KEY_MENTAL_STACK_LAYER, ""))
         == (CombatConstants.MENTAL_STACK_LAYER_FORMATION_PLUG)
     ):
-        CombatRegressionHarness._fail(
+        _fail(
             failures, "mental_stack_plug_skip_mop: formation_plug must defer during mop-up offense"
         )
     if picked.is_empty() or str(picked.get("move_id", "")) == CombatConstants.MOVE_ID_SWAP_RANK:
@@ -603,7 +603,7 @@ static func _run_mental_stack_formation_plug_skipped_mop_up_offense(failures: Pa
                 )
             )
         )
-    CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+    HarnessFixtures._free_manager_restore_global_rng(mgr)
 
 
 ## MS-L5: intact line + strikes only -> stack miss (no **`formation_plug`** stamp).
@@ -612,8 +612,8 @@ static func _run_mental_stack_formation_plug_skipped_mop_up_offense(failures: Pa
 ## MS-L5: intact line + strikes only -> stack miss (no **`formation_plug`** stamp).
 static func _run_mental_stack_formation_plug_no_gap_stack_miss(failures: PackedStringArray) -> void:
     var mgr: Node = MgrScript.new()
-    mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
-    mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
+    mgr.register(_new_entity("SWORD"), "player")
+    mgr.register(_new_entity("SWORD"), "enemy")
     mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
     var player: Dictionary = mgr.combatants[0]
     var player_id: int = CombatantEntityAccess.id_int(player)
@@ -621,16 +621,16 @@ static func _run_mental_stack_formation_plug_no_gap_stack_miss(failures: PackedS
     player["gauge"] = 100.0
     var acts: Array = AvailableActionsBuilder.build(mgr, player_id)
     if not ListedActions.action_list_has_hostile_strike(acts, player_id):
-        CombatRegressionHarness._fail(failures, "mental_stack_plug_no_gap: want listed strikes")
-        CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+        _fail(failures, "mental_stack_plug_no_gap: want listed strikes")
+        HarnessFixtures._free_manager_restore_global_rng(mgr)
         return
     if ListedActions.actions_include_move_id(acts, CombatConstants.MOVE_ID_SWAP_RANK):
-        CombatRegressionHarness._fail(failures, "mental_stack_plug_no_gap: want no swap_rank on intact duel")
-        CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+        _fail(failures, "mental_stack_plug_no_gap: want no swap_rank on intact duel")
+        HarnessFixtures._free_manager_restore_global_rng(mgr)
         return
     if FormationVacancyPlugs.formation_plug_layer_eligible(mgr, player, player_id, acts):
-        CombatRegressionHarness._fail(failures, "mental_stack_plug_no_gap: want plug layer ineligible")
-        CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+        _fail(failures, "mental_stack_plug_no_gap: want plug layer ineligible")
+        HarnessFixtures._free_manager_restore_global_rng(mgr)
         return
     var stacked: Dictionary = MentalStack.try_pick(acts, player_id, mgr)
     if not stacked.is_empty():
@@ -648,13 +648,13 @@ static func _run_mental_stack_formation_plug_no_gap_stack_miss(failures: PackedS
             )
         )
     if not str(player.get(CombatConstants.COMBATANT_KEY_MENTAL_STACK_LAYER, "")).is_empty():
-        CombatRegressionHarness._fail(failures, "mental_stack_plug_no_gap: want cleared stack layer stamp")
+        _fail(failures, "mental_stack_plug_no_gap: want cleared stack layer stamp")
     var picked: Dictionary = CombatAIActionPicker.pick(acts, player_id, mgr)
     if picked.is_empty() or str(picked.get("move_id", "")) in CombatConstants.FORMATION_MOVEMENT_MOVE_IDS:
-        CombatRegressionHarness._fail(
+        _fail(
             failures, "mental_stack_plug_no_gap: want utility offense got %s" % str(picked.get("move_id", ""))
         )
-    CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+    HarnessFixtures._free_manager_restore_global_rng(mgr)
 
 
 ## MS-L5: sparse post-flee line + listed melee defers plug even when shuffle moves exist.
@@ -662,9 +662,9 @@ static func _run_mental_stack_formation_plug_no_gap_stack_miss(failures: PackedS
 
 ## MS-L5: sparse post-flee line + listed melee defers plug even when shuffle moves exist.
 static func _run_mental_stack_formation_plug_skipped_sparse_line_offense(failures: PackedStringArray) -> void:
-    var fix: Dictionary = CombatRegressionHarness._harness_sparse_post_flee_6v3_mgr()
+    var fix: Dictionary = HarnessFixtures._harness_sparse_post_flee_6v3_mgr()
     if fix.is_empty():
-        CombatRegressionHarness._fail(failures, "mental_stack_plug_skip_sparse: fixture setup failed")
+        _fail(failures, "mental_stack_plug_skip_sparse: fixture setup failed")
         return
     var mgr: Node = fix["mgr"]
     var survivor: Dictionary = fix["survivor"]
@@ -672,29 +672,29 @@ static func _run_mental_stack_formation_plug_skipped_sparse_line_offense(failure
     survivor["gauge"] = 100.0
     var acts: Array = AvailableActionsBuilder.build(mgr, survivor_id)
     if not ListedActions.action_list_has_hostile_melee_strike(acts, survivor_id):
-        CombatRegressionHarness._fail(failures, "mental_stack_plug_skip_sparse: want listed melee")
-        CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+        _fail(failures, "mental_stack_plug_skip_sparse: want listed melee")
+        HarnessFixtures._free_manager_restore_global_rng(mgr)
         return
     if not CombatDoctrine.sparse_line_prefer_finish_over_shuffle(mgr, survivor, acts, survivor_id):
-        CombatRegressionHarness._fail(
+        _fail(
             failures, "mental_stack_plug_skip_sparse: want sparse_line_prefer_finish_over_shuffle"
         )
-        CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+        HarnessFixtures._free_manager_restore_global_rng(mgr)
         return
     if not FormationVacancyPlugs.formation_plug_layer_blocked(mgr, survivor, acts, survivor_id):
-        CombatRegressionHarness._fail(failures, "mental_stack_plug_skip_sparse: want formation_plug_layer_blocked")
-        CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+        _fail(failures, "mental_stack_plug_skip_sparse: want formation_plug_layer_blocked")
+        HarnessFixtures._free_manager_restore_global_rng(mgr)
         return
     var picked: Dictionary = CombatAIActionPicker.pick(acts, survivor_id, mgr)
     if (
         str(survivor.get(CombatConstants.COMBATANT_KEY_MENTAL_STACK_LAYER, ""))
         == (CombatConstants.MENTAL_STACK_LAYER_FORMATION_PLUG)
     ):
-        CombatRegressionHarness._fail(
+        _fail(
             failures, "mental_stack_plug_skip_sparse: formation_plug must defer on sparse finish line"
         )
     if picked.is_empty():
-        CombatRegressionHarness._fail(failures, "mental_stack_plug_skip_sparse: expected pick")
+        _fail(failures, "mental_stack_plug_skip_sparse: expected pick")
     if (
         (
             str(picked.get("move_id", ""))
@@ -706,16 +706,16 @@ static func _run_mental_stack_formation_plug_skipped_sparse_line_offense(failure
         )
         or CombatConstants.is_focus_line_move(str(picked.get("move_id", "")))
     ):
-        CombatRegressionHarness._fail(
+        _fail(
             failures, "mental_stack_plug_skip_sparse: want offense pick got %s" % str(picked.get("move_id", ""))
         )
     if CombatConstants.is_feature_mental_stack_ai_enabled():
         var layer: String = str(survivor.get(CombatConstants.COMBATANT_KEY_MENTAL_STACK_LAYER, ""))
         if layer != CombatConstants.MENTAL_STACK_LAYER_SPARSE_FIGHT:
-            CombatRegressionHarness._fail(
+            _fail(
                 failures, "mental_stack_plug_skip_sparse: want sparse_fight layer got %s" % layer
             )
-    CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+    HarnessFixtures._free_manager_restore_global_rng(mgr)
 
 
 ## L4b: sparse post-flee rank-0 **`try_pick`** stamps **`sparse_fight`** and chooses offense.
@@ -725,32 +725,32 @@ static func _run_mental_stack_formation_plug_skipped_sparse_line_offense(failure
 static func _run_mental_stack_sparse_fight_stamps_layer_on_try_pick(failures: PackedStringArray) -> void:
     if not CombatConstants.is_feature_mental_stack_ai_enabled():
         return
-    var fix: Dictionary = CombatRegressionHarness._harness_sparse_post_flee_6v3_mgr()
+    var fix: Dictionary = HarnessFixtures._harness_sparse_post_flee_6v3_mgr()
     if fix.is_empty():
-        CombatRegressionHarness._fail(failures, "mental_stack_sparse_fight: fixture setup failed")
+        _fail(failures, "mental_stack_sparse_fight: fixture setup failed")
         return
     var mgr: Node = fix["mgr"]
     var survivor: Dictionary = fix["survivor"]
     var survivor_id: int = int(fix["survivor_id"])
     if not FormationFlow.skirmish_line_sparse_after_casualties(mgr, "player"):
-        CombatRegressionHarness._fail(failures, "mental_stack_sparse_fight: want sparse line")
-        CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+        _fail(failures, "mental_stack_sparse_fight: want sparse line")
+        HarnessFixtures._free_manager_restore_global_rng(mgr)
         return
     survivor["gauge"] = 100.0
     var acts: Array = AvailableActionsBuilder.build(mgr, survivor_id)
     if not ListedActions.action_list_has_hostile_strike(acts, survivor_id):
-        CombatRegressionHarness._fail(failures, "mental_stack_sparse_fight: want hostile strike listed for survivor")
-        CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+        _fail(failures, "mental_stack_sparse_fight: want hostile strike listed for survivor")
+        HarnessFixtures._free_manager_restore_global_rng(mgr)
         return
     var picked: Dictionary = MentalStack.try_pick(acts, survivor_id, mgr)
     if picked.is_empty():
-        CombatRegressionHarness._fail(failures, "mental_stack_sparse_fight: expected try_pick")
-        CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+        _fail(failures, "mental_stack_sparse_fight: expected try_pick")
+        HarnessFixtures._free_manager_restore_global_rng(mgr)
         return
     var layer: String = str(survivor.get(CombatConstants.COMBATANT_KEY_MENTAL_STACK_LAYER, ""))
     var mid: String = str(picked.get("move_id", ""))
     if mid == CombatConstants.MOVE_ID_WAIT or CombatConstants.is_focus_line_move(mid):
-        CombatRegressionHarness._fail(
+        _fail(
             failures, "mental_stack_sparse_fight: want offense pick got %s layer=%s" % [mid, layer]
         )
     var reserve_only: bool = ListedActions.action_list_is_reserve_posture_only(acts)
@@ -762,12 +762,12 @@ static func _run_mental_stack_sparse_fight_stamps_layer_on_try_pick(failures: Pa
                 CombatConstants.MENTAL_STACK_LAYER_SPARSE_FIGHT,
             ]
         ):
-            CombatRegressionHarness._fail(
+            _fail(
                 failures, "mental_stack_sparse_fight: reserve_only want hold_line or sparse_fight got %s" % layer
             )
     elif layer != CombatConstants.MENTAL_STACK_LAYER_SPARSE_FIGHT:
-        CombatRegressionHarness._fail(failures, "mental_stack_sparse_fight: want sparse_fight layer got %s" % layer)
-    CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+        _fail(failures, "mental_stack_sparse_fight: want sparse_fight layer got %s" % layer)
+    HarnessFixtures._free_manager_restore_global_rng(mgr)
 
 
 ## MS-L5: full **`CombatAIActionPicker.pick`** path stamps **`formation_plug`** on rank-0 gap relief.
@@ -777,24 +777,24 @@ static func _run_mental_stack_sparse_fight_stamps_layer_on_try_pick(failures: Pa
 static func _run_mental_stack_formation_plug_picker_e2e(failures: PackedStringArray) -> void:
     var mgr: Node = MgrScript.new()
     for _i in 7:
-        mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
+        mgr.register(_new_entity("SWORD"), "player")
     for _j in 5:
-        mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
+        mgr.register(_new_entity("SWORD"), "enemy")
     mgr.start({"files": 5, "ranks": 2, "density": "normal"}, {"files": 5, "ranks": 1, "density": "normal"})
-    var hole_front: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(mgr, "player", 0, 4)
-    var rear: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(mgr, "player", 1, 0)
-    var front: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(mgr, "player", 0, 0)
+    var hole_front: Dictionary = HarnessFixtures._harness_find_living_at_rank_file(mgr, "player", 0, 4)
+    var rear: Dictionary = HarnessFixtures._harness_find_living_at_rank_file(mgr, "player", 1, 0)
+    var front: Dictionary = HarnessFixtures._harness_find_living_at_rank_file(mgr, "player", 0, 0)
     if hole_front.is_empty() or rear.is_empty() or front.is_empty():
-        CombatRegressionHarness._fail(failures, "mental_stack_plug_picker: missing hole/rear/front fixtures")
-        CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+        _fail(failures, "mental_stack_plug_picker: missing hole/rear/front fixtures")
+        HarnessFixtures._free_manager_restore_global_rng(mgr)
         return
     hole_front["alive"] = false
     var form_player: Dictionary = mgr.formations["player"]
     var slots: Dictionary = FormationSlots.formation_slots_dict(form_player)
     FormationSlots.prune_dead_ids_from_formation_slots(mgr, slots)
     if CombatAIActionPicker.is_relief_swap_tactically_allowed(rear, front):
-        CombatRegressionHarness._fail(failures, "mental_stack_plug_picker: want relief swap blocked")
-        CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+        _fail(failures, "mental_stack_plug_picker: want relief swap blocked")
+        HarnessFixtures._free_manager_restore_global_rng(mgr)
         return
     rear["gauge"] = 100.0
     var rear_id: int = CombatantEntityAccess.id_int(rear)
@@ -804,7 +804,7 @@ static func _run_mental_stack_formation_plug_picker_e2e(failures: PackedStringAr
         str(rear.get(CombatConstants.COMBATANT_KEY_MENTAL_STACK_LAYER, ""))
         != CombatConstants.MENTAL_STACK_LAYER_FORMATION_PLUG
     ):
-        CombatRegressionHarness._fail(
+        _fail(
             failures,
             (
                 "mental_stack_plug_picker: want formation_plug got %s"
@@ -812,10 +812,10 @@ static func _run_mental_stack_formation_plug_picker_e2e(failures: PackedStringAr
             )
         )
     if str(picked.get("move_id", "")) != CombatConstants.MOVE_ID_SWAP_RANK:
-        CombatRegressionHarness._fail(
+        _fail(
             failures, "mental_stack_plug_picker: want swap_rank got %s" % str(picked.get("move_id", ""))
         )
-    CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+    HarnessFixtures._free_manager_restore_global_rng(mgr)
 
 
 ## MS-L6: low cohesion + wounded front on losing side -> **`flee`** beats listed strike; stamps **`rout`**.
@@ -824,10 +824,10 @@ static func _run_mental_stack_formation_plug_picker_e2e(failures: PackedStringAr
 ## MS-L6: low cohesion + wounded front on losing side -> **`flee`** beats listed strike; stamps **`rout`**.
 static func _run_mental_stack_rout_stressed_flee_beats_strike(failures: PackedStringArray) -> void:
     var mgr: Node = MgrScript.new()
-    mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
-    mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
-    mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
-    mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
+    mgr.register(_new_entity("SWORD"), "player")
+    mgr.register(_new_entity("SWORD"), "player")
+    mgr.register(_new_entity("SWORD"), "enemy")
+    mgr.register(_new_entity("SWORD"), "enemy")
     mgr.start(
         {"files": 1, "ranks": 2, "line_discipline": CombatConstants.LINE_DISCIPLINE_STRICT}, {"files": 1, "ranks": 2}
     )
@@ -839,8 +839,8 @@ static func _run_mental_stack_rout_stressed_flee_beats_strike(failures: PackedSt
     form["line_cohesion"] = 0.38
     form[CombatConstants.FORMATION_KEY_STANDING_AT_START] = 2
     if not CombatantEntityAccess.flee_abandonment_warranted(front_c, mgr):
-        CombatRegressionHarness._fail(failures, "mental_stack_rout_stress: want abandonment warranted")
-        CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+        _fail(failures, "mental_stack_rout_stress: want abandonment warranted")
+        HarnessFixtures._free_manager_restore_global_rng(mgr)
         return
     var fighter_id: int = CombatantEntityAccess.id_int(front_c)
     var enemy_id: int = CombatantEntityAccess.id_int(mgr.combatants[2])
@@ -851,14 +851,14 @@ static func _run_mental_stack_rout_stressed_flee_beats_strike(failures: PackedSt
     ]
     var picked: Dictionary = MentalStack.try_pick(actions, fighter_id, mgr)
     if picked.is_empty():
-        CombatRegressionHarness._fail(failures, "mental_stack_rout_stress: expected rout layer pick")
-        CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+        _fail(failures, "mental_stack_rout_stress: expected rout layer pick")
+        HarnessFixtures._free_manager_restore_global_rng(mgr)
         return
     if (
         str(front_c.get(CombatConstants.COMBATANT_KEY_MENTAL_STACK_LAYER, ""))
         != (CombatConstants.MENTAL_STACK_LAYER_ROUT)
     ):
-        CombatRegressionHarness._fail(
+        _fail(
             failures,
             (
                 "mental_stack_rout_stress: want rout got %s"
@@ -866,10 +866,10 @@ static func _run_mental_stack_rout_stressed_flee_beats_strike(failures: PackedSt
             )
         )
     if str(picked.get("move_id", "")) != CombatConstants.MOVE_ID_FLEE:
-        CombatRegressionHarness._fail(
+        _fail(
             failures, "mental_stack_rout_stress: want flee got %s" % str(picked.get("move_id", ""))
         )
-    CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+    HarnessFixtures._free_manager_restore_global_rng(mgr)
 
 
 ## MS-L6: heavy side casualties -> **`flee`** beats **`wait`**; stamps **`rout`**.
@@ -878,10 +878,10 @@ static func _run_mental_stack_rout_stressed_flee_beats_strike(failures: PackedSt
 ## MS-L6: heavy side casualties -> **`flee`** beats **`wait`**; stamps **`rout`**.
 static func _run_mental_stack_rout_casualty_flee_beats_wait(failures: PackedStringArray) -> void:
     var mgr: Node = MgrScript.new()
-    mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
-    mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
-    mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
-    mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
+    mgr.register(_new_entity("SWORD"), "player")
+    mgr.register(_new_entity("SWORD"), "player")
+    mgr.register(_new_entity("SWORD"), "enemy")
+    mgr.register(_new_entity("SWORD"), "enemy")
     mgr.start(
         {"files": 1, "ranks": 2, "line_discipline": CombatConstants.LINE_DISCIPLINE_STRICT}, {"files": 1, "ranks": 2}
     )
@@ -890,13 +890,13 @@ static func _run_mental_stack_rout_casualty_flee_beats_wait(failures: PackedStri
     form["line_cohesion"] = 0.9
     form[CombatConstants.FORMATION_KEY_STANDING_AT_START] = 2
     var rear_id: int = CombatantEntityAccess.id_int(mgr.combatants[1])
-    CombatRegressionHarness._soak_kill_combatant(mgr, rear_id)
+    HarnessFixtures._soak_kill_combatant(mgr, rear_id)
     var front_c: Dictionary = mgr.combatants[0]
     var ent: CoreEntity = CombatantEntityAccess.scene_node(front_c) as CoreEntity
     ent.blood_volume = 82.0
     if not FormationRout.rout_cognition_pressure(mgr, front_c):
-        CombatRegressionHarness._fail(failures, "mental_stack_rout_casualty: want rout pressure")
-        CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+        _fail(failures, "mental_stack_rout_casualty: want rout pressure")
+        HarnessFixtures._free_manager_restore_global_rng(mgr)
         return
     var fighter_id: int = CombatantEntityAccess.id_int(front_c)
     var actions: Array = [
@@ -908,7 +908,7 @@ static func _run_mental_stack_rout_casualty_flee_beats_wait(failures: PackedStri
         str(front_c.get(CombatConstants.COMBATANT_KEY_MENTAL_STACK_LAYER, ""))
         != (CombatConstants.MENTAL_STACK_LAYER_ROUT)
     ):
-        CombatRegressionHarness._fail(
+        _fail(
             failures,
             (
                 "mental_stack_rout_casualty: want rout got %s"
@@ -916,10 +916,10 @@ static func _run_mental_stack_rout_casualty_flee_beats_wait(failures: PackedStri
             )
         )
     if str(picked.get("move_id", "")) != CombatConstants.MOVE_ID_FLEE:
-        CombatRegressionHarness._fail(
+        _fail(
             failures, "mental_stack_rout_casualty: want flee got %s" % str(picked.get("move_id", ""))
         )
-    CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+    HarnessFixtures._free_manager_restore_global_rng(mgr)
 
 ## MS-L6: fight-finish tail must not stamp **`rout`** when listed offense should finish.
 
@@ -928,49 +928,49 @@ static func _run_mental_stack_rout_casualty_flee_beats_wait(failures: PackedStri
 static func _run_mental_stack_tier_persistence_plug(failures: PackedStringArray) -> void:
     var mgr: Node = MgrScript.new()
     for _i in 7:
-        mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
+        mgr.register(_new_entity("SWORD"), "player")
     for _j in 5:
-        mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
+        mgr.register(_new_entity("SWORD"), "enemy")
     mgr.start({"files": 5, "ranks": 2, "density": "normal"}, {"files": 5, "ranks": 1, "density": "normal"})
-    var hole_front: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(mgr, "player", 0, 4)
-    var rear: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(mgr, "player", 1, 0)
-    var front: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(mgr, "player", 0, 0)
+    var hole_front: Dictionary = HarnessFixtures._harness_find_living_at_rank_file(mgr, "player", 0, 4)
+    var rear: Dictionary = HarnessFixtures._harness_find_living_at_rank_file(mgr, "player", 1, 0)
+    var front: Dictionary = HarnessFixtures._harness_find_living_at_rank_file(mgr, "player", 0, 0)
     if hole_front.is_empty() or rear.is_empty() or front.is_empty():
-        CombatRegressionHarness._fail(failures, "mental_stack_tier_persist_plug: missing fixtures")
-        CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+        _fail(failures, "mental_stack_tier_persist_plug: missing fixtures")
+        HarnessFixtures._free_manager_restore_global_rng(mgr)
         return
     hole_front["alive"] = false
     var form_player: Dictionary = mgr.formations["player"]
     var slots: Dictionary = FormationSlots.formation_slots_dict(form_player)
     FormationSlots.prune_dead_ids_from_formation_slots(mgr, slots)
     if not FormationFlow.formation_has_frontline_fill_opportunity(mgr, "player"):
-        CombatRegressionHarness._fail(failures, "mental_stack_tier_persist_plug: want rank-0 hole")
-        CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+        _fail(failures, "mental_stack_tier_persist_plug: want rank-0 hole")
+        HarnessFixtures._free_manager_restore_global_rng(mgr)
         return
     rear["gauge"] = 100.0
     mgr.combat_clock = 1.0
     var rear_id: int = CombatantEntityAccess.id_int(rear)
     var acts: Array = AvailableActionsBuilder.build(mgr, rear_id)
     if not ListedActions.actions_include_move_vs_target(acts, CombatantEntityAccess.id_int(front), CombatConstants.MOVE_ID_SWAP_RANK):
-        CombatRegressionHarness._fail(failures, "mental_stack_tier_persist_plug: want swap_rank listed")
-        CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+        _fail(failures, "mental_stack_tier_persist_plug: want swap_rank listed")
+        HarnessFixtures._free_manager_restore_global_rng(mgr)
         return
     var picked: Dictionary = MentalStack.try_pick(acts, rear_id, mgr)
     if picked.is_empty():
-        CombatRegressionHarness._fail(failures, "mental_stack_tier_persist_plug: expected first pick")
-        CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+        _fail(failures, "mental_stack_tier_persist_plug: expected first pick")
+        HarnessFixtures._free_manager_restore_global_rng(mgr)
         return
     if str(picked.get("move_id", "")) != CombatConstants.MOVE_ID_SWAP_RANK:
-        CombatRegressionHarness._fail(failures, "mental_stack_tier_persist_plug: want swap_rank on first pick got %s" % str(picked.get("move_id", "")))
+        _fail(failures, "mental_stack_tier_persist_plug: want swap_rank on first pick got %s" % str(picked.get("move_id", "")))
     var tier_state: Dictionary = rear.get(CombatConstantsMentalStack.COMBATANT_KEY_TIER_STATE, {})
     if tier_state.is_empty():
-        CombatRegressionHarness._fail(failures, "mental_stack_tier_persist_plug: want tier state stamped")
-        CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+        _fail(failures, "mental_stack_tier_persist_plug: want tier state stamped")
+        HarnessFixtures._free_manager_restore_global_rng(mgr)
         return
     var entered_at: float = tier_state.get(CombatConstantsMentalStack._TIER_ENTERED_AT, 0.0)
     if entered_at <= 0.0:
-        CombatRegressionHarness._fail(failures, "mental_stack_tier_persist_plug: want non-zero entered_at")
-        CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+        _fail(failures, "mental_stack_tier_persist_plug: want non-zero entered_at")
+        HarnessFixtures._free_manager_restore_global_rng(mgr)
         return
     var persistent_acts: Array = [
         {"move_id": CombatConstants.MOVE_ID_WAIT, "target_id": rear_id},
@@ -979,9 +979,9 @@ static func _run_mental_stack_tier_persistence_plug(failures: PackedStringArray)
     mgr.combat_clock = entered_at + 1.0
     var second_pick: Dictionary = MentalStack.try_pick(persistent_acts, rear_id, mgr)
     if second_pick.is_empty():
-        CombatRegressionHarness._fail(failures, "mental_stack_tier_persist_plug: want persistent pick within window")
+        _fail(failures, "mental_stack_tier_persist_plug: want persistent pick within window")
     elif str(second_pick.get("move_id", "")) != CombatConstants.MOVE_ID_SWAP_RANK:
-        CombatRegressionHarness._fail(failures, "mental_stack_tier_persist_plug: want swap_rank on persistent pick got %s" % str(second_pick.get("move_id", "")))
+        _fail(failures, "mental_stack_tier_persist_plug: want swap_rank on persistent pick got %s" % str(second_pick.get("move_id", "")))
     mgr.combat_clock = entered_at + float(CombatConstantsMentalStack.MENTAL_STACK_TIER_COMMITMENT_TICKS) + 1.0
     var expired_acts: Array = [
         {"move_id": CombatConstants.MOVE_ID_WAIT, "target_id": rear_id},
@@ -992,47 +992,47 @@ static func _run_mental_stack_tier_persistence_plug(failures: PackedStringArray)
     if not tier_state_after.is_empty():
         var new_entered_at: float = tier_state_after.get(CombatConstantsMentalStack._TIER_ENTERED_AT, 0.0)
         if abs(new_entered_at - entered_at) < 0.01:
-            CombatRegressionHarness._fail(failures, "mental_stack_tier_persist_plug: want expired tier state re-stamped with old clock but got entered_at=%.2f" % new_entered_at)
-    CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+            _fail(failures, "mental_stack_tier_persist_plug: want expired tier state re-stamped with old clock but got entered_at=%.2f" % new_entered_at)
+    HarnessFixtures._free_manager_restore_global_rng(mgr)
 
 
 ## Phase 3: cohesion modifier — plug actions get bonus when nearby allies present and banner carrier alive.
 static func _run_mental_stack_cohesion_modifier_nearby_banner(failures: PackedStringArray) -> void:
     var mgr: Node = MgrScript.new()
     for _i in 7:
-        mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
+        mgr.register(_new_entity("SWORD"), "player")
     for _j in 3:
-        mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
+        mgr.register(_new_entity("SWORD"), "enemy")
     mgr.start({"files": 5, "ranks": 2, "density": "normal"}, {"files": 3, "ranks": 1, "density": "normal"})
-    var rear: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(mgr, "player", 1, 0)
+    var rear: Dictionary = HarnessFixtures._harness_find_living_at_rank_file(mgr, "player", 1, 0)
     if rear.is_empty():
-        CombatRegressionHarness._fail(failures, "cohesion_modifier_nearby: missing rear fixture")
-        CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+        _fail(failures, "cohesion_modifier_nearby: missing rear fixture")
+        HarnessFixtures._free_manager_restore_global_rng(mgr)
         return
     var modifier: float = CombatMoraleCohesion._compute_cohesion_modifier(CombatantEntityAccess.id_int(rear), mgr)
     if modifier < 1.0:
-        CombatRegressionHarness._fail(failures, "cohesion_modifier_nearby: want modifier >= 1.0 got %s" % str(modifier))
+        _fail(failures, "cohesion_modifier_nearby: want modifier >= 1.0 got %s" % str(modifier))
     rear["banner_carrier"] = true
     var form_player: Dictionary = mgr.formations["player"]
     form_player["morale_cohesion_factor"] = 1.0
     modifier = CombatMoraleCohesion._compute_cohesion_modifier(CombatantEntityAccess.id_int(rear), mgr)
     if modifier < 1.1:
-        CombatRegressionHarness._fail(failures, "cohesion_modifier_banner: want banner bonus >= 1.1 got %s" % str(modifier))
-    CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+        _fail(failures, "cohesion_modifier_banner: want banner bonus >= 1.1 got %s" % str(modifier))
+    HarnessFixtures._free_manager_restore_global_rng(mgr)
 
 
 ## Phase 3: L6 rout trigger via consecutive guard breaks — guard_break_count reaches threshold -> rout layer fires.
 static func _run_mental_stack_l6_rout_guard_break_threshold(failures: PackedStringArray) -> void:
     var mgr: Node = MgrScript.new()
     for _i in 7:
-        mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
+        mgr.register(_new_entity("SWORD"), "player")
     for _j in 3:
-        mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
+        mgr.register(_new_entity("SWORD"), "enemy")
     mgr.start({"files": 5, "ranks": 2, "density": "normal"}, {"files": 3, "ranks": 1, "density": "normal"})
-    var front: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(mgr, "player", 0, 0)
+    var front: Dictionary = HarnessFixtures._harness_find_living_at_rank_file(mgr, "player", 0, 0)
     if front.is_empty():
-        CombatRegressionHarness._fail(failures, "l6_rout_guard_break: missing front fixture")
-        CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+        _fail(failures, "l6_rout_guard_break: missing front fixture")
+        HarnessFixtures._free_manager_restore_global_rng(mgr)
         return
     var front_id: int = CombatantEntityAccess.id_int(front)
     var ent: CoreEntity = CombatantEntityAccess.scene_node(front) as CoreEntity
@@ -1042,7 +1042,7 @@ static func _run_mental_stack_l6_rout_guard_break_threshold(failures: PackedStri
         MentalStackDecider._record_guard_break(front)
     var gb_count: int = front.get(CombatConstantsMentalStack.COMBATANT_KEY_GUARD_BREAK_COUNT, 0)
     if gb_count != CombatConstantsMentalStack.MENTAL_STACK_LOST_COHESION_ROUT_THRESHOLD:
-        CombatRegressionHarness._fail(failures, "l6_rout_guard_break: want %d guard breaks got %d" % [CombatConstantsMentalStack.MENTAL_STACK_LOST_COHESION_ROUT_THRESHOLD, gb_count])
+        _fail(failures, "l6_rout_guard_break: want %d guard breaks got %d" % [CombatConstantsMentalStack.MENTAL_STACK_LOST_COHESION_ROUT_THRESHOLD, gb_count])
     front["gauge"] = 100.0
     var enemy_id: int = CombatantEntityAccess.id_int(mgr.combatants[7]) if mgr.combatants.size() > 7 else -1
     if enemy_id < 0:
@@ -1062,25 +1062,25 @@ static func _run_mental_stack_l6_rout_guard_break_threshold(failures: PackedStri
     else:
         if picked.is_empty():
             var layer: String = str(front.get(CombatConstants.COMBATANT_KEY_MENTAL_STACK_LAYER, ""))
-            CombatRegressionHarness._fail(failures, "l6_rout_guard_break: expected rout pick got empty layer=%s" % layer)
+            _fail(failures, "l6_rout_guard_break: expected rout pick got empty layer=%s" % layer)
         else:
-            CombatRegressionHarness._fail(failures, "l6_rout_guard_break: want rout layer got %s" % str(front.get(CombatConstants.COMBATANT_KEY_MENTAL_STACK_LAYER, "")))
-    CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+            _fail(failures, "l6_rout_guard_break: want rout layer got %s" % str(front.get(CombatConstants.COMBATANT_KEY_MENTAL_STACK_LAYER, "")))
+    HarnessFixtures._free_manager_restore_global_rng(mgr)
 
 
 ## Phase 4: attention budget degrades excess targets — top N get full weight, beyond-N get degraded.
 static func _run_attention_budget_degrades_excess_targets(failures: PackedStringArray) -> void:
     var mgr: Node = MgrScript.new()
     for _i in 7:
-        mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
+        mgr.register(_new_entity("SWORD"), "player")
     ## 5 enemy attackers, all at close distance.
     for _j in 5:
-        mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
+        mgr.register(_new_entity("SWORD"), "enemy")
     mgr.start({"files": 5, "ranks": 2, "density": "normal"}, {"files": 5, "ranks": 1, "density": "normal"})
-    var front: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(mgr, "player", 0, 0)
+    var front: Dictionary = HarnessFixtures._harness_find_living_at_rank_file(mgr, "player", 0, 0)
     if front.is_empty():
-        CombatRegressionHarness._fail(failures, "attention_budget_degrade: missing front fixture")
-        CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+        _fail(failures, "attention_budget_degrade: missing front fixture")
+        HarnessFixtures._free_manager_restore_global_rng(mgr)
         return
     var front_id: int = CombatantEntityAccess.id_int(front)
     ## Record observations from all 5 enemies so entries exist.
@@ -1104,7 +1104,7 @@ static func _run_attention_budget_degrades_excess_targets(failures: PackedString
         var weight: float = entry_0.get("attention_weight", 0.0)
         ## Entry must have a valid priority rank after refresh, and weight in [0.25, 1.0].
         if rank <= 0 or weight < 0.25 or weight > 1.0:
-            CombatRegressionHarness._fail(failures, "attention_budget_degrade: top entry invalid rank=%d weight=%s" % [rank, str(weight)])
+            _fail(failures, "attention_budget_degrade: top entry invalid rank=%d weight=%s" % [rank, str(weight)])
     ## Verify that among the 5 entries, at least one has degraded weight (budget_max=3, so ranks 4-5 degrade).
     var root: Dictionary = front.get(CombatConstants.COMBATANT_KEY_YOMI_BY_ATTACKER, {}) as Dictionary
     var has_degraded: bool = false
@@ -1118,7 +1118,7 @@ static func _run_attention_budget_degrades_excess_targets(failures: PackedString
         if r > budget_max and w < CombatConstantsMentalStack.YOMI_ATTENTION_PRIORITY_DEGRADE_MULT * 1.1:
             has_degraded = true
     if not has_degraded:
-        CombatRegressionHarness._fail(failures, "attention_budget_degrade: expected at least one degraded attacker")
+        _fail(failures, "attention_budget_degrade: expected at least one degraded attacker")
     ## Verify weighted observation view applies attention multiplier to degraded entries.
     for key in root.keys():
         var ent: Variant = root.get(key, null)
@@ -1133,21 +1133,21 @@ static func _run_attention_budget_degrades_excess_targets(failures: PackedString
                 var val: float = float(wc[vk])
                 if val < 1.0:
                     break
-    CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+    HarnessFixtures._free_manager_restore_global_rng(mgr)
 
 
 ## Phase 5: Deception exploit bait suppression — counter-reads are skipped when opponent is in Exploit phase.
 static func _run_deception_exploit_bait_suppression(failures: PackedStringArray) -> void:
     var mgr: Node = MgrScript.new()
     for _i in 7:
-        mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
+        mgr.register(_new_entity("SWORD"), "player")
     for _j in 5:
-        mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
+        mgr.register(_new_entity("SWORD"), "enemy")
     mgr.start({"files": 5, "ranks": 2, "density": "normal"}, {"files": 5, "ranks": 1, "density": "normal"})
-    var rear: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(mgr, "player", 0, 4)
+    var rear: Dictionary = HarnessFixtures._harness_find_living_at_rank_file(mgr, "player", 0, 4)
     if rear.is_empty():
-        CombatRegressionHarness._fail(failures, "deception_exploit_bait: missing fixture")
-        CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+        _fail(failures, "deception_exploit_bait: missing fixture")
+        HarnessFixtures._free_manager_restore_global_rng(mgr)
         return
     var opponent_id: int = -1
     for enemy in mgr.combatants:
@@ -1155,8 +1155,8 @@ static func _run_deception_exploit_bait_suppression(failures: PackedStringArray)
             opponent_id = CombatantEntityAccess.id_int(enemy)
             break
     if opponent_id < 0:
-        CombatRegressionHarness._fail(failures, "deception_exploit_bait: missing opponent fixture")
-        CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+        _fail(failures, "deception_exploit_bait: missing opponent fixture")
+        HarnessFixtures._free_manager_restore_global_rng(mgr)
         return
     ## Verify deterministic gating conditions for should_respect_bait.
     ## exploit_counter >= 3 — must return false (seen through).
@@ -1166,7 +1166,7 @@ static func _run_deception_exploit_bait_suppression(failures: PackedStringArray)
         "exploit_counter": 3,
     }
     if CombatAttention.should_respect_bait(rear):
-        CombatRegressionHarness._fail(failures, "deception_exploit_bait: expected bait to be inactive after 3 exploits")
+        _fail(failures, "deception_exploit_bait: expected bait to be inactive after 3 exploits")
     ## Set resistance = 0.6 — should_respect_bait must return false (high resistance).
     rear[CombatConstants.COMBATANT_KEY_DECEPTION_STATE] = {
         "phase": YomiConstants.DECEPTION_PHASE_EXPLOIT,
@@ -1174,7 +1174,7 @@ static func _run_deception_exploit_bait_suppression(failures: PackedStringArray)
         "exploit_counter": 1,
     }
     if CombatAttention.should_respect_bait(rear):
-        CombatRegressionHarness._fail(failures, "deception_exploit_bait: expected bait to be inactive with high resistance")
+        _fail(failures, "deception_exploit_bait: expected bait to be inactive with high resistance")
     ## Seed in Establish phase — should_respect_bait must return false (not yet Exploit).
     rear[CombatConstants.COMBATANT_KEY_DECEPTION_STATE] = {
         "phase": YomiConstants.DECEPTION_PHASE_ESTABLISH,
@@ -1182,12 +1182,12 @@ static func _run_deception_exploit_bait_suppression(failures: PackedStringArray)
         "exploit_counter": 0,
     }
     if CombatAttention.should_respect_bait(rear):
-        CombatRegressionHarness._fail(failures, "deception_exploit_bait: expected bait inactive in Establish phase")
+        _fail(failures, "deception_exploit_bait: expected bait inactive in Establish phase")
     ## Verify deception state transitions via record_deception_outcome.
     rear.erase(CombatConstants.COMBATANT_KEY_DECEPTION_STATE)
     var ds_before: Dictionary = CombatAttention._get_deception_state(rear)
     if ds_before.get("phase", "") != YomiConstants.DECEPTION_PHASE_ESTABLISH:
-        CombatRegressionHarness._fail(failures, "deception_exploit_bait: expected initial Establish phase")
+        _fail(failures, "deception_exploit_bait: expected initial Establish phase")
     ## Simulate 3 consecutive correct reads — both record_counter_read_outcome and
     ## record_deception_outcome fire per exchange (as in production). After the third
     ## iteration, try_advance_deception_probe advances to Probe and then
@@ -1199,23 +1199,23 @@ static func _run_deception_exploit_bait_suppression(failures: PackedStringArray)
     CombatAttention.record_deception_outcome(rear, opponent_id, true)
     var ds_after: Dictionary = CombatAttention._get_deception_state(rear)
     if ds_after.get("phase", "") != YomiConstants.DECEPTION_PHASE_EXPLOIT:
-        CombatRegressionHarness._fail(failures, "deception_exploit_bait: expected Exploit after 3 correct reads")
+        _fail(failures, "deception_exploit_bait: expected Exploit after 3 correct reads")
     var exploit_c: int = ds_after.get("exploit_counter", -1)
     if exploit_c != 0:
-        CombatRegressionHarness._fail(failures, "deception_exploit_bait: expected exploit_counter=0 on entry to Exploit")
+        _fail(failures, "deception_exploit_bait: expected exploit_counter=0 on entry to Exploit")
     ## A failure while in Exploit → back to Establish with resistance boost.
     CombatAttention.record_deception_outcome(rear, opponent_id, false)
     ds_after = CombatAttention._get_deception_state(rear)
     if ds_after.get("phase", "") != YomiConstants.DECEPTION_PHASE_ESTABLISH:
-        CombatRegressionHarness._fail(failures, "deception_exploit_bait: expected back to Establish after Exploit failure")
+        _fail(failures, "deception_exploit_bait: expected back to Establish after Exploit failure")
     var resistance_val: float = ds_after.get("resistance", 0.0)
     if resistance_val < 0.3:
-        CombatRegressionHarness._fail(failures, "deception_exploit_bait: expected resistance boost on exploit exposure")
+        _fail(failures, "deception_exploit_bait: expected resistance boost on exploit exposure")
     ## Verify clear_focus_and_yomi erases deception state.
     rear[CombatConstants.COMBATANT_KEY_DECEPTION_STATE] = {"phase": "test", "resistance": 0.5, "exploit_counter": 1}
     CombatAttention.clear_focus_and_yomi(rear)
     if rear.has(CombatConstants.COMBATANT_KEY_DECEPTION_STATE):
-        CombatRegressionHarness._fail(failures, "deception_exploit_bait: expected deception state to be cleared")
+        _fail(failures, "deception_exploit_bait: expected deception state to be cleared")
     ## Probe+success → Exploit with exploit_counter reset.
     rear.erase(CombatConstants.COMBATANT_KEY_DECEPTION_STATE)
     var ds_probe: Dictionary = {
@@ -1227,9 +1227,9 @@ static func _run_deception_exploit_bait_suppression(failures: PackedStringArray)
     CombatAttention.record_deception_outcome(rear, opponent_id, true)
     var ds_after_probe_success: Dictionary = CombatAttention._get_deception_state(rear)
     if ds_after_probe_success.get("phase", "") != YomiConstants.DECEPTION_PHASE_EXPLOIT:
-        CombatRegressionHarness._fail(failures, "deception_exploit_bait: expected Probe→Exploit on success")
+        _fail(failures, "deception_exploit_bait: expected Probe→Exploit on success")
     if ds_after_probe_success.get("exploit_counter", -1) != 0:
-        CombatRegressionHarness._fail(failures, "deception_exploit_bait: expected exploit_counter=0 on Probe→Exploit transition")
+        _fail(failures, "deception_exploit_bait: expected exploit_counter=0 on Probe→Exploit transition")
     ## Probe+failure → back to Establish (no resistance change).
     rear.erase(CombatConstants.COMBATANT_KEY_DECEPTION_STATE)
     var ds_probe_fail: Dictionary = {
@@ -1241,10 +1241,10 @@ static func _run_deception_exploit_bait_suppression(failures: PackedStringArray)
     CombatAttention.record_deception_outcome(rear, opponent_id, false)
     var ds_after_probe_failure: Dictionary = CombatAttention._get_deception_state(rear)
     if ds_after_probe_failure.get("phase", "") != YomiConstants.DECEPTION_PHASE_ESTABLISH:
-        CombatRegressionHarness._fail(failures, "deception_exploit_bait: expected Probe→Establish on failure")
+        _fail(failures, "deception_exploit_bait: expected Probe→Establish on failure")
     var probe_fail_resistance: float = ds_after_probe_failure.get("resistance", -1.0)
     if abs(probe_fail_resistance - 0.1) > 0.001:
-        CombatRegressionHarness._fail(failures, "deception_exploit_bait: expected resistance unchanged on Probe→Establish")
+        _fail(failures, "deception_exploit_bait: expected resistance unchanged on Probe→Establish")
     ## Multi-cycle resistance accumulation: Establish+success adds 0.25 each cycle.
     rear.erase(CombatConstants.COMBATANT_KEY_DECEPTION_STATE)
     var ds_cycle: Dictionary = {
@@ -1258,7 +1258,7 @@ static func _run_deception_exploit_bait_suppression(failures: PackedStringArray)
     var ds_after_cycles: Dictionary = CombatAttention._get_deception_state(rear)
     var cycle_resistance: float = ds_after_cycles.get("resistance", -1.0)
     if abs(cycle_resistance - 0.75) > 0.001:
-        CombatRegressionHarness._fail(failures, "deception_exploit_bait: expected resistance=0.75 after 3 Establish+success cycles (got %s)" % str(cycle_resistance))
+        _fail(failures, "deception_exploit_bait: expected resistance=0.75 after 3 Establish+success cycles (got %s)" % str(cycle_resistance))
     ## With resistance 0.75 > DECEPTION_ESTABLISH_PROB (0.5), should_respect_bait must return false even in Exploit phase.
     rear.erase(CombatConstants.COMBATANT_KEY_DECEPTION_STATE)
     var ds_high_res: Dictionary = {
@@ -1268,12 +1268,12 @@ static func _run_deception_exploit_bait_suppression(failures: PackedStringArray)
     }
     rear[CombatConstants.COMBATANT_KEY_DECEPTION_STATE] = ds_high_res
     if CombatAttention.should_respect_bait(rear):
-        CombatRegressionHarness._fail(failures, "deception_exploit_bait: expected bait inactive with high accumulated resistance")
+        _fail(failures, "deception_exploit_bait: expected bait inactive with high accumulated resistance")
     ## Verify _is_form_stale_for_opponent returns false when no yomi entry exists.
     if not CombatWeaponFormConst._is_form_stale_for_opponent(mgr, rear, opponent_id):
         pass  ## expected: stale=false with no yomi entry
     else:
-        CombatRegressionHarness._fail(failures, "deception_exploit_bait: expected stale=false with no yomi entry")
+        _fail(failures, "deception_exploit_bait: expected stale=false with no yomi entry")
     ## Advance the combat clock so evaluate_automatic_form can run.
     mgr.combat_clock = 5.0
     rear["gauge"] = 100.0
@@ -1286,22 +1286,22 @@ static func _run_deception_exploit_bait_suppression(failures: PackedStringArray)
     if str(form_after) != str(form_before):
         var reason: String = str(rear.get(CombatConstants.COMBATANT_KEY_LAST_FORM_SWITCH_REASON, ""))
         if "counter_read" in reason or "duel_read" in reason:
-            CombatRegressionHarness._fail(failures, "deception_exploit_bait: expected no inference-based auto-switch with no yomi data, got form=%s reason=%s" % [form_after, reason])
-    CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+            _fail(failures, "deception_exploit_bait: expected no inference-based auto-switch with no yomi data, got form=%s reason=%s" % [form_after, reason])
+    HarnessFixtures._free_manager_restore_global_rng(mgr)
 
 
 ## Phase 5: Deception probabilistic bait suppression — seeded RNG test for randf() branch.
 static func _run_deception_probabilistic_bait_suppression(failures: PackedStringArray) -> void:
     var mgr: Node = MgrScript.new()
     for _i in 7:
-        mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
+        mgr.register(_new_entity("SWORD"), "player")
     for _j in 5:
-        mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
+        mgr.register(_new_entity("SWORD"), "enemy")
     mgr.start({"files": 5, "ranks": 2, "density": "normal"}, {"files": 5, "ranks": 1, "density": "normal"})
-    var rear: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(mgr, "player", 0, 4)
+    var rear: Dictionary = HarnessFixtures._harness_find_living_at_rank_file(mgr, "player", 0, 4)
     if rear.is_empty():
-        CombatRegressionHarness._fail(failures, "prob_bait_suppression: missing fixture")
-        CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+        _fail(failures, "prob_bait_suppression: missing fixture")
+        HarnessFixtures._free_manager_restore_global_rng(mgr)
         return
     var opponent_id: int = -1
     for enemy in mgr.combatants:
@@ -1309,8 +1309,8 @@ static func _run_deception_probabilistic_bait_suppression(failures: PackedString
             opponent_id = CombatantEntityAccess.id_int(enemy)
             break
     if opponent_id < 0:
-        CombatRegressionHarness._fail(failures, "prob_bait_suppression: missing opponent fixture")
-        CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+        _fail(failures, "prob_bait_suppression: missing opponent fixture")
+        HarnessFixtures._free_manager_restore_global_rng(mgr)
         return
     ## Set up Exploit phase with exploit_counter=1 and low resistance (bait_prob ~0.233).
     rear[CombatConstants.COMBATANT_KEY_DECEPTION_STATE] = {
@@ -1329,33 +1329,33 @@ static func _run_deception_probabilistic_bait_suppression(failures: PackedString
     ## With exploit_counter=1, bait_prob ≈ lerpf(0.1, 0.5, 1/3) ≈ 0.233.
     ## Over 20 trials with seeds 0..19, expect some hits; verify not all pass and not all fail.
     if hit_bait_count <= 0:
-        CombatRegressionHarness._fail(failures, "prob_bait_suppression: expected at least one bait hit in %d trials" % str(total_trials))
+        _fail(failures, "prob_bait_suppression: expected at least one bait hit in %d trials" % str(total_trials))
     if hit_bait_count >= total_trials:
-        CombatRegressionHarness._fail(failures, "prob_bait_suppression: expected some rejections (got %d/%d)" % [hit_bait_count, total_trials])
+        _fail(failures, "prob_bait_suppression: expected some rejections (got %d/%d)" % [hit_bait_count, total_trials])
     ## Verify _is_form_stale_for_opponent helper exists and returns false with empty yomi entry.
     if CombatWeaponFormConst._is_form_stale_for_opponent(mgr, rear, opponent_id):
-        CombatRegressionHarness._fail(failures, "prob_bait_suppression: expected stale=false with no yomi data")
+        _fail(failures, "prob_bait_suppression: expected stale=false with no yomi data")
     ## Verify _should_bait_counter_read returns false when opponent has no deception state.
     var enemy_c: Dictionary = CombatantEntityAccess.manager_get_combatant(mgr, opponent_id)
     if not enemy_c.is_empty():
         enemy_c.erase(CombatConstants.COMBATANT_KEY_DECEPTION_STATE)
         if CombatWeaponFormConst._should_bait_counter_read(mgr, rear, opponent_id):
-            CombatRegressionHarness._fail(failures, "prob_bait_suppression: expected false with no deception state on opponent")
-    CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+            _fail(failures, "prob_bait_suppression: expected false with no deception state on opponent")
+    HarnessFixtures._free_manager_restore_global_rng(mgr)
 
 
 ## Phase 3: L2 transition guard — counter-tempo requires >= 2 consecutive failures at higher tiers.
 static func _run_mental_stack_l2_transition_guard(failures: PackedStringArray) -> void:
     var mgr: Node = MgrScript.new()
     for _i in 7:
-        mgr.register(CombatRegressionHarness._new_entity("SWORD"), "player")
+        mgr.register(_new_entity("SWORD"), "player")
     for _j in 5:
-        mgr.register(CombatRegressionHarness._new_entity("SWORD"), "enemy")
+        mgr.register(_new_entity("SWORD"), "enemy")
     mgr.start({"files": 5, "ranks": 2, "density": "normal"}, {"files": 5, "ranks": 1, "density": "normal"})
-    var rear: Dictionary = CombatRegressionHarness._harness_find_living_at_rank_file(mgr, "player", 0, 4)
+    var rear: Dictionary = HarnessFixtures._harness_find_living_at_rank_file(mgr, "player", 0, 4)
     if rear.is_empty():
-        CombatRegressionHarness._fail(failures, "l2_transition_guard: missing fixture")
-        CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+        _fail(failures, "l2_transition_guard: missing fixture")
+        HarnessFixtures._free_manager_restore_global_rng(mgr)
         return
     var rear_id: int = CombatantEntityAccess.id_int(rear)
     rear["gauge"] = 100.0
@@ -1366,8 +1366,8 @@ static func _run_mental_stack_l2_transition_guard(failures: PackedStringArray) -
             enemy_atk = c
             break
     if enemy_atk.is_empty():
-        CombatRegressionHarness._fail(failures, "l2_transition_guard: missing enemy attacker")
-        CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+        _fail(failures, "l2_transition_guard: missing enemy attacker")
+        HarnessFixtures._free_manager_restore_global_rng(mgr)
         return
     var atk_id: int = CombatantEntityAccess.id_int(enemy_atk)
     for enemy in mgr.combatants:
@@ -1375,12 +1375,12 @@ static func _run_mental_stack_l2_transition_guard(failures: PackedStringArray) -
             var dist: Dictionary = enemy.get("distance_to", {}) as Dictionary
             dist[rear_id] = CombatConstants.DISTANCE_CLOSE
     AttackWindUpStarter.start(mgr, atk_id, rear_id, "thrust")
-    CombatRegressionHarness._harness_counter_tempo_set_incoming_progress(mgr, atk_id, 0.55)
+    HarnessFixtures._harness_counter_tempo_set_incoming_progress(mgr, atk_id, 0.55)
     rear[CombatConstants.COMBATANT_KEY_COUNTER_WINDOW_UNTIL] = mgr.combat_clock + 10.0
     rear[CombatConstants.COMBATANT_KEY_INCOMING_ATTACK_TELEGRAPH_PART] = "head"
     if not CounterTempo.can_act(mgr, rear):
-        CombatRegressionHarness._fail(failures, "l2_transition_guard: want can_act true for counter-tempo fixture")
-        CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+        _fail(failures, "l2_transition_guard: want can_act true for counter-tempo fixture")
+        HarnessFixtures._free_manager_restore_global_rng(mgr)
         return
     rear[CombatConstantsMentalStack.COMBATANT_KEY_TIER_STATE] = {
         CombatConstantsMentalStack._TIER_ACTIVE: "",
@@ -1395,14 +1395,14 @@ static func _run_mental_stack_l2_transition_guard(failures: PackedStringArray) -
     var c_check_low: Dictionary = CombatantEntityAccess.manager_get_combatant(mgr, rear_id)
     var layer_low: String = str(c_check_low.get(CombatConstants.COMBATANT_KEY_MENTAL_STACK_LAYER, ""))
     if not picked_low.is_empty() and layer_low == CombatConstants.MENTAL_STACK_LAYER_COUNTER:
-        CombatRegressionHarness._fail(failures, "l2_transition_guard: guard should block L2 with failures=1")
+        _fail(failures, "l2_transition_guard: guard should block L2 with failures=1")
     rear[CombatConstantsMentalStack.COMBATANT_KEY_TIER_STATE] = {
         CombatConstantsMentalStack._TIER_ACTIVE: "",
         CombatConstantsMentalStack._TIER_ENTERED_AT: mgr.combat_clock - 10.0,
         CombatConstantsMentalStack._TIER_CONSECUTIVE_FAILURES: 3,
     }
     AttackWindUpStarter.start(mgr, atk_id, rear_id, "thrust")
-    CombatRegressionHarness._harness_counter_tempo_set_incoming_progress(mgr, atk_id, 0.55)
+    HarnessFixtures._harness_counter_tempo_set_incoming_progress(mgr, atk_id, 0.55)
     rear[CombatConstants.COMBATANT_KEY_COUNTER_WINDOW_UNTIL] = mgr.combat_clock + 10.0
     rear[CombatConstants.COMBATANT_KEY_INCOMING_ATTACK_TELEGRAPH_PART] = "head"
     var picked_high: Dictionary = MentalStack.try_pick(acts_with_counters, rear_id, mgr)
@@ -1411,5 +1411,5 @@ static func _run_mental_stack_l2_transition_guard(failures: PackedStringArray) -
     if not picked_high.is_empty() and (layer == CombatConstants.MENTAL_STACK_LAYER_COUNTER or layer == CombatConstants.MENTAL_STACK_LAYER_INCOMING):
         pass  ## Guard satisfied -> counter-tempo fires at L2/L3.
     else:
-        CombatRegressionHarness._fail(failures, "l2_transition_guard: expected L2/L3 to fire with failures=3 got layer='%s' picked_empty=%s" % [layer, str(picked_high.is_empty())])
-    CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+        _fail(failures, "l2_transition_guard: expected L2/L3 to fire with failures=3 got layer='%s' picked_empty=%s" % [layer, str(picked_high.is_empty())])
+    HarnessFixtures._free_manager_restore_global_rng(mgr)

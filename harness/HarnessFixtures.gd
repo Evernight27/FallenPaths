@@ -1,5 +1,5 @@
 class_name HarnessFixtures
-extends RefCounted
+extends Object
 
 ## Shared combat harness fixtures, setup helpers, cleanup utilities, and assertion methods.
 ## Extracted from CombatRegressionHarness to reduce its 12,515-line monolith.
@@ -7,9 +7,7 @@ extends RefCounted
 ## No behavioral changes  -  zero-diff refactor.
 
 const _CombatWeaponForm := preload("res://combat/weapon_form/CombatWeaponForm.gd")
-const _CombatRegressionHarness := preload("res://harness/regression/CombatRegressionHarness.gd")
-
-# -- Weapon / armor cache --------------------------------------------------
+## No behavioral changes  -  zero-diff refactor.
 ## Cached weapon and armor instances built once at first access.
 ## create_from_definition is pure-data (static constants, no RNG/manager) so
 ## the same instance can be shared across tests without side effects.
@@ -150,7 +148,7 @@ static func _free_manager(mgr: Node) -> void:
         mgr.combatants.clear()
     if mgr.is_inside_tree():
         mgr.get_parent().remove_child(mgr)
-    ## Manager itself is never tracked in _harness_live_nodes — just free it.
+    ## Manager itself is never tracked in _harness_live_nodes -- just free it.
     if is_instance_valid(mgr):
         mgr.free()
 
@@ -172,7 +170,7 @@ static func _disconnect_signal_connections(node: Node, signal_name: StringName, 
             signal_obj.disconnect(callable_val)
 
 
-## _free_manager — run_all() restores the global seed after each test function.
+## _free_manager -- run_all() restores the global seed after each test function.
 static func _free_manager_restore_global_rng(mgr: Node) -> void:
     _free_manager(mgr)
 
@@ -359,7 +357,7 @@ static func _windup_duration_for_bind_test(weapon_id: String, move_id: String, b
     if bind:
         p["parry_was_bind"] = true
         p["parry_against_id"] = e_id
-    seed(_CombatRegressionHarness._HARNESS_RESTORE_GLOBAL_SEED)
+    seed(90210)
     AttackWindUpStarter.start(mgr, p_id, e_id, move_id)
     var dur: float = float(p.get(DataKeys.PA_STATE_DURATION, 0.0))
     _free_manager_restore_global_rng(mgr)
@@ -459,7 +457,7 @@ static func _assert_depth_polearm_allows_low_fid_round_trip_slice(
             )
             var via_fid: bool = CombatDepthPolearm.depth_polearm_lane_allows_low_targets(mgr, c, fid, null, assume_open)
             if via_empty != via_fid:
-                _CombatRegressionHarness._fail(
+                _fail(
                     failures,
                     (
                         "%s assume=%s id=%d empty=%s explicit=%s fid=%s"
@@ -474,7 +472,7 @@ static func _assert_stamp_depth_pa_defaults(pa: Dictionary, failures: PackedStri
     if not bool(pa.get("depth_polearm_attack", false)):
         pass  # depth_polearm_attack=false  -  expected for non-depth attacks
     else:
-        _CombatRegressionHarness._fail(
+        _fail(
             failures, "%s id=%d depth_polearm_attack=true (unexpected)" % [ctx, pa.get("attacker_id", -1)]
         )
 
@@ -490,7 +488,7 @@ static func _assert_depth_lane_open_cache_matches_builder(mgr: Node, failures: P
         var cached_open: bool = bool(pa.get("depth_polearm_allows_low_targets", true))
         var builder_open: bool = DefenseChoiceResolver._depth_polearm_lane_is_open(pa)
         if cached_open != builder_open:
-            _CombatRegressionHarness._fail(
+            _fail(
                 failures, "%s id=%d cache=%s builder=%s" % [ctx, cid, str(cached_open), str(builder_open)]
             )
 
@@ -636,4 +634,11 @@ static func _harness_iv9_resolve_adjacent_rank_pair_move(
             }
         )
     )
+
+
+# -- Assertion helpers (shared) -----------------------------------------------
+
+
+static func _fail(failures: PackedStringArray, msg: String) -> void:
+    failures.append(msg)
 

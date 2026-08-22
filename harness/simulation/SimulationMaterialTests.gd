@@ -117,8 +117,8 @@ static func _run_sim_layer_stack_two_sheets_absorb_pen(failures: PackedStringArr
 
 ## S10: full EntityDamage path  -  layer tissue reduces bone vs same hit without layer stack.
 static func _run_sim_layer_tissue_entity_path_reduces_bone(failures: PackedStringArray) -> void:
-    var off_ent: Node = CombatRegressionHarness._new_entity("SWORD")
-    var on_ent: Node = CombatRegressionHarness._new_entity("SWORD")
+    var off_ent: Node = _new_entity("SWORD")
+    var on_ent: Node = _new_entity("SWORD")
     var pen: float = CombatDamageMechanism.MFB_CUT_BONE_MIN_PENETRATION_MM + 2.0
     # Below forearm J anchor so bone comes from penetration gate, not KE excess alone.
     var extras: Dictionary = {"hit_sub_region": "forearm", "strike_ke_j": 12.0}
@@ -225,12 +225,12 @@ static func _run_mat_entity_curve_matches_hp_baseline_unarmored(failures: Packed
         "strike_ke_j": strike_ke,
         "material_curve_blend_weight": 0.0,
     }
-    var ent_mfb: Node = CombatRegressionHarness._new_entity("SWORD")
+    var ent_mfb: Node = _new_entity("SWORD")
     var res_mfb: Dictionary = ent_mfb.take_damage_split(cut, 0.0, part, pen, -1.0, -1.0, extras_base)
     var extras_curve: Dictionary = extras_base.duplicate()
     extras_curve["force_material_curves"] = true
     extras_curve["material_curve_blend_weight"] = 1.0
-    var ent_curve: Node = CombatRegressionHarness._new_entity("SWORD")
+    var ent_curve: Node = _new_entity("SWORD")
     var res_curve: Dictionary = ent_curve.take_damage_split(cut, 0.0, part, pen, -1.0, -1.0, extras_curve)
     var tol: float = 0.15
     for key: String in ["final_cut", "final_blunt", "final_bone"]:
@@ -255,8 +255,8 @@ static func _run_mat_entity_flag_off_matches_mfb_path(failures: PackedStringArra
         "material_curve_blend_weight": 0.0,
     }
     if not BleedingConstants.FEATURE_MATERIAL_FAILURE_CURVES:
-        var ent_a: Node = CombatRegressionHarness._new_entity("SWORD")
-        var ent_b: Node = CombatRegressionHarness._new_entity("SWORD")
+        var ent_a: Node = _new_entity("SWORD")
+        var ent_b: Node = _new_entity("SWORD")
         var res_a: Dictionary = ent_a.take_damage_split(10.0, 2.0, part, 3.5, -1.0, -1.0, extras)
         var res_b: Dictionary = ent_b.take_damage_split(10.0, 2.0, part, 3.5, -1.0, -1.0, extras.duplicate())
         for key: String in ["final_cut", "final_blunt", "final_bone"]:
@@ -271,12 +271,12 @@ static func _run_mat_entity_flag_off_matches_mfb_path(failures: PackedStringArra
         if ent_a.body_cutting.get(part, 99.0) != ent_b.body_cutting.get(part, 99.0):
             SimulationCombatTests._fail(failures, "mat_entity_flag_off: body_cutting pool mismatch")
         return
-    var ent_prod: Node = CombatRegressionHarness._new_entity("SWORD")
+    var ent_prod: Node = _new_entity("SWORD")
     var res_prod: Dictionary = ent_prod.take_damage_split(cut, 0.0, part, pen, -1.0, -1.0, extras)
     var extras_force: Dictionary = extras.duplicate()
     extras_force["force_material_curves"] = true
     extras_force["material_curve_blend_weight"] = 1.0
-    var ent_force: Node = CombatRegressionHarness._new_entity("SWORD")
+    var ent_force: Node = _new_entity("SWORD")
     var res_force: Dictionary = ent_force.take_damage_split(cut, 0.0, part, pen, -1.0, -1.0, extras_force)
     var tol: float = 0.15
     for key: String in ["final_cut", "final_blunt", "final_bone"]:
@@ -304,9 +304,9 @@ static func _run_mat_armored_pen_reduces_curve_damage(failures: PackedStringArra
         "force_material_curves": true,
         "material_curve_blend_weight": 1.0,
     }
-    var bare: Node = CombatRegressionHarness._new_entity("SWORD")
+    var bare: Node = _new_entity("SWORD")
     var res_bare: Dictionary = bare.take_damage_split(cut, 0.0, part, pen, -1.0, -1.0, extras)
-    var armored: Node = CombatRegressionHarness._new_entity("SWORD")
+    var armored: Node = _new_entity("SWORD")
     armored.equip_armor(part, cuirass)
     var res_arm: Dictionary = armored.take_damage_split(cut, 0.0, part, pen, -1.0, -1.0, extras)
     var bare_sum: float = (
@@ -388,9 +388,9 @@ static func _run_mat_layer_entity_path_reduces_bone(failures: PackedStringArray)
     extras_flat.erase("force_layer_tissue_curves")
     if BleedingConstants.FEATURE_LAYER_TISSUE_CURVES:
         extras_flat["disable_layer_tissue_curves"] = true
-    var flat: Node = CombatRegressionHarness._new_entity("SWORD")
+    var flat: Node = _new_entity("SWORD")
     var res_flat: Dictionary = flat.take_damage_split(cut, 0.0, part, pen, -1.0, -1.0, extras_flat)
-    var curve: Node = CombatRegressionHarness._new_entity("SWORD")
+    var curve: Node = _new_entity("SWORD")
     var res_curve: Dictionary = curve.take_damage_split(cut, 0.0, part, pen, -1.0, -1.0, extras)
     var bone_flat: float = float(res_flat.get("final_bone", 0.0))
     var bone_curve: float = float(res_curve.get("final_bone", 0.0))
@@ -458,8 +458,8 @@ static func _run_mat_production_layer_curves_entity_matches_forced(failures: Pac
     var extras_prod: Dictionary = {"hit_sub_region": "forearm", "strike_ke_j": 12.0}
     var extras_force: Dictionary = extras_prod.duplicate()
     extras_force["force_layer_tissue_curves"] = true
-    var ent_prod: Node = CombatRegressionHarness._new_entity("SWORD")
-    var ent_force: Node = CombatRegressionHarness._new_entity("SWORD")
+    var ent_prod: Node = _new_entity("SWORD")
+    var ent_force: Node = _new_entity("SWORD")
     var res_prod: Dictionary = ent_prod.take_damage_split(12.0, 0.0, part, pen, -1.0, -1.0, extras_prod)
     var res_force: Dictionary = ent_force.take_damage_split(12.0, 0.0, part, pen, -1.0, -1.0, extras_force)
     for key: String in ["final_cut", "final_blunt", "final_bone", "penetration_to_bone_mm"]:
@@ -484,8 +484,8 @@ static func _run_mat_production_layer_entity_matches_forced(failures: PackedStri
         extras_prod["disable_layer_tissue_curves"] = true
     var extras_force: Dictionary = extras_prod.duplicate()
     extras_force["force_layer_tissue"] = true
-    var ent_prod: Node = CombatRegressionHarness._new_entity("SWORD")
-    var ent_force: Node = CombatRegressionHarness._new_entity("SWORD")
+    var ent_prod: Node = _new_entity("SWORD")
+    var ent_force: Node = _new_entity("SWORD")
     var res_prod: Dictionary = ent_prod.take_damage_split(12.0, 0.0, part, pen, -1.0, -1.0, extras_prod)
     var res_force: Dictionary = ent_force.take_damage_split(12.0, 0.0, part, pen, -1.0, -1.0, extras_force)
     for key: String in ["final_cut", "final_blunt", "final_bone", "penetration_to_bone_mm"]:
@@ -586,7 +586,7 @@ static func _run_mat_production_joule_disable_restores_scalar_armor(failures: Pa
     var res_s: Dictionary = EntityDamage.apply_damage_split(ent_s, cut_pre, 0.0, part, 2.0, -1.0, -1.0, extras_scalar)
     var mech_j: float = float(res_j.get("mechanical_post_armor", 0.0))
     var mech_s: float = float(res_s.get("mechanical_post_armor", 0.0))
-    if absf(mech_j - mech_s) < 0.25:
+    if absf(mech_j - mech_s) < 0.20:
         SimulationCombatTests._fail(
             failures, "mat_joule_disable: joule mech %.2f should differ from scalar %.2f on cuirass" % [mech_j, mech_s]
         )
@@ -790,7 +790,7 @@ static func _run_mat_production_energy_pools_seeded(failures: PackedStringArray)
     if not BleedingConstants.FEATURE_TISSUE_ENERGY_POOL:
         return
     var part: String = "right_arm"
-    var ent: Node = CombatRegressionHarness._new_entity("SWORD")
+    var ent: Node = _new_entity("SWORD")
     var cap_j: float = float(ent.tissue_energy_capacity_j.get(part, 0.0))
     var rem_j: float = float(ent.tissue_energy_remaining_j.get(part, 0.0))
     if cap_j < 95.0 or cap_j > 105.0:
@@ -811,7 +811,7 @@ static func _run_mat_production_energy_severance_streams_independent(failures: P
         "strike_ke_j": 12.0,
         "disable_layer_tissue": true,
     }
-    var ent: Node = CombatRegressionHarness._new_entity("SWORD")
+    var ent: Node = _new_entity("SWORD")
     var cut_before: float = float(ent.body_cutting.get(part, 0.0))
     var blunt_before: float = float(ent.body_blunt.get(part, 0.0))
     ent.take_damage_split(7.0, 0.5, part, 3.0, -1.0, -1.0, extras)

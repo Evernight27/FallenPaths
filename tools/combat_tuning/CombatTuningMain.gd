@@ -1,4 +1,4 @@
-﻿extends Node2D
+extends Node2D
 
 ## Scene controller for the interactive combat tuning scene.
 ## Now uses the full production combat pipeline (formations, AI, signals, medical phase)
@@ -582,7 +582,7 @@ func _build_combatant_card(is_attacker: bool) -> Control:
 		species_name = "Goblin"
 	var stats_label: Label = Label.new()
 	stats_label.text = (
-        "%s  STR:%d AGI:%d INT:%d END:%d PER:%d  %s"
+		"%s  STR:%d AGI:%d INT:%d END:%d PER:%d  %s"
 		% [
 			species_name,
 			cfg_v.strength,
@@ -921,7 +921,19 @@ func _infer_end_cause(winner_side: String) -> String:
 	# Incapacitation cause determination — check mechanism specificity.
 	var incapacitated_entity: Node = null
 	var incapacitated_side: String = ""
-	if not atk_c.is_empty() and _get_entity_access().is_incapacitated(atk_c):
+	# The incapacitated side is the loser. Derive it from winner_side so a transient pain-shock on
+	# the winner at fight-end cannot mislabel which side is incapacitated (winner is "player"=attacker,
+	# "enemy"=defender). Fall back to detection when the winner is unknown or the loser is not
+	# flagged incapacitated.
+	if winner_side == "enemy":
+		if not atk_c.is_empty() and _get_entity_access().is_incapacitated(atk_c):
+			incapacitated_entity = atk_node
+			incapacitated_side = "attacker"
+	elif winner_side == "player":
+		if not def_c.is_empty() and _get_entity_access().is_incapacitated(def_c):
+			incapacitated_entity = def_node
+			incapacitated_side = "defender"
+	elif not atk_c.is_empty() and _get_entity_access().is_incapacitated(atk_c):
 		incapacitated_entity = atk_node
 		incapacitated_side = "attacker"
 	elif not def_c.is_empty() and _get_entity_access().is_incapacitated(def_c):
@@ -939,12 +951,22 @@ func _infer_end_cause(winner_side: String) -> String:
 			# Check head trauma first — head tissue destruction directly causes unconsciousness.
 			# body_cutting/body_blunt are REMAINING pools (init to body_max, damage subtracts), so
 			# destruction >= 85% means remaining <= 15% of the 2x max pool.
+			# Require minimum blunt trauma energy (~50J) for realistic cranial injury classification —
+			# sub-threshold blunt strikes that exhaust head tissue via repeated hits are bleed_out, not TBI.
 			var head_cut: float = incapacitated_entity.body_cutting.get(BodyPartConstants.PART_HEAD, 0.0)
 			var head_blunt: float = incapacitated_entity.body_blunt.get(BodyPartConstants.PART_HEAD, 0.0)
 			var head_max: int = incapacitated_entity.body_max.get(BodyPartConstants.PART_HEAD, 1)
 			var head_remaining_frac: float = float(head_cut + head_blunt) / float(head_max * 2) if head_max > 0 else 1.0
 			if head_remaining_frac <= 0.15:
-				return "head trauma"
+				# Check whether the last damage event involved sufficient blunt energy for realistic cranium injury.
+				var last_strike_ke: float = 0.0
+				if incapacitated_entity.has_meta("_last_hit_blunt_ke_j"):
+					last_strike_ke = float(incapacitated_entity.get_meta("_last_hit_blunt_ke_j"))
+				var has_realistic_head_trauma_ke: bool = (
+					last_strike_ke >= PainConsciousnessConstants.BLUNT_HEAD_TRAUMA_MIN_KE_J
+				) if last_strike_ke > 0 else false
+				if has_realistic_head_trauma_ke:
+					return "head trauma"
 
 			# Check blood loss — Class III/IV hemorrhage causes unconsciousness.
 			var atls_remaining: float = (blood_pct / 100.0) * BleedingConstants.MAX_BLOOD_VOLUME if blood_pct > 0 else 0.0
@@ -1325,7 +1347,7 @@ func _refresh_tuning_display() -> void:
 	if _attacker_fg_line != null:
 		var atk_c = _get_entity_access().manager_get_combatant(manager, attacker_id) if manager != null else {}
 		_attacker_fg_line.text = (
-            "Form: %s  Guard: %s"
+			"Form: %s  Guard: %s"
 			% [
 				_get_entity_access().form_str(atk_c) if not atk_c.is_empty() else "?",
 				atk_c.get("guard_line", "?") if not atk_c.is_empty() else "?"
@@ -1335,7 +1357,7 @@ func _refresh_tuning_display() -> void:
 	if _defender_fg_line != null:
 		var def_c = _get_entity_access().manager_get_combatant(manager, defender_id) if manager != null else {}
 		_defender_fg_line.text = (
-            "Form: %s  Guard: %s"
+			"Form: %s  Guard: %s"
 			% [
 				_get_entity_access().form_str(def_c) if not def_c.is_empty() else "?",
 				def_c.get("guard_line", "?") if not def_c.is_empty() else "?"
@@ -1571,14 +1593,14 @@ func _log_cycle_summary() -> void:
 		if not _last_end_cause.is_empty()
 		else _infer_end_cause(
 			(
-                "player"
+				"player"
 				if winner_name == attacker_config.display_name
 				else ("enemy" if winner_name == defender_config.display_name else "")
 			)
 		)
 	)
 	var aggregate_line: String = (
-        "Aggregate: %s %d  %s %d  cycles=%d  avg_strikes=%.1f  atk_win_rate=%.0f%%"
+		"Aggregate: %s %d  %s %d  cycles=%d  avg_strikes=%.1f  atk_win_rate=%.0f%%"
 		% [
 			attacker_config.display_name,
 			_cycle_attacker_wins,
@@ -1643,7 +1665,10 @@ func _log_batch_cycle_summary(
 	total_cycles: int,
 	atk_cfg_snap: Variant,
 	def_cfg_snap: Variant,
-	scenario_key_snap: String
+	scenario_key_snap: String,
+	cum_atk_wins: int = 0,
+	cum_def_wins: int = 0,
+	cum_total: int = 0
 ) -> void:
 	var strikes_this_cycle: int = _cycle_strike_total()
 	var contacts_this_cycle: int = _cycle_contact_total()
@@ -1680,15 +1705,15 @@ func _log_batch_cycle_summary(
 		else _infer_end_cause("player" if winner_side == "attacker" else ("enemy" if winner_side == "defender" else ""))
 	)
 	var aggregate_line: String = (
-        "Batch cycle %d/%d: %s %d - %s %d (%.0f%% atk win)"
+		"Batch cycle %d/%d: %s %d - %s %d (%.0f%% atk win)"
 		% [
 			cycle_index,
 			total_cycles,
 			atk_cfg_snap.display_name,
-			batch_atk_wins,
+			cum_atk_wins,
 			def_cfg_snap.display_name,
-			batch_def_wins,
-			float(batch_atk_wins) * 100.0,
+			cum_def_wins,
+			float(cum_atk_wins) / float(maxf(cum_total, 1)) * 100.0,
 		]
 	)
 	var summary: String = _Formatter.format_cycle_hema_summary(
@@ -1744,7 +1769,7 @@ func _on_strike_pressed() -> void:
 	_set_tuning_override(attacker_id, defender_id)
 	_append_log(
 		(
-            "[color=#ffcc88]Override set: %s -> %s (%s)[/color]"
+			"[color=#ffcc88]Override set: %s -> %s (%s)[/color]"
 			% [attacker_config.display_name, defender_config.display_name, _current_move_id]
 		)
 	)
@@ -1758,7 +1783,7 @@ func _on_exchange_pressed() -> void:
 	_set_tuning_override(attacker_id, defender_id)
 	_append_log(
 		(
-            "[color=#ffcc88]Override set: %s->%s (%s)[/color]"
+			"[color=#ffcc88]Override set: %s->%s (%s)[/color]"
 			% [attacker_config.display_name, defender_config.display_name, _current_move_id]
 		)
 	)
@@ -1772,7 +1797,7 @@ func _on_exchange_pressed() -> void:
 			_set_tuning_override(defender_id, attacker_id)
 			_append_log(
 				(
-                    "[color=#ffcc88]Override set: %s->%s (%s)[/color]"
+					"[color=#ffcc88]Override set: %s->%s (%s)[/color]"
 					% [defender_config.display_name, attacker_config.display_name, _current_move_id]
 				)
 			)
@@ -1794,7 +1819,7 @@ func _on_randomize_pressed() -> void:
 	var def_species := "Human" if defender_config.species_tres_path.contains("human") else "Goblin"
 	_append_log(
 		(
-            "[color=#ff88ff]Randomized: %s (%s/%s) vs %s (%s/%s)"
+			"[color=#ff88ff]Randomized: %s (%s/%s) vs %s (%s/%s)"
 			% [
 				attacker_config.display_name,
 				atk_species,
@@ -1832,7 +1857,7 @@ func _toggle_auto() -> void:
 		manager.set_process(true)
 	_append_log(
 		(
-            "[color=%s]Auto-combat %s.[/color]"
+			"[color=%s]Auto-combat %s.[/color]"
 			% ["#88ff88" if _auto_enabled else "#ff8888", "enabled" if _auto_enabled else "disabled"]
 		)
 	)
@@ -2274,7 +2299,7 @@ func _run_weapon_sweep_batch(
 			progress_bar.value = float(i) / float(maxf(sweep_keys.size(), 1)) * 100.0
 		_log_line(
 			"[Weapon sweep] starting %s (%d cycles, random stats/resources/armor/species)" % [wid, num_cycles_per_weapon],
-            "#aaccff"
+			"#aaccff"
 		)
 		if is_instance_valid(result_label):
 			result_label.clear()
@@ -2386,6 +2411,10 @@ func _run_batch(
 			else:
 				atk_cfg = sweep_pair[0]
 				def_cfg = sweep_pair[1]
+			# The sweep alternates who strikes first on odd cycles; re-canonicalize the side labels
+			# so "Attacker"/"Defender" always name the atk/def roles (not the first-striker).
+			atk_cfg.display_name = "Attacker"
+			def_cfg.display_name = "Defender"
 			attacker_config = atk_cfg
 			defender_config = def_cfg
 			if _attacker_header_label != null:
@@ -2434,7 +2463,7 @@ func _run_batch(
 
 		var cycle_end_cause: String = _last_end_cause if not _last_end_cause.is_empty() else "end"
 		var cycle_outcomes: Dictionary = _cycle_outcome_counts.duplicate()
-		_log_batch_cycle_summary(cycle + 1, num_cycles, cycle_atk_cfg, cycle_def_cfg, scenario_key)
+		_log_batch_cycle_summary(cycle + 1, num_cycles, cycle_atk_cfg, cycle_def_cfg, scenario_key, b_atk_wins, b_def_wins, b_total_cycles)
 
 		if is_instance_valid(result_label):
 			var w_name: String = cycle_atk_cfg.display_name if cycle_winner == "attacker" else (cycle_def_cfg.display_name if cycle_winner == "defender" else "draw")
@@ -2463,8 +2492,11 @@ func _run_batch(
 				status_label.text = "Cycle %d / %d" % [cycle, num_cycles]
 			await get_tree().process_frame
 
-	_batch_running = false
 	if reset_batch_ui:
+		# Top-level batch (single scenario from the button): release the running guard.
+		# Sub-batches (weapon sweep / balance matrix) keep _batch_running true so the per-cycle
+		# [Matchup] banner stays mirrored to file/stdout across every weapon.
+		_batch_running = false
 		if is_instance_valid(run_btn):
 			run_btn.disabled = false
 		if is_instance_valid(cancel_btn):
@@ -2480,7 +2512,7 @@ func _run_batch(
 	summary += "Attacker win rate: %.1f%%\n" % (float(b_atk_wins) / float(maxf(b_total_cycles, 1)) * 100.0)
 	summary += "Avg strikes per cycle: %.1f\n" % (float(b_total_strikes) / float(maxf(b_total_cycles, 1)))
 	summary += (
-        "Avg atk dmg per cycle: %.1f  |  Avg def dmg per cycle: %.1f"
+		"Avg atk dmg per cycle: %.1f  |  Avg def dmg per cycle: %.1f"
 		% [b_atk_dmg / float(maxf(b_total_cycles, 1)), b_def_dmg / float(maxf(b_total_cycles, 1))]
 	)
 	_batch_lines.append("")
@@ -2496,7 +2528,7 @@ func _run_batch(
 		status_label.text = "Done -- %d cycles" % b_total_cycles
 
 	var batch_line := (
-        "[Batch] %s: %d cycles, %s %d - %s %d (%.0f%% atk win) | avg_strikes=%.1f"
+		"[Batch] %s: %d cycles, %s %d - %s %d (%.0f%% atk win) | avg_strikes=%.1f"
 		% [
 			scenario_key,
 			b_total_cycles,

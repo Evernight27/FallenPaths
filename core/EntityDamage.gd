@@ -385,12 +385,26 @@ static func apply_damage_split(
 		final_blunt *= combat_mult
 		total_final = final_cut + final_blunt
 		mechanical_post_armor = total_final
+	var vital_mult: float = 1.0
+	# IV-10: vital_mult is a sub-region-dependent mechanical multiplier; gate behind the same flag
+	# as combat_mult so that flag-OFF means sub-regions cannot affect mechanical damage.
+	# Also skip on joule-authoritative path — the KE fraction is the sole determinant of mech damage.
+	if not joule_authoritative and CombatConstants.is_feature_subregion_combat_mult_enabled():
+		vital_mult = BleedingConstants.get_vital_damage_multiplier(part, sub_region, extras.get("attack_line", ""))
+	if vital_mult != 1.0:
+		final_cut *= vital_mult
+		final_blunt *= vital_mult
+		total_final = final_cut + final_blunt
+		mechanical_post_armor = total_final
 	var pen_to_tissue: float = 0.0
 	if final_cut > 0.0:
 		pen_to_tissue = pen_s
 		if armor_var != null and armor_var.get_script() == ArmorPiece:
 			var pen_trace: Dictionary = ArmorPenetrationTrace.sharp_penetration_to_tissue_mm(armor_var, pen_s)
 			pen_to_tissue = pen_trace.get("penetration_to_tissue_mm", 0.0)
+			if joule_authoritative and "transmitted_ke_fraction" in joule_ke:
+				var ke_frac: float = maxf(joule_ke["transmitted_ke_fraction"], 0.01)
+				pen_to_tissue *= ke_frac
 	var pen_for_mfb: float = pen_to_tissue
 	var layer_meta: Dictionary = {}
 	var force_layer: bool = extras.get("force_layer_tissue", false)
@@ -544,6 +558,25 @@ static func apply_damage_split(
 			EntityWounds.add_wound(
 				entity, part, BleedingConstants.INJURY_TYPE_CRUSH, to_blunt_direct, sub_region, "", impact_ke
 			)
+	# Blunt internal organ trauma (visceral injury without penetration): high-KE blunt strikes to
+	# thoracic/abdominal regions can rupture organs even when no sharp penetration path exists.
+	# Skip organ trauma when joule-authoritative armor already absorbed KE — the armor's energy
+	# absorption accounts for the blunt transfer; double-counting would inflate damage beyond bare.
+	var organ_trauma: Dictionary = {}
+	if not joule_authoritative or (joule_ke.get("armor_ke_absorbed_j", 0.0) <= 0.0):
+		organ_trauma = CombatDamageMechanism.check_blunt_internal_organ_trauma(
+			part, sub_region, impact_ke, pen_to_tissue
+		)
+	if not organ_trauma.get("trauma_type", "").is_empty() and organ_trauma.get("organ_blunt_dmg", 0.0) > 0.0:
+		var extra_blunt: float = organ_trauma["organ_blunt_dmg"]
+		entity.body_blunt[part] = entity._round_tissue(maxf(0.0, entity.body_blunt.get(part, 0.0) - extra_blunt))
+		to_blunt += extra_blunt
+		total_damage_this_hit += extra_blunt
+		if CombatConstants.combat_debug_active():
+			CombatDebug.log(
+				"[OrganTrauma] %s %s (%s): %s KE=%.1fJ => +%.1f blunt (visceral injury)"
+				% [entity.name, part, sub_region, organ_trauma["trauma_type"], impact_ke, extra_blunt]
+			)
 	if to_bone > 0.0:
 		var fracture_severity: String = EntityWounds.severity_from_bone_damage(entity, part, to_bone)
 		EntityWounds.add_wound(
@@ -553,6 +586,9 @@ static func apply_damage_split(
 	if to_bone > 0.0 and part == BodyPartConstants.PART_HEAD:
 		var head_bone_max: float = maxf(1.0, float(entity.bone_max.get(part, 8)))
 		EntityPainConsciousness.try_enter_concussion_from_head_bone_damage(entity, to_bone / head_bone_max)
+	# Track last hit blunt KE for realistic head trauma classification (Issue: dagger HEAD_TRAUMA at 17J).
+	if part == BodyPartConstants.PART_HEAD and impact_ke > 0.0 and to_blunt > 0.0:
+		entity.set_meta("_last_hit_blunt_ke_j", impact_ke)
 	var early_severed: bool = false
 	var part_sever_threshold: float = _get_severance_threshold_for_part_entity_aware(entity, part)
 	if not entity._is_part_severed(part) and total_damage_this_hit >= part_sever_threshold:
@@ -583,6 +619,9 @@ static func apply_damage_split(
 						entity.bone_health[part] = 0.0
 						early_severed = true
 						total_damage_this_hit = to_cut + to_blunt + to_bone
+						# Track last hit blunt KE for head trauma classification even when early severance zeroes the part.
+						if part == BodyPartConstants.PART_HEAD and impact_ke > 0.0:
+							entity.set_meta("_last_hit_blunt_ke_j", impact_ke)
 						# Sync J reservoir after early severance zeroing (prevents stale J after display reset).
 						if "tissue_energy_capacity_j" in entity and "tissue_energy_remaining_j" in entity:
 							var body_max_t: int = clampi(int(entity.body_max.get(part, 10)), 1, 999)
@@ -655,6 +694,12 @@ static func apply_damage_split(
 			pain_from_this_hit_raw += entity._get_pain_contribution_for_wound(
 				part, to_bone, sev_bone, BleedingConstants.INJURY_TYPE_FRACTURE, sub_region, false
 			)
+	# Add pain for blunt organ trauma (visceral nociceptors produce disproportionately severe pain).
+	if organ_trauma.has("organ_pain_mult") and organ_trauma["organ_pain_mult"] > 1.0:
+		var organ_sev: String = EntityWounds.severity_from_damage(entity, part, organ_trauma.get("organ_blunt_dmg", 0.0), sub_region, impact_ke)
+		pain_from_this_hit_raw += entity._get_pain_contribution_for_wound(
+			part, organ_trauma["organ_blunt_dmg"], organ_sev, BleedingConstants.INJURY_TYPE_CRUSH, sub_region, false
+		)
 	entity._last_hit_impact = float(total_damage_this_hit)
 	entity._try_enter_pain_shock_from_hit(pain_from_this_hit_raw)
 	entity._update_consciousness()

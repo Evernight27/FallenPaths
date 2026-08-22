@@ -10,7 +10,7 @@ const REPORT_FILENAME := ".calibration_audit.txt"
 const BIND_THRESHOLD := CombatConstants.PARRY_BIND_CONTROL_THRESHOLD
 ## Soak lines tag `parry_deflect` for full-stop outcomes; `parry_bind` only when `parry_was_bind`.
 ## A deflect row is only inconsistent if its control reached the **bind** threshold but the row was tagged deflect
-## (`parry_control_for_bind_deflect` legitimately produces control in the 0.45-0.55 deflect band for marginal
+## (`parry_control_for_bind_deflect` legitimately produces control in the 0.45-0.48 deflect band for marginal
 ## full-stop deflections below the bind threshold).
 const BIND_CTRL_AUDIT_EPS := 0.001
 

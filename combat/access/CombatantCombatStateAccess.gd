@@ -423,6 +423,14 @@ static func get_dodge_chance(combatant: Dictionary) -> float:
     return node._get_dodge_chance()
 
 
+## Returns dodge chance 0 - 1 with attacker windup override for realistic dodge model. Default 0.0 if unavailable.
+static func get_dodge_chance_with_windup(combatant: Dictionary, attacker_windup_override: float = -1.0) -> float:
+    var node = node_variant(combatant)
+    if node == null or not node.has_method("_get_dodge_chance"):
+        return 0.0
+    return EntityPainConsciousness.get_dodge_chance_with_windup(node, attacker_windup_override)
+
+
 ## Returns blood volume 0 - 100 from node. Default 100.0 if unavailable.
 
 

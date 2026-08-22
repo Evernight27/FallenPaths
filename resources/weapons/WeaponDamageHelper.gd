@@ -16,6 +16,10 @@ const DELIVERY_COMMIT_FLOOR := 0.05
 const SUB_BAND_MINIMUM_RATIO := 0.30    # hard cutoff: below this fraction of band-min KE → 0
 const SUB_BAND_RAMP_FULL_RATIO := 1.0   # at/above band-min KE → full energy, no penalty
 const SUB_BAND_RAMP_FLOOR := 0.25       # damage/KE fraction at the ramp floor (ratio=0.30)
+## NOTE: a separate "sharp-weapon low-KE recovery" bonus was removed. The sharp-point penetration advantage at
+## low KE is already modeled by the contact-area factor (compute_pre_armor_cut / compute_penetration): a narrow
+## point has a tiny contact area, so pressure = force/area stays high even at sub-band KE. A separate recovery
+## term would double-count that effect and over-reward sharp weapons.
 ## Hard cap for cut ratio on blunt-damage weapons (mace, pollarm). Prevents archetype overrides from giving
 ## these weapons significant cutting capability — they can nick skin but remain primarily blunt tools.
 const CUT_RATIO_BLUNT_WEAPON_MAX := 0.15
@@ -181,10 +185,11 @@ static func strike_mass_kg(weapon: RefCounted, attack_instance: RefCounted) -> f
                 return 2.0
             "SWORD":
                 return 1.5
-            ## Dagger thrusts drive the point with arm + shoulder behind the short blade; calibrated so that at
-            ## v=[4,14] m/s the KE lands in the [3,55]J audit band (0.5×0.28×v² → 4.5J @ 4 m/s → 54.9J @ 14 m/s).
+            ## Dagger armor-piercing thrusts drive the point with arm + shoulder behind the short blade.
+            ## Clinical data shows rondel dagger thrusts into soft tissue deliver ~40-70J (Fiore's dente di porco
+            ## was designed to pierce plate mail). At v=[3.5,7.5] m/s and m=2.5 kg body-coupled: KE in band.
             "DAGGER":
-                return 0.28
+                return 2.5
             _:
                 # No explicit entry for this template: derive from the isolated striking-part mass plus a
                 # torso/shoulder drive so unknown thrusting weapons don't fall to the bare point-mass default.

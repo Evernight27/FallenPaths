@@ -12,12 +12,18 @@ const TICK_DT := 0.05
 ## Cross-file preloads — loaded at runtime via load(), so class_name resolution succeeds.
 const _OpsLog := preload("res://core/OperationalLog.gd")
 const SoakEncounterPresets := preload("res://world/SoakEncounterPresets.gd")
-const _D001PresetRunnerTests := preload("res://harness/d001/D001PresetRunnerTests.gd")
 const CombatF5SoakLogValidator := preload("res://harness/CombatF5SoakLogValidator.gd")
 const _D001SoakSanity := preload("res://harness/d001/CombatD001SoakSanity.gd")
 const _D001TrackSpecs := preload("res://harness/d001/CombatD001TrackSpecs.gd")
 const FallenPathsErrorLogger := preload("res://core/FallenPathsErrorLogger.gd")
 
+static var _preset_runner_cls: Variant = null
+
+
+static func _ensure_preset_runner() -> Variant:
+	if _preset_runner_cls == null:
+		_preset_runner_cls = load("res://harness/d001/D001PresetRunnerTests.gd")
+	return _preset_runner_cls
 
 static func run_all() -> Dictionary:
 	var failures: PackedStringArray = PackedStringArray()
@@ -29,8 +35,8 @@ static func run_all() -> Dictionary:
 	CombatConstants.set_feature_flurry_bind_exchange_load(true)
 	for preset_id in SoakEncounterPresets.D001_PRESET_RUN_ORDER:
 		_OpsLog.clear_capture()
-		seed(_D001PresetRunnerTests._preset_seed(preset_id))
-		var pr: Dictionary = _D001PresetRunnerTests._run_preset(preset_id)
+		seed(_ensure_preset_runner()._preset_seed(preset_id))
+		var pr: Dictionary = _ensure_preset_runner()._run_preset(preset_id)
 		preset_results[preset_id] = pr
 		for line in _OpsLog.get_captured_lines():
 			aggregate_lines.append(line)
@@ -38,46 +44,46 @@ static func run_all() -> Dictionary:
 			failures.append("%s: %s" % [preset_id, str(pr.get("summary", "failed"))])
 	_OpsLog.clear_capture()
 	FallenPathsErrorLogger.reset_script_error_count()
-	seed(_D001PresetRunnerTests._preset_seed("7v7"))
-	var pr7: Dictionary = _D001PresetRunnerTests._run_7v7_brawl()
+	seed(_ensure_preset_runner()._preset_seed("7v7"))
+	var pr7: Dictionary = _ensure_preset_runner()._run_7v7_brawl()
 	preset_results["7v7"] = pr7
 	for line in _OpsLog.get_captured_lines():
 		aggregate_lines.append(line)
 	if not bool(pr7.get("ok", false)):
 		failures.append("7v7: %s" % str(pr7.get("summary", "failed")))
-	var ui_pr: Dictionary = _D001PresetRunnerTests._run_ii5c_gauge_label_checks()
+	var ui_pr: Dictionary = _ensure_preset_runner()._run_ii5c_gauge_label_checks()
 	preset_results["ii5c"] = ui_pr
 	if not bool(ui_pr.get("ok", false)):
 		failures.append("ii5c: %s" % str(ui_pr.get("summary", "failed")))
 	_OpsLog.clear_capture()
-	var ii5a_pr: Dictionary = _D001PresetRunnerTests._run_ii5a_formation_hint_checks()
+	var ii5a_pr: Dictionary = _ensure_preset_runner()._run_ii5a_formation_hint_checks()
 	preset_results["ii5a"] = ii5a_pr
 	if not bool(ii5a_pr.get("ok", false)):
 		failures.append("ii5a: %s" % str(ii5a_pr.get("summary", "failed")))
-	var ii5b_pr: Dictionary = _D001PresetRunnerTests._run_ii5b_log_policy_checks(aggregate_lines)
+	var ii5b_pr: Dictionary = _ensure_preset_runner()._run_ii5b_log_policy_checks(aggregate_lines)
 	preset_results["ii5b"] = ii5b_pr
 	if not bool(ii5b_pr.get("ok", false)):
 		failures.append("ii5b: %s" % str(ii5b_pr.get("summary", "failed")))
-	var ii1e_pr: Dictionary = _D001PresetRunnerTests._run_ii1e_engagement_label_checks()
+	var ii1e_pr: Dictionary = _ensure_preset_runner()._run_ii1e_engagement_label_checks()
 	preset_results["ii1e"] = ii1e_pr
 	if not bool(ii1e_pr.get("ok", false)):
 		failures.append("ii1e: %s" % str(ii1e_pr.get("summary", "failed")))
 	_OpsLog.clear_capture()
-	var ii7_pr: Dictionary = _D001PresetRunnerTests._run_ii7_medical_phase_smoke()
+	var ii7_pr: Dictionary = _ensure_preset_runner()._run_ii7_medical_phase_smoke()
 	preset_results["ii7"] = ii7_pr
 	for line in _OpsLog.get_captured_lines():
 		aggregate_lines.append(line)
 	if not bool(ii7_pr.get("ok", false)):
 		failures.append("ii7: %s" % str(ii7_pr.get("summary", "failed")))
 	_OpsLog.clear_capture()
-	var fm_pr: Dictionary = _D001PresetRunnerTests._run_formation_move_f5_smoke()
+	var fm_pr: Dictionary = _ensure_preset_runner()._run_formation_move_f5_smoke()
 	preset_results["formation_move_f5"] = fm_pr
 	for line in _OpsLog.get_captured_lines():
 		aggregate_lines.append(line)
 	if not bool(fm_pr.get("ok", false)):
 		failures.append("formation_move_f5: %s" % str(fm_pr.get("summary", "failed")))
 	_OpsLog.clear_capture()
-	_D001PresetRunnerTests._probe_wf_controlling_close_turn_hint()
+	_ensure_preset_runner()._probe_wf_controlling_close_turn_hint()
 	for line in _OpsLog.get_captured_lines():
 		aggregate_lines.append(line)
 	_OpsLog.clear_capture()
@@ -141,8 +147,8 @@ static func run_preset_ids(preset_ids: PackedStringArray) -> Dictionary:
 			failures.append("%s: unknown preset" % preset_id)
 			continue
 		_OpsLog.clear_capture()
-		seed(_D001PresetRunnerTests._preset_seed(pid))
-		var pr: Dictionary = _D001PresetRunnerTests._run_preset(pid)
+		seed(_ensure_preset_runner()._preset_seed(pid))
+		var pr: Dictionary = _ensure_preset_runner()._run_preset(pid)
 		preset_results[pid] = pr
 		for line in _OpsLog.get_captured_lines():
 			aggregate_lines.append(line)

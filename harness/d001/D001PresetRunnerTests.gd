@@ -37,13 +37,13 @@ static func _run_preset(preset_id: String) -> Dictionary:
                 50.0
             )
         SoakEncounterPresets.PRESET_II5_COWERING:
-            return D001Ii5Ii6RunnerTests._run_ii5_cowering(preset_id)
+            return _D001Ii5Ii6Tests._run_ii5_cowering(preset_id)
         SoakEncounterPresets.PRESET_II6_AMBIENT_SHOCK:
-            return D001Ii5Ii6RunnerTests._run_ii6_ambient(preset_id)
+            return _D001Ii5Ii6Tests._run_ii6_ambient(preset_id)
         SoakEncounterPresets.PRESET_II8_FORMATION:
             return D001PresetRunnerTests._run_ii8_formation(preset_id)
         SoakEncounterPresets.PRESET_II4D_EXHAUSTION:
-            return D001Ii5Ii6RunnerTests._run_ii4d_exhaustion(preset_id)
+            return _D001Ii5Ii6Tests._run_ii4d_exhaustion(preset_id)
         SoakEncounterPresets.PRESET_II_ENVELOP:
             return D001PresetRunnerTests._run_ii_envelop(preset_id)
         _:
@@ -164,10 +164,10 @@ static func _run_ii7_medical_phase_smoke() -> Dictionary:
                             mgr._process(TICK_DT)
                             elapsed_pack += TICK_DT
     var lines: PackedStringArray = OperationalLog.get_captured_lines()
-    var med_log_n: int = D001Ii5Ii6RunnerTests._count_needle(lines, "medical ")
+    var med_log_n: int = _D001Ii5Ii6Tests._count_needle(lines, "medical ")
     check_out["medical_log"] = {"pass": med_log_n >= 1, "count": med_log_n, "min": 1, "optional": true}
-    var pack_listed_n: int = D001Ii5Ii6RunnerTests._count_needle(lines, "medical_pack_wound listed")
-    var pack_pick_n: int = D001Ii5Ii6RunnerTests._count_needle(lines, "medical_pack_wound pick")
+    var pack_listed_n: int = _D001Ii5Ii6Tests._count_needle(lines, "medical_pack_wound listed")
+    var pack_pick_n: int = _D001Ii5Ii6Tests._count_needle(lines, "medical_pack_wound pick")
     check_out["f5_medical_pack_listed"] = {
         "pass": pack_listed_n >= 1,
         "count": pack_listed_n,
@@ -242,7 +242,7 @@ static func _run_formation_move_f5_smoke() -> Dictionary:
         if not committed:
             fail.append("rotate_file resolve failed")
     var lines: PackedStringArray = OperationalLog.get_captured_lines()
-    var rot_n: int = D001Ii5Ii6RunnerTests._count_needle(lines, "rotate_file")
+    var rot_n: int = _D001Ii5Ii6Tests._count_needle(lines, "rotate_file")
     check_out["f5_rotate_file"] = {
         "pass": rot_n >= 1,
         "count": rot_n,
@@ -296,7 +296,7 @@ static func _wound_chest_for_packing(ent: Node) -> void:
     if ent == null:
         return
     EntityWounds.add_wound(
-        ent, "chest", BleedingConstants.INJURY_TYPE_CUT, 9.0, "thoracic", BleedingConstants.SEVERITY_MODERATE
+        ent, "chest", BleedingConstants.INJURY_TYPE_CUT, 9.0, "thoracic", BleedingConstants.SEVERITY_SEVERE
     )
     if ent.linen_strips_remaining < BleedingConstants.PACKING_LINEN_COST_PER_ATTEMPT:
         ent.linen_strips_remaining = BleedingConstants.PACKING_LINEN_PARTY_START
@@ -313,7 +313,7 @@ static func _run_ii5b_log_policy_checks(lines: PackedStringArray) -> Dictionary:
     for spec in banned:
         var id: String = str(spec.get("id", ""))
         var needle: String = str(spec.get("needle", ""))
-        var count: int = D001Ii5Ii6RunnerTests._count_needle(lines, needle)
+        var count: int = _D001Ii5Ii6Tests._count_needle(lines, needle)
         var ok_needle: bool = count == 0
         check_out[id] = {"pass": ok_needle, "count": count, "min": 0, "max": 0}
         if not ok_needle:
@@ -368,11 +368,11 @@ static func _run_ii1e_engagement_label_checks() -> Dictionary:
 
 static func _run_ii5a_formation_hint_checks() -> Dictionary:
     OperationalLog.play_combat("soak_setup ii5a 4x4 formation turn-ready hints (grep ui_hint Formation)")
-    var mgr: Node = D001Ii5Ii6RunnerTests._start_manager(
+    var mgr: Node = _D001Ii5Ii6Tests._start_manager(
         "ii5a", 4, 4, D001RunnerHelpers._player_4_wide(), D001RunnerHelpers._enemy_4_wide()
     )
     mgr.set_meta("_engagement_mode_cached", CombatConstants.ENGAGEMENT_MODE_FORMATION)
-    var probe: Dictionary = D001Ii5Ii6RunnerTests._probe_formation_turn_hints(mgr)
+    var probe: Dictionary = _D001Ii5Ii6Tests._probe_formation_turn_hints(mgr)
     var check_out: Dictionary = {}
     var stamp: String = str(probe.get("formation_stamp", ""))
     var ui_n: int = int(probe.get("ui_hint_formation", 0))
@@ -648,16 +648,16 @@ static func _run_7v7_brawl() -> Dictionary:
         "soak_fight_enter tile=red 7v7  -  headless 5x2 grep turn_ready_gauge diagram_banner medical_action"
     )
     OperationalLog.play_combat("party_entering_combat count=7 (headless)")
-    D001Ii5Ii6RunnerTests._probe_7v7_sparse_formation_hold_hint()
+    _D001Ii5Ii6Tests._probe_7v7_sparse_formation_hold_hint()
     var form: Dictionary = D001RunnerHelpers._formation_7v7()
-    var mgr: Node = D001Ii5Ii6RunnerTests._start_manager("7v7", 7, 7, form, form)
+    var mgr: Node = _D001Ii5Ii6Tests._start_manager("7v7", 7, 7, form, form)
     D001RunnerHelpers._simulate_fight(mgr, 120.0, "7v7")
     var banner: String = D001RunnerHelpers._formation_engagement_banner_line(mgr)
     if not banner.is_empty():
         CombatF5SoakTrace.log_diagram_banner_player(banner)
     D001RunnerHelpers._free_manager(mgr)
     var lines: PackedStringArray = OperationalLog.get_captured_lines()
-    return D001Ii5Ii6RunnerTests._evaluate("7v7", lines, CombatD001TrackSpecs.headless_checks_for_preset("7v7"))
+    return _D001Ii5Ii6Tests._evaluate("7v7", lines, CombatD001TrackSpecs.headless_checks_for_preset("7v7"))
 
 
 static func _run_ii2b_duel(preset_id: String, max_sec: float = 90.0) -> Dictionary:
@@ -666,7 +666,7 @@ static func _run_ii2b_duel(preset_id: String, max_sec: float = 90.0) -> Dictiona
     for rep in range(reps):
         OperationalLog.clear_capture()
         seed(D001PresetRunnerTests._preset_seed(preset_id) + rep * 7919)
-        var mgr: Node = D001Ii5Ii6RunnerTests._start_manager(
+        var mgr: Node = _D001Ii5Ii6Tests._start_manager(
             preset_id, 1, 1, D001RunnerHelpers._player_1x1(), D001RunnerHelpers._player_1x1()
         )
         D001RunnerHelpers._simulate_fight(mgr, max_sec, preset_id)
@@ -675,7 +675,7 @@ static func _run_ii2b_duel(preset_id: String, max_sec: float = 90.0) -> Dictiona
         D001RunnerHelpers._free_manager(mgr)
     OperationalLog.clear_capture()
     seed(D001PresetRunnerTests._preset_seed(preset_id) + 99991)
-    var smoke_mgr: Node = D001Ii5Ii6RunnerTests._start_manager(
+    var smoke_mgr: Node = _D001Ii5Ii6Tests._start_manager(
         preset_id, 1, 1, D001RunnerHelpers._player_1x1(), D001RunnerHelpers._player_1x1()
     )
     D001RunnerHelpers._ensure_ii2b_bind_flurry_smoke(smoke_mgr)
@@ -691,7 +691,7 @@ static func _run_ii2b_duel(preset_id: String, max_sec: float = 90.0) -> Dictiona
             break
     if not parry_summary_dup:
         OperationalLog.play_combat(parry_summary)
-    var pr: Dictionary = D001Ii5Ii6RunnerTests._evaluate(
+    var pr: Dictionary = _D001Ii5Ii6Tests._evaluate(
         preset_id, lines, CombatD001TrackSpecs.headless_checks_for_preset(preset_id)
     )
     pr["parry_stats"] = parry_stats
@@ -719,40 +719,40 @@ static func _run_ii2b_duel(preset_id: String, max_sec: float = 90.0) -> Dictiona
 static func _run_generic_fight(
     preset_id: String, player_n: int, enemy_n: int, player_form: Dictionary, enemy_form: Dictionary, max_sec: float
 ) -> Dictionary:
-    var mgr: Node = D001Ii5Ii6RunnerTests._start_manager(preset_id, player_n, enemy_n, player_form, enemy_form)
+    var mgr: Node = _D001Ii5Ii6Tests._start_manager(preset_id, player_n, enemy_n, player_form, enemy_form)
     D001RunnerHelpers._simulate_fight(mgr, max_sec, preset_id)
     D001RunnerHelpers._free_manager(mgr)
-    return D001Ii5Ii6RunnerTests._evaluate(
+    return _D001Ii5Ii6Tests._evaluate(
         preset_id, OperationalLog.get_captured_lines(), CombatD001TrackSpecs.headless_checks_for_preset(preset_id)
     )
 
 
 static func _run_ii8_formation(preset_id: String) -> Dictionary:
-    var mgr: Node = D001Ii5Ii6RunnerTests._start_manager(
+    var mgr: Node = _D001Ii5Ii6Tests._start_manager(
         preset_id, 4, 4, D001RunnerHelpers._player_4_wide(), D001RunnerHelpers._enemy_4_wide(), false
     )
     mgr.set_meta("_engagement_mode_cached", CombatConstants.ENGAGEMENT_MODE_FORMATION)
     var banner: String = D001RunnerHelpers._formation_engagement_banner_line(mgr)
     if not banner.is_empty():
         CombatF5SoakTrace.log_diagram_banner_player(banner)
-    var probe: Dictionary = D001Ii5Ii6RunnerTests._probe_formation_turn_hints(mgr)
+    var probe: Dictionary = _D001Ii5Ii6Tests._probe_formation_turn_hints(mgr)
     probe["diagram_banner"] = banner
     D001RunnerHelpers._simulate_fight(mgr, 45.0, preset_id)
     D001RunnerHelpers._free_manager(mgr)
-    var pr: Dictionary = D001Ii5Ii6RunnerTests._evaluate(
+    var pr: Dictionary = _D001Ii5Ii6Tests._evaluate(
         preset_id, OperationalLog.get_captured_lines(), CombatD001TrackSpecs.headless_checks_for_preset(preset_id)
     )
-    return D001Ii5Ii6RunnerTests._merge_probe_ii8_checks(pr, probe)
+    return _D001Ii5Ii6Tests._merge_probe_ii8_checks(pr, probe)
 
 
 static func _run_ii_envelop(preset_id: String) -> Dictionary:
     OperationalLog.play_combat("soak_setup ii_envelop 7v3 outnumber skirmish (III-4 wing traces in Output)")
     D001PresetRunnerTests._probe_ii_envelop_mopup_engagement_debug(preset_id)
     D001PresetRunnerTests._probe_ii_envelop_mopup_rear_rank_hint()
-    D001Ii5Ii6RunnerTests._probe_ii_sparse_post_flee_engagement_debug(preset_id)
-    D001Ii5Ii6RunnerTests._probe_ii_sparse_close_band_rotate_suppress(preset_id)
-    D001Ii5Ii6RunnerTests._probe_ii_line_plug_engagement_debug(preset_id)
-    D001Ii5Ii6RunnerTests._probe_ii_skirmish_rotate_line_plug_engagement_debug(preset_id)
+    _D001Ii5Ii6Tests._probe_ii_sparse_post_flee_engagement_debug(preset_id)
+    _D001Ii5Ii6Tests._probe_ii_sparse_close_band_rotate_suppress(preset_id)
+    _D001Ii5Ii6Tests._probe_ii_line_plug_engagement_debug(preset_id)
+    _D001Ii5Ii6Tests._probe_ii_skirmish_rotate_line_plug_engagement_debug(preset_id)
     var player_form: Dictionary = FormationPreset.for_front_count(7, 7, FormationPreset.DENSITY_NORMAL)
     var enemy_form: Dictionary = {"files": 3, "ranks": 1, "density": FormationPreset.DENSITY_NORMAL}
     return D001PresetRunnerTests._run_generic_fight(preset_id, 7, 3, player_form, enemy_form, 55.0)
@@ -768,13 +768,13 @@ static func _probe_ii_envelop_mopup_engagement_debug(preset_id: String) -> void:
     CombatConstants.set_headless_harness_quiet(false)
     var player_form: Dictionary = FormationPreset.for_front_count(7, 7, FormationPreset.DENSITY_NORMAL)
     var enemy_form: Dictionary = {"files": 3, "ranks": 1, "density": FormationPreset.DENSITY_NORMAL}
-    var mgr: Node = D001Ii5Ii6RunnerTests._start_manager(preset_id, 7, 3, player_form, enemy_form, false)
+    var mgr: Node = _D001Ii5Ii6Tests._start_manager(preset_id, 7, 3, player_form, enemy_form, false)
     var enemy_ids: Array = []
     for c in mgr.combatants:
         if CombatantEntityAccess.side_str(c) == "enemy":
             enemy_ids.append(CombatantEntityAccess.id_int(c))
     for k in range(mini(2, enemy_ids.size())):
-        D001Ii5Ii6RunnerTests._soak_kill_combatant(mgr, int(enemy_ids[k]))
+        _D001Ii5Ii6Tests._soak_kill_combatant(mgr, int(enemy_ids[k]))
     if not CombatDoctrine.envelop_mop_up_active(mgr, "player"):
         OperationalLog.play_combat("soak_setup ii_envelop_mopup skip envelop_mop_up_active=false")
         D001RunnerHelpers._free_manager(mgr)
@@ -875,7 +875,7 @@ static func _probe_ii_envelop_mopup_rear_rank_hint() -> void:
         if CombatantEntityAccess.side_str(c) == "enemy":
             enemy_ids.append(CombatantEntityAccess.id_int(c))
     for k in range(mini(2, enemy_ids.size())):
-        D001Ii5Ii6RunnerTests._soak_kill_combatant(mgr, int(enemy_ids[k]))
+        _D001Ii5Ii6Tests._soak_kill_combatant(mgr, int(enemy_ids[k]))
     if not CombatDoctrine.envelop_mop_up_active(mgr, "player"):
         OperationalLog.play_combat("soak_setup ii_envelop_mopup rear skip envelop_mop_up_active=false")
         D001RunnerHelpers._free_manager(mgr)

@@ -71,7 +71,7 @@ static func ke_band_min_max_for_weapon(weapon_id: String, kinematic_delivery: St
     var wid: String = weapon_id.to_upper().strip_edges()
     var delivery: String = kinematic_delivery.to_lower().strip_edges()
     if wid == "DAGGER":
-        return Vector2(3.0, 55.0)
+        return Vector2(15.0, 70.0)
     if delivery == "thrust" and wid == "SPEAR":
         # Spear thrust: m=3.5kg body-transfer × v²/2 at v=[5,8.0] → [56,112]J; matches committed strike ceiling (145J max)
         return Vector2(40.0, 130.0)

@@ -39,8 +39,10 @@ const BLEEDING_RATES: Dictionary = {
     INJURY_TYPE_BRUISE: {SEVERITY_MINOR: 0.0, SEVERITY_MODERATE: 0.0, SEVERITY_SEVERE: 0.0, SEVERITY_CRITICAL: 0.0},
     INJURY_TYPE_FRACTURE: {SEVERITY_MINOR: 0.0, SEVERITY_MODERATE: 0.0, SEVERITY_SEVERE: 0.0, SEVERITY_CRITICAL: 0.0},
     ## Compound fracture — open bone exposed to external environment; ~40% infection rate (Gandhi 2002),
-    ## 3-5x hemorrhage vs closed per J Trauma 2019 meta-analysis on Gustilo-Anderson type I/II.
-    INJURY_TYPE_COMPOUND_FRACTURE: {SEVERITY_MINOR: 0.0, SEVERITY_MODERATE: 1.8, SEVERITY_SEVERE: 5.4, SEVERITY_CRITICAL: 6.75}
+    ## elevated hemorrhage vs closed due to bone marrow vascularization and potential medullary vessel tearing.
+    ## Rates are ~1.5× cut at moderate+ severity (not higher than cut — clinical Gustilo-Anderson data shows
+    ## compound fractures bleed more than closed but typically less than deep lacerations of major vessels).
+    INJURY_TYPE_COMPOUND_FRACTURE: {SEVERITY_MINOR: 0.0, SEVERITY_MODERATE: 1.5, SEVERITY_SEVERE: 4.0, SEVERITY_CRITICAL: 5.0}
 }
 
 # --- Body part bleeding multipliers (scalp/face/trunk more vascular; StatPearls / clinical) ---
@@ -56,36 +58,36 @@ const BODY_PART_BLEEDING_MULTIPLIERS: Dictionary = {
     BodyPartConstants.PART_LEFT_LEG: 1.0
 }
 
-# --- Sub-regions per body part (medical: scalp/face/neck, thoracic/abdominal, upper_arm/elbow/forearm/hand,
-# thigh/knee/calf/foot) ---
+# --- Sub-regions per body part (medical: scalp/face/neck, thoracic/abdominal/sternum, upper_arm/elbow/forearm/hand/armpit,
+# thigh/knee/calf/foot/inner_thigh) ---
 # Research: scalp very vascular (StatPearls NBK541038); forearm vessels most injured in UE (StatPearls NBK536925);
 # penetrating neck vascular ~25% (Zone I - III); popliteal blunt, SFA penetrating (lower limb); abdominal zones 1 - 4.
 const SUB_REGIONS: Dictionary = {
     BodyPartConstants.PART_HEAD: ["scalp", "face", "neck"],
-    BodyPartConstants.PART_CHEST: ["thoracic", "abdominal"],
-    BodyPartConstants.PART_RIGHT_ARM: ["upper_arm", "elbow", "forearm", "hand"],
-    BodyPartConstants.PART_LEFT_ARM: ["upper_arm", "elbow", "forearm", "hand"],
-    BodyPartConstants.PART_RIGHT_LEG: ["thigh", "knee", "calf", "foot"],
-    BodyPartConstants.PART_LEFT_LEG: ["thigh", "knee", "calf", "foot"]
+    BodyPartConstants.PART_CHEST: ["thoracic", "abdominal", "sternum"],
+    BodyPartConstants.PART_RIGHT_ARM: ["upper_arm", "elbow", "forearm", "hand", "armpit", "axillary"],
+    BodyPartConstants.PART_LEFT_ARM: ["upper_arm", "elbow", "forearm", "hand", "armpit", "axillary"],
+    BodyPartConstants.PART_RIGHT_LEG: ["thigh", "knee", "calf", "foot", "inner_thigh"],
+    BodyPartConstants.PART_LEFT_LEG: ["thigh", "knee", "calf", "foot", "inner_thigh"]
 }
 # Relative hit probability per sub-region (surface area / exposure). Sum per part can be any; we normalize.
 const SUB_REGION_WEIGHTS: Dictionary = {
     BodyPartConstants.PART_HEAD: {"scalp": 1.2, "face": 1.0, "neck": 0.6},
-    BodyPartConstants.PART_CHEST: {"thoracic": 1.0, "abdominal": 1.0},
-    BodyPartConstants.PART_RIGHT_ARM: {"upper_arm": 1.0, "elbow": 0.4, "forearm": 1.0, "hand": 0.8},
-    BodyPartConstants.PART_LEFT_ARM: {"upper_arm": 1.0, "elbow": 0.4, "forearm": 1.0, "hand": 0.8},
-    BodyPartConstants.PART_RIGHT_LEG: {"thigh": 1.0, "knee": 0.5, "calf": 1.0, "foot": 0.6},
-    BodyPartConstants.PART_LEFT_LEG: {"thigh": 1.0, "knee": 0.5, "calf": 1.0, "foot": 0.6}
+    BodyPartConstants.PART_CHEST: {"thoracic": 1.0, "abdominal": 1.0, "sternum": 0.4},
+    BodyPartConstants.PART_RIGHT_ARM: {"upper_arm": 1.0, "elbow": 0.4, "forearm": 1.0, "hand": 0.8, "armpit": 0.3, "axillary": 0.3},
+    BodyPartConstants.PART_LEFT_ARM: {"upper_arm": 1.0, "elbow": 0.4, "forearm": 1.0, "hand": 0.8, "armpit": 0.3, "axillary": 0.3},
+    BodyPartConstants.PART_RIGHT_LEG: {"thigh": 1.0, "knee": 0.5, "calf": 1.0, "foot": 0.6, "inner_thigh": 0.45},
+    BodyPartConstants.PART_LEFT_LEG: {"thigh": 1.0, "knee": 0.5, "calf": 1.0, "foot": 0.6, "inner_thigh": 0.45}
 }
 # Bleeding multiplier per sub-region (relative to limb baseline 1.0). Scalp bleeds profusely; neck carotid/jugular;
 # forearm most injured in UE.
 const SUB_REGION_BLEEDING_MULTIPLIERS: Dictionary = {
     BodyPartConstants.PART_HEAD: {"scalp": 1.8, "face": 1.4, "neck": 2.2},
-    BodyPartConstants.PART_CHEST: {"thoracic": 1.15, "abdominal": 1.25},
-    BodyPartConstants.PART_RIGHT_ARM: {"upper_arm": 0.9, "elbow": 1.0, "forearm": 1.15, "hand": 1.05},
-    BodyPartConstants.PART_LEFT_ARM: {"upper_arm": 0.9, "elbow": 1.0, "forearm": 1.15, "hand": 1.05},
-    BodyPartConstants.PART_RIGHT_LEG: {"thigh": 1.1, "knee": 1.2, "calf": 1.05, "foot": 0.95},
-    BodyPartConstants.PART_LEFT_LEG: {"thigh": 1.1, "knee": 1.2, "calf": 1.05, "foot": 0.95}
+    BodyPartConstants.PART_CHEST: {"thoracic": 1.15, "abdominal": 1.25, "sternum": 1.30},
+    BodyPartConstants.PART_RIGHT_ARM: {"upper_arm": 0.9, "elbow": 1.0, "forearm": 1.15, "hand": 1.05, "armpit": 1.2, "axillary": 1.2},
+    BodyPartConstants.PART_LEFT_ARM: {"upper_arm": 0.9, "elbow": 1.0, "forearm": 1.15, "hand": 1.05, "armpit": 1.2, "axillary": 1.2},
+    BodyPartConstants.PART_RIGHT_LEG: {"thigh": 1.1, "knee": 1.2, "calf": 1.05, "foot": 0.95, "inner_thigh": 1.35},
+    BodyPartConstants.PART_LEFT_LEG: {"thigh": 1.1, "knee": 1.2, "calf": 1.05, "foot": 0.95, "inner_thigh": 1.35}
 }
 # Arterial chance multiplier per sub-region (for both cut and crush; crush then scaled by
 # SUB_REGION_BLUNT_ARTERIAL_MODIFIERS).
@@ -93,11 +95,11 @@ const SUB_REGION_BLEEDING_MULTIPLIERS: Dictionary = {
 # blunt.
 const SUB_REGION_ARTERIAL_MULTIPLIERS: Dictionary = {
     BodyPartConstants.PART_HEAD: {"scalp": 1.2, "face": 1.1, "neck": 2.0},
-    BodyPartConstants.PART_CHEST: {"thoracic": 1.15, "abdominal": 1.2},
-    BodyPartConstants.PART_RIGHT_ARM: {"upper_arm": 0.95, "elbow": 1.0, "forearm": 1.2, "hand": 0.9},
-    BodyPartConstants.PART_LEFT_ARM: {"upper_arm": 0.95, "elbow": 1.0, "forearm": 1.2, "hand": 0.9},
-    BodyPartConstants.PART_RIGHT_LEG: {"thigh": 1.15, "knee": 1.15, "calf": 1.0, "foot": 0.85},
-    BodyPartConstants.PART_LEFT_LEG: {"thigh": 1.15, "knee": 1.15, "calf": 1.0, "foot": 0.85}
+    BodyPartConstants.PART_CHEST: {"thoracic": 1.15, "abdominal": 1.2, "sternum": 1.30},
+    BodyPartConstants.PART_RIGHT_ARM: {"upper_arm": 0.95, "elbow": 1.0, "forearm": 1.2, "hand": 0.9, "armpit": 1.1, "axillary": 1.1},
+    BodyPartConstants.PART_LEFT_ARM: {"upper_arm": 0.95, "elbow": 1.0, "forearm": 1.2, "hand": 0.9, "armpit": 1.1, "axillary": 1.1},
+    BodyPartConstants.PART_RIGHT_LEG: {"thigh": 1.15, "knee": 1.15, "calf": 1.0, "foot": 0.85, "inner_thigh": 1.30},
+    BodyPartConstants.PART_LEFT_LEG: {"thigh": 1.15, "knee": 1.15, "calf": 1.0, "foot": 0.85, "inner_thigh": 1.30}
 }
 # --- Stump (amputation site) bleeding: part-accurate + level variation ---
 # Amputation level: more proximal (closer to torso) = larger vessels = higher stump bleed; distal (hand, foot) = lower.
@@ -105,11 +107,11 @@ const SUB_REGION_ARTERIAL_MULTIPLIERS: Dictionary = {
 # CoreEntity.
 const STUMP_LEVEL_MULTIPLIERS: Dictionary = {
     BodyPartConstants.PART_HEAD: {"scalp": 1.15, "face": 1.0, "neck": 1.25},
-    BodyPartConstants.PART_CHEST: {"thoracic": 1.08, "abdominal": 1.12},
-    BodyPartConstants.PART_RIGHT_ARM: {"upper_arm": 1.22, "elbow": 1.08, "forearm": 1.0, "hand": 0.88},
-    BodyPartConstants.PART_LEFT_ARM: {"upper_arm": 1.22, "elbow": 1.08, "forearm": 1.0, "hand": 0.88},
-    BodyPartConstants.PART_RIGHT_LEG: {"thigh": 1.2, "knee": 1.1, "calf": 1.0, "foot": 0.88},
-    BodyPartConstants.PART_LEFT_LEG: {"thigh": 1.2, "knee": 1.1, "calf": 1.0, "foot": 0.88}
+    BodyPartConstants.PART_CHEST: {"thoracic": 1.08, "abdominal": 1.12, "sternum": 1.15},
+    BodyPartConstants.PART_RIGHT_ARM: {"upper_arm": 1.22, "elbow": 1.08, "forearm": 1.0, "hand": 0.88, "armpit": 1.1, "axillary": 1.1},
+    BodyPartConstants.PART_LEFT_ARM: {"upper_arm": 1.22, "elbow": 1.08, "forearm": 1.0, "hand": 0.88, "armpit": 1.1, "axillary": 1.1},
+    BodyPartConstants.PART_RIGHT_LEG: {"thigh": 1.2, "knee": 1.1, "calf": 1.0, "foot": 0.88, "inner_thigh": 1.15},
+    BodyPartConstants.PART_LEFT_LEG: {"thigh": 1.2, "knee": 1.1, "calf": 1.0, "foot": 0.88, "inner_thigh": 1.15}
 }
 # Stump wounds: arterial chance multiplier (amputation often involves major vessels).
 const STUMP_ARTERIAL_CHANCE_MULTIPLIER: float = 1.4
@@ -120,23 +122,56 @@ const STUMP_ARTERIAL_CHANCE_MULTIPLIER: float = 1.4
 # blunt, SFA penetrating; scalp STA 80% blunt cephalovascular.
 const SUB_REGION_BLUNT_ARTERIAL_MODIFIERS: Dictionary = {
     BodyPartConstants.PART_HEAD: {"scalp": 0.9, "face": 0.75, "neck": 0.5},
-    BodyPartConstants.PART_CHEST: {"thoracic": 0.5, "abdominal": 0.6},
-    BodyPartConstants.PART_RIGHT_ARM: {"upper_arm": 0.85, "elbow": 0.9, "forearm": 1.0, "hand": 0.9},
-    BodyPartConstants.PART_LEFT_ARM: {"upper_arm": 0.85, "elbow": 0.9, "forearm": 1.0, "hand": 0.9},
-    BodyPartConstants.PART_RIGHT_LEG: {"thigh": 0.6, "knee": 1.25, "calf": 0.9, "foot": 0.9},
-    BodyPartConstants.PART_LEFT_LEG: {"thigh": 0.6, "knee": 1.25, "calf": 0.9, "foot": 0.9}
+    BodyPartConstants.PART_CHEST: {"thoracic": 0.5, "abdominal": 0.6, "sternum": 0.45},
+    BodyPartConstants.PART_RIGHT_ARM: {"upper_arm": 0.85, "elbow": 0.9, "forearm": 1.0, "hand": 0.9, "armpit": 0.7, "axillary": 0.7},
+    BodyPartConstants.PART_LEFT_ARM: {"upper_arm": 0.85, "elbow": 0.9, "forearm": 1.0, "hand": 0.9, "armpit": 0.7, "axillary": 0.7},
+    BodyPartConstants.PART_RIGHT_LEG: {"thigh": 0.6, "knee": 1.25, "calf": 0.9, "foot": 0.9, "inner_thigh": 0.85},
+    BodyPartConstants.PART_LEFT_LEG: {"thigh": 0.6, "knee": 1.25, "calf": 0.9, "foot": 0.9, "inner_thigh": 0.85}
 }
 # Severity modifier per sub-region: effective_damage = damage * mult when mapping to severity (thin tissue = depth
 # reached sooner).
 # Scalp thin over bone; neck less tissue; abdominal soft; elbow/knee less tissue; hand/foot smaller cross-section.
 const SUB_REGION_SEVERITY_MODIFIERS: Dictionary = {
     BodyPartConstants.PART_HEAD: {"scalp": 1.25, "face": 1.1, "neck": 1.15},
-    BodyPartConstants.PART_CHEST: {"thoracic": 1.0, "abdominal": 1.1},
-    BodyPartConstants.PART_RIGHT_ARM: {"upper_arm": 0.95, "elbow": 1.15, "forearm": 1.0, "hand": 1.1},
-    BodyPartConstants.PART_LEFT_ARM: {"upper_arm": 0.95, "elbow": 1.15, "forearm": 1.0, "hand": 1.1},
-    BodyPartConstants.PART_RIGHT_LEG: {"thigh": 0.95, "knee": 1.1, "calf": 1.0, "foot": 1.1},
-    BodyPartConstants.PART_LEFT_LEG: {"thigh": 0.95, "knee": 1.1, "calf": 1.0, "foot": 1.1}
+    BodyPartConstants.PART_CHEST: {"thoracic": 1.0, "abdominal": 1.1, "sternum": 1.20},
+    BodyPartConstants.PART_RIGHT_ARM: {"upper_arm": 0.95, "elbow": 1.15, "forearm": 1.0, "hand": 1.1, "armpit": 1.15, "axillary": 1.15},
+    BodyPartConstants.PART_LEFT_ARM: {"upper_arm": 0.95, "elbow": 1.15, "forearm": 1.0, "hand": 1.1, "armpit": 1.15, "axillary": 1.15},
+    BodyPartConstants.PART_RIGHT_LEG: {"thigh": 0.95, "knee": 1.1, "calf": 1.0, "foot": 1.1, "inner_thigh": 1.05},
+    BodyPartConstants.PART_LEFT_LEG: {"thigh": 0.95, "knee": 1.1, "calf": 1.0, "foot": 1.1, "inner_thigh": 1.05}
 }
+
+# Vital zone damage multipliers — strikes to critical anatomical targets (vital organs, major vessels, brain) deal
+# amplified mechanical damage beyond what tissue depth alone captures. Models clinical reality where a throat cut
+# or sternum strike is disproportionately lethal vs equivalent damage to forearm/thigh. Based on ATLS vital organ
+# zones and HEMA fight-ending strikes to head/chest core/groin.
+## VITAL_DAMAGE_MULTIPLIERS maps (part, sub_region) → multiplier applied AFTER armor penetration but BEFORE bone/tissue allocation.
+const VITAL_DAMAGE_MULTIPLIERS: Dictionary = {
+    ## Head — brain exposure makes any head strike inherently more dangerous than limb strikes at equal damage.
+    BodyPartConstants.PART_HEAD: {
+        "scalp": 1.0,      # thick skull mitigates but hairline fractures can be fatal
+        "face": 1.25,      # facial bones thin; proximity to eyes/brain increases severity
+        "neck": 1.75       # carotid/jugular/trachea — fight-ending zone (Fiore's throat strikes)
+    },
+    ## Chest — thoracic organs (heart, aorta, lungs) and abdominal organs (liver, spleen, intestines).
+    BodyPartConstants.PART_CHEST: {
+        "thoracic": 1.50,  # heart/aorta/lungs exposure; penetrating chest trauma ~25% mortality even with care
+        "abdominal": 1.35, # liver/spleen/GI tract — internal hemorrhage risk (peritoneal cavity)
+        "sternum": 1.80    # direct heart/aortic strike through breastbone — fight-ending zone
+    },
+    ## Arms — no vital organs; standard multiplier for non-vital tissue.
+    BodyPartConstants.PART_RIGHT_ARM: {"upper_arm": 0.9, "elbow": 1.0, "forearm": 0.95, "hand": 0.85, "armpit": 1.25, "axillary": 1.25},
+    BodyPartConstants.PART_LEFT_ARM:  {"upper_arm": 0.9, "elbow": 1.0, "forearm": 0.95, "hand": 0.85, "armpit": 1.25, "axillary": 1.25},
+    ## Legs — femoral artery in thigh is a vital concern; groin sub-region of upper leg is critical.
+    BodyPartConstants.PART_RIGHT_LEG: {"thigh": 1.20, "knee": 1.0, "calf": 0.9, "foot": 0.8, "inner_thigh": 1.50},
+    BodyPartConstants.PART_LEFT_LEG:  {"thigh": 1.20, "knee": 1.0, "calf": 0.9, "foot": 0.8, "inner_thigh": 1.50}
+}
+
+# Groin-specific multiplier — applied when the attack targets the upper inner thigh region which clinically contains
+# the femoral artery and vein in close proximity. A strike here has disproportionate hemorrhage risk even though it's
+# technically on a leg part. Applied as an additional ×1.5 on top of thigh's 1.20 (net = 1.8) for groin-targeted hits.
+## This is not a separate sub-region in the current anatomy model; instead, we check attack_line == "low" + part == leg
+## to approximate groin targeting when the strike lands on upper inner thigh.
+const VITAL_GROIN_MULTIPLIER: float = 1.50
 
 # --- Blood volume (percentage 0 - 100). ATLS: Class I <15% loss, II 15 - 30%, III 30 - 40%, IV >40% (fatal). ---
 ## S6 pilot: literal mL pool on entity (`blood_volume_ml`); `blood_volume` % synced for ATLS/UI. Shipped.
@@ -171,12 +206,17 @@ const PENETRATION_DEPTH_ARTERIAL_DEEP_MULT := 1.12
 
 const MAX_BLOOD_VOLUME: float = 100.0
 # Total bleeding rate — this = blood % lost per second (see docs/LIVE_PATHS.md#bleeding-physics).
-# Forward calibration from clinical TTD: untreated critical arterial hemorrhage → death in 180-300s (TCCC/ATLS).
-# Harness derivation: buffer(70) / (ref_rate * ttd_48s) = 70 / (23.62 * 48) ≈ 0.0617; shipped 0.072 within tolerance.
+# Deliberately FASTER than clinical TTD (untreated critical arterial ~180-300s, TCCC/ATLS): the model targets a
+# 30-120s gameplay band so the medical system creates real urgency. Shipped 0.072 -> ref-bleed TTD ~41s
+# (70 / (23.62 * 0.072)); the clinical 180-300s is a relative-ordering reference only, NOT the calibration target.
 const BLOOD_LOSS_RATE_MULTIPLIER: float = 0.0720
-# Death when remaining blood_volume <= this. 45% remaining = 55% lost (ATLS Class IV; clinical death at >50-55%).
+# Death when remaining blood_volume <= this. 30% remaining = 70% lost. Deliberately more lenient than clinical
+# exsanguination (~40-50% lost is fatal) so the medical system (tourniquet/bandage/pack) can still save a fighter;
+# the consciousness floor (BLOOD_CONSCIOUSNESS_FLOOR_THRESHOLD) carries the near-death weight — a fighter is
+# unconscious well before this threshold, so the extended survival window reads as an agonal phase, not "alert".
 const BLOOD_LOSS_DEATH_THRESHOLD: float = 30.0
-# Critical state (UI/effects) when remaining <= this (Class III - IV border).
+# Critical state (UI/effects) when remaining <= this. 35% remaining = 65% lost (deep Class IV, near death).
+# Aligned with BLOOD_CONSCIOUSNESS_FLOOR_THRESHOLD so the UI "critical" state coincides with the unconsciousness floor.
 const BLOOD_LOSS_CRITICAL_THRESHOLD: float = 35.0
 
 # --- ATLS hemorrhage class (remaining blood %). ATLS 10th ed. loss bands: I <15%, II 15 - 30%, III 31 - 40%, IV >40%.
@@ -186,6 +226,14 @@ const ATLS_CLASS_II_MIN_REMAINING: float = 70.0  # 15 - 30% lost
 const ATLS_CLASS_III_MIN_REMAINING: float = 60.0  # 31 - 40% lost (60% remaining = 40% lost upper bound)
 ## S7: stepped consciousness curve by class (vs single linear ramp). Default on.
 const FEATURE_ATLS_STEPPED_BLOOD_CONSCIOUSNESS: bool = true
+## Stepped consciousness band values (fraction of baseline mentation) for the ATLS curve.
+## Class I top (>=85% remaining): fully oriented.
+const ATLS_CONSC_CLASS_I_TOP: float = 1.0
+## Class II floor (70% remaining, 30% lost): anxious but oriented (ATLS Class II).
+const ATLS_CONSC_CLASS_II_FLOOR: float = 0.96
+## Class III floor / Class IV top (60% remaining, 40% lost): altered mentation (ATLS Class III/IV boundary).
+## Below this the curve drops steeply toward the floor (obtunded/unresponsive) as Class IV progresses to death.
+const ATLS_CONSC_CLASS_III_FLOOR: float = 0.70
 
 # --- Medical triage bands (remaining % volume). Used by MedicalPhaseController AI/urgency. ---
 const MEDICAL_TRIAGE_DANGER_BLOOD_REMAINING: float = 55.0
@@ -376,7 +424,7 @@ const BANDAGE_APPLICATION_TIME_SECONDS: float = 4.0
 const BANDAGE_PER_WOUND_EXTRA_SECONDS: float = 2.0
 
 # --- Combat stabilize (Camp-2.5): fast hemostatic hold; does not replace bandage/pack for map travel ---
-const STABILIZE_APPLICATION_TIME_SECONDS: float = 4.0  # Combat pressure dressing + packing; ~2-5 min under stress (TCCC drill time)
+const STABILIZE_APPLICATION_TIME_SECONDS: float = 4.0  # Quick temporary pressure hold (trims bleed only; NOT a definitive dress). Game-time 4s — a fast interim measure, far shorter than a full TCCC dressing (~2-5 min); the definitive bandage/pack carries the longer time.
 const STABILIZE_PER_WOUND_EXTRA_SECONDS: float = 1.0
 const STABILIZE_SUCCESS_BASE_CHANCE: float = 0.82
 const STABILIZE_SUCCESS_ARTERIAL_MULT: float = 0.72
@@ -410,7 +458,7 @@ const PACKING_PER_WOUND_EXTRA_SECONDS: float = 3.0
 ## (TCCC junctional / penetrating vascular  -  moderate neck/abd can still be arterial in this model).
 const PACKING_STRICT_SUB_REGIONS: Dictionary = {
     BodyPartConstants.PART_HEAD: ["neck"],
-    BodyPartConstants.PART_CHEST: ["abdominal"],
+    BodyPartConstants.PART_CHEST: ["abdominal", "thoracic"],
 }
 const PACKING_STRICT_SUB_REGION_MIN_SEVERITY := SEVERITY_SEVERE
 ## Multi-channel cavity (several sub-regions / deep tracks): harder to pack successfully.
@@ -446,14 +494,17 @@ const PENETRATION_BLEED_MIN_MULT: float = 1.5
 # hemorrhage.
 # Tourniquet indicated when: (1) limb bleeding rate >= this threshold (severe), (2) severed limb (stump), or (3) heavily
 # damaged (severe/critical wounds).
-# Bleeding rate (abstract HP/s) above which tourniquet is appropriate. Severe cut base = 2.25; moderate = 1.2.
+# Bleeding rate (abstract HP/s) above which tourniquet is appropriate. Sits between moderate cut (1.2) and severe
+# cut (4.0) — a moderate bleed is managed with pressure/packing; a severe (arterial-like) bleed warrants a TQ.
 const TOURNIQUET_BLEEDING_RATE_THRESHOLD: float = 2.0
 # Optional: max duration (seconds) before tourniquet should be released to assess limb; 0 = no expiry. Real-world ~2 h
 # risk for limb.
 const TOURNIQUET_MAX_DURATION_SECONDS: float = 0.0  # 0 = no auto-expiry; set e.g. 7200 (2 h) for limb-ischemia risk
 # Time (seconds) to apply a tourniquet (positioning, tightening); action system should delay effect until this duration
 # has passed.
-const TOURNIQUET_APPLICATION_TIME_SECONDS: float = 25.0  # CAT tourniquets: 45-90s under combat stress; historical improvised ligatures took 2-5 min (Kragh et al. Am J Surg 2011)
+# 25s is a deliberate SUB-clinical pacing value: real CAT application is 45-90s under combat stress (Kragh et al.
+# Am J Surg 2011) and improvised ligatures 2-5 min, but the medical phase is compressed to a 30-120s game-time band.
+const TOURNIQUET_APPLICATION_TIME_SECONDS: float = 25.0
 # Success rate: tourniquets can fail if not tight enough or poorly placed. Training/medical skill affects outcome.
 # Research: layperson first-attempt ~50% (CAT with video), some devices 17%; without formal training results poor (e.g.
 # "Missing expectations" windlass study). Trained/CoTCCC much higher.
@@ -553,16 +604,17 @@ static func blood_consciousness_modifier_from_remaining(
         var reduction: float = (linear_start - remaining_pct) / (linear_start - linear_floor) * linear_reduction_max
         return maxf(0.0, 1.0 - reduction)
     # Piecewise within ATLS classes (mild Class II -> marked Class IV toward death threshold).
+    # Class IV (60%->floor) drops steeply to the floor so deep blood loss alone produces unconsciousness.
     if remaining_pct >= ATLS_CLASS_II_MIN_REMAINING:
         return lerpf(
-            0.96,
-            1.0,
+            ATLS_CONSC_CLASS_II_FLOOR,
+            ATLS_CONSC_CLASS_I_TOP,
             (remaining_pct - ATLS_CLASS_II_MIN_REMAINING) / (ATLS_CLASS_I_MIN_REMAINING - ATLS_CLASS_II_MIN_REMAINING)
         )
     if remaining_pct >= ATLS_CLASS_III_MIN_REMAINING:
         return lerpf(
-            0.88,
-            0.96,
+            ATLS_CONSC_CLASS_III_FLOOR,
+            ATLS_CONSC_CLASS_II_FLOOR,
             (
                 (remaining_pct - ATLS_CLASS_III_MIN_REMAINING)
                 / (ATLS_CLASS_II_MIN_REMAINING - ATLS_CLASS_III_MIN_REMAINING)
@@ -570,7 +622,7 @@ static func blood_consciousness_modifier_from_remaining(
         )
     return lerpf(
         maxf(0.0, 1.0 - linear_reduction_max),
-        0.88,
+        ATLS_CONSC_CLASS_III_FLOOR,
         (remaining_pct - linear_floor) / (ATLS_CLASS_III_MIN_REMAINING - linear_floor)
     )
 
@@ -689,3 +741,16 @@ static func get_arterial_chance(
         part_mult = maxf(part_mult, sr_mult)
     return clampf(base_chance * part_mult, 0.0, 1.0)
 
+
+
+## Vital zone damage multiplier - strikes to critical anatomical targets (vital organs, major vessels, brain) deal
+## amplified mechanical damage beyond what tissue depth alone captures. Models clinical reality where a throat cut or
+## sternum strike is disproportionately lethal vs equivalent damage to forearm/thigh. Returns 1.0 for non-vital zones.
+static func get_vital_damage_multiplier(part: String, sub_region: String = "", attack_line: String = "") -> float:
+    var base_mult: float = VITAL_DAMAGE_MULTIPLIERS.get(part, {}).get(sub_region, 1.0)
+    ## Groin targeting: when a low-line strike hits the upper thigh (femoral artery proximity), apply additional multiplier.
+    if part == BodyPartConstants.PART_RIGHT_LEG or part == BodyPartConstants.PART_LEFT_LEG:
+        var is_low_line: bool = attack_line.to_lower().begins_with("low")
+        if sub_region == "thigh" and is_low_line:
+            base_mult *= VITAL_GROIN_MULTIPLIER
+    return base_mult

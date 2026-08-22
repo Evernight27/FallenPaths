@@ -81,9 +81,11 @@ static func estimate_adjacent_rank_pair_duration_s(
         CombatConstants.DRAG_BACK_DURATION_MULT if move_kind == CombatConstants.FORMATION_MOVE_KIND_DRAG_BACK else 1.0
     )
     var duration: float = _agi_scale_s(initiator) * lane_foot * pressure_mod * kind_mult * _armor_mult(initiator, partner)
-    # Muscle fatigue: fatigued legs make formation reposition moves significantly slower.
+    # Muscle fatigue: fatigued legs make formation reposition moves slower. step_speed_mult is a SPEED factor in
+    # [floor, 1.0], so divide the duration by it (duration ∝ 1/speed) — the old multiply inverted this and made
+    # exhausted units reposition FASTER.
     if CombatMuscleFatigue.enabled() and not initiator.is_empty():
-        duration *= CombatMuscleFatigue.formation_movement_weight_mult(initiator, move_kind)
+        duration /= CombatMuscleFatigue.step_speed_mult(initiator, "forward")
     return duration
 
 

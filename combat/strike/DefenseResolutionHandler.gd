@@ -169,7 +169,7 @@ static func _resolve_partial_parry_follow_through(
 	var parry_ratio: float = pa.get(DataKeys.ATTACK_PARRY_REMAINING_RATIO, 1.0)
 	var parry_quality_scale: float = 1.0 - 0.3 * parry_ratio
 	parry_quality_scale = clampf(parry_quality_scale, 0.7, 1.0)
-	var dodge_chance_follow: float = CombatantEntityAccess.get_dodge_chance(tgt)
+	var dodge_chance_follow: float = CombatantEntityAccess.get_dodge_chance(tgt, pa.get(DataKeys.PA_WIND_UP_DURATION, 0.5))
 	var part_follow: String = (
 		BodyPartConstants.get_weighted_random_part(targetable) if not targetable.is_empty() else ""
 	)

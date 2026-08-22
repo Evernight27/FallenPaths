@@ -4,19 +4,23 @@ extends RefCounted
 ## Stamina and exhaustion constants extracted from CombatConstants.gd.
 ## Preload this module when you only need stamina/exhaustion values and helpers.
 const STAMINA_MAX := 100.0
-## ATP-PCr recovery kinetics: half-time ~30 s, full recovery ~5 min (300 s).
-## Exponential refill: dS/dt = k·(MAX - S), where k = ln(2)/30 ≈ 0.0231 → 63% in 30s, 95% in 90s, 99.3% in 300s.
-## Current value (2.5) implied linear refill at ~2.5 HP/s → full recovery in ~40 s, which is physiologically wrong.
-const STAMINA_REFILL_RATE := 0.8  # HP/s at zero stamina — calibrated to reach ~63% of MAX in 30s (ATP-PCr half-time)
-const STAMINA_ATTACK_COST_BASE := 12.0
-const STAMINA_ATTACK_COST_SCALE := 8.0
+## ATP-PCr resynthesis is first-order (exponential): dS/dt = k * (MAX - S), where k = ln(2)/HALF_TIME.
+## HALF_TIME ~30 s matches the fast PCr-recovery phase (the "burst buffer"). This yields a fast initial recovery
+## (~2.3 HP/s when fully depleted) that decays as the pool refills — the realistic "you can swing hard again after
+## a short rest, but the pool tops up slowly" shape. The sustained "gassed" feeling is carried by exhaustion
+## (lowers the burst cap AND slows k) and metabolic stress (slow decay), not by this fast buffer.
+## Applied in CombatStateHandlers.process_waiting as s += k * (cap - s) * delta.
+const STAMINA_REFILL_HALF_TIME_S := 30.0
+const STAMINA_REFILL_RATE := log(2.0) / STAMINA_REFILL_HALF_TIME_S  # ~0.0231 1/s first-order rate constant
+const STAMINA_ATTACK_COST_BASE := 8.0
+const STAMINA_ATTACK_COST_SCALE := 13.0
 const STAMINA_PARRY_COST := 12.0
-const STAMINA_PARRY_COST_BASE := 12.0
-const STAMINA_PARRY_COST_SCALE := 8.0
+const STAMINA_PARRY_COST_BASE := 8.0
+const STAMINA_PARRY_COST_SCALE := 5.0
 ## Dodge stamina cost — footwork step + body reposition burns energy; ~60% of parry to reflect lower mechanical demand
 ## but still meaningful (real fighters cannot evade indefinitely without fatigue).
-const STAMINA_DODGE_COST_BASE := 7.5
-const STAMINA_DODGE_COST_SCALE := 5.0
+const STAMINA_DODGE_COST_BASE := 5.0
+const STAMINA_DODGE_COST_SCALE := 3.0
 const STAMINA_ACTION_READY_DELAY_AT_ZERO_MULT := 1.35
 const PARRY_BIND_RIPOSTE_GAUGE_BONUS := 28.0
 const STAMINA_AT_ZERO_PARRY_MULT := 0.5
@@ -182,14 +186,14 @@ const FATIGUE_VELOCITY_EXHAUSTION_DELAY_S: float = 3.0
 ## Compute the combined stamina + exhaustion → strike velocity degradation factor (1.0 = full speed, lower = slower).
 ## This is applied multiplicatively to base weapon velocity before KE/damage calculation.
 ## `stamina_ratio`: current stamina / max stamina (0-1).
-## `exhaustion_s`: accumulated exhaustion seconds (how long the fighter has been in depleted state).
-static func fatigue_velocity_mult(stamina_ratio: float, exhaustion_s: float = 0.0) -> float:
+## `exhaustion`: accumulated exhaustion as a 0-1 depletion fraction (0 = fresh, 1 = fully exhausted).
+static func fatigue_velocity_mult(stamina_ratio: float, exhaustion: float = 0.0) -> float:
     var st_factor: float = pow(clampf(stamina_ratio, 0.0, 1.0), FATIGUE_VELOCITY_POWER_EXPONENT)
     var vel_from_stamina: float = lerpf(FATIGUE_VELOCITY_FLOOR_AT_ZERO_STAMINA, 1.0, st_factor)
 
-    # Exhaustion adds medium-term degradation after delay — models glycogen depletion timeline.
-    var effective_exhaustion_s: float = maxf(0.0, exhaustion_s - FATIGUE_VELOCITY_EXHAUSTION_DELAY_S)
-    var exh_frac: float = clampf(effective_exhaustion_s / 30.0, 0.0, 1.0)   # ~30s to reach full exhaustion effect
+    # Exhaustion adds medium-term degradation — models glycogen depletion. The exhaustion value is already a
+    # 0-1 depletion fraction that accumulates gradually with sustained exertion, so map it directly onto the floor.
+    var exh_frac: float = clampf(exhaustion, 0.0, 1.0)
     var vel_from_exhaustion: float = lerpf(1.0, FATIGUE_VELOCITY_EXHAUSTION_FLOOR, exh_frac)
 
     return vel_from_stamina * vel_from_exhaustion

@@ -24,7 +24,7 @@ func _init() -> void:
 		_OpsLog.play_combat("HITSPLIT wid=%s rep=%d duration_s=%.1f medical=%s" % [wid, rep, elapsed, "yes" if bool(mgr.medical_phase) else "no"])
 		_print_split(wid, rep, _OpsLog.get_captured_lines())
 		_dump_end_state(mgr)
-		_CombatRegressionHarness._free_manager(mgr)
+		HarnessFixtures._free_manager(mgr)
 	_OpsLog.end_play_session()
 	_OpsLog.set_capture_enabled(false)
 	quit(0)

@@ -17,7 +17,7 @@ func _init() -> void:
 		var elapsed := _drive_fight(mgr)
 		print("STALL_DIAG wid=%s duration_s=%.1f medical=%s" % [wid, elapsed, bool(mgr.medical_phase)])
 		_dump_end_state(mgr)
-		_CombatRegressionHarness._free_manager(mgr)
+		HarnessFixtures._free_manager(mgr)
 	quit(0)
 
 

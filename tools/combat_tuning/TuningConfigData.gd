@@ -347,7 +347,7 @@ static func weapon_sweep_configs(weapon_id: String) -> Array[TuningCombatantConf
 	def.display_name = _sanitize_name("Defender")
 	return [atk, def]
 
-static const TWO_HANDED_WEAPONS: PackedStringArray = ["SPEAR"]
+const TWO_HANDED_WEAPONS: PackedStringArray = ["SPEAR"]
 
 static func _ensure_min_armor(cfg: TuningCombatantConfig, weapon_id: String) -> void:
 	if not weapon_id.to_upper().strip_edges() in TWO_HANDED_WEAPONS:

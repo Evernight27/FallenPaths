@@ -160,42 +160,10 @@ static func apply_decay(combatant: Dictionary, manager: Node, delta: float) -> v
         combatant[DataKeys.BIND_PRESSURE_VALUE] = val
 
 
-## Parry capacity multiplier for defender under attacker's bind pressure.
-## Higher pressure on opponent = lower defense.
-static func defender_parry_cap_mult(target: Dictionary, clock: float) -> float:
-    if target.is_empty():
-        return 1.0
-    var until: float = float(target.get(DataKeys.BIND_PRESSURE_UNTIL, -1.0))
-    if until < 0.0 or clock >= until:
-        return 1.0
-    var val: float = float(target.get(DataKeys.BIND_PRESSURE_VALUE, 0.0))
-    match state_from_pressure(val):
-        "light":
-            return 0.95
-        "medium":
-            return 0.85
-        "hard":
-            return 0.7
-    return 1.0
-
-
-## Dodge chance multiplier for defender under attacker's bind pressure.
-## Being bound makes it harder to step away cleanly.
-static func defender_dodge_chance_mult(target: Dictionary, clock: float) -> float:
-    if target.is_empty():
-        return 1.0
-    var until: float = float(target.get(DataKeys.BIND_PRESSURE_UNTIL, -1.0))
-    if until < 0.0 or clock >= until:
-        return 1.0
-    var val: float = float(target.get(DataKeys.BIND_PRESSURE_VALUE, 0.0))
-    match state_from_pressure(val):
-        "light":
-            return 0.95
-        "medium":
-            return 0.85
-        "hard":
-            return 0.7
-    return 1.0
+## NOTE: `defender_parry_cap_mult` / `defender_dodge_chance_mult` were removed (dead + inverted). Bind pressure is
+## stored on the WINNER of the bind, so reading a combatant's own pressure to reduce THEIR defense was backwards —
+## it would have penalized the binder for their own control. A correct "pressed-defender" penalty needs the
+## opponent's pressure value, which these signatures did not have.
 
 
 ## Contest power multiplier: existing pressure improves bind contest odds.

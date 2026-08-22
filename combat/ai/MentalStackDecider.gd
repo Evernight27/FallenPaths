@@ -234,33 +234,55 @@ static func try_pick(actions: Array, combatant_id: int, manager: Node) -> Dictio
                 )
     # L5 (MS-L7): exhaustion tunnel or critical stamina  -  wait / disengage before salience utility pick.
     # Fight-finish tails skip L5 so listed offense can win via L4b or salience-damped utility pick.
-    if (
-        CombatExhaustion.exhaustion_tunnel_active(c)
-        or CombatantEntityAccess.stamina_ratio(c) < CombatConstants.AI_FLEE_CRITICAL_STAMINA_RATIO
-    ):
+    ## Gradual ramp: disengage preference scales from 0 at tunnel threshold to full at exhausted threshold,
+    ## matching the clinical progression where fighters degrade precision before abandoning engagement entirely.
+    var tunnel_active: bool = CombatExhaustion.exhaustion_tunnel_active(c)
+    var critical_stamina: bool = CombatantEntityAccess.stamina_ratio(c) < CombatConstants.AI_FLEE_CRITICAL_STAMINA_RATIO
+    if tunnel_active or critical_stamina:
         if not CombatDoctrine.fight_finish_tail_active(manager, c, actions, combatant_id):
             var ex: float = CombatantEntityAccess.exhaustion_float(c)
             if CombatDebug.flow_verbose_enabled():
                 var offense_mult: float = CombatExhaustion.exhaustion_offense_weight_mult(c)
                 var zone_label: String = "exhausted"
-                if ex < CombatConstants.MENTAL_STACK_EXHAUSTION_TUNNEL_THRESHOLD:
+                if not tunnel_active:
+                    zone_label = "low_stamina"
+                elif ex < CombatConstants.MENTAL_STACK_EXHAUSTION_TUNNEL_THRESHOLD + 0.15:
                     zone_label = "fatigued"
                 elif ex < CombatConstants.MENTAL_STACK_EXHAUSTION_TUNNEL_EXHAUSTED_THRESHOLD:
                     zone_label = "winded"
                 CombatDebug.flow_log(
                     (
-                        "L5 exhaustion zone=%s ex=%.2f offense_mult=%.3f stamina_ratio=%.2f"
-                        % [zone_label, ex, offense_mult, CombatantEntityAccess.stamina_ratio(c)]
+                        "L5 exhaustion zone=%s ex=%.2f offense_mult=%.3f stamina_ratio=%.2f tunnel=%s crit_stam=%s"
+                        % [zone_label, ex, offense_mult, CombatantEntityAccess.stamina_ratio(c), tunnel_active, critical_stamina]
                     )
                 )
-            var disengage: Array = _filter_exhaustion_disengage_actions(actions, combatant_id, manager, c)
-            if not disengage.is_empty():
-                return _stamp_layer_pick(
-                    c,
-                    CombatConstants.MENTAL_STACK_LAYER_EXHAUSTION,
-                    CombatAIActionPicker.pick_weighted(disengage, combatant_id, manager),
-                    manager
-                )
+            if tunnel_active:
+                ## Scale disengage preference by how far the combatant is into exhaustion — at threshold just barely prefer it,
+                ## at exhausted threshold fully commit. This prevents the binary flip from 0.54→0.55 where behavior jumps
+                ## from "full offense" to "must disengage."
+                var span: float = CombatConstants.MENTAL_STACK_EXHAUSTION_TUNNEL_EXHAUSTED_THRESHOLD - CombatConstants.MENTAL_STACK_EXHAUSTION_TUNNEL_THRESHOLD
+                var tunnel_fraction: float = clampf((ex - CombatConstants.MENTAL_STACK_EXHAUSTION_TUNNEL_THRESHOLD) / span, 0.0, 1.0)
+                ## Only force disengage when tunnel fraction is meaningful (>10% into exhaustion tunnel).
+                ## Below that threshold the offense damp in lower layers handles gradual adaptation.
+                if tunnel_fraction > 0.3:
+                    var disengage: Array = _filter_exhaustion_disengage_actions(actions, combatant_id, manager, c)
+                    if not disengage.is_empty():
+                        return _stamp_layer_pick(
+                            c,
+                            CombatConstants.MENTAL_STACK_LAYER_EXHAUSTION,
+                            CombatAIActionPicker.pick_weighted(disengage, combatant_id, manager),
+                            manager
+                        )
+            elif critical_stamina:
+                ## Critical stamina (no exhaustion): immediate disengage preference since no fatigue memory exists.
+                var disengage: Array = _filter_exhaustion_disengage_actions(actions, combatant_id, manager, c)
+                if not disengage.is_empty():
+                    return _stamp_layer_pick(
+                        c,
+                        CombatConstants.MENTAL_STACK_LAYER_EXHAUSTION,
+                        CombatAIActionPicker.pick_weighted(disengage, combatant_id, manager),
+                        manager
+                    )
     return {}
 
 

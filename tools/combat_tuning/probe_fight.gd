@@ -31,7 +31,7 @@ func _init() -> void:
 			var end_line: String = _soak_end_line(winner, bool(mgr.medical_phase))
 			_OpsLog.play_combat(end_line)
 			_print_rep_stats(wid, rep, elapsed, _OpsLog.get_captured_lines())
-			_CombatRegressionHarness._free_manager(mgr)
+			HarnessFixtures._free_manager(mgr)
 	_OpsLog.end_play_session()
 	_OpsLog.set_capture_enabled(false)
 	quit(0)

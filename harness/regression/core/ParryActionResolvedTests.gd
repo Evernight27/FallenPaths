@@ -340,7 +340,7 @@ static func _run_parry_partial_bind_riposte_flags_when_aligned(failures: PackedS
 
     apply_partial_bind.call(0.0, 0.9, true, "aligned_high_control", false, false)
     # New parry_control curve (alignment^1.8): a thrust at align=1.0 yields ~0.84 control, so 0.65 is a
-    # modest-but-real bind; values below PARRY_BIND_CONTROL_THRESHOLD (0.55) must NOT bind.
+    # modest-but-real bind; values below PARRY_BIND_CONTROL_THRESHOLD (0.48) must NOT bind.
     apply_partial_bind.call(0.0, 0.65, true, "aligned_low_control", false, false)
     apply_partial_bind.call(0.0, 0.45, false, "aligned_sub_threshold", false, false)
     apply_partial_bind.call(90.0, 0.9, false, "misaligned_high_control", false, true)

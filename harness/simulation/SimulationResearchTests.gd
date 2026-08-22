@@ -42,7 +42,7 @@ static func _run_mat_energy_display_bridge(failures: PackedStringArray) -> void:
 static func _run_mat_energy_flag_off_no_entity_fields(failures: PackedStringArray) -> void:
     if BleedingConstants.FEATURE_TISSUE_ENERGY_POOL:
         return
-    var ent: Node = CombatRegressionHarness._new_entity("SWORD")
+    var ent: Node = _new_entity("SWORD")
     if not ent.tissue_energy_capacity_j.is_empty() or not ent.tissue_energy_remaining_j.is_empty():
         SimulationCombatTests._fail(failures, "mat_energy: J pools should be empty when production flag off")
 
@@ -55,7 +55,7 @@ static func _run_mat_energy_entity_j_path_debits_internal(failures: PackedString
     if not BleedingConstants.FEATURE_TISSUE_ENERGY_POOL:
         return
     var part: String = "right_arm"
-    var ent: Node = CombatRegressionHarness._new_entity("SWORD")
+    var ent: Node = _new_entity("SWORD")
     var cap_before: float = float(ent.tissue_energy_capacity_j.get(part, 0.0))
     if cap_before < 1.0:
         cap_before = TissueEnergyCapacity.capacity_j_for_part(
@@ -93,8 +93,8 @@ static func _run_mat_energy_entity_flag_off_matches_display_pools(failures: Pack
     if BleedingConstants.FEATURE_TISSUE_ENERGY_POOL:
         extras["disable_tissue_energy_pool"] = true
         fail_tag = "mat_energy_hp_path"
-    var ent_a: Node = CombatRegressionHarness._new_entity("SWORD")
-    var ent_b: Node = CombatRegressionHarness._new_entity("SWORD")
+    var ent_a: Node = _new_entity("SWORD")
+    var ent_b: Node = _new_entity("SWORD")
     var res_a: Dictionary = ent_a.take_damage_split(5.0, 1.0, part, 3.0, -1.0, -1.0, extras)
     var res_b: Dictionary = ent_b.take_damage_split(5.0, 1.0, part, 3.0, -1.0, -1.0, extras.duplicate())
     for key: String in ["final_cut", "final_blunt", "final_bone"]:

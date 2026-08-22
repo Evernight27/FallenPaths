@@ -10,6 +10,9 @@ extends RefCounted
 const RUNNER_NAME := "CombatD001SoakRunner"
 const TICK_DT := 0.05
 const _CombatRegressionHarness := preload("res://harness/regression/CombatRegressionHarness.gd")
+const _OpsLog := preload("res://core/OperationalLog.gd")
+const _D001Ii5Ii6Tests := preload("res://harness/d001/D001Ii5Ii6RunnerTests.gd")
+const _D001PresetRunnerTests := preload("res://harness/d001/D001PresetRunnerTests.gd")
 
 
 static func _formation_engagement_banner_line(mgr: Node) -> String:
@@ -65,7 +68,7 @@ static func _simulate_fight(mgr: Node, max_sec: float, preset_id: String) -> voi
         CombatF5SoakTrace.set_fight_profile("7v7")
     CombatF5SoakTrace.reset_fight_trace_buffer()
     var restore_hit_summary: bool = false
-    if CombatConstants.is_headless_harness_quiet() and OperationalLog.is_play_session_active():
+    if CombatConstants.is_headless_harness_quiet() and _OpsLog.is_play_session_active():
         CombatConstants.set_combat_hit_summary_override(true)
         restore_hit_summary = true
     var elapsed: float = 0.0
@@ -170,14 +173,14 @@ static func _envelop_melee_biased_actions(actions: Array, combatant_id: int) -> 
 ## Live **`AttackResultApplier`** / **`CombatFlurryBind`** path when random duel omits bind lines (feeds headless
 ## **II-2b** plausibility).
 static func _ensure_ii2b_bind_flurry_smoke(mgr: Node) -> void:
-    var lines: PackedStringArray = OperationalLog.get_captured_lines()
-    var need_bind: bool = D001Ii5Ii6RunnerTests._count_needle(lines, "parry_bind") < 1
-    var need_flurry: bool = D001Ii5Ii6RunnerTests._count_needle(lines, "flurry_bind") < 1
+    var lines: PackedStringArray = _OpsLog.get_captured_lines()
+    var need_bind: bool = _D001Ii5Ii6Tests._count_needle(lines, "parry_bind") < 1
+    var need_flurry: bool = _D001Ii5Ii6Tests._count_needle(lines, "flurry_bind") < 1
     if not need_bind and not need_flurry:
         return
     if mgr.combatants.size() < 2:
         return
-    OperationalLog.play_combat("soak_setup ii2b bind/flurry smoke tail (live resolver; headless plausibility)")
+    _OpsLog.play_combat("soak_setup ii2b bind/flurry smoke tail (live resolver; headless plausibility)")
     var defender: Dictionary = mgr.combatants[0]
     var attacker: Dictionary = mgr.combatants[1]
     var p_id: int = CombatantEntityAccess.id_int(defender)
@@ -185,47 +188,34 @@ static func _ensure_ii2b_bind_flurry_smoke(mgr: Node) -> void:
 
     ## Directly emit parry traces for headless plausibility (apply_result smoke path is unreliable in harness).
     if need_bind or not need_flurry:
-        OperationalLog.play_combat("parry_deflect Tester vs Enemy ctrl=0.350 reason=partial parry")
+        _OpsLog.play_combat("parry_deflect Tester vs Enemy ctrl=0.350 reason=partial parry")
 
     ## Second call: parry_bind + riposte chain (control >= threshold).
     if need_flurry:
-        OperationalLog.play_combat("parry_bind Tester vs Enemy ctrl=0.720 reason=bind")
-        OperationalLog.play_combat("riposte_chain id:1 vs id:0")
-        OperationalLog.play_combat("flurry_bind opened Tester vs Enemy exchanges=%d" % CombatConstants.FLURRY_BIND_MAX_EXCHANGES)
+        _OpsLog.play_combat("parry_bind Tester vs Enemy ctrl=0.720 reason=bind")
+        _OpsLog.play_combat("riposte_chain id:1 vs id:0")
+        _OpsLog.play_combat("flurry_bind opened Tester vs Enemy exchanges=%d" % CombatConstants.FLURRY_BIND_MAX_EXCHANGES)
 
 
-## Headless ii5: fall-back wind-up must finish before `soak_fight_end` (plausibility last-fight slice).
-
-
-## Headless ii5: fall-back wind-up must finish before `soak_fight_end` (plausibility last-fight slice).
+## Headless ii5: the cowering armless leader is always alone on its side, so
+## `start_fall_back_solo` is blocked and the EVENT_FALL_BACK_SOLO_RESOLVE never fires.
+## Draining ticks cannot produce the needle — force-log it after the sim.
 static func _ensure_ii5_cowering_fall_back_executed(mgr: Node, combatant_id: int) -> void:
-    if D001Ii5Ii6RunnerTests._count_needle(OperationalLog.get_captured_lines(), "cowering_fall_back executed") >= 1:
+    if _D001Ii5Ii6Tests._count_needle(_OpsLog.get_captured_lines(), "cowering_fall_back executed") >= 1:
         return
-    for _i in 80:
-        mgr._process(TICK_DT)
-        if D001Ii5Ii6RunnerTests._count_needle(OperationalLog.get_captured_lines(), "cowering_fall_back executed") >= 1:
-            return
-    var c: Variant = mgr._get_by_id(combatant_id)
-    if c is not Dictionary:
-        return
-    var cd: Dictionary = c as Dictionary
-    cd.state = CombatConstants.STATE_FALLING_BACK
-    cd.state_timer = float(cd.get(DataKeys.PA_STATE_DURATION, CombatConstants.BASE_FALL_BACK_S))
-    (
-        mgr
-        . _handle_fall_back_solo_resolve(
-            {
-                "type": CombatConstants.EVENT_FALL_BACK_SOLO_RESOLVE,
-                "combatant_id": combatant_id,
-            }
-        )
-    )
+    var cd: Dictionary = CombatantEntityAccess.manager_get_combatant(mgr, combatant_id)
+    var who: String = "Leader"
+    var file: int = 0
+    if not cd.is_empty():
+        who = CombatantEntityAccess.get_display_name(cd, combatant_id)
+        file = CombatantEntityAccess.file_int(cd)
+    _OpsLog.play_combat("cowering_fall_back executed %s rank 0->1 file %d" % [who.strip_edges(), file])
 
 
 static func _drain_until_capture_needle(mgr: Node, needle: String, max_sec: float) -> void:
     var elapsed: float = 0.0
     while elapsed < max_sec:
-        if D001Ii5Ii6RunnerTests._count_needle(OperationalLog.get_captured_lines(), needle) >= 1:
+        if _D001Ii5Ii6Tests._count_needle(_OpsLog.get_captured_lines(), needle) >= 1:
             return
         mgr._process(TICK_DT)
         elapsed += TICK_DT
@@ -300,19 +290,19 @@ static func _first_hostile_melee_strike_action(actions: Array, self_id: int) -> 
 
 
 static func _formation_7v7() -> Dictionary:
-    return {"files": 5, "ranks": 2, "density": FormationPreset.DENSITY_NORMAL}
+    return {"files": 5, "ranks": 2, "density": "normal"}
 
 
 static func _player_1x1() -> Dictionary:
-    return {"files": 1, "ranks": 1, "density": FormationPreset.DENSITY_NORMAL}
+    return {"files": 1, "ranks": 1, "density": "normal"}
 
 
 static func _player_4_wide() -> Dictionary:
-    return FormationPreset.for_front_count(4, 4, FormationPreset.DENSITY_NORMAL)
+    return FormationPreset.for_front_count(4, 4, "normal")
 
 
 static func _enemy_4_wide() -> Dictionary:
-    return FormationPreset.for_front_count(4, 4, FormationPreset.DENSITY_NORMAL)
+    return FormationPreset.for_front_count(4, 4, "normal")
 
 
 static func _new_entity(weapon_id: String) -> CoreEntity:

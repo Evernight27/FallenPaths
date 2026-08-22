@@ -36,7 +36,7 @@ static func _run_t44_spatial_band_pa_defender_close_gt_long(failures: PackedStri
     var want_close: float = base * CombatConstants.T44_SPATIAL_BAND_PA_MULT_CLOSE
     var want_long: float = base * CombatConstants.T44_SPATIAL_BAND_PA_MULT_LONG
     if absf(close_off - want_close) > 0.01 or absf(long_off - want_long) > 0.01:
-        _CombatRegressionHarness._fail(
+        _fail(
             failures,
             (
                 "t44_spatial_band_pa_defender: close=%.2f long=%.2f want %.2f/%.2f"
@@ -44,7 +44,7 @@ static func _run_t44_spatial_band_pa_defender_close_gt_long(failures: PackedStri
             )
         )
     if absf(close_off) <= absf(long_off) + 0.001:
-        _CombatRegressionHarness._fail(failures, "t44_spatial_band_pa_defender: |close| should exceed |long|")
+        _fail(failures, "t44_spatial_band_pa_defender: |close| should exceed |long|")
     CombatConstants.set_feature_t44_spatial_band_pa_load(saved_t44)
     CombatConstants.set_feature_position_angle_footwork_load(saved_pa)
 
@@ -62,7 +62,7 @@ static func _run_t44_spatial_band_pa_flag_off_parity(failures: PackedStringArray
     CombatFootwork.apply_attack_step_on_windup(atk, "left", 2)
     var off_long: float = float(atk.get(CombatConstants.COMBATANT_KEY_POSITION_ANGLE_OFFSET_DEG, 0.0))
     if absf(off_close - base) > 0.01 or absf(off_long - base) > 0.01:
-        _CombatRegressionHarness._fail(
+        _fail(
             failures, "t44_spatial_band_pa_flag_off: want base %.2f close=%.2f long=%.2f" % [base, off_close, off_long]
         )
     CombatConstants.set_feature_t44_spatial_band_pa_load(saved_t44)
@@ -89,10 +89,10 @@ static func _run_t44_spatial_file_dodge_wing_gt_interior(failures: PackedStringA
         CombatConstants.set_feature_position_angle_footwork_load(saved_pa)
         return
     var mgr: Node = MgrScript.new()
-    mgr.register(_CombatRegressionHarness._new_entity("SWORD"), "player")
-    mgr.register(_CombatRegressionHarness._new_entity("SWORD"), "player")
-    mgr.register(_CombatRegressionHarness._new_entity("SWORD"), "player")
-    mgr.register(_CombatRegressionHarness._new_entity("SWORD"), "enemy")
+    mgr.register(_new_entity("SWORD"), "player")
+    mgr.register(_new_entity("SWORD"), "player")
+    mgr.register(_new_entity("SWORD"), "player")
+    mgr.register(_new_entity("SWORD"), "enemy")
     mgr.start({"files": 3, "ranks": 1}, {"files": 1, "ranks": 1})
     var wing: Dictionary = {}
     var center: Dictionary = {}
@@ -105,10 +105,10 @@ static func _run_t44_spatial_file_dodge_wing_gt_interior(failures: PackedStringA
         elif fi == 1:
             center = c
     if wing.is_empty() or center.is_empty():
-        _CombatRegressionHarness._fail(failures, "t44_file_dodge: missing wing/center fixtures")
+        _fail(failures, "t44_file_dodge: missing wing/center fixtures")
         CombatConstants.set_feature_t44_spatial_file_dodge_bias_load(saved_file)
         CombatConstants.set_feature_position_angle_footwork_load(saved_pa)
-        _CombatRegressionHarness._free_manager(mgr)
+        HarnessFixtures._free_manager(mgr)
         return
     CombatFootwork.apply_defender_step_on_dodge(wing, "left_arm", -1, mgr)
     var wing_off: float = float(wing.get(CombatConstants.COMBATANT_KEY_POSITION_ANGLE_OFFSET_DEG, 0.0))
@@ -116,11 +116,11 @@ static func _run_t44_spatial_file_dodge_wing_gt_interior(failures: PackedStringA
     var center_off: float = float(center.get(CombatConstants.COMBATANT_KEY_POSITION_ANGLE_OFFSET_DEG, 0.0))
     var want_wing: float = base * CombatConstants.T44_SPATIAL_FILE_DODGE_WING_MULT
     if absf(wing_off - want_wing) > 0.01:
-        _CombatRegressionHarness._fail(failures, "t44_file_dodge: wing want %.2f got %.2f" % [want_wing, wing_off])
+        _fail(failures, "t44_file_dodge: wing want %.2f got %.2f" % [want_wing, wing_off])
     if absf(center_off - base) > 0.01:
-        _CombatRegressionHarness._fail(failures, "t44_file_dodge: center want %.2f got %.2f" % [base, center_off])
+        _fail(failures, "t44_file_dodge: center want %.2f got %.2f" % [base, center_off])
     if absf(wing_off) <= absf(center_off) + 0.001:
-        _CombatRegressionHarness._fail(failures, "t44_file_dodge: |wing| should exceed |center|")
+        _fail(failures, "t44_file_dodge: |wing| should exceed |center|")
     var right_wing: Dictionary = {}
     for c in mgr.combatants:
         if not CombatantEntityAccess.is_living_on_side(c, "player"):
@@ -129,12 +129,12 @@ static func _run_t44_spatial_file_dodge_wing_gt_interior(failures: PackedStringA
             right_wing = c
             break
     if right_wing.is_empty():
-        _CombatRegressionHarness._fail(failures, "t44_file_dodge: missing right-wing fixture")
+        _fail(failures, "t44_file_dodge: missing right-wing fixture")
     else:
         CombatFootwork.apply_defender_step_on_dodge(right_wing, "left_arm", -1, mgr)
         var rw_off: float = float(right_wing.get(CombatConstants.COMBATANT_KEY_POSITION_ANGLE_OFFSET_DEG, 0.0))
         if absf(rw_off - want_wing) > 0.01:
-            _CombatRegressionHarness._fail(
+            _fail(
                 failures, "t44_file_dodge: right wing want %.2f got %.2f" % [want_wing, rw_off]
             )
     CombatFootwork.apply_defender_step_on_parry(wing, "left", -1)
@@ -142,12 +142,12 @@ static func _run_t44_spatial_file_dodge_wing_gt_interior(failures: PackedStringA
     CombatFootwork.apply_defender_step_on_parry(center, "left", -1)
     var center_parry: float = float(center.get(CombatConstants.COMBATANT_KEY_POSITION_ANGLE_OFFSET_DEG, 0.0))
     if absf(wing_parry - center_parry) > 0.01:
-        _CombatRegressionHarness._fail(
+        _fail(
             failures, "t44_file_dodge: parry must not differ wing=%.2f center=%.2f" % [wing_parry, center_parry]
         )
     CombatConstants.set_feature_t44_spatial_file_dodge_bias_load(saved_file)
     CombatConstants.set_feature_position_angle_footwork_load(saved_pa)
-    _CombatRegressionHarness._free_manager(mgr)
+    HarnessFixtures._free_manager(mgr)
 
 
 ## Tier 4.4 spatial slice 2: **`dodge_eval_step_deg_for_defender`** matches dodge stamp on wing file.
@@ -160,10 +160,10 @@ static func _run_t44_spatial_file_dodge_eval_parity(failures: PackedStringArray)
     CombatConstants.set_feature_position_angle_footwork_load(true)
     CombatConstants.set_feature_t44_spatial_file_dodge_bias_load(true)
     var mgr: Node = MgrScript.new()
-    mgr.register(_CombatRegressionHarness._new_entity("SWORD"), "player")
-    mgr.register(_CombatRegressionHarness._new_entity("SWORD"), "player")
-    mgr.register(_CombatRegressionHarness._new_entity("SWORD"), "player")
-    mgr.register(_CombatRegressionHarness._new_entity("SWORD"), "enemy")
+    mgr.register(_new_entity("SWORD"), "player")
+    mgr.register(_new_entity("SWORD"), "player")
+    mgr.register(_new_entity("SWORD"), "player")
+    mgr.register(_new_entity("SWORD"), "enemy")
     mgr.start({"files": 3, "ranks": 1}, {"files": 1, "ranks": 1})
     var wing: Dictionary = {}
     for c in mgr.combatants:
@@ -171,18 +171,18 @@ static func _run_t44_spatial_file_dodge_eval_parity(failures: PackedStringArray)
             wing = c
             break
     if wing.is_empty():
-        _CombatRegressionHarness._fail(failures, "t44_file_dodge_eval: missing wing fixture")
+        _fail(failures, "t44_file_dodge_eval: missing wing fixture")
     else:
         var eval_deg: float = CombatFootwork.dodge_eval_step_deg_for_defender(wing, "left_arm", -1, mgr)
         CombatFootwork.apply_defender_step_on_dodge(wing, "left_arm", -1, mgr)
         var stamp_deg: float = float(wing.get(CombatConstants.COMBATANT_KEY_POSITION_ANGLE_OFFSET_DEG, 0.0))
         if absf(eval_deg - stamp_deg) > 0.01:
-            _CombatRegressionHarness._fail(
+            _fail(
                 failures, "t44_file_dodge_eval: want parity eval=%.2f stamp=%.2f" % [eval_deg, stamp_deg]
             )
     CombatConstants.set_feature_t44_spatial_file_dodge_bias_load(saved_file)
     CombatConstants.set_feature_position_angle_footwork_load(saved_pa)
-    _CombatRegressionHarness._free_manager(mgr)
+    HarnessFixtures._free_manager(mgr)
 
 
 static func _run_t44_spatial_file_dodge_flag_off_parity(failures: PackedStringArray) -> void:
@@ -194,9 +194,9 @@ static func _run_t44_spatial_file_dodge_flag_off_parity(failures: PackedStringAr
         "left", CombatConstants.POSITION_ANGLE_DEFENDER_OFFSET_SCALE_DODGE
     )
     var mgr: Node = MgrScript.new()
-    mgr.register(_CombatRegressionHarness._new_entity("SWORD"), "player")
-    mgr.register(_CombatRegressionHarness._new_entity("SWORD"), "player")
-    mgr.register(_CombatRegressionHarness._new_entity("SWORD"), "enemy")
+    mgr.register(_new_entity("SWORD"), "player")
+    mgr.register(_new_entity("SWORD"), "player")
+    mgr.register(_new_entity("SWORD"), "enemy")
     mgr.start({"files": 3, "ranks": 1}, {"files": 1, "ranks": 1})
     var wing: Dictionary = {}
     for c in mgr.combatants:
@@ -207,15 +207,15 @@ static func _run_t44_spatial_file_dodge_flag_off_parity(failures: PackedStringAr
     var off: float = float(wing.get(CombatConstants.COMBATANT_KEY_POSITION_ANGLE_OFFSET_DEG, 0.0))
     CombatConstants.set_feature_t44_spatial_file_dodge_bias_load(saved_file)
     CombatConstants.set_feature_position_angle_footwork_load(saved_pa)
-    _CombatRegressionHarness._free_manager(mgr)
+    HarnessFixtures._free_manager(mgr)
     if absf(off - base) > 0.01:
-        _CombatRegressionHarness._fail(failures, "t44_file_dodge_off: flag off want base %.2f got %.2f" % [base, off])
+        _fail(failures, "t44_file_dodge_off: flag off want base %.2f got %.2f" % [base, off])
 
 
 static func _run_t44_spatial_file_dodge_suite(failures: PackedStringArray) -> void:
     var sync_line: String = CombatConstants.t44_spatial_file_dodge_doc_sync_line()
     if sync_line.is_empty() or "slice2=wing_file_dodge_step_bias" not in sync_line:
-        _CombatRegressionHarness._fail(failures, "t44_file_dodge: bad doc_sync_line %s" % sync_line)
+        _fail(failures, "t44_file_dodge: bad doc_sync_line %s" % sync_line)
     AttentionFootworkSpatialT44Tests._run_t44_spatial_file_dodge_wing_gt_interior(failures)
     AttentionFootworkSpatialT44Tests._run_t44_spatial_file_dodge_eval_parity(failures)
     AttentionFootworkSpatialT44Tests._run_t44_spatial_file_dodge_flag_off_parity(failures)
@@ -238,8 +238,8 @@ static func _run_t44_spatial_flurry_pa_bind_boost(failures: PackedStringArray) -
         AttentionFootworkAttentionLoadTests._t44_harness_restore_flurry_bind(saved_bind)
         return
     var mgr: Node = MgrScript.new()
-    mgr.register(_CombatRegressionHarness._new_entity("SWORD"), "player")
-    mgr.register(_CombatRegressionHarness._new_entity("SWORD"), "enemy")
+    mgr.register(_new_entity("SWORD"), "player")
+    mgr.register(_new_entity("SWORD"), "enemy")
     mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
     var atk: Dictionary = mgr.combatants[0]
     var def_id: int = CombatantEntityAccess.id_int(mgr.combatants[1])
@@ -250,11 +250,11 @@ static func _run_t44_spatial_flurry_pa_bind_boost(failures: PackedStringArray) -
     var got: float = float(atk.get(CombatConstants.COMBATANT_KEY_POSITION_ANGLE_OFFSET_DEG, 0.0))
     var want: float = base * CombatConstants.T44_SPATIAL_FLURRY_PA_MULT
     if absf(got - want) > 0.02:
-        _CombatRegressionHarness._fail(failures, "t44_flurry_pa: bind boost want %.2f got %.2f" % [want, got])
+        _fail(failures, "t44_flurry_pa: bind boost want %.2f got %.2f" % [want, got])
     CombatConstants.set_feature_t44_spatial_flurry_pa_load(saved_flurry)
     CombatConstants.set_feature_position_angle_footwork_load(saved_pa)
     AttentionFootworkAttentionLoadTests._t44_harness_restore_flurry_bind(saved_bind)
-    _CombatRegressionHarness._free_manager(mgr)
+    HarnessFixtures._free_manager(mgr)
 
 
 ## Tier 4.4 spatial slice 3: flurry window open but flag off -> base PA only.
@@ -274,8 +274,8 @@ static func _run_t44_spatial_flurry_pa_flag_off_parity(failures: PackedStringArr
         AttentionFootworkAttentionLoadTests._t44_harness_restore_flurry_bind(saved_bind)
         return
     var mgr: Node = MgrScript.new()
-    mgr.register(_CombatRegressionHarness._new_entity("SWORD"), "player")
-    mgr.register(_CombatRegressionHarness._new_entity("SWORD"), "enemy")
+    mgr.register(_new_entity("SWORD"), "player")
+    mgr.register(_new_entity("SWORD"), "enemy")
     mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
     var atk: Dictionary = mgr.combatants[0]
     var def_id: int = CombatantEntityAccess.id_int(mgr.combatants[1])
@@ -285,9 +285,9 @@ static func _run_t44_spatial_flurry_pa_flag_off_parity(failures: PackedStringArr
     CombatConstants.set_feature_t44_spatial_flurry_pa_load(saved_flurry)
     CombatConstants.set_feature_position_angle_footwork_load(saved_pa)
     AttentionFootworkAttentionLoadTests._t44_harness_restore_flurry_bind(saved_bind)
-    _CombatRegressionHarness._free_manager(mgr)
+    HarnessFixtures._free_manager(mgr)
     if absf(got - base) > 0.02:
-        _CombatRegressionHarness._fail(failures, "t44_flurry_pa_off: want base %.2f got %.2f" % [base, got])
+        _fail(failures, "t44_flurry_pa_off: want base %.2f got %.2f" % [base, got])
 
 
 static func _run_t44_spatial_flurry_pa_parry_eval_parity(failures: PackedStringArray) -> void:
@@ -297,8 +297,8 @@ static func _run_t44_spatial_flurry_pa_parry_eval_parity(failures: PackedStringA
     CombatConstants.set_feature_position_angle_footwork_load(true)
     CombatConstants.set_feature_t44_spatial_flurry_pa_load(true)
     var mgr: Node = MgrScript.new()
-    mgr.register(_CombatRegressionHarness._new_entity("SWORD"), "player")
-    mgr.register(_CombatRegressionHarness._new_entity("SWORD"), "enemy")
+    mgr.register(_new_entity("SWORD"), "player")
+    mgr.register(_new_entity("SWORD"), "enemy")
     mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
     var def: Dictionary = mgr.combatants[1]
     var atk_id: int = CombatantEntityAccess.id_int(mgr.combatants[0])
@@ -308,13 +308,13 @@ static func _run_t44_spatial_flurry_pa_parry_eval_parity(failures: PackedStringA
     CombatFootwork.apply_defender_step_on_parry(def, "left", atk_id, mgr)
     var stamp_deg: float = float(def.get(CombatConstants.COMBATANT_KEY_POSITION_ANGLE_OFFSET_DEG, 0.0))
     if absf(eval_deg - stamp_deg) > 0.01:
-        _CombatRegressionHarness._fail(
+        _fail(
             failures, "t44_flurry_pa: parry_eval want stamp parity eval=%.2f stamp=%.2f" % [eval_deg, stamp_deg]
         )
     CombatConstants.set_feature_t44_spatial_flurry_pa_load(saved_flurry)
     CombatConstants.set_feature_position_angle_footwork_load(saved_pa)
     AttentionFootworkAttentionLoadTests._t44_harness_restore_flurry_bind(saved_bind)
-    _CombatRegressionHarness._free_manager(mgr)
+    HarnessFixtures._free_manager(mgr)
 
 
 ## Tier 4.4 spatial slice 3: flurry bind  -  **`dodge_eval_step_deg_for_defender`** matches dodge stamp.
@@ -328,8 +328,8 @@ static func _run_t44_spatial_flurry_pa_dodge_eval_parity(failures: PackedStringA
     CombatConstants.set_feature_position_angle_footwork_load(true)
     CombatConstants.set_feature_t44_spatial_flurry_pa_load(true)
     var mgr: Node = MgrScript.new()
-    mgr.register(_CombatRegressionHarness._new_entity("SWORD"), "player")
-    mgr.register(_CombatRegressionHarness._new_entity("SWORD"), "enemy")
+    mgr.register(_new_entity("SWORD"), "player")
+    mgr.register(_new_entity("SWORD"), "enemy")
     mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
     var def: Dictionary = mgr.combatants[1]
     var atk_id: int = CombatantEntityAccess.id_int(mgr.combatants[0])
@@ -338,13 +338,13 @@ static func _run_t44_spatial_flurry_pa_dodge_eval_parity(failures: PackedStringA
     CombatFootwork.apply_defender_step_on_dodge(def, "left_arm", atk_id, mgr)
     var stamp_deg: float = float(def.get(CombatConstants.COMBATANT_KEY_POSITION_ANGLE_OFFSET_DEG, 0.0))
     if absf(eval_deg - stamp_deg) > 0.01:
-        _CombatRegressionHarness._fail(
+        _fail(
             failures, "t44_flurry_pa: dodge_eval want stamp parity eval=%.2f stamp=%.2f" % [eval_deg, stamp_deg]
         )
     CombatConstants.set_feature_t44_spatial_flurry_pa_load(saved_flurry)
     CombatConstants.set_feature_position_angle_footwork_load(saved_pa)
     AttentionFootworkAttentionLoadTests._t44_harness_restore_flurry_bind(saved_bind)
-    _CombatRegressionHarness._free_manager(mgr)
+    HarnessFixtures._free_manager(mgr)
 
 
 ## Tier 4.4 spatial slice 3: flurry bind  -  **`attack_eval_step_deg_for_attacker`** matches wind-up stamp.
@@ -364,8 +364,8 @@ static func _run_t44_spatial_flurry_pa_attack_eval_parity(failures: PackedString
         AttentionFootworkAttentionLoadTests._t44_harness_restore_flurry_bind(saved_bind)
         return
     var mgr: Node = MgrScript.new()
-    mgr.register(_CombatRegressionHarness._new_entity("SWORD"), "player")
-    mgr.register(_CombatRegressionHarness._new_entity("SWORD"), "enemy")
+    mgr.register(_new_entity("SWORD"), "player")
+    mgr.register(_new_entity("SWORD"), "enemy")
     mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
     var atk: Dictionary = mgr.combatants[0]
     var def_id: int = CombatantEntityAccess.id_int(mgr.combatants[1])
@@ -375,20 +375,20 @@ static func _run_t44_spatial_flurry_pa_attack_eval_parity(failures: PackedString
     var stamp_deg: float = float(atk.get(CombatConstants.COMBATANT_KEY_POSITION_ANGLE_OFFSET_DEG, 0.0))
     var want: float = base * CombatConstants.T44_SPATIAL_FLURRY_PA_MULT
     if absf(eval_deg - stamp_deg) > 0.01 or absf(stamp_deg - want) > 0.02:
-        _CombatRegressionHarness._fail(
+        _fail(
             failures,
             "t44_flurry_pa: attack_eval want parity eval=%.2f stamp=%.2f want=%.2f" % [eval_deg, stamp_deg, want]
         )
     CombatConstants.set_feature_t44_spatial_flurry_pa_load(saved_flurry)
     CombatConstants.set_feature_position_angle_footwork_load(saved_pa)
     AttentionFootworkAttentionLoadTests._t44_harness_restore_flurry_bind(saved_bind)
-    _CombatRegressionHarness._free_manager(mgr)
+    HarnessFixtures._free_manager(mgr)
 
 
 static func _run_t44_spatial_flurry_pa_suite(failures: PackedStringArray) -> void:
     var sync_line: String = CombatConstants.t44_spatial_flurry_pa_doc_sync_line()
     if sync_line.is_empty() or "slice3=flurry_bind_pa_boost" not in sync_line:
-        _CombatRegressionHarness._fail(failures, "t44_flurry_pa: bad doc_sync_line %s" % sync_line)
+        _fail(failures, "t44_flurry_pa: bad doc_sync_line %s" % sync_line)
     AttentionFootworkSpatialT44Tests._run_t44_spatial_flurry_pa_bind_boost(failures)
     AttentionFootworkSpatialT44Tests._run_t44_spatial_flurry_pa_attack_eval_parity(failures)
     AttentionFootworkSpatialT44Tests._run_t44_spatial_flurry_pa_parry_eval_parity(failures)
@@ -411,7 +411,7 @@ static func _run_t44_spatial_band_pa_parry_eval_parity(failures: PackedStringArr
     CombatConstants.set_feature_t44_spatial_band_pa_load(saved_band)
     CombatConstants.set_feature_position_angle_footwork_load(saved_pa)
     if absf(eval_deg - stamp_deg) > 0.01:
-        _CombatRegressionHarness._fail(
+        _fail(
             failures, "t44_band_pa: parry_eval want stamp parity eval=%.2f stamp=%.2f" % [eval_deg, stamp_deg]
         )
 
@@ -432,10 +432,10 @@ static func _run_t44_spatial_stacked_band_file_dodge(failures: PackedStringArray
         CombatConstants.set_feature_position_angle_footwork_load(saved_pa)
         return
     var mgr: Node = MgrScript.new()
-    mgr.register(_CombatRegressionHarness._new_entity("SWORD"), "player")
-    mgr.register(_CombatRegressionHarness._new_entity("SWORD"), "player")
-    mgr.register(_CombatRegressionHarness._new_entity("SWORD"), "player")
-    mgr.register(_CombatRegressionHarness._new_entity("SWORD"), "enemy")
+    mgr.register(_new_entity("SWORD"), "player")
+    mgr.register(_new_entity("SWORD"), "player")
+    mgr.register(_new_entity("SWORD"), "player")
+    mgr.register(_new_entity("SWORD"), "enemy")
     mgr.start({"files": 3, "ranks": 1}, {"files": 1, "ranks": 1})
     var wing: Dictionary = {}
     var atk_id: int = CombatantEntityAccess.id_int(mgr.combatants[3])
@@ -444,7 +444,7 @@ static func _run_t44_spatial_stacked_band_file_dodge(failures: PackedStringArray
             wing = c
             break
     if wing.is_empty():
-        _CombatRegressionHarness._fail(failures, "t44_stacked: missing wing fixture")
+        _fail(failures, "t44_stacked: missing wing fixture")
     else:
         wing["distance_to"] = {atk_id: CombatConstants.DISTANCE_CLOSE}
         CombatFootwork.apply_defender_step_on_dodge(wing, "left_arm", atk_id, mgr)
@@ -453,11 +453,11 @@ static func _run_t44_spatial_stacked_band_file_dodge(failures: PackedStringArray
             base * CombatConstants.T44_SPATIAL_BAND_PA_MULT_CLOSE * CombatConstants.T44_SPATIAL_FILE_DODGE_WING_MULT
         )
         if absf(got - want) > 0.02:
-            _CombatRegressionHarness._fail(failures, "t44_stacked: want %.2f got %.2f (close+wing)" % [want, got])
+            _fail(failures, "t44_stacked: want %.2f got %.2f (close+wing)" % [want, got])
     CombatConstants.set_feature_t44_spatial_file_dodge_bias_load(saved_file)
     CombatConstants.set_feature_t44_spatial_band_pa_load(saved_band)
     CombatConstants.set_feature_position_angle_footwork_load(saved_pa)
-    _CombatRegressionHarness._free_manager(mgr)
+    HarnessFixtures._free_manager(mgr)
 
 
 static func _run_t44_spatial_band_pa_attacker_eval_parity(failures: PackedStringArray) -> void:
@@ -476,7 +476,7 @@ static func _run_t44_spatial_band_pa_attacker_eval_parity(failures: PackedString
     var stamp_deg: float = float(atk.get(CombatConstants.COMBATANT_KEY_POSITION_ANGLE_OFFSET_DEG, 0.0))
     var want: float = base * CombatConstants.T44_SPATIAL_BAND_PA_MULT_CLOSE
     if absf(eval_deg - stamp_deg) > 0.01 or absf(stamp_deg - want) > 0.02:
-        _CombatRegressionHarness._fail(
+        _fail(
             failures,
             "t44_band_pa: attacker_eval want parity eval=%.2f stamp=%.2f want=%.2f" % [eval_deg, stamp_deg, want]
         )
@@ -502,8 +502,8 @@ static func _run_t44_spatial_stacked_band_flurry_dodge(failures: PackedStringArr
         AttentionFootworkAttentionLoadTests._t44_harness_restore_flurry_bind(saved_bind)
         return
     var mgr: Node = MgrScript.new()
-    mgr.register(_CombatRegressionHarness._new_entity("SWORD"), "player")
-    mgr.register(_CombatRegressionHarness._new_entity("SWORD"), "enemy")
+    mgr.register(_new_entity("SWORD"), "player")
+    mgr.register(_new_entity("SWORD"), "enemy")
     mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
     var def: Dictionary = mgr.combatants[1]
     var atk_id: int = CombatantEntityAccess.id_int(mgr.combatants[0])
@@ -513,14 +513,14 @@ static func _run_t44_spatial_stacked_band_flurry_dodge(failures: PackedStringArr
     var got: float = float(def.get(CombatConstants.COMBATANT_KEY_POSITION_ANGLE_OFFSET_DEG, 0.0))
     var want: float = base * CombatConstants.T44_SPATIAL_BAND_PA_MULT_CLOSE * CombatConstants.T44_SPATIAL_FLURRY_PA_MULT
     if absf(got - want) > 0.02:
-        _CombatRegressionHarness._fail(
+        _fail(
             failures, "t44_stacked_flurry: want %.2f got %.2f (close+flurry dodge)" % [want, got]
         )
     CombatConstants.set_feature_t44_spatial_flurry_pa_load(saved_flurry)
     CombatConstants.set_feature_t44_spatial_band_pa_load(saved_band)
     CombatConstants.set_feature_position_angle_footwork_load(saved_pa)
     AttentionFootworkAttentionLoadTests._t44_harness_restore_flurry_bind(saved_bind)
-    _CombatRegressionHarness._free_manager(mgr)
+    HarnessFixtures._free_manager(mgr)
 
 
 ## Tier 4.4 spatial: band + wing file + flurry stack on dodge stamp.
@@ -548,10 +548,10 @@ static func _run_t44_spatial_stacked_band_file_flurry_dodge(failures: PackedStri
         AttentionFootworkAttentionLoadTests._t44_harness_restore_flurry_bind(saved_bind)
         return
     var mgr: Node = MgrScript.new()
-    mgr.register(_CombatRegressionHarness._new_entity("SWORD"), "player")
-    mgr.register(_CombatRegressionHarness._new_entity("SWORD"), "player")
-    mgr.register(_CombatRegressionHarness._new_entity("SWORD"), "player")
-    mgr.register(_CombatRegressionHarness._new_entity("SWORD"), "enemy")
+    mgr.register(_new_entity("SWORD"), "player")
+    mgr.register(_new_entity("SWORD"), "player")
+    mgr.register(_new_entity("SWORD"), "player")
+    mgr.register(_new_entity("SWORD"), "enemy")
     mgr.start({"files": 3, "ranks": 1}, {"files": 1, "ranks": 1})
     var wing: Dictionary = {}
     var atk_id: int = CombatantEntityAccess.id_int(mgr.combatants[3])
@@ -560,7 +560,7 @@ static func _run_t44_spatial_stacked_band_file_flurry_dodge(failures: PackedStri
             wing = c
             break
     if wing.is_empty():
-        _CombatRegressionHarness._fail(failures, "t44_stacked_all: missing wing fixture")
+        _fail(failures, "t44_stacked_all: missing wing fixture")
     else:
         wing["distance_to"] = {atk_id: CombatConstants.DISTANCE_CLOSE}
         CombatFlurryBind.open_window(mgr, CombatantEntityAccess.id_int(wing), atk_id)
@@ -573,7 +573,7 @@ static func _run_t44_spatial_stacked_band_file_flurry_dodge(failures: PackedStri
             * CombatConstants.T44_SPATIAL_FLURRY_PA_MULT
         )
         if absf(got - want) > 0.03:
-            _CombatRegressionHarness._fail(
+            _fail(
                 failures, "t44_stacked_all: want %.2f got %.2f (close+wing+flurry)" % [want, got]
             )
     CombatConstants.set_feature_t44_spatial_flurry_pa_load(saved_flurry)
@@ -581,13 +581,13 @@ static func _run_t44_spatial_stacked_band_file_flurry_dodge(failures: PackedStri
     CombatConstants.set_feature_t44_spatial_band_pa_load(saved_band)
     CombatConstants.set_feature_position_angle_footwork_load(saved_pa)
     AttentionFootworkAttentionLoadTests._t44_harness_restore_flurry_bind(saved_bind)
-    _CombatRegressionHarness._free_manager(mgr)
+    HarnessFixtures._free_manager(mgr)
 
 
 static func _run_t44_spatial_band_pa_suite(failures: PackedStringArray) -> void:
     var sync_line: String = CombatConstants.t44_spatial_band_pa_doc_sync_line()
     if sync_line.is_empty():
-        _CombatRegressionHarness._fail(failures, "t44_spatial_band_pa: empty doc_sync_line")
+        _fail(failures, "t44_spatial_band_pa: empty doc_sync_line")
     AttentionFootworkFocusLineFootworkPickerTests._run_t44_spatial_band_pa_attacker_close_gt_long(failures)
     AttentionFootworkSpatialT44Tests._run_t44_spatial_band_pa_attacker_eval_parity(failures)
     AttentionFootworkSpatialT44Tests._run_t44_spatial_band_pa_defender_close_gt_long(failures)
@@ -634,7 +634,7 @@ static func _run_footwork_attack_angle_includes_octant_windup(failures: PackedSt
     var step: float = CombatConstants.position_angle_offset_deg_for_attack_line(line)
     var want: float = fmod(base_deg + step + 360.0, 360.0)
     if absf(shifted - want) > 0.05:
-        _CombatRegressionHarness._fail(
+        _fail(
             failures,
             (
                 "footwork_attack_angle_octant: high_right want %.2f got %.2f (base=%.2f step=%.2f)"
@@ -653,7 +653,7 @@ static func _run_footwork_defender_parry_step_stamps_offset(failures: PackedStri
         "left", CombatConstants.POSITION_ANGLE_DEFENDER_OFFSET_SCALE_PARRY
     )
     if absf(off - want) > 0.01:
-        _CombatRegressionHarness._fail(failures, "footwork_def_parry: want %.2f got %.2f" % [want, off])
+        _fail(failures, "footwork_def_parry: want %.2f got %.2f" % [want, off])
 
 
 ## Tier 4.4.2: defender offset rotates effective guard angle for alignment.
@@ -683,7 +683,7 @@ static func _run_footwork_defender_offset_shifts_guard_angle_deg(failures: Packe
         360.0
     )
     if absf(shifted - want) > 0.05:
-        _CombatRegressionHarness._fail(failures, "footwork_def_guard: want %.2f got %.2f" % [want, shifted])
+        _fail(failures, "footwork_def_guard: want %.2f got %.2f" % [want, shifted])
 
 
 ## Tier 4.4.2: dodge stamps larger scaled offset from eval part line.
@@ -700,7 +700,7 @@ static func _run_footwork_defender_dodge_step_stamps_offset(failures: PackedStri
         "left", CombatConstants.POSITION_ANGLE_DEFENDER_OFFSET_SCALE_DODGE
     )
     if absf(off - want) > 0.01:
-        _CombatRegressionHarness._fail(failures, "footwork_def_dodge: want %.2f got %.2f" % [want, off])
+        _fail(failures, "footwork_def_dodge: want %.2f got %.2f" % [want, off])
 
 
 ## Tier 4.4.2: exchange end clears defender offset (dodge applier path).
@@ -710,8 +710,8 @@ static func _run_footwork_defender_dodge_step_stamps_offset(failures: PackedStri
 static func _run_footwork_defender_offset_scrubbed_after_exchange(failures: PackedStringArray) -> void:
     CombatConstants.set_feature_position_angle_footwork_load(true)
     var mgr: Node = MgrScript.new()
-    mgr.register(_CombatRegressionHarness._new_entity("SWORD"), "player")
-    mgr.register(_CombatRegressionHarness._new_entity("SWORD"), "enemy")
+    mgr.register(_new_entity("SWORD"), "player")
+    mgr.register(_new_entity("SWORD"), "enemy")
     var atk: Dictionary = mgr.combatants[0]
     var def: Dictionary = mgr.combatants[1]
     def[CombatConstants.COMBATANT_KEY_POSITION_ANGLE_OFFSET_DEG] = 9.0
@@ -724,9 +724,9 @@ static func _run_footwork_defender_offset_scrubbed_after_exchange(failures: Pack
         )
     )
     if def.has(CombatConstants.COMBATANT_KEY_POSITION_ANGLE_OFFSET_DEG):
-        _CombatRegressionHarness._fail(failures, "footwork_def_scrub: defender offset should clear after dodge")
+        _fail(failures, "footwork_def_scrub: defender offset should clear after dodge")
     CombatConstants.set_feature_position_angle_footwork_load(true)
-    _CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+    HarnessFixtures._free_manager_restore_global_rng(mgr)
 
 
 ## Tier 4.4.3: footwork UI hint shows step label without degree clutter.
@@ -740,7 +740,7 @@ static func _run_footwork_ui_hint_formats_offset(failures: PackedStringArray) ->
     var hint: String = CombatFootwork.format_position_angle_ui_hint(atk)
     CombatConstants.set_feature_position_angle_footwork_load(true)
     if hint != "Step":
-        _CombatRegressionHarness._fail(failures, "footwork_ui_hint: want 'Step' got '%s'" % hint)
+        _fail(failures, "footwork_ui_hint: want 'Step' got '%s'" % hint)
 
 
 ## Tier 4.4.3: formation diagram has no footwork degree suffix.
@@ -754,11 +754,11 @@ static func _run_footwork_ui_hint_clears_on_clear_position_offset(failures: Pack
     CombatFootwork.clear_position_offset(c)
     CombatConstants.set_feature_position_angle_footwork_load(true)
     if c.has(CombatConstants.COMBATANT_KEY_POSITION_ANGLE_UI_HINT):
-        _CombatRegressionHarness._fail(failures, "footwork_ui_hint_clear: hint key should be erased")
+        _fail(failures, "footwork_ui_hint_clear: hint key should be erased")
     if CombatFootwork.format_position_angle_ui_hint(c) != "":
-        _CombatRegressionHarness._fail(failures, "footwork_ui_hint_clear: format should be empty")
+        _fail(failures, "footwork_ui_hint_clear: format should be empty")
     if CombatFootwork.get_ui_hint(c) != "":
-        _CombatRegressionHarness._fail(failures, "footwork_ui_hint_clear: get_ui_hint should be empty")
+        _fail(failures, "footwork_ui_hint_clear: get_ui_hint should be empty")
 
 
 ## Tier 4.4: aborted wind-up clears attacker step offset (reserve / back rank stuck UI).
@@ -768,24 +768,24 @@ static func _run_footwork_ui_hint_clears_on_clear_position_offset(failures: Pack
 static func _run_footwork_abort_attacker_wind_up_clears_offset(failures: PackedStringArray) -> void:
     CombatConstants.set_feature_position_angle_footwork_load(true)
     var mgr: Node = MgrScript.new()
-    mgr.register(_CombatRegressionHarness._new_entity("SWORD"), "player")
-    mgr.register(_CombatRegressionHarness._new_entity("SWORD"), "enemy")
+    mgr.register(_new_entity("SWORD"), "player")
+    mgr.register(_new_entity("SWORD"), "enemy")
     mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
     var atk: Dictionary = mgr.combatants[0]
     var def: Dictionary = mgr.combatants[1]
     var atk_id: int = CombatantEntityAccess.id_int(atk)
     WindUpStarter.start(mgr, atk_id, CombatantEntityAccess.id_int(def), "slash")
     if absf(CombatFootwork.get_attacker_offset_deg(atk)) < 0.01:
-        _CombatRegressionHarness._fail(failures, "footwork_abort: wind-up should stamp offset before abort")
+        _fail(failures, "footwork_abort: wind-up should stamp offset before abort")
     CounterTempo.abort_attacker_wind_up(mgr, atk_id)
     CombatConstants.set_feature_position_angle_footwork_load(true)
-    _CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+    HarnessFixtures._free_manager_restore_global_rng(mgr)
     if atk.has(CombatConstants.COMBATANT_KEY_POSITION_ANGLE_OFFSET_DEG):
-        _CombatRegressionHarness._fail(failures, "footwork_abort: offset key should be erased after abort")
+        _fail(failures, "footwork_abort: offset key should be erased after abort")
     if CombatFootwork.get_ui_hint(atk) != "":
-        _CombatRegressionHarness._fail(failures, "footwork_abort: get_ui_hint should be empty after abort")
+        _fail(failures, "footwork_abort: get_ui_hint should be empty after abort")
     if CombatantEntityAccess.state_str(atk) != CombatConstants.STATE_RECOVERING:
-        _CombatRegressionHarness._fail(
+        _fail(
             failures, "footwork_abort: want short recovery after abort got '%s'" % CombatantEntityAccess.state_str(atk)
         )
 
@@ -799,9 +799,9 @@ static func _run_footwork_waiting_hides_stale_step_ui(failures: PackedStringArra
     var c: Dictionary = {"state": CombatConstants.STATE_WAITING}
     CombatFootwork.apply_attack_step_on_windup(c, "right")
     if CombatFootwork.get_ui_hint(c) != "":
-        _CombatRegressionHarness._fail(failures, "footwork_waiting_ui: get_ui_hint should be empty while waiting")
+        _fail(failures, "footwork_waiting_ui: get_ui_hint should be empty while waiting")
     if CombatFootwork.get_diagram_label_suffix(c) != "":
-        _CombatRegressionHarness._fail(failures, "footwork_waiting_ui: diagram suffix should be empty while waiting")
+        _fail(failures, "footwork_waiting_ui: diagram suffix should be empty while waiting")
     CombatConstants.set_feature_position_angle_footwork_load(true)
 
 
@@ -812,23 +812,23 @@ static func _run_footwork_waiting_hides_stale_step_ui(failures: PackedStringArra
 static func _run_footwork_snapshot_omits_pa_while_waiting(failures: PackedStringArray) -> void:
     CombatConstants.set_feature_position_angle_footwork_load(true)
     var mgr: Node = MgrScript.new()
-    mgr.register(_CombatRegressionHarness._new_entity("SWORD"), "player")
-    mgr.register(_CombatRegressionHarness._new_entity("SWORD"), "enemy")
+    mgr.register(_new_entity("SWORD"), "player")
+    mgr.register(_new_entity("SWORD"), "enemy")
     mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
     var atk: Dictionary = mgr.combatants[0]
     atk["state"] = CombatConstants.STATE_WAITING
     CombatFootwork.apply_attack_step_on_windup(atk, "left")
     var rows: Array = CombatCombatantsSnapshot.build(mgr)
     CombatConstants.set_feature_position_angle_footwork_load(true)
-    _CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+    HarnessFixtures._free_manager_restore_global_rng(mgr)
     if rows.is_empty():
-        _CombatRegressionHarness._fail(failures, "footwork_snapshot_waiting: expected rows")
+        _fail(failures, "footwork_snapshot_waiting: expected rows")
         return
     var row: Dictionary = rows[0]
     if row.has("position_angle_offset_deg"):
-        _CombatRegressionHarness._fail(failures, "footwork_snapshot_waiting: offset should not export while waiting")
+        _fail(failures, "footwork_snapshot_waiting: offset should not export while waiting")
     if row.has("position_angle_ui_hint"):
-        _CombatRegressionHarness._fail(failures, "footwork_snapshot_waiting: ui hint should not export while waiting")
+        _fail(failures, "footwork_snapshot_waiting: ui hint should not export while waiting")
 
 
 ## Tier 4.4: **`process_waiting`** scrubs leaked PA keys on idle reserve (wf_m3 idle step leak guard).
@@ -842,9 +842,9 @@ static func _run_footwork_process_waiting_scrubs_leaked_offset(failures: PackedS
     StateHandlers.process_waiting(null, c, 0.05)
     CombatConstants.set_feature_position_angle_footwork_load(true)
     if c.has(CombatConstants.COMBATANT_KEY_POSITION_ANGLE_OFFSET_DEG):
-        _CombatRegressionHarness._fail(failures, "footwork_waiting_scrub: offset key should be erased")
+        _fail(failures, "footwork_waiting_scrub: offset key should be erased")
     if c.has(CombatConstants.COMBATANT_KEY_POSITION_ANGLE_UI_HINT):
-        _CombatRegressionHarness._fail(failures, "footwork_waiting_scrub: ui hint key should be erased")
+        _fail(failures, "footwork_waiting_scrub: ui hint key should be erased")
 
 
 ## Tier 4.4 + III-8: **`complete_recovery`** accepts compatibility **`parry_deflect`** cause (deflect guard path + PA
@@ -856,8 +856,8 @@ static func _run_footwork_process_waiting_scrubs_leaked_offset(failures: PackedS
 static func _run_footwork_complete_recovery_parry_deflect_alias(failures: PackedStringArray) -> void:
     CombatConstants.set_feature_position_angle_footwork_load(true)
     var mgr: Node = MgrScript.new()
-    mgr.register(_CombatRegressionHarness._new_entity("SWORD"), "player")
-    mgr.register(_CombatRegressionHarness._new_entity("SWORD"), "enemy")
+    mgr.register(_new_entity("SWORD"), "player")
+    mgr.register(_new_entity("SWORD"), "enemy")
     mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
     var c: Dictionary = mgr.combatants[0]
     c["state"] = CombatConstants.STATE_RECOVERING
@@ -869,15 +869,15 @@ static func _run_footwork_complete_recovery_parry_deflect_alias(failures: Packed
     CombatFootwork.apply_attack_step_on_windup(c, "left")
     StateHandlers.complete_recovery(mgr, c)
     CombatConstants.set_feature_position_angle_footwork_load(true)
-    _CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+    HarnessFixtures._free_manager_restore_global_rng(mgr)
     if c.has(CombatConstants.COMBATANT_KEY_POSITION_ANGLE_OFFSET_DEG):
-        _CombatRegressionHarness._fail(failures, "footwork_recovery_alias: offset should be cleared")
+        _fail(failures, "footwork_recovery_alias: offset should be cleared")
     if c.has("defender_guard_line_at_parry"):
-        _CombatRegressionHarness._fail(
+        _fail(
             failures, "footwork_recovery_alias: deflect guard path should erase defender_guard_line_at_parry"
         )
     if CombatantEntityAccess.state_str(c) != CombatConstants.STATE_WAITING:
-        _CombatRegressionHarness._fail(
+        _fail(
             failures,
             "footwork_recovery_alias: want waiting after recovery got '%s'" % CombatantEntityAccess.state_str(c)
         )
@@ -890,19 +890,19 @@ static func _run_footwork_complete_recovery_parry_deflect_alias(failures: Packed
 static func _run_footwork_cowering_scrubs_leaked_offset(failures: PackedStringArray) -> void:
     CombatConstants.set_feature_position_angle_footwork_load(true)
     var mgr: Node = MgrScript.new()
-    mgr.register(_CombatRegressionHarness._new_entity("SWORD"), "player")
-    mgr.register(_CombatRegressionHarness._new_entity("SWORD"), "enemy")
+    mgr.register(_new_entity("SWORD"), "player")
+    mgr.register(_new_entity("SWORD"), "enemy")
     mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
     var c: Dictionary = mgr.combatants[0]
     c["state"] = CombatConstants.STATE_COWERING
     CombatFootwork.apply_attack_step_on_windup(c, "left")
     StateHandlers.process_incapacitation(mgr, c)
     CombatConstants.set_feature_position_angle_footwork_load(true)
-    _CombatRegressionHarness._free_manager_restore_global_rng(mgr)
+    HarnessFixtures._free_manager_restore_global_rng(mgr)
     if c.has(CombatConstants.COMBATANT_KEY_POSITION_ANGLE_OFFSET_DEG):
-        _CombatRegressionHarness._fail(failures, "footwork_cowering_scrub: offset key should be erased")
+        _fail(failures, "footwork_cowering_scrub: offset key should be erased")
     if c.has(CombatConstants.COMBATANT_KEY_POSITION_ANGLE_UI_HINT):
-        _CombatRegressionHarness._fail(failures, "footwork_cowering_scrub: ui hint key should be erased")
+        _fail(failures, "footwork_cowering_scrub: ui hint key should be erased")
 
 
 ## Tier 4.4: formation-move timer tick scrubs leaked PA (**`process_formation_move_timer`**).
@@ -920,9 +920,9 @@ static func _run_footwork_formation_move_scrubs_leaked_offset(failures: PackedSt
     StateHandlers.process_formation_move_timer(c, 0.05)
     CombatConstants.set_feature_position_angle_footwork_load(true)
     if c.has(CombatConstants.COMBATANT_KEY_POSITION_ANGLE_OFFSET_DEG):
-        _CombatRegressionHarness._fail(failures, "footwork_formation_scrub: offset key should be erased")
+        _fail(failures, "footwork_formation_scrub: offset key should be erased")
     if absf(float(c.get(DataKeys.PA_STATE_TIMER, 0.0)) - 0.05) > 0.001:
-        _CombatRegressionHarness._fail(
+        _fail(
             failures, "footwork_formation_scrub: timer should advance got %.4f" % float(c.get(DataKeys.PA_STATE_TIMER, 0.0))
         )
 

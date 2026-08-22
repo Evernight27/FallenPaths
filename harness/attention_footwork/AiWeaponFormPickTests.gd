@@ -1,4 +1,4 @@
-﻿class_name AttentionFootworkAiWeaponFormPickTests
+class_name AttentionFootworkAiWeaponFormPickTests
 extends CombatRegressionHarnessCore
 const Bp := preload("res://core/BodyPartConstants.gd")
 const WeaponForm := preload("res://combat/weapon_form/CombatWeaponForm.gd")
@@ -20,7 +20,7 @@ static func _get_company_state_script() -> GDScript:
 
 static func _run_ai_pick_weapon_form_stat_part_weights(failures: PackedStringArray) -> void:
 	if Bp.weapon_part_target_mult("MACE", "head") <= Bp.weapon_part_target_mult("MACE", "left_leg"):
-		_CombatRegressionHarness._fail(
+		_fail(
 			failures,
 			(
 				"ai_pick_part_weights: mace should prefer head over leg got head=%s leg=%s"
@@ -31,9 +31,9 @@ static func _run_ai_pick_weapon_form_stat_part_weights(failures: PackedStringArr
 		WeaponForm.target_part_weight_mult(WeaponForm.FORM_WRATH, "head")
 		<= WeaponForm.target_part_weight_mult(WeaponForm.FORM_FOOL, "head")
 	):
-		_CombatRegressionHarness._fail(failures, "ai_pick_part_weights: wrath should bias head above fool")
+		_fail(failures, "ai_pick_part_weights: wrath should bias head above fool")
 	if WeaponForm.target_part_weight_mult(WeaponForm.FORM_FOOL, "left_leg") <= 1.0:
-		_CombatRegressionHarness._fail(failures, "ai_pick_part_weights: fool should bias low-line legs")
+		_fail(failures, "ai_pick_part_weights: fool should bias low-line legs")
 	var segment: Array = ["head", "chest"]
 	var move_def: Dictionary = {"preferred_parts": ["head"], "attack_line": "high"}
 	var defender: Dictionary = {CombatConstants.COMBATANT_KEY_FOCUS_PART: "head"}
@@ -48,7 +48,7 @@ static func _run_ai_pick_weapon_form_stat_part_weights(failures: PackedStringArr
 	var w_novice: Dictionary = PathResolver.part_weights_for_ai_pick(segment, "high", move_def, novice, defender, 2)
 	var w_vet: Dictionary = PathResolver.part_weights_for_ai_pick(segment, "high", move_def, veteran, defender, 2)
 	if float(w_vet.get("chest", 0.0)) <= float(w_novice.get("chest", 0.0)):
-		_CombatRegressionHarness._fail(
+		_fail(
 			failures,
 			(
 				"ai_pick_part_weights: veteran perception should weight off-focus chest higher got novice=%s veteran=%s"
@@ -58,7 +58,7 @@ static func _run_ai_pick_weapon_form_stat_part_weights(failures: PackedStringArr
 	var mace_head_blunt: float = Bp.weapon_part_target_mult("MACE", "head", "blunt")
 	var mace_leg_blunt: float = Bp.weapon_part_target_mult("MACE", "left_leg", "blunt")
 	if mace_head_blunt <= mace_leg_blunt:
-		_CombatRegressionHarness._fail(
+		_fail(
 			failures,
 			(
 				"ai_pick_part_weights: mace blunt head should exceed leg got head=%.3f leg=%.3f"
@@ -67,22 +67,22 @@ static func _run_ai_pick_weapon_form_stat_part_weights(failures: PackedStringArr
 		)
 	var spear_pref: Array = WeaponConstants.preferred_parts_for_weapon_move("SPEAR", "spear_thrust")
 	if spear_pref != ["chest"]:
-		_CombatRegressionHarness._fail(
+		_fail(
 			failures, "ai_pick_part_weights: spear_thrust preferred want [chest] got %s" % str(spear_pref)
 		)
 	var dagger_pref: Array = WeaponConstants.preferred_parts_for_weapon_move("DAGGER", "quick_thrust")
 	if dagger_pref != ["chest"]:
-		_CombatRegressionHarness._fail(
+		_fail(
 			failures, "ai_pick_part_weights: dagger quick_thrust preferred want [chest] got %s" % str(dagger_pref)
 		)
 	if WeaponForm.move_family_part_weight_mult(WeaponForm.FORM_OX, "thrust", "chest") <= 1.0:
-		_CombatRegressionHarness._fail(failures, "ai_pick_part_weights: ox thrust should bias chest")
+		_fail(failures, "ai_pick_part_weights: ox thrust should bias chest")
 	var old_stub: bool = _get_company_state_script().read_stub_proficiency_enabled()
 	_get_company_state_script().proficiency_enabled = true
-	var ent: Node = _CombatRegressionHarness._new_entity("SWORD")
+	var ent: Node = _new_entity("SWORD")
 	Proficiency.award_weapon_proficiency(ent, "SWORD", 20.0)
 	if Proficiency.weapon_proficiency_tier(ent, "SWORD") < 0.95:
-		_CombatRegressionHarness._fail(
+		_fail(
 			failures,
 			(
 				"ai_pick_part_weights: weapon prof tier want ~1.0 got %.2f"
@@ -91,11 +91,11 @@ static func _run_ai_pick_weapon_form_stat_part_weights(failures: PackedStringArr
 		)
 	Proficiency.award_form_proficiency(ent, WeaponForm.FORM_WRATH, 20.0)
 	if Proficiency.form_proficiency_tier(ent, WeaponForm.FORM_WRATH) < 0.95:
-		_CombatRegressionHarness._fail(failures, "ai_pick_part_weights: form prof tier want ~1.0")
+		_fail(failures, "ai_pick_part_weights: form prof tier want ~1.0")
 	var occ_novice: float = Proficiency.proficiency_occurrence_mult(ent, "SWORD", WeaponForm.FORM_BALANCED, "thrust")
 	var occ_vet: float = Proficiency.proficiency_occurrence_mult(ent, "SWORD", WeaponForm.FORM_WRATH, "thrust")
 	if occ_vet <= occ_novice:
-		_CombatRegressionHarness._fail(
+		_fail(
 			failures,
 			(
 				"ai_pick_part_weights: wrath+prof occurrence should exceed balanced novice got %.3f vs %.3f"
@@ -103,6 +103,6 @@ static func _run_ai_pick_weapon_form_stat_part_weights(failures: PackedStringArr
 			)
 		)
 	_get_company_state_script().proficiency_enabled = old_stub
-	_CombatRegressionHarness._free_harness_node(ent)
+	HarnessFixtures._free_harness_node(ent)
 
 ## Tier 4.3.8: attention UI hint shows last mental-stack layer stamp.

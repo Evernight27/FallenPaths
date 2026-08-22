@@ -528,7 +528,7 @@ static func run(failures: PackedStringArray) -> void:
         var result: Dictionary = runner.call()
         var total: int = result.get("total_attacks", 0)
         if total == 0:
-            _CombatRegressionHarness._fail(failures, "targeting_1v1_%s: no attacks recorded" % name)
+            HarnessFixtures._fail(failures, "targeting_1v1_%s: no attacks recorded" % name)
             continue
 
         var matches: Dictionary = result.get("matches", {})
@@ -536,7 +536,7 @@ static func run(failures: PackedStringArray) -> void:
             var action_summary := ""
             for r in result.get("records", []):
                 action_summary += "%s(%s) " % [r.get("move_id", ""), r.get("outcome", "")]
-            _CombatRegressionHarness._fail(
+            HarnessFixtures._fail(
                 failures, "targeting_1v1_%s: no hits in %d attacks [%s]" % [name, total, action_summary.strip_edges()]
             )
 

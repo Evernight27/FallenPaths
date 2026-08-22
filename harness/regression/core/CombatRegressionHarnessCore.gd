@@ -594,4 +594,77 @@ static func _assert_stamp_depth_pa_defaults(pa: Dictionary, failures: PackedStri
 static func _assert_depth_lane_open_cache_matches_builder(mgr: Node, failures: PackedStringArray, ctx: String) -> void:
     HarnessFixtures._assert_depth_lane_open_cache_matches_builder(mgr, failures, ctx)
 
+
+## Kinematic delivery helpers — forwards to dedicated test modules.
+
+static func _kin_fixtures_cut_swing() -> Array:
+    return KinematicDeliveryPenetrationTests._kin_fixtures_cut_swing()
+
+
+static func _kin_fixtures_thrust() -> Array:
+    return KinematicDeliveryPenetrationTests._kin_fixtures_thrust()
+
+
+static func _kin_fixtures_blunt() -> Array:
+    return KinematicDeliveryPenetrationTests._kin_fixtures_blunt()
+
+
+static func _kin_fixtures_with_sharp_pen() -> Array:
+    return KinematicDeliveryPenetrationTests._kin_fixtures_with_sharp_pen()
+
+
+static func _kin_fixtures_with_blunt_pen() -> Array:
+    return KinematicDeliveryPenetrationTests._kin_fixtures_with_blunt_pen()
+
+
+static func _kin_fixtures_all_damage() -> Array:
+    return KinematicDeliveryPartialParryTests._kin_fixtures_all_damage()
+
+
+static func _kin_arch_for_move(move_id: String) -> Dictionary:
+    return KinematicDeliveryPartialParryTests._kin_arch_for_move(move_id)
+
+
+static func _kin_fixture_vo(cfx: Dictionary, default_vo: float) -> float:
+    return KinematicDeliveryPartialParryTests._kin_fixture_vo(cfx, default_vo)
+
+
+static func _kin_dmg_integration_sample(
+    vo: float,
+    parry_r: float,
+    align: float,
+    strike_mods: Dictionary,
+    weapon_id: String = "SWORD",
+    move_id: String = "oberhau",
+    afterblow_mult: float = 1.0,
+    arch_override: Dictionary = {},
+    tgt_overrides: Dictionary = {},
+    tgt_chest_armor_id: String = "",
+    strike_physics_ctx: Dictionary = {}
+) -> Dictionary:
+    return KinematicDeliveryPartialParryTests._kin_dmg_integration_sample(
+        vo, parry_r, align, strike_mods, weapon_id, move_id, afterblow_mult, arch_override, tgt_overrides, tgt_chest_armor_id, strike_physics_ctx
+    )
+
+
+static func _kin_expected_damage_velocity_m_s(
+    mgr: Node,
+    atk: Dictionary,
+    tgt: Dictionary,
+    intensity: float,
+    arch: Dictionary,
+    move_id: String,
+    velocity_override: float,
+    afterblow_damage_mult: float,
+    strike_physics_ctx: Dictionary = {}
+) -> float:
+    return KinematicDeliveryPenetrationTests._kin_expected_damage_velocity_m_s(
+        mgr, atk, tgt, intensity, arch, move_id, velocity_override, afterblow_damage_mult, strike_physics_ctx
+    )
+
+
+static func _kin_path_intercept_max_index(path: Array, alignment: float) -> int:
+    return KinematicDeliveryPenetrationTests._kin_path_intercept_max_index(path, alignment)
+
+
 ## `handle_swap_rank_resolve` completes rank swap when both combatants remain in pair motion state.

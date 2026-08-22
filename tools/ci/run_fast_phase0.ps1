@@ -242,7 +242,7 @@ if ($fail -eq 0) {
 
 if ($fail -eq 0) {
 
-	if (-not (Invoke-Phase0RegressionHarness $Root $SummaryPath $lines ".phase0_fast_regression.txt")) {
+	if (-not (Invoke-Phase0RegressionHarness $Root $SummaryPath $lines ".phase0_fast_regression_out.txt")) {
 
 		$fail = 1
 

@@ -20,6 +20,10 @@ run/main_scene="res://tools/combat_tuning/combat_tuning.tscn"
 config/features=PackedStringArray("4.7", "Forward Plus")
 config/icon="res://assets/branding/icon.svg"
 
+[autoload]
+
+HarnessFixturesBoot="*res://harness/HarnessFixturesBoot.gd"
+
 [display]
 
 window/size/viewport_width=1920

@@ -64,7 +64,8 @@ static func effective_stamina_max(combatant: Dictionary) -> float:
     return base * exh_m * blood_m * camp_m
 
 
-## PCr resynthesis rate while **`STATE_WAITING`** (slows with fight exhaustion).
+## Effective first-order PCr resynthesis rate constant (1/s) while **`STATE_WAITING`**, slowed by fight
+## exhaustion and respiratory compromise. Caller applies it as s += k * (cap - s) * delta (exponential refill).
 static func effective_stamina_refill_rate(combatant: Dictionary) -> float:
     var rate: float = CombatConstants.STAMINA_REFILL_RATE
     if not CombatConstants.is_feature_fight_exhaustion_enabled():

@@ -705,8 +705,8 @@ static func _run_parry_control_bind_deflect_formula(failures: PackedStringArray)
         _fail(failures, "parry_ctrl_formula: blunt should match cut for thrust mult got %.4f" % blunt_hi)
     var low_cd: float = pa_m * CombatConstants.PARRY_DEFLECT_THRESHOLD * 0.25
     var cut_low: float = CombatConstants.parry_control_for_bind_deflect(low_cd, pa_m, 1.0, 1.0, false, false, "cut")
-    if not is_equal_approx(cut_low, 0.5125):
-        _fail(failures, "parry_ctrl_formula: low-margin cut want 0.5125 got %.4f" % cut_low)
+    if not is_equal_approx(cut_low, 0.5475):
+        _fail(failures, "parry_ctrl_formula: low-margin cut want 0.5475 got %.4f" % cut_low)
     var late_mid: float = CombatConstants.parry_control_for_bind_deflect(hi_cd, pa_m, 0.65, 1.0, false, true, "cut")
     if absf(late_mid - 0.4294) > 0.004:
         _fail(failures, "parry_ctrl_formula: late+align 0.65 cut want ~0.429 got %.4f" % late_mid)

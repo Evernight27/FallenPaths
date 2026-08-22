@@ -161,6 +161,7 @@ static func get_test_functions() -> Array:
     tests.append(Callable(KinematicDeliveryStaminaFormationTests, "_run_tier7_stamina_depletion_sustained_exchange_sim"))
     tests.append(Callable(KinematicDeliveryStaminaFormationTests, "_run_stamina_effective_max_exhaustion_and_blood_cap"))
     tests.append(Callable(KinematicDeliveryStaminaFormationTests, "_run_stamina_effective_refill_slows_with_exhaustion"))
+    tests.append(Callable(KinematicDeliveryStaminaFormationTests, "_run_stamina_refill_exponential_half_time_and_taper"))
     tests.append(Callable(KinematicDeliveryExhaustionTests, "_run_exhaustion_timing_vs_power_differentiation"))
     tests.append(Callable(KinematicDeliveryExhaustionTests, "_run_exhaustion_metabolic_stress_accumulation"))
     tests.append(Callable(KinematicDeliveryExhaustionTests, "_run_exhaustion_consecutive_action_scaling"))

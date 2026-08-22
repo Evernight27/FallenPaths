@@ -1,0 +1,19 @@
+[remap]
+
+importer="csv_translation"
+type="Translation"
+uid="uid://bbwnntbt8nmhw"
+
+[deps]
+
+files=["res://harness_fixtures_calls.LineNumber.translation", "res://harness_fixtures_calls.Line.translation", "res://harness_fixtures_calls.Filename.translation", "res://harness_fixtures_calls.Path.translation", "res://harness_fixtures_calls.Pattern.translation", "res://harness_fixtures_calls.Matches.translation"]
+
+source_file="res://harness_fixtures_calls.csv"
+dest_files=["res://harness_fixtures_calls.LineNumber.translation", "res://harness_fixtures_calls.Line.translation", "res://harness_fixtures_calls.Filename.translation", "res://harness_fixtures_calls.Path.translation", "res://harness_fixtures_calls.Pattern.translation", "res://harness_fixtures_calls.Matches.translation"]
+
+[params]
+
+compress=1
+delimiter=0
+unescape_keys=false
+unescape_translations=true

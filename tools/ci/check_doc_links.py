@@ -190,7 +190,7 @@ CONSTANT_PARITY_CHECKS = [
     # (rel_path, kind, target, expected, doc source)
     ("combat/constants/CombatConstantsParry.gd", "const", "PARRY_DEFLECT_THRESHOLD", 0.45,
       "LIVE_PATHS Tier-3 parry"),
-    ("combat/constants/CombatConstantsParry.gd", "const", "PARRY_BIND_CONTROL_THRESHOLD", 0.55,
+    ("combat/constants/CombatConstantsParry.gd", "const", "PARRY_BIND_CONTROL_THRESHOLD", 0.48,
      "LIVE_PATHS Tier-3 parry"),
     ("combat/constants/CombatConstantsMentalStack.gd", "const",
      "MENTAL_STACK_EXHAUSTION_TUNNEL_THRESHOLD", 0.55, "LIVE_PATHS MXm-3"),
