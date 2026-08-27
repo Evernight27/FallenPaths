@@ -155,6 +155,8 @@ static func halt_losing_side_combat(manager: Node) -> void:
         c.erase(DataKeys.PA_PARRY_WAS_BIND)
         c.erase(DataKeys.PA_PARRY_AGAINST_ID)
         c.erase(DataKeys.PA_PARRY_BONUS_UNTIL)
+        c.erase(DataKeys.PA_PARRY_BONUS_MULT)
+        c.erase(DataKeys.PA_LAST_PARRY_CLOCK)
         MedicalPhaseBatchResolve._get_counter_tempo().clear_window(c)
         MedicalPhaseBatchResolve._get_counter_tempo().clear_riposte_chain(c)
         FlurryBind.clear(c)

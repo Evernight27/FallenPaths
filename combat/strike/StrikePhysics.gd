@@ -10,6 +10,14 @@ const _CLOSING_MIN := 0.92
 const _CLOSING_MAX := 1.10
 const _AMBUSH_CAP := 1.03
 const _AMBUSH_DIV := 1.12
+# Engagement-angle damage: a clean rear strike lands on an unguarded side (no blade deflection,
+# less braced) and hits harder than a front strike. Composes with the closing-speed channel
+# (velocity/KE) — distinct physical effects: closing speed = how fast the blow arrives, this =
+# what the blow lands on. Front = 1.0 (no change); callers that don't stamp the angle default to
+# front, so existing regression tests are bit-identical.
+const _ENGAGE_FRONT_DMG := 1.0
+const _ENGAGE_FLANK_DMG := 1.10
+const _ENGAGE_REAR_DMG := 1.20
 
 ## Relative closing speed along the strike line (gameplay proxy): engagement geometry and
 ## light tactical pressure. Multiplies impact velocity before KE / momentum (see AttackResolver).
@@ -54,3 +62,18 @@ static func closing_speed_multiplier(_manager: Node, _atk: Dictionary, tgt: Dict
     if amb > 1.001:
         mult *= lerpf(1.0, _AMBUSH_CAP, clampf((amb - 1.0) / maxf(0.001, _AMBUSH_DIV - 1.0), 0.0, 1.0))
     return clampf(mult, _CLOSING_MIN, _CLOSING_MAX)
+
+
+## Engagement-angle damage multiplier: a clean rear strike lands on an unguarded side (no blade
+## deflection, less braced) and hits harder than a front strike; a flank strike is a smaller bonus.
+## Reads the target's stamped `PA_ENGAGEMENT_ANGLE` (stamped by AttackResolver before resolve).
+## Front / unstamped = 1.0 so existing callers are unaffected.
+static func engagement_damage_multiplier(tgt: Dictionary) -> float:
+    var ang: String = str(tgt.get(DataKeys.PA_ENGAGEMENT_ANGLE, "front"))
+    match ang:
+        "rear":
+            return _ENGAGE_REAR_DMG
+        "flank":
+            return _ENGAGE_FLANK_DMG
+        _:
+            return _ENGAGE_FRONT_DMG

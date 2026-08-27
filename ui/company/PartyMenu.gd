@@ -664,5 +664,17 @@ func _build_field_care_buttons(world: Node2D, m: Dictionary) -> HBoxContainer:
                 )
         )
         care_btns.add_child(btn_s)
+    if MapFieldCare.can_offer_field_resuscitation(world, m):
+        var btn_r := Button.new()
+        btn_r.text = MapFieldCare.format_field_resuscitation_button_label(world, m)
+        var member_copy_r: Dictionary = m.duplicate(true)
+        btn_r.pressed.connect(
+            func() -> void:
+                _run_field_care_step(
+                    func() -> bool: return MapFieldCare.try_field_resuscitation(world, member_copy_r),
+                    "resuscitation"
+                )
+        )
+        care_btns.add_child(btn_r)
     return care_btns
 

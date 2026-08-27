@@ -249,6 +249,13 @@ static func get_leg_functionality(entity: Node) -> float:
         return clampf(0.35 + bone_factor * 0.20, 0.35, 0.55)
 
     # Both legs functional — geometric mean of bone factors when both damaged.
-    var left: float = get_bone_functionality_factor(entity, BodyPartConstants.PART_LEFT_LEG)
-    var right: float = get_bone_functionality_factor(entity, BodyPartConstants.PART_RIGHT_LEG)
+    # A fractured (bone-depleted) but tissue-intact leg still bears partial weight, so floor each leg's
+    # bone factor at LIMB_BONE_FUNCTIONAL_RATIO. Without this, a single fractured leg collapses the
+    # geometric mean to 0.0 (total immobilization) — worse than a destroyed leg (0.55), which is backwards.
+    var left: float = maxf(
+        get_bone_functionality_factor(entity, BodyPartConstants.PART_LEFT_LEG), LIMB_BONE_FUNCTIONAL_RATIO
+    )
+    var right: float = maxf(
+        get_bone_functionality_factor(entity, BodyPartConstants.PART_RIGHT_LEG), LIMB_BONE_FUNCTIONAL_RATIO
+    )
     return sqrt(left * right)

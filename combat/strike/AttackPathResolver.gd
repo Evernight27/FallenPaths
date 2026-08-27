@@ -107,6 +107,12 @@ static func resolve_hit_part(
                 intended_boost = EntityProficiency.intended_part_boost_mult(
                     ent, _weapon_id_for_attacker(attacker), CombatantEntityAccess.form_str(attacker)
                 )
+        # Scale the boost with segment size so the aimed part stays the modal outcome.
+        # A wide segment (poor alignment, up to 6 parts) with a fixed 2-3x boost makes the
+        # intended part only ~30-40% likely (60-70% full-body-part drift). Scaling by
+        # segment size keeps the aimed part the clear favorite (~60-70%) while still
+        # allowing drift on glancing, poorly-aligned swings.
+        intended_boost *= float(maxi(path_segment.size(), 2)) / 2.0
         part_weights[intended_part] = part_weights.get(intended_part, 1.0) * intended_boost
     # Vitals-finish exploit: press a defender's already-damaged head/chest when the pathway reaches it.
     for vit in [BodyPartConstants.PART_HEAD, BodyPartConstants.PART_CHEST]:

@@ -22,6 +22,7 @@ static func run(failures: PackedStringArray) -> void:
     # END/INT helper function tests.
     ProficiencyAwardPersistenceTests._run_endurance_blood_volume_mult(failures)
     ProficiencyAwardPersistenceTests._run_endurance_healing_speed_mult(failures)
+    ProficiencyAwardPersistenceTests._run_nutrition_healing_speed_mult(failures)
     ProficiencyAwardPersistenceTests._run_intelligence_contract_bonus_mult(failures)
 
     # CombatantEntityAccess wind-up speed tests.
@@ -58,7 +59,7 @@ static func run(failures: PackedStringArray) -> void:
 
     # Audit fix tests (parry END gain, medic INT floor, merge_training_pending wiring, defeat decay).
     ProficiencyDecayMergeTests._run_parry_deflect_awards_end_gains(failures)
-    ProficiencyDecayMergeTests._run_parry_partial_no_defender_gain(failures)
+    ProficiencyDecayMergeTests._run_parry_partial_awards_partial_end_gain(failures)
     ProficiencyDecayMergeTests._run_medic_int_floor_per_entity_tracking(failures)
     ProficiencyDecayMergeTests._run_merge_training_pending_wired_in_camp_heal(failures)
     ProficiencyDecayMergeTests._run_decay_applies_on_defeat(failures)

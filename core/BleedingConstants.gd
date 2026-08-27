@@ -260,6 +260,12 @@ const DECOMPENSATION_BLOOD_THRESHOLD: float = 50.0  # blood volume % — below t
 const DECOMPENSATION_BLEED_ACCEL_MULT: float = 1.8  # +80% bleed rate when in decompensation
 ## Decompensation accelerates blood volume drain (perfusion failure, microvascular leakage).
 const DECOMPENSATION_BLOOD_DRAIN_MULT: float = 1.25  # +25% blood loss rate when decompensated
+## Field fluid resuscitation / transfusion: fraction of the current blood deficit restored per
+## application at full effectiveness (scaled by treatment effectiveness). Closes the one-way
+## decompensation death spiral — a medic can pull a bleeding-out comrade back above the
+## decompensation threshold. Capped so a single bolus rarely fully restores (camp rest still
+## governs full recovery).
+const FLUID_RESUSCITATION_DEFICIT_RESTORE_FRACTION: float = 0.4
 
 # --- Severity-dependent time-to-decompensation (ATLS Class I-IV progression) ---
 ## Clinically, the time from hemorrhage onset to compensatory collapse depends on bleeding rate and wound severity.
@@ -497,9 +503,13 @@ const PENETRATION_BLEED_MIN_MULT: float = 1.5
 # Bleeding rate (abstract HP/s) above which tourniquet is appropriate. Sits between moderate cut (1.2) and severe
 # cut (4.0) — a moderate bleed is managed with pressure/packing; a severe (arterial-like) bleed warrants a TQ.
 const TOURNIQUET_BLEEDING_RATE_THRESHOLD: float = 2.0
-# Optional: max duration (seconds) before tourniquet should be released to assess limb; 0 = no expiry. Real-world ~2 h
-# risk for limb.
-const TOURNIQUET_MAX_DURATION_SECONDS: float = 0.0  # 0 = no auto-expiry; set e.g. 7200 (2 h) for limb-ischemia risk
+# Max duration (seconds) before a tourniquet is auto-released to assess the limb; 0 = no expiry. Real-world ~2 h
+# ischemia risk for the limb. The game compresses field time, so 1 game-hour maps to the real-world ~2 h risk window:
+# a TQ applied in combat that is still on when campaign time advances past this window causes ischemic limb damage.
+const TOURNIQUET_MAX_DURATION_SECONDS: float = 3600.0
+# Fraction of the limb's tissue (per channel) lost when a tourniquet expires from ischemia. Models the soft-tissue
+# necrosis / compartment injury of a TQ left on too long. Applied to body_cutting + body_blunt (not bone).
+const TOURNIQUET_ISCHEMIA_TISSUE_FRACTION: float = 0.30
 # Time (seconds) to apply a tourniquet (positioning, tightening); action system should delay effect until this duration
 # has passed.
 # 25s is a deliberate SUB-clinical pacing value: real CAT application is 45-90s under combat stress (Kragh et al.
@@ -521,6 +531,64 @@ const TOURNIQUET_FAILED_REDUCTION_MULT: float = 0.30
 # Escalating retry chance: +15% base success per prior failure on same part (models medic adjusting
 # placement/tightness).
 const TOURNIQUET_RETRY_SUCCESS_BONUS: float = 0.15  # escalating retry bonus per prior failure
+
+# --- Wound infection (campaign) ---
+# Untreated wounds accumulate infection risk over days. A clean dressing (bandage/pack) or a tourniquet
+# (definitive hemostasis) greatly reduces the risk. Progression is a per-day dose:
+#   infection_progress += (seconds / SECONDS_PER_DAY) * daily_risk;  infected when progress >= 1.0.
+# It only advances inside _process_healing (day-scale time), never during a battle, so it is campaign-only.
+# An infected wound heals at WOUND_INFECTION_HEAL_SPEED_MULT; a successful definitive dressing clears it.
+const WOUND_INFECTION_SEVERITY_RISK: Dictionary = {
+    SEVERITY_MINOR: 0.08,      # ~12 days untreated to infect
+    SEVERITY_MODERATE: 0.15,   # ~6-7 days
+    SEVERITY_SEVERE: 0.30,     # ~3 days
+    SEVERITY_CRITICAL: 0.50,   # ~2 days
+}
+## Compound fractures carry a high infection rate (~40% Gandhi 2002) — double the base risk.
+const WOUND_INFECTION_COMPOUND_FRACTURE_MULT: float = 2.0
+## Open high-flow arterial wounds are more contaminated — 1.5x the base risk.
+const WOUND_INFECTION_ARTERIAL_MULT: float = 1.5
+## A part with definitive hemostasis (bandaged/packed/tourniqueted) is a clean, isolated wound — 15% risk.
+const WOUND_INFECTION_TREATED_MULT: float = 0.15
+## Infected wounds heal at this fraction of normal speed (systemic response + tissue damage).
+const WOUND_INFECTION_HEAL_SPEED_MULT: float = 0.5
+
+# --- Active bleeding slows tissue/bone repair ---
+## Hemorrhage diverts repair resources and impairs local perfusion (hypovolemia): the faster a part bleeds,
+## the slower its tissue/bone repair. 1.0 at no bleed -> BLEED_HEAL_SLOW_FLOOR at/above the reference rate.
+## Reference = TOURNIQUET_BLEEDING_RATE_THRESHOLD (a severe bleed) so the factor is a no-op for trivial oozing.
+const BLEED_HEAL_SLOW_REF_RATE: float = 2.0
+const BLEED_HEAL_SLOW_FLOOR: float = 0.5
+## An open, untreated arterial wound cannot close while systolic pressure drives flow through it: repair
+## stalls (0.0) until definitive hemostasis (tourniquet/pack/clot), after which it resumes.
+const ARTERIAL_UNTREATED_HEAL_STALL_MULT: float = 0.0
+
+
+## Per-part healing-speed factor from active bleeding. 1.0 when the part is not bleeding; a hard stall
+## (0.0) for an open untreated arterial wound; otherwise lerp 1.0 -> BLEED_HEAL_SLOW_FLOOR as the bleed rate
+## rises to BLEED_HEAL_SLOW_REF_RATE.
+static func bleed_healing_speed_mult(part_bleed_rate: float, untreated_arterial: bool) -> float:
+    if part_bleed_rate <= BLEEDING_RATE_EPSILON:
+        return 1.0
+    if untreated_arterial:
+        return ARTERIAL_UNTREATED_HEAL_STALL_MULT
+    var t: float = clampf(part_bleed_rate / BLEED_HEAL_SLOW_REF_RATE, 0.0, 1.0)
+    return lerpf(1.0, BLEED_HEAL_SLOW_FLOOR, t)
+
+
+## Per-day infection risk dose for one wound. Treated parts (definitive hemostasis) get a greatly reduced
+## risk; compound fractures and arterial wounds are more infection-prone.
+static func wound_infection_daily_risk(injury: Dictionary, treated: bool) -> float:
+    var sev: String = str(injury.get(DataKeys.INJURY_SEVERITY, SEVERITY_MODERATE))
+    var risk: float = float(WOUND_INFECTION_SEVERITY_RISK.get(sev, WOUND_INFECTION_SEVERITY_RISK[SEVERITY_MODERATE]))
+    if injury.get("is_compound_fracture", false):
+        risk *= WOUND_INFECTION_COMPOUND_FRACTURE_MULT
+    if injury.get("is_arterial", false):
+        risk *= WOUND_INFECTION_ARTERIAL_MULT
+    if treated:
+        risk *= WOUND_INFECTION_TREATED_MULT
+    return risk
+
 
 # --- Severity thresholds (damage as fraction of part max) ---
 const SEVERITY_PERCENTAGE_CRITICAL: float = 0.75

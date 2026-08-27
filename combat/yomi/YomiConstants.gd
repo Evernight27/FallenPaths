@@ -13,3 +13,7 @@ const DECEPTION_EXPLOIT_BAIT_PROB_MAX: float = 0.5
 const DECEPTION_RESISTANCE_ESTABLISH_SUCCESS_BOOST: float = 0.25
 const DECEPTION_RESISTANCE_EXPLOIT_FAILURE_BOOST: float = 0.3
 const DECEPTION_RESISTANCE_ESTABLISH_FAILURE_BOOST: float = 0.4
+## Resistance level above which a defender is too alert to be baited (should_respect_bait returns false). A
+## dedicated threshold (not the establish probability) so the "alertness" meaning is explicit: a 0-1 resistance
+## is compared against a 0-1 alertness cutoff, not against a probability of establishing a deception.
+const DECEPTION_RESISTANCE_BAIT_THRESHOLD: float = 0.5

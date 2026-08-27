@@ -45,7 +45,12 @@ const ENCUMBRANCE_PER_KG_STEP_MULT: float = 0.04       # 4% slower per extra kg 
 ## Phase-based model per RESEARCH_concussion_mTBI_combat.md §6b. Phases use proportional weights
 ## from PainConsciousnessConstants.CONCUSSION_PHASE_WEIGHT_* of total capped duration.
 ## Modifiers interpolate continuously between phase boundaries (see get_concussion_phase_info).
-const CONCUSSION_BONE_THRESHOLD_MIN: float = 1.8    # bone damage fraction to trigger concussion check — raised from 1.2; clinical mTBI requires sustained force well above minor bump, closer to temple/jaw strike threshold
+## Concussion trigger threshold: the KE-allocated bone trauma (allocated_bone / head_bone_max) that must be
+## delivered to the skull to trigger the concussion check. 1.2 = a head blow dealing ~20% more bone trauma than
+## the skull's budget (a temple/jaw strike) — above a minor bump (ratio ~1.0) but below a full fracture (3.5).
+## NOTE: this gate is only reachable because the trigger now uses allocated_bone (pre health-pool clamp); with the
+## old clamped to_bone the ratio was always <= 1.0 and this threshold was unreachable (dead code).
+const CONCUSSION_BONE_THRESHOLD_MIN: float = 1.2    # bone damage fraction to trigger concussion check — clinical mTBI requires sustained force well above minor bump, closer to temple/jaw strike threshold
 const CONCUSSION_BONE_THRESHOLD_MAX: float = 3.5    # full fracture => guaranteed (raised from 2.5)
 const CONCUSSION_DAMAGE_RATIO_FACTOR: float = 0.2    # damage ratio contribution weight (0-1)
 
@@ -320,7 +325,8 @@ static func get_pain_contribution_for_wound(
 	severity: String,
 	injury_type: String,
 	sub_region: String,
-	is_stump: bool = false
+	is_stump: bool = false,
+	penetration_to_tissue_mm: float = -1.0
 ) -> float:
 	if damage <= 0.0:
 		return 0.0
@@ -329,7 +335,8 @@ static func get_pain_contribution_for_wound(
 	var itype_mult: float = PainConsciousnessConstants.get_injury_type_pain_multiplier(injury_type)
 	var sub_mult: float = PainConsciousnessConstants.get_sub_region_pain_multiplier(part, sub_region)
 	var stump_mult: float = PainConsciousnessConstants.get_stump_pain_multiplier(is_stump)
-	return damage * sev_mult * part_mult * itype_mult * sub_mult * stump_mult
+	var depth_mult: float = PainConsciousnessConstants.get_wound_depth_pain_multiplier(penetration_to_tissue_mm)
+	return damage * sev_mult * part_mult * itype_mult * sub_mult * stump_mult * depth_mult
 
 
 # --- Pain per part and total ---
@@ -349,8 +356,11 @@ static func get_pain_for_part(entity: Node, part: String) -> float:
 		var sub: String = injury.get("sub_region", "")
 		var sub_mult: float = PainConsciousnessConstants.get_sub_region_pain_multiplier(part, sub)
 		var stump_mult: float = PainConsciousnessConstants.get_stump_pain_multiplier(injury.get("is_stump", false))
+		var depth_mult: float = PainConsciousnessConstants.get_wound_depth_pain_multiplier(
+			float(injury.get("penetration_to_tissue_mm", -1.0))
+		)
 		var progress: float = EntityWounds._get_wound_healing_progress(entity, injury)
-		total += d * sev_mult * part_mult * itype_mult * sub_mult * stump_mult * (1.0 - progress)
+		total += d * sev_mult * part_mult * itype_mult * sub_mult * stump_mult * depth_mult * (1.0 - progress)
 	if entity.has_method("_get_campaign_pain_mult"):
 		total *= float(entity._get_campaign_pain_mult())
 	return total
@@ -553,6 +563,21 @@ static func _session_entity_label(entity: Node) -> String:
 
 
 static func update_consciousness(entity: Node) -> void:
+	# A dead creature is unconscious regardless of which vital part failed. Head destruction already
+	# zeroes consciousness via the head-fraction term, but chest destruction leaves the head intact,
+	# which previously left a corpse at consc~1 (critical-damage cap 15 x blood mod). Force 0 on death
+	# so every KILL reports a fully unconscious victim.
+	if entity.has_method("is_dead") and entity.is_dead():
+		var dead_old: float = entity.consciousness
+		entity.consciousness = 0.0
+		entity.effective_consciousness = 0.0
+		entity._consciousness_dirty = false
+		if dead_old != 0.0:
+			if entity.has_method("_notify_health_changed"):
+				entity._notify_health_changed()
+			elif entity.has_signal("health_changed"):
+				entity.health_changed.emit()
+		return
 	var head_cut: float = entity.body_cutting.get(BodyPartConstants.PART_HEAD, 0.0)
 	var head_blunt: float = entity.body_blunt.get(BodyPartConstants.PART_HEAD, 0.0)
 	var head_max: int = entity.body_max.get(BodyPartConstants.PART_HEAD, 1)

@@ -166,6 +166,20 @@ static func apply_decay(combatant: Dictionary, manager: Node, delta: float) -> v
 ## opponent's pressure value, which these signatures did not have.
 
 
+## HEMA bind pressure (Waffenfühlen): a pressed defender's parry capacity degrades — the opponent's blade
+## pressure reduces the defender's ability to maintain guard position and react. Reads the OPPONENT's pressure,
+## not the defender's (the original was inverted and removed). Linear map from 1.0 (no pressure) to
+## BIND_PRESSURE_DEFENDER_PARRY_CAP_FLOOR (maximum pressure).
+static func defender_parry_cap_mult(opponent: Dictionary, clock: float) -> float:
+    if opponent.is_empty():
+        return 1.0
+    var until: float = float(opponent.get(DataKeys.BIND_PRESSURE_UNTIL, -1.0))
+    if until < 0.0 or clock >= until:
+        return 1.0
+    var val: float = float(opponent.get(DataKeys.BIND_PRESSURE_VALUE, 0.0))
+    return lerpf(1.0, CombatConstantsParry.BIND_PRESSURE_DEFENDER_PARRY_CAP_FLOOR, val)
+
+
 ## Contest power multiplier: existing pressure improves bind contest odds.
 static func contest_power_mult(combatant: Dictionary, clock: float) -> float:
     if combatant.is_empty():

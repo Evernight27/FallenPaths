@@ -11,6 +11,10 @@ const _Bleeding := preload("res://core/BleedingConstants.gd")
 const _WeaponDamageHelper := preload("res://resources/weapons/WeaponDamageHelper.gd")
 const _WeaponConstants := preload("res://resources/weapons/WeaponConstants.gd")
 
+## Note stamped by **`AttackResultApplier._tuning_follow_through_extras`** on a strike that lands as the
+## follow-through of a parried blow (real hit, but low KE is the parried-blow residual, not a committed strike).
+const FOLLOW_THROUGH_NOTE: String = "follow_through_from_parry"
+
 static var _bbcode_strip_re: RegEx
 
 
@@ -111,6 +115,12 @@ static func _ke_sample_meta(result: Dictionary) -> Dictionary:
 			sample["kinematic_delivery"] = _WeaponDamageHelper.kinematic_delivery(arch_for_infer, move_id)
 		elif not move_id.is_empty():
 			sample["kinematic_delivery"] = _WeaponDamageHelper.kinematic_delivery({}, move_id)
+	# A parry follow-through is a real landed hit, but its low KE is the residual of a parried blow —
+	# not a committed strike. Tag it so the committed-swing/thrust/light band buckets can exclude it
+	# (otherwise a 1J follow-through forces in_band=0% and hides the true committed-strike distribution).
+	var note: String = str(result.get("note", rd.get("note", ""))).strip_edges()
+	var parent_idx: int = int(result.get("parent_exchange_index", rd.get("parent_exchange_index", -1)))
+	sample["is_follow_through"] = note == FOLLOW_THROUGH_NOTE or parent_idx >= 0
 	return sample
 
 
@@ -205,8 +215,17 @@ static func _format_ke_low_cause(rd: Dictionary) -> String:
 	if perf is not Dictionary:
 		return ""
 	var d: Dictionary = perf as Dictionary
+	# A parry follow-through lands with a velocity override (the parried blow's residual), so its low KE is
+	# the parry's, not a performance factor's. Attribute it to the follow-through rather than listing
+	# fat/pow/wuf (which sit near 1.0 here and would mislead the reader).
+	var parent_idx: int = int(rd.get("parent_exchange_index", -1))
+	if parent_idx >= 0:
+		return "follow_through"
 	var culprits := PackedStringArray()
-	for key in ["arm", "fat", "pow", "wuf"]:
+	# KE is set by the velocity chain (fatigue, power, wind-up, closing speed). `arm` is a DAMAGE factor
+	# (pre_cut/pre_blunt only) and never touches the KE velocity — listing it here misattributes the low
+	# energy, so it is excluded from the KE-low cause (it still shows in the perf= breakdown).
+	for key in ["fat", "pow", "wuf"]:
 		if d.has(key):
 			var val: float = float(d[key])
 			if val > 0.0 and val < 0.98:
@@ -246,6 +265,11 @@ static func format_bleed_cause(entity: Node, part: String) -> String:
 	var rate: float = EntityWounds.get_bleeding_rate_for_part(entity, part) if part != "" else EntityWounds.get_total_bleeding_rate(entity)
 	if rate <= 0.001:
 		return ""
+	# `rate` is the raw abstract wound rate (HP/s game units). The REAL blood-volume loss rate is
+	# rate × BLOOD_LOSS_RATE_MULTIPLIER (see BleedingConstants.blood_volume_loss_per_second /
+	# BloodVolumeMl.blood_ml_loss_per_second). Display the real %/s so a 144.8 raw rate reads as the
+	# ~10.4%/s blood-volume loss it actually is (not an impossible 144.8%/s).
+	var blood_pct_per_s: float = rate * _Bleeding.BLOOD_LOSS_RATE_MULTIPLIER
 	var worst_sub: String = ""
 	var worst_arterial_rate: float = -1.0
 	var worst_sev_rank: int = -1
@@ -267,7 +291,7 @@ static func format_bleed_cause(entity: Node, part: String) -> String:
 			if sev_rank > worst_sev_rank:
 				worst_sev_rank = sev_rank
 	var tag := PackedStringArray()
-	tag.append("bleed=%.1f%%/s" % rate)
+	tag.append("bleed=%.1f%%/s" % blood_pct_per_s)
 	# Detail is optional: a wound can bleed without an arterial sub-region or a recognized severity
 	# string (e.g. compound-fracture / stabilized), so only emit parens when there is something to say.
 	var detail := PackedStringArray()
@@ -349,6 +373,14 @@ static func format_exchange_line(
 			if atk_entity != null:
 				short += " | actor[%s]" % format_vitals_suffix(atk_entity)
 			return short
+		"parry_deflection_shock":
+			# Recoil blunt the parrier takes from a hard deflection — a self-event (emitted with
+			# attacker_id = the parrier, target_id = -1), so there is no real "target". Show the
+			# parrier's name + part + their vitals instead of the confusing "?->id:-1".
+			var short := "[HEMA] %s%s %s%s | outcome=%s" % [idx_bit, atk_name, move_id if move_id != "?" else "parry_shock", part_bit, outcome]
+			if atk_entity != null:
+				short += " | actor[%s]" % format_vitals_suffix(atk_entity)
+			return short
 		"focus_line":
 			var short := "[HEMA] %s%s %s->%s | outcome=%s" % [idx_bit, atk_name, move_id if move_id != "?" else "focus_line", tgt_name, outcome]
 			if tgt_entity != null:
@@ -426,8 +458,9 @@ static func format_exchange_line(
 			var low_cause: String = _format_ke_low_cause(rd)
 			if not low_cause.is_empty():
 				bits.append("ke_low_by=%s" % low_cause)
-			# When the arm factor dragged KE below band, surface *why* (pain/grip/function) so an agent can
-			# distinguish spawn-injury from mid-fight degradation without re-deriving it.
+			# Surface the arm's damage-modifier breakdown (pain/grip/function) when the attacking arm is
+			# degraded, so an agent can distinguish spawn-injury from mid-fight degradation. Note the arm
+			# factor scales DAMAGE (pre_cut/pre_blunt), not KE — it is context here, not a `ke_low_by` cause.
 			var perf: Variant = rd.get("attack_perf", {})
 			if perf is Dictionary and (perf as Dictionary).has("arm"):
 				var arm_val: float = float((perf as Dictionary)["arm"])
@@ -447,6 +480,11 @@ static func format_exchange_line(
 		var blunt: float = float(rd.get("final_blunt", 0.0))
 		var bone: float = float(rd.get("final_bone", 0.0))
 		bits.append("dmg=%d phys=%.3f cut=%.2f blunt=%.2f bone=%.2f" % [dmg, phys, cut, blunt, bone])
+		# Zero-energy follow-through contact (KE=n/a + PHYSICAL_DAMAGE_MIN_FLOOR dmg): tag it so a
+		# bare "hit" that dealt only the 1.0 floor is distinguishable from a real-energy hit in the
+		# log (otherwise these read as full hits and inflate the per-cycle hit-rate).
+		if ke_j <= 0.0 and dmg <= 1:
+			bits.append("contact_floor")
 		var pre_armor: float = float(rd.get("pre_armor", -1.0))
 		var mech: float = float(rd.get("mechanical_post_armor", -1.0))
 		var mech_bit: String = "pre_armor=%.1f mech=%.1f" % [maxf(pre_armor, 0.0), maxf(mech, 0.0)]
@@ -854,6 +892,12 @@ static func _is_thrust_sample(sample: Variant) -> bool:
 	return move_id.contains("thrust") or move_id.contains("stab")
 
 
+static func _ke_sample_is_follow_through(sample: Variant) -> bool:
+	if sample is Dictionary:
+		return bool((sample as Dictionary).get("is_follow_through", false))
+	return false
+
+
 static func _format_ke_bucket_line(
 	label: String, samples: Array, use_weapon_band: bool, band_weapon_id: String = "SWORD", band_delivery: String = ""
 ) -> String:
@@ -908,8 +952,15 @@ static func _format_ke_bucket_lines(ke_samples: Array) -> String:
 	var swing_samples: Array = []
 	var thrust_samples: Array = []
 	var light_samples: Array = []
+	var follow_through_samples: Array = []
 	for raw in ke_samples:
 		all_samples.append(raw)
+		# Parry follow-throughs are real hits but not committed strikes — keep them out of the
+		# committed-swing/thrust/light band buckets (their ~1J residual would drag in_band to 0%)
+		# and report them in their own bucket so the committed-strike band stays meaningful.
+		if _ke_sample_is_follow_through(raw):
+			follow_through_samples.append(raw)
+			continue
 		var weapon_id: String = _ke_sample_weapon_id(raw)
 		if weapon_id == "DAGGER":
 			# Dagger hits live in the light bucket only (they would otherwise double-count
@@ -927,6 +978,8 @@ static func _format_ke_bucket_lines(ke_samples: Array) -> String:
 		parts.append(_format_ke_bucket_line("thrust", thrust_samples, true, thrust_weapon, "thrust"))
 	if not light_samples.is_empty():
 		parts.append(_format_ke_bucket_line("light", light_samples, true, "DAGGER", "thrust"))
+	if not follow_through_samples.is_empty():
+		parts.append(_format_ke_bucket_line("follow_through", follow_through_samples, false))
 	parts.append(_format_ke_bucket_line("all", all_samples, false))
 	return " | ".join(parts)
 

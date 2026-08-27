@@ -140,7 +140,8 @@ static func _try_merge_wound_into_channel(
 	severity: String,
 	base_rate: float,
 	is_arterial: bool,
-	healing_duration: float
+	healing_duration: float,
+	penetration_to_tissue_mm: float = -1.0
 ) -> bool:
 	if not entity.wounds.has(part):
 		return false
@@ -158,6 +159,10 @@ static func _try_merge_wound_into_channel(
 		injury["cumulative_damage"] = injury.get("cumulative_damage", 0.0) + damage
 		if _severity_rank(severity) > _severity_rank(injury.get(DataKeys.INJURY_SEVERITY, BleedingConstants.SEVERITY_MODERATE)):
 			injury[DataKeys.INJURY_SEVERITY] = severity
+		# Deepest track dominates the channel (drives sustained pain + bleeding depth terms).
+		injury["penetration_to_tissue_mm"] = maxf(
+			float(injury.get("penetration_to_tissue_mm", -1.0)), penetration_to_tissue_mm
+		)
 		if is_arterial:
 			injury["is_arterial"] = true
 		if base_rate > 0.0:
@@ -222,7 +227,8 @@ static func add_wound(
 		entity.wounds[part] = []
 	var healing_duration: float = HealingConstants.get_wound_healing_duration_seconds(part, severity, injury_type)
 	if _try_merge_wound_into_channel(
-		entity, part, injury_type, damage, sub_region, severity, base_rate, is_arterial, healing_duration
+		entity, part, injury_type, damage, sub_region, severity, base_rate, is_arterial, healing_duration,
+		penetration_to_tissue_mm
 	):
 		return
 	var injury: Dictionary = {
@@ -237,7 +243,8 @@ static func add_wound(
 		"is_arterial": is_arterial,
 		"created_at_game_time": entity._game_time_seconds,
 		"healing_duration_seconds": healing_duration,
-		"compensation_mult": 1.0
+		"compensation_mult": 1.0,
+		"penetration_to_tissue_mm": penetration_to_tissue_mm
 	}
 	entity.wounds[part].append(injury)
 	# Compound fracture cascade: when ≥2 fractures on different bones in same limb (arm/leg),

@@ -167,14 +167,15 @@ static func recovery_duration_with_form(
 
 
 ## Compute guard transition cost based on defender's current guard line vs the parried position.
-## Returns an absolute time penalty in seconds (0.0 = same guard, up to ~0.35s for extreme transitions).
-## Guards arranged cyclically: high_left (~135), high_right (~45), low_right (~-45), low_left (~-135),
-## centre (~0). Larger angular displacement between guards = more blade travel = more recovery cost.
+## Returns an absolute time penalty in seconds (0.0 = same guard, up to GUARD_TRANSITION_RECOVERY_MAX_S=0.25s
+## for a 180° transition). Guards arranged cyclically at 45° spacing (high_right ~45, low_right ~-45,
+## high_left ~135, low_left ~-135, cardinals high ~90 / low ~-90 / right ~0 / left ~180, centre ~0).
+## Larger angular displacement between guards = more blade travel = more recovery cost.
 static func compute_guard_transition_cost_s(defender_guard_line: String, attack_line: String) -> float:
     var def_angle: float = _guard_line_to_angle_deg(defender_guard_line)
     var atk_angle: float = _attack_line_to_angle_deg(attack_line)
     var delta: float = absf(_angle_diff_deg(def_angle, atk_angle))
-    # Scale: 0 deg = 0 cost, 90 deg = ~0.15s, 180 deg = ~0.30s max transition penalty.
+    # Scale: 0 deg = 0 cost, 90 deg = 0.125s, 180 deg = 0.25s max transition penalty.
     var normalized: float = clampf(delta / 180.0, 0.0, 1.0)
     return normalized * CombatConstants.GUARD_TRANSITION_RECOVERY_MAX_S
 
@@ -189,6 +190,17 @@ static func _guard_line_to_angle_deg(guard_line: String) -> float:
             return -45.0
         "low_left", "alber":
             return -135.0
+        # Cardinals (the live 8-line home guards) — previously fell through to 0.0, giving 0s transition cost
+        # for max-travel moves (e.g. a low guard meeting a high attack). Placed at the cardinal positions of
+        # this symmetric ± convention so adjacent lines differ by 45° and opposites by 180°.
+        "high":
+            return 90.0
+        "low":
+            return -90.0
+        "right":
+            return 0.0
+        "left":
+            return 180.0
         "middle", "centre", "pflug", "mid":
             return 0.0
         _:
@@ -205,6 +217,16 @@ static func _attack_line_to_angle_deg(attack_line: String) -> float:
             return -45.0
         "low_left", "from_below_left":
             return -135.0
+        # Cardinals (the live 8-line attack lines) — previously fell through to 0.0. Placed at the cardinal
+        # positions of this symmetric ± convention so adjacent lines differ by 45° and opposites by 180°.
+        "high":
+            return 90.0
+        "low":
+            return -90.0
+        "right":
+            return 0.0
+        "left":
+            return 180.0
         "middle", "centre", "straight":
             return 0.0
         _:

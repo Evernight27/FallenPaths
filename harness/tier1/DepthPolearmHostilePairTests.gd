@@ -92,6 +92,46 @@ static func _run_ai_targeting_incap_hostile_mult(failures: PackedStringArray) ->
     HarnessFixtures._free_manager(mgr)
 
 
+## Tier 1.6: `hostile_pair_targeting_weight_mult` armor avoidance — a heavily-armored opponent gets a reduced
+## weight vs the same unarmored opponent (a real fighter prefers a softer target; striking plate is less efficient).
+static func _run_ai_targeting_heavy_armor_avoidance(failures: PackedStringArray) -> void:
+    var mgr: Node = CombatManager.new()
+    mgr.register(_new_entity("SWORD"), "player")
+    var ent_enemy = _new_entity("SWORD")
+    mgr.register(ent_enemy, "enemy")
+    mgr.register(_new_entity("SWORD"), "enemy")
+    mgr.start({"files": 2, "ranks": 1}, {"files": 2, "ranks": 1})
+    var p: Dictionary = mgr.combatants[0]
+    var e_anchor: Dictionary = mgr.combatants[2]
+    var opp: Dictionary = mgr.combatants[1]
+    p["file"] = 0
+    e_anchor["file"] = 0
+    e_anchor["rank"] = 0
+    opp["file"] = 1
+    opp["rank"] = 0
+    mgr.recompute_zoc_and_distance()
+    var w_unarmored: float = CombatTargetScoring.hostile_pair_targeting_weight_mult(mgr, p, opp)
+    if w_unarmored <= 0.0:
+        _fail(failures, "ai_armor: baseline hostile weight should be > 0")
+        HarnessFixtures._free_manager(mgr)
+        return
+    # Equip a full chest plate (~FORMATION_ARMOR_MASS_REF_KG) on the opponent -> armor_t ~ 1.0.
+    var piece := ArmorPiece.new()
+    piece.body_part = BodyPartConstants.PART_CHEST
+    piece.layers = [{"mass_kg": CombatConstants.FORMATION_ARMOR_MASS_REF_KG}]
+    ent_enemy.equip_armor(BodyPartConstants.PART_CHEST, piece)
+    var w_armored: float = CombatTargetScoring.hostile_pair_targeting_weight_mult(mgr, p, opp)
+    if not (w_armored < w_unarmored - 0.001):
+        _fail(
+            failures,
+            (
+                "ai_armor: armored target weight should be lower (unarmored=%.6f armored=%.6f mult=%.4f)"
+                % [w_unarmored, w_armored, CombatConstants.AI_TARGETING_HEAVY_ARMOR_MULT]
+            )
+        )
+    HarnessFixtures._free_manager(mgr)
+
+
 ## Tier 1.6: `AvailableActionsBuilder` does not list melee / `attempt_close` vs incapacitated enemies.
 
 

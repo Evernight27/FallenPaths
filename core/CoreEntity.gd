@@ -28,6 +28,8 @@ var last_fought_day: int = 0
 
 ## Whether this merc participated in the most recent combat (tracks who fought vs who stayed at camp).
 var last_fought_in_combat: bool = false
+## Nutrition level 0.0 (starving) - 1.0 (well-fed); set on the daily provisions tick. Malnutrition slows healing.
+var nutrition_level: float = 1.0
 var is_party_leader: bool = false
 ## IV-11: enemy commander (stamped on **`CombatManager.register`** for enemy side only).
 var is_enemy_leader: bool = false
@@ -97,6 +99,21 @@ var direct_pressure_assist_held_by: Node = null
 var campaign_afflictions: Array[Dictionary] = []
 ## Campaign → combat muscle fatigue carry-over (part -> 0..1). Synced from combatant dict after fights.
 var muscle_fatigue: Dictionary = {}
+## Campaign weariness: 0..1 fatigue accumulated from fighting + daily operations; recovered by camp rest.
+## A fatigued member has a lower stamina cap (see _get_campaign_stamina_mult). Accumulates per battle + per day.
+const CAMPAIGN_FATIGUE_STAMINA_FLOOR: float = 0.7  # stamina cap multiplier at full fatigue
+const CAMPAIGN_FATIGUE_PER_BATTLE: float = 0.2  # fatigue added per battle fought
+const CAMPAIGN_FATIGUE_PER_DAY: float = 0.1  # fatigue added per day of campaign operations
+var campaign_fatigue: float = 0.0
+## Rest-quality floor: even a poorly-provisioned (starving) camp lets a member recover at least this
+## fraction of accumulated weariness in one night. A well-fed camp (quality 1.0) fully clears it.
+const REST_QUALITY_FLOOR: float = 0.3
+## Weapon edge wear: 0..1 dullness accumulated from fighting; restored by sharpening at camp rest.
+## A worn edge cuts less effectively (lower weapon sharpness => wider contact + duller wedge angle).
+## Applied to the equipped weapon at battle start (see apply_weapon_edge_wear_to_weapon).
+const WEAPON_EDGE_WEAR_DULL_SHARPNESS: float = 0.4  # weapon sharpness at full wear (1 = razor-sharp, 0 = dull)
+const WEAPON_EDGE_WEAR_PER_BATTLE: float = 0.15  # edge wear added per battle fought
+var weapon_edge_wear: float = 0.0
 var consciousness: float = 100.0  # true consciousness (incapacitation when < 10)
 var effective_consciousness: float = 100.0  # for combat (after pain shock)
 # Optional bleed pacing overrides (default full ATLS drain; future explicit fluid resuscitation may raise recovery).
@@ -347,10 +364,16 @@ func _get_wound_healing_progress(injury: Dictionary) -> float:
 
 
 func _get_pain_contribution_for_wound(
-	part: String, damage: float, severity: String, injury_type: String, sub_region: String, is_stump: bool = false
+	part: String,
+	damage: float,
+	severity: String,
+	injury_type: String,
+	sub_region: String,
+	is_stump: bool = false,
+	penetration_to_tissue_mm: float = -1.0
 ) -> float:
 	return EntityPainConsciousness.get_pain_contribution_for_wound(
-		self, part, damage, severity, injury_type, sub_region, is_stump
+		self, part, damage, severity, injury_type, sub_region, is_stump, penetration_to_tissue_mm
 	)
 
 
@@ -501,12 +524,21 @@ func is_dead() -> bool:
 	return false
 
 
-## True when a vital part has one health pool depleted but the other still carries damage.
+## True when a vital part (head/chest) has lost most of its tissue — total (cut + blunt) pools
+## below 30% of max. Previously this fired when a single pool was depleted, so one head hit (a
+## laceration that empties the cut pool) read as "critically damaged" and capped consciousness at
+## 15 — a one-shot head. Now a vital part must be mostly destroyed (~70%+ tissue loss) before it
+## counts, so a single laceration degrades consciousness smoothly (via the head-fraction term in
+## update_consciousness) instead of KO-ing, while a shattered head/chest still drops the fighter to
+## near-unconscious.
 func is_vital_part_critically_damaged() -> bool:
+	const CRITICAL_TISSUE_FRACTION: float = 0.30
 	for part in _get_vital_parts():
-		var cutting: float = body_cutting.get(part, 0.0)
-		var blunt: float = body_blunt.get(part, 0.0)
-		if (cutting <= 0.0 and blunt > 0.0) or (blunt <= 0.0 and cutting > 0.0):
+		var max_val: float = float(body_max.get(part, 0.0))
+		if max_val <= 0.0:
+			continue
+		var total: float = float(body_cutting.get(part, 0.0) + body_blunt.get(part, 0.0))
+		if total < max_val * 2.0 * CRITICAL_TISSUE_FRACTION:
 			return true
 	return false
 
@@ -514,9 +546,10 @@ func is_vital_part_critically_damaged() -> bool:
 # Returns a short string describing why this entity is dead (for combat/debug logging). Call only when is_dead() is
 # true.
 func _get_death_reason() -> String:
-	var death_thresh: float = _get_blood_loss_death_threshold()
-	if blood_volume <= death_thresh:
-		return "blood_loss (volume=%.1f < threshold %.1f)" % [blood_volume, death_thresh]
+	# Check vital-part destruction FIRST: a destroyed head/chest is the definitive cause of death.
+	# emit_death_once clamps blood_volume to the death threshold when a vital part is destroyed, so a
+	# blood check first (with <=) would mislabel a head/chest kill as "blood_loss" (BLEED_OUT) instead
+	# of "vital_part_destroyed" (VITAL_DESTROYED). Blood loss is the cause only when no vital part failed.
 	for part in _get_vital_parts():
 		if _is_part_destroyed(part):
 			var sever_cut: float = body_cutting.get(part, 0.0)
@@ -527,6 +560,9 @@ func _get_death_reason() -> String:
 		var zero_blunt: float = body_blunt.get(part, 0.0)
 		if zero_cut <= 0.0 and zero_blunt <= 0.0:
 			return "vital_part_zero (%s cut=%.2f blunt=%.2f)" % [part, zero_cut, zero_blunt]
+	var death_thresh: float = _get_blood_loss_death_threshold()
+	if blood_volume <= death_thresh:
+		return "blood_loss (volume=%.1f < threshold %.1f)" % [blood_volume, death_thresh]
 	return "unknown"
 
 
@@ -623,7 +659,19 @@ func _get_endurance_healing_speed_mult() -> float:
 	var effective_end: float = float(endurance)
 	if CompanyState.read_stub_proficiency_enabled() and "_proficiency_bonus" in self:
 		effective_end += float(_proficiency_bonus.get("endurance", 0))
-	return 1.0 - clampf((effective_end - 100) / 500.0, 0.0, 0.25)
+	# Higher END heals FASTER (fit veterans recover quicker): 100 -> 1.0x, 150 -> 1.20x, caps at 1.25x.
+	# (The old `1.0 - ...` form inverted this, making fit characters heal slower.)
+	return 1.0 + clampf((effective_end - 100) / 250.0, 0.0, 0.25)
+
+
+func set_nutrition_level(value: float) -> void:
+	nutrition_level = clampf(value, 0.0, 1.0)
+
+
+func _get_nutrition_healing_speed_mult() -> float:
+	# Malnutrition impairs wound healing (clinical: protein/energy deficiency slows tissue repair).
+	# Well-fed (1.0) -> 1.0x; starving (0.0) -> NUTRITION_HEAL_STARVATION_MULT (0.6x).
+	return lerpf(HealingConstants.NUTRITION_HEAL_STARVATION_MULT, 1.0, clampf(nutrition_level, 0.0, 1.0))
 
 
 func _get_intelligence_contract_bonus_mult() -> float:
@@ -638,7 +686,58 @@ func _get_campaign_stamina_mult() -> float:
 	for raw in campaign_afflictions:
 		if raw is Dictionary:
 			m *= clampf(raw.get("stamina_mult", 1.0), 0.5, 1.0)
+	m *= _get_campaign_fatigue_mult()
 	return m
+
+
+## Stamina cap multiplier from campaign weariness: 1.0 (fresh) -> CAMPAIGN_FATIGUE_STAMINA_FLOOR (fully fatigued).
+func _get_campaign_fatigue_mult() -> float:
+	return lerpf(1.0, CAMPAIGN_FATIGUE_STAMINA_FLOOR, clampf(campaign_fatigue, 0.0, 1.0))
+
+
+## Add fatigue from a battle fought (clamped to 0..1). Called at battle end (world/CombatFlow).
+func add_campaign_fatigue_battle() -> void:
+	campaign_fatigue = clampf(campaign_fatigue + CAMPAIGN_FATIGUE_PER_BATTLE, 0.0, 1.0)
+
+
+## Add fatigue from a day of campaign operations (marching/operating; clamped to 0..1). Called on day tick.
+func add_campaign_fatigue_day() -> void:
+	campaign_fatigue = clampf(campaign_fatigue + CAMPAIGN_FATIGUE_PER_DAY, 0.0, 1.0)
+
+
+## Clear campaign weariness (a proper rest at camp). Called on camp rest.
+func clear_campaign_fatigue() -> void:
+	campaign_fatigue = 0.0
+
+
+## Apply a night's rest of the given quality (0..1) to campaign weariness. Quality 1.0 fully clears
+## fatigue (a well-provisioned, safe camp); lower quality recovers only that fraction, leaving
+## residual weariness. A starving or exposed company cannot fully shake off the campaign's toll in
+## one night — the rest is partial and the member carries some fatigue into the next battle.
+func apply_rest_quality(quality: float) -> void:
+	var q: float = clampf(quality, 0.0, 1.0)
+	campaign_fatigue = clampf(campaign_fatigue * (1.0 - q), 0.0, 1.0)
+
+
+## Add edge wear from a battle fought (clamped to 0..1). Called at battle end (world/CombatFlow).
+func add_weapon_edge_wear_battle() -> void:
+	weapon_edge_wear = clampf(weapon_edge_wear + WEAPON_EDGE_WEAR_PER_BATTLE, 0.0, 1.0)
+
+
+## Sharpen the weapon (a proper rest at camp restores the edge). Called on camp rest.
+func sharpen_weapon() -> void:
+	weapon_edge_wear = 0.0
+
+
+## Apply the current edge wear to the equipped weapon's sharpness (1.0 fresh -> DULL at full wear).
+## Called at battle start so the damage pipeline (which reads weapon.sharpness) sees the worn edge.
+## Always reflects the current wear: wear 0 -> fresh (1.0), full wear -> WEAPON_EDGE_WEAR_DULL_SHARPNESS.
+## No-op when there is no weapon. All weapons default to sharpness 1.0 (no template overrides it).
+func apply_weapon_edge_wear_to_weapon() -> void:
+	var w: Variant = get_weapon()
+	if w == null or not ("sharpness" in w):
+		return
+	w.sharpness = lerpf(1.0, WEAPON_EDGE_WEAR_DULL_SHARPNESS, clampf(weapon_edge_wear, 0.0, 1.0))
 
 
 func _get_campaign_pain_mult() -> float:
@@ -688,6 +787,10 @@ func _can_apply_stabilize(part: String) -> bool:
 
 func _apply_stabilize(part: String, effectiveness: float = 1.0) -> bool:
 	return EntityMedical._apply_stabilize(self, part, effectiveness)
+
+
+func _apply_fluid_resuscitation(effectiveness: float = 1.0) -> bool:
+	return EntityMedical._apply_fluid_resuscitation(self, effectiveness)
 
 
 func _get_stabilize_application_time_seconds_for_part(part: String) -> float:

@@ -88,6 +88,48 @@ static func _run_weapon_parts_mass_sum(failures: PackedStringArray) -> void:
 
 
 
+## Tier 3.2 (weapon audit): sharpness -> effective sharp contact width is physically grounded. A sharp edge has a
+## NARROW apex (small bearing width -> high pressure); a dull edge is capped at the FULL blade width (the cutting
+## edge can never be wider than the blade). Locks the corrected saturating map (the old hyperbolic formula gave a
+## dull edge 5x the blade width - physically impossible).
+static func _run_weapon_sharpness_effective_contact_width(failures: PackedStringArray) -> void:
+    var all_moves := WeaponMoveDefinitions._move_definitions_build()
+    var wnames: Array[String] = ["SWORD", "AXE", "DAGGER", "SPEAR"]
+    for wname in wnames:
+        var wep: Weapon = HarnessFixtures.get_cached_weapon(wname)
+        if wep == null:
+            _fail(failures, "sharp_width: %s has no weapon definition" % wname)
+            continue
+        var cut_move: String = ""
+        for move_id in wep.attack_types.keys():
+            if move_id is String and all_moves.has(move_id) and all_moves[move_id].get("contact_type", "") == "cut":
+                cut_move = move_id
+                break
+        if cut_move.is_empty():
+            continue
+        var geometric: float = wep.get_sharp_contact_cm(cut_move)
+        if geometric <= 0.0:
+            continue
+        var orig_sharpness: float = wep.sharpness
+        var apex: float = maxf(WeaponConstants.MIN_CONTACT_WIDTH_CM, geometric * WeaponConstants.SHARP_APEX_FRACTION)
+        wep.sharpness = 1.0
+        var sharp_w: float = wep.get_effective_sharp_contact_cm(cut_move)
+        wep.sharpness = 0.0
+        var dull_w: float = wep.get_effective_sharp_contact_cm(cut_move)
+        wep.sharpness = orig_sharpness
+        if absf(sharp_w - apex) > 0.01:
+            _fail(failures, "sharp_width: %s sharp width=%.3f want apex=%.3f" % [wname, sharp_w, apex])
+        if absf(dull_w - geometric) > 0.01:
+            _fail(failures, "sharp_width: %s dull width=%.3f want geometric=%.3f (capped at blade)" % [wname, dull_w, geometric])
+        if sharp_w >= dull_w:
+            _fail(failures, "sharp_width: %s sharp=%.3f should be < dull=%.3f (sharper = narrower)" % [wname, sharp_w, dull_w])
+        if dull_w > geometric + 0.01:
+            _fail(failures, "sharp_width: %s dull width=%.3f exceeds blade width=%.3f (impossible)" % [wname, dull_w, geometric])
+        if sharp_w < WeaponConstants.MIN_CONTACT_WIDTH_CM - 1e-6:
+            _fail(failures, "sharp_width: %s sharp width=%.3f below floor %.3f" % [wname, sharp_w, WeaponConstants.MIN_CONTACT_WIDTH_CM])
+
+
+
 ## Tier 3.2 (weapon audit): verify each weapon has at least one feint move and one parry-counter move.
 
 ## Tier 3.2 (weapon audit): verify each weapon has at least one feint move and one parry-counter move.

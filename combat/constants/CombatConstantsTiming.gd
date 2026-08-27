@@ -49,6 +49,10 @@ const RECOVERY_HIT_PENALTY_MULT: float = 1.20
 const RECOVERY_MAX_S: float = 4.0
 
 const WINDUP_LEG_MIN: float = 0.2
+## Floor for leg functionality when scaling formation-move (footwork) duration. A fractured/crippled
+## leg slows repositioning (duration ∝ 1/speed); the clamp caps the slowdown so a destroyed leg
+## slows the unit rather than freezing it (total immobilization is handled by cowering).
+const MOVEMENT_LEG_FUNC_MIN: float = 0.25
 const RECOVERY_AFTER_MEDICAL_S: float = 0.5
 
 # Power and follow_through (0.5-1.0 each); ensures realistic KE distributions matching HEMA data.

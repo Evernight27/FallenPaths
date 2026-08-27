@@ -892,6 +892,182 @@ static func _run_field_tourniquet_applies_before_procedure_advance(failures: Pac
     MedicalPhaseGateTests._free_entity_fixture(bleed_first)
 
 
+## Tourniquet ischemia: a TQ left on past the max duration is auto-released and causes ischemic soft-tissue
+## damage to the limb (necrosis / compartment injury). Models the real-world cost of a TQ left on too long.
+static func _run_tourniquet_ischemia_on_expiry(failures: PackedStringArray) -> void:
+    var ent: Node = _new_entity("SWORD")
+    var part: String = "left_leg"
+    var max_tissue: float = float(ent.body_max.get(part, 0.0))
+    if max_tissue <= 0.0:
+        _fail(failures, "tq_ischemia: fixture limb should have tissue max")
+        MedicalPhaseGateTests._free_entity_fixture(ent)
+        return
+    # A tourniquet can only be applied to a bleeding limb — seed a wound so _can_apply_tourniquet passes.
+    # wounds[part] is an ARRAY of injury dicts (EntityHealing._process_healing casts it to Array).
+    ent.wounds[part] = [
+        {
+            "severity": BleedingConstants.SEVERITY_SEVERE,
+            "current_bleeding_rate": 0.5,
+            "base_bleeding_rate": 0.5,
+            "is_arterial": false,
+            "is_stabilized": false,
+        }
+    ]
+    seed(884402)
+    ent._apply_tourniquet(part, 1.5)
+    seed(_HARNESS_RESTORE_GLOBAL_SEED)
+    if not ent.tourniquet_applied.has(part):
+        _fail(failures, "tq_ischemia: tourniquet should be applied")
+        MedicalPhaseGateTests._free_entity_fixture(ent)
+        return
+    var cut_before: float = ent.body_cutting.get(part, 0.0)
+    var blunt_before: float = ent.body_blunt.get(part, 0.0)
+    # Advance game time past the max TQ duration so the tourniquet expires (ischemia + auto-release).
+    ent._process_healing(BleedingConstants.TOURNIQUET_MAX_DURATION_SECONDS + 1.0)
+    if ent.tourniquet_applied.has(part):
+        _fail(failures, "tq_ischemia: expired tourniquet should be auto-released")
+    var cut_drop: float = cut_before - ent.body_cutting.get(part, 0.0)
+    var blunt_drop: float = blunt_before - ent.body_blunt.get(part, 0.0)
+    var want_damage: float = max_tissue * BleedingConstants.TOURNIQUET_ISCHEMIA_TISSUE_FRACTION
+    # Healing runs in the same advance, so the net drop is slightly less than the raw ischemic damage.
+    if cut_drop < 0.5 * want_damage:
+        _fail(failures, "tq_ischemia: cutting drop %.1f should be >= 50%% of expected %.1f" % [cut_drop, want_damage])
+    if blunt_drop < 0.5 * want_damage:
+        _fail(failures, "tq_ischemia: blunt drop %.1f should be >= 50%% of expected %.1f" % [blunt_drop, want_damage])
+    MedicalPhaseGateTests._free_entity_fixture(ent)
+
+
+## Wound infection: untreated wounds become infected over days (impairing healing); a clean definitive
+## dressing clears the infection. Progression is a deterministic per-day risk dose, campaign-only
+## (never advances during a battle). Minimal wound dicts lack created_at/healing_duration so they persist.
+static func _run_wound_infection_progression_slowdown_and_cure(failures: PackedStringArray) -> void:
+    var part: String = "right_arm"
+    var wound: Dictionary = {
+        "severity": BleedingConstants.SEVERITY_SEVERE,
+        "current_bleeding_rate": 0.5,
+        "base_bleeding_rate": 0.5,
+        "is_arterial": false,
+        "is_stabilized": false,
+    }
+    # --- Progression: a severe untreated wound (daily risk 0.30) infects over ~4 days. ---
+    var ent: Node = _new_entity("SWORD")
+    ent.wounds[part] = [wound.duplicate(true)]
+    ent._process_healing(4 * HealingConstants.SECONDS_PER_DAY)
+    var infected: bool = false
+    for injury in ent.wounds.get(part, []):
+        if injury.get("is_infected", false):
+            infected = true
+    if not infected:
+        _fail(failures, "wound_infection: severe untreated wound should be infected after 4 days")
+    MedicalPhaseGateTests._free_entity_fixture(ent)
+
+    # --- Healing slowdown: an infected wound heals less tissue than a clean one over the same day. ---
+    var clean: Node = _new_entity("SWORD")
+    var sick: Node = _new_entity("SWORD")
+    for e in [clean, sick]:
+        var max_t: float = float(e.body_max.get(part, 0.0))
+        e.body_cutting[part] = max_t * 0.5
+        e.body_blunt[part] = max_t * 0.5
+        e.wounds[part] = [wound.duplicate(true)]
+    for injury in sick.wounds[part]:
+        injury["is_infected"] = true
+        injury["infection_progress"] = 1.0
+    clean._process_healing(HealingConstants.SECONDS_PER_DAY)
+    sick._process_healing(HealingConstants.SECONDS_PER_DAY)
+    var clean_cut: float = clean.body_cutting.get(part, 0.0)
+    var sick_cut: float = sick.body_cutting.get(part, 0.0)
+    if sick_cut >= clean_cut:
+        _fail(
+            failures,
+            "wound_infection: infected wound should heal less (sick=%.1f clean=%.1f)" % [sick_cut, clean_cut]
+        )
+    MedicalPhaseGateTests._free_entity_fixture(clean)
+    MedicalPhaseGateTests._free_entity_fixture(sick)
+
+    # --- Cure: a successful definitive dressing clears infection; a failed one does not. ---
+    var cured: Node = _new_entity("SWORD")
+    var infected_wound: Dictionary = wound.duplicate(true)
+    infected_wound["is_infected"] = true
+    infected_wound["infection_progress"] = 1.0
+    cured.wounds[part] = [infected_wound]
+    seed(884403)
+    var bandage_ok: bool = cured._apply_bandage(part, 1.5)
+    seed(_HARNESS_RESTORE_GLOBAL_SEED)
+    var still_infected: bool = false
+    for injury in cured.wounds.get(part, []):
+        if injury.get("is_infected", false):
+            still_infected = true
+    if bandage_ok and still_infected:
+        _fail(failures, "wound_infection: successful dressing should clear infection")
+    if not bandage_ok and not still_infected:
+        _fail(failures, "wound_infection: failed dressing should not clear infection")
+    MedicalPhaseGateTests._free_entity_fixture(cured)
+
+
+## Active bleeding diverts repair resources: a part with an active (non-arterial) bleed heals tissue more
+## slowly than the same part with a stopped bleed. Campaign-only (never advances during a battle).
+static func _run_bleeding_slows_tissue_healing(failures: PackedStringArray) -> void:
+    var part: String = "right_arm"
+    var clean: Node = _new_entity("SWORD")
+    var bleeding: Node = _new_entity("SWORD")
+    for e in [clean, bleeding]:
+        var max_t: float = float(e.body_max.get(part, 0.0))
+        e.body_cutting[part] = max_t * 0.5
+        e.body_blunt[part] = max_t * 0.5
+    clean.wounds[part] = [
+        {"severity": BleedingConstants.SEVERITY_MODERATE, "current_bleeding_rate": 0.0, "is_arterial": false, "is_stabilized": true},
+    ]
+    bleeding.wounds[part] = [
+        {"severity": BleedingConstants.SEVERITY_MODERATE, "current_bleeding_rate": 1.0, "is_arterial": false, "is_stabilized": false},
+    ]
+    clean._process_healing(HealingConstants.SECONDS_PER_DAY)
+    bleeding._process_healing(HealingConstants.SECONDS_PER_DAY)
+    var clean_cut: float = clean.body_cutting.get(part, 0.0)
+    var bleed_cut: float = bleeding.body_cutting.get(part, 0.0)
+    if bleed_cut >= clean_cut:
+        _fail(
+            failures,
+            "bleed_heal: actively-bleeding part should heal less (bleed=%.1f clean=%.1f)" % [bleed_cut, clean_cut]
+        )
+    MedicalPhaseGateTests._free_entity_fixture(clean)
+    MedicalPhaseGateTests._free_entity_fixture(bleeding)
+
+
+## Untreated arterial stall: an open arterial wound cannot close while systolic pressure drives flow, so its
+## part's repair stalls (no tissue gain); the same wound with definitive hemostasis (bandage) heals.
+static func _run_arterial_untreated_stalls_healing(failures: PackedStringArray) -> void:
+    var part: String = "right_arm"
+    var open: Node = _new_entity("SWORD")
+    var treated: Node = _new_entity("SWORD")
+    for e in [open, treated]:
+        var max_t: float = float(e.body_max.get(part, 0.0))
+        e.body_cutting[part] = max_t * 0.5
+        e.body_blunt[part] = max_t * 0.5
+        e.wounds[part] = [
+            {"severity": BleedingConstants.SEVERITY_SEVERE, "current_bleeding_rate": 1.0, "is_arterial": true, "is_stabilized": false},
+        ]
+    treated.bandaged_parts[part] = true
+    var open_before: float = open.body_cutting.get(part, 0.0)
+    open._process_healing(HealingConstants.SECONDS_PER_DAY)
+    treated._process_healing(HealingConstants.SECONDS_PER_DAY)
+    var open_after: float = open.body_cutting.get(part, 0.0)
+    var treated_after: float = treated.body_cutting.get(part, 0.0)
+    if open_after > open_before + 0.01:
+        _fail(
+            failures,
+            "arterial_stall: untreated arterial wound should stall healing (before=%.1f after=%.1f)"
+            % [open_before, open_after]
+        )
+    if treated_after <= open_after:
+        _fail(
+            failures,
+            "arterial_stall: bandaged arterial wound should heal (treated=%.1f open=%.1f)"
+            % [treated_after, open_after]
+        )
+    MedicalPhaseGateTests._free_entity_fixture(open)
+    MedicalPhaseGateTests._free_entity_fixture(treated)
+
+
 ## Stabilize requires intrinsic active bleed  -  not arterial label alone after local clot under compression.
 
 

@@ -469,6 +469,36 @@ static func _run_sim_derived_goblin_smaller_limb_than_human(failures: PackedStri
             )
 
 
+## S5: body-size reach scaling — a smaller wielder (goblin) has shorter effective weapon reach than a human
+## with the same weapon (shorter arms extend the blade less). Human (75 kg) -> 1.0; goblin (38 kg) -> ~0.9.
+static func _run_sim_body_reach_scale_scales_with_species(failures: PackedStringArray) -> void:
+    var human_scale: float = HumanSpecies.body_reach_scale()
+    var goblin_scale: float = GoblinSpecies.body_reach_scale()
+    if absf(human_scale - 1.0) > 0.001:
+        SimulationCombatTests._fail(failures, "sim_reach_scale: human should be 1.0 (got %.4f)" % human_scale)
+    if not (goblin_scale < human_scale - 0.001):
+        SimulationCombatTests._fail(
+            failures, "sim_reach_scale: goblin (%.4f) should be < human (%.4f)" % [goblin_scale, human_scale]
+        )
+    # Full path: a goblin wielding a sword has shorter effective reach than a human with the same sword.
+    var human_ent: CoreEntity = SimulationCombatTests._entity_for_species(HumanSpecies)
+    var goblin_ent: CoreEntity = SimulationCombatTests._entity_for_species(GoblinSpecies)
+    var sword: Weapon = HarnessFixtures.get_cached_weapon("SWORD")
+    human_ent.equip_weapon(sword)
+    goblin_ent.equip_weapon(sword)
+    var human_c: Dictionary = {DataKeys.COMBATANT_NODE: human_ent}
+    var goblin_c: Dictionary = {DataKeys.COMBATANT_NODE: goblin_ent}
+    var human_reach: float = CombatantEntityAccess.weapon_melee_reach(human_c)
+    var goblin_reach: float = CombatantEntityAccess.weapon_melee_reach(goblin_c)
+    if not (goblin_reach < human_reach - 0.001):
+        SimulationCombatTests._fail(
+            failures,
+            "sim_reach_scale: goblin reach (%.4f) should be < human reach (%.4f)" % [goblin_reach, human_reach]
+        )
+    HarnessFixtures._free_harness_node(human_ent)
+    HarnessFixtures._free_harness_node(goblin_ent)
+
+
 ## S5: profiled derived goblin limbs equal hand-tuned exports (mini mass, hand cap).
 static func _run_sim_derived_goblin_limbs_match_hand_tuned(failures: PackedStringArray) -> void:
     var sp: SpeciesResource = SimulationCombatTests._species_with_derived_flag(GoblinSpecies)
@@ -587,6 +617,38 @@ static func _run_sim_joule_armor_not_below_ke_frac_floor(failures: PackedStringA
         SimulationCombatTests._fail(
             failures,
             "sim_joule_floor: mech %.2f below ke_frac floor %.2f (double-absorb regression)" % [mech, floor_mech]
+        )
+
+
+## S10: armor complete failure — heavily battered armor (absorbed damage past the failure threshold) no longer
+## protects (degradation factor drops to 0.0), extending the existing 1.0 -> 0.3 degradation curve.
+static func _run_sim_armor_complete_failure_at_high_absorbed(failures: PackedStringArray) -> void:
+    var armor: ArmorPiece = HarnessFixtures.get_cached_armor("CUIRASS")
+    if armor == null:
+        SimulationCombatTests._fail(failures, "sim_armor_fail: missing CUIRASS")
+        return
+    var ent: CoreEntity = SimulationCombatTests._sim_entity()
+    ent.species = HumanSpecies
+    ent.apply_species()
+    ent.equip_armor("chest", armor)
+    var combatant: Dictionary = {DataKeys.COMBATANT_NODE: ent}
+    var tracker_key: String = CombatArmorDoctrine.COMBATANT_KEY_DOCTRINE_DEGRADATION_TRACKING
+    var max_resistance: float = armor.get_outer_layer_sharp_resistance_rha_mm() * 2.0
+    if absf(CombatArmorDoctrine.get_armor_degradation_factor(combatant, "chest") - 1.0) > 0.01:
+        SimulationCombatTests._fail(failures, "sim_armor_fail: intact armor factor should be 1.0")
+    combatant[tracker_key] = {"chest": max_resistance}
+    var at_floor: float = CombatArmorDoctrine.get_armor_degradation_factor(combatant, "chest")
+    if absf(at_floor - 0.3) > 0.05:
+        SimulationCombatTests._fail(
+            failures, "sim_armor_fail: at threshold factor should be ~0.3 (got %.2f)" % at_floor
+        )
+    combatant[tracker_key] = {
+        "chest": max_resistance * CombatArmorDoctrine.ARMOR_COMPLETE_FAILURE_ABSORBED_MULT
+    }
+    var at_failure: float = CombatArmorDoctrine.get_armor_degradation_factor(combatant, "chest")
+    if at_failure > 0.05:
+        SimulationCombatTests._fail(
+            failures, "sim_armor_fail: past failure threshold factor should be ~0.0 (got %.2f)" % at_failure
         )
 
 
@@ -971,7 +1033,7 @@ static func _run_sim_concussion_severity_scales_with_damage(failures: PackedStri
     for part in damaged.body_max:
         damaged.body_cutting[part] = 0.0
         damaged.body_blunt[part] = 0.0
-    var bone_ratio: float = 2.5  # above CONCUSSION_BONE_THRESHOLD_MIN (1.8), below MAX (3.5)
+    var bone_ratio: float = 2.5  # above CONCUSSION_BONE_THRESHOLD_MIN (1.2), below MAX (3.5)
     EntityPainConsciousness.try_enter_concussion_from_head_bone_damage(healthy, bone_ratio)
     EntityPainConsciousness.try_enter_concussion_from_head_bone_damage(damaged, bone_ratio)
     var healthy_until: float = float(healthy.get_meta("_concussion_until_time", 0.0))
@@ -990,6 +1052,36 @@ static func _run_sim_concussion_severity_scales_with_damage(failures: PackedStri
                 "sim_concussion: damaged entity recovery %.1fs should be >= healthy %.1fs (severity scales with damage)"
                 % [damaged_until, healthy_until]
             )
+        )
+
+
+## S9b: concussion trigger is REACHABLE — a head blow delivering ~1.2x the skull's bone budget (a temple/jaw
+## strike) concusses, while a minor bump (~1.1x, below the threshold) does not. Guards against the regression
+## where the trigger used the clamped to_bone (ratio always <= 1.0) and the threshold was unreachable (dead code).
+static func _run_sim_concussion_trigger_reachable_threshold(failures: PackedStringArray) -> void:
+    var threshold: float = EntityPainConsciousness.CONCUSSION_BONE_THRESHOLD_MIN
+    if threshold < 1.0:
+        SimulationCombatTests._fail(failures, "sim_concussion_reach: threshold %.2f must be >= 1.0" % threshold)
+        return
+    var above: CoreEntity = SimulationCombatTests._entity_for_species(HumanSpecies)
+    var below: CoreEntity = SimulationCombatTests._entity_for_species(HumanSpecies)
+    var above_ratio: float = threshold + 0.1  # just above the threshold -> should concuss
+    var below_ratio: float = threshold - 0.1  # just below the threshold -> should NOT concuss
+    EntityPainConsciousness.try_enter_concussion_from_head_bone_damage(above, above_ratio)
+    EntityPainConsciousness.try_enter_concussion_from_head_bone_damage(below, below_ratio)
+    var above_until: float = float(above.get_meta("_concussion_until_time", 0.0))
+    var below_until: float = float(below.get_meta("_concussion_until_time", 0.0))
+    if above_until <= 0.0:
+        SimulationCombatTests._fail(
+            failures,
+            "sim_concussion_reach: ratio %.2f (above threshold %.2f) should concuss (until=%.1f)"
+            % [above_ratio, threshold, above_until]
+        )
+    if below_until > 0.0:
+        SimulationCombatTests._fail(
+            failures,
+            "sim_concussion_reach: ratio %.2f (below threshold %.2f) should NOT concuss (until=%.1f)"
+            % [below_ratio, threshold, below_until]
         )
 
 ## S8: shallow post-armor penetration -> lower cut severity than deep track at same damage.

@@ -156,6 +156,21 @@ const DEFENDER_STRONG_BONUS: float = 0.12
 const PARRY_STRONG_CONTACT_BY_ARCH: Dictionary = {
     "overhead": 1.12, "heavy_blunt": 1.08, "slash": 1.0, "stab": 1.02, "pommel_strike": 1.0, "quick_slash": 0.95
 }
+## Forte/schwach bonus scales with blade flexibility. A flexible blade (long/thin) flexes more under load,
+## so its forte/schwach difference is larger; a stiff blade (short/thick) flexes less. Slenderness =
+## blade_length_cm / blade_width_cm. Reference calibrated to SWORD (90cm / 2.0cm = 45) so D001 (SWORD-only)
+## is unaffected. Flexible blades (high slenderness) get up to FLEX_FACTOR_MAX; stiff blades get FLEX_FACTOR_MIN.
+const FLEX_REFERENCE_SLENDERNess := 45.0
+const FLEX_FACTOR_MIN := 0.5
+const FLEX_FACTOR_MAX := 1.5
+
+
+static func flex_factor_for_slenderness(slenderness: float) -> float:
+    ## Forte/schwach bonus multiplier from blade slenderness. 0.0 (no blade) -> 1.0 (neutral, no forte/schwach).
+    ## At the reference slenderness (45, SWORD) -> 1.0. More slender (flexible) -> up to 1.5; stiffer -> down to 0.5.
+    if slenderness <= 0.0:
+        return 1.0
+    return clampf(slenderness / FLEX_REFERENCE_SLENDERNess, FLEX_FACTOR_MIN, FLEX_FACTOR_MAX)
 
 
 static func _iv6_bubble_pair(parts: Array, before: String, after: String) -> Array:

@@ -125,6 +125,10 @@ static func compute_and_apply_damage(
 			weapon, attack_instance, atk_str, arm_mod, cut_ratio, target_mass, sm.get(DataKeys.ATK_BLUNT_DAMAGE_MULT, 1.0)
 		) * wuf
 		pre_cut *= sm.get(DataKeys.ATK_MOD_CUT_DAMAGE_MULT, 1.0)
+		# Engagement angle: a clean rear/flank strike lands on an unguarded side and hits harder.
+		var engagement_dmg_mult: float = StrikePhysics.engagement_damage_multiplier(tgt)
+		pre_cut *= engagement_dmg_mult
+		pre_blunt *= engagement_dmg_mult
 		pre_armor = pre_cut + pre_blunt
 		var pen_sharp_dict: Dictionary = WeaponDamageHelper.compute_penetration(
 			weapon, attack_instance, WeaponConstants.DAMAGE_TYPE_SHARP
@@ -160,6 +164,7 @@ static func compute_and_apply_damage(
 			"pow": power_m,
 			"wuf": wuf,
 			"close": closing_speed_mult,
+			"eng": engagement_dmg_mult,
 			"stm": atk_st_ratio_w,
 			"exh": exhaustion_s,
 			"intensity": intensity,
@@ -208,9 +213,9 @@ static func compute_and_apply_damage(
 		var fatigue_vel_u: float = CombatConstantsStamina.fatigue_velocity_mult(atk_st_ratio_u, exh_s_u)
 		var power_m: float = CombatExhaustion.power_mult_for_combatant(atk)
 		var afterblow_u: float = sqrt(maxf(0.04, afterblow_damage_mult))
-		pre_armor *= (
-			StrikePhysics.closing_speed_multiplier(manager, atk, tgt, strike_physics_ctx) * fatigue_vel_u * power_m * afterblow_u
-		)
+		var closing_u: float = StrikePhysics.closing_speed_multiplier(manager, atk, tgt, strike_physics_ctx)
+		var engagement_dmg_u: float = StrikePhysics.engagement_damage_multiplier(tgt)
+		pre_armor *= closing_u * fatigue_vel_u * power_m * afterblow_u * engagement_dmg_u
 		if unarmed_wuf < 1.0:
 			pre_armor *= unarmed_wuf
 		pre_blunt = pre_armor

@@ -87,6 +87,10 @@ static func resolve_close_attempt(manager: Node, attacker_id: int, target_id: in
     var blk: Dictionary = CombatantEntityAccess.nested_dictionary_for_mutation(atk, "close_block_until_by_target_id")
     if success:
         CombatantEntityAccess.sync_close_distance_pair(atk, tgt, attacker_id, target_id)
+        # Closing distance is a leg-driven advance: the initiator's legs tire (slows their next movement via
+        # step_speed_mult, degrades dodge via dodge_chance_mult). Only the initiator moves; the defender's band
+        # is a symmetric modeling artifact. Leg fatigue is arm-independent, so parry capacity is unaffected.
+        CombatMuscleFatigue.apply_formation_exertion(atk, CombatConstants.MOVE_ID_ATTEMPT_CLOSE)
         blk.erase(target_id)
         CombatTargetScoring.on_combat_commitment(manager, attacker_id, target_id)
     else:

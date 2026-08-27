@@ -209,15 +209,15 @@ func get_sharp_contact_cm(move_id: String) -> float:
     return WeaponConstants.BASELINE_CONTACT_CM
 
 
-# Effective sharp contact (cm) for cutting: geometric contact reduced by sharpness (sharper = smaller effective = higher
-# pressure).
-# effective = geometric / (SHARPNESS_FACTOR_MIN + (1 - SHARPNESS_FACTOR_MIN) * sharpness); floored at
-# MIN_CONTACT_WIDTH_CM.
+# Effective sharp contact (cm) for cutting: the edge's bearing width, which shrinks as the edge is honed sharper.
+# A sharp edge has a narrow apex (small bearing width -> high pressure); a dull edge has a wide rolled edge capped
+# at the full blade width (the edge can never be wider than the blade). effective = lerp(geometric, apex, sharpness)
+# where apex = max(MIN_CONTACT_WIDTH_CM, geometric * SHARP_APEX_FRACTION); floored at MIN_CONTACT_WIDTH_CM.
 func get_effective_sharp_contact_cm(move_id: String) -> float:
     var geometric: float = get_sharp_contact_cm(move_id)
     var s: float = clampf(sharpness, 0.0, 1.0)
-    var denom: float = WeaponConstants.SHARPNESS_FACTOR_MIN + (1.0 - WeaponConstants.SHARPNESS_FACTOR_MIN) * s
-    var effective: float = geometric / denom if denom > 0.0 else geometric
+    var apex: float = maxf(WeaponConstants.MIN_CONTACT_WIDTH_CM, geometric * WeaponConstants.SHARP_APEX_FRACTION)
+    var effective: float = lerpf(geometric, apex, s)
     return maxf(effective, WeaponConstants.MIN_CONTACT_WIDTH_CM)
 
 
@@ -393,6 +393,22 @@ func get_parry_strong_fraction() -> float:
     if total <= 0.0 or handle_len <= 0.0:
         return 0.25
     return clampf(handle_len / total, 0.1, 0.5)
+
+
+## Blade slenderness ratio: blade_length_cm / blade_width_cm. Higher = more flexible (longer/thinner).
+## A flexible blade flexes more under load, so its forte/schwach difference is larger. Returns 0.0 when
+## there is no blade part or no blade width (shaft/haft weapons).
+func get_blade_slenderness() -> float:
+    if not has_parts() or blade_width <= 0.0:
+        return 0.0
+    var blade_len: float = 0.0
+    for p in parts:
+        if p is Dictionary and _normalize_part_id(p.get("id", "")) == "blade":
+            blade_len = float(p.get("length_cm", 0.0))
+            break
+    if blade_len <= 0.0:
+        return 0.0
+    return blade_len / blade_width
 
 
 ## Spatial strong/weak zone fraction at a given parry timing progress (0 = very early/handle-end, 1 = impact/tip).

@@ -200,6 +200,46 @@ static func parry_thrust_recovery_mult(intensity: float) -> float:
 	return Parry.parry_thrust_recovery_mult(intensity)
 
 
+static func parry_deflect_recovery_mult(intensity: float) -> float:
+	return Parry.parry_deflect_recovery_mult(intensity)
+
+
+static func off_balance_deflect_duration(intensity: float) -> float:
+	return Parry.off_balance_deflect_duration(intensity)
+
+
+static func parry_bonus_mult(parry_control: float) -> float:
+	return Parry.parry_bonus_mult(parry_control)
+
+
+static func parry_recoil_mass_scale(m_a: float, m_d: float) -> float:
+	return Parry.parry_recoil_mass_scale(m_a, m_d)
+
+
+static func parry_two_handed_recoil_mult(is_two_handed: bool) -> float:
+	return Parry.parry_two_handed_recoil_mult(is_two_handed)
+
+
+static func parry_two_handed_capacity_mult(is_two_handed: bool) -> float:
+	return Parry.parry_two_handed_capacity_mult(is_two_handed)
+
+
+static func parry_recoil_alignment_mult(alignment: float) -> float:
+	return Parry.parry_recoil_alignment_mult(alignment)
+
+
+static func parry_recoil_flex_mult(flex_factor: float) -> float:
+	return Parry.parry_recoil_flex_mult(flex_factor)
+
+
+static func parry_recoil_progress_mult(parry_progress: float) -> float:
+	return Parry.parry_recoil_progress_mult(parry_progress)
+
+
+static func parry_recoil_body_mass_scale(body_mass_kg: float) -> float:
+	return Parry.parry_recoil_body_mass_scale(body_mass_kg)
+
+
 static func consecutive_parry_stamina_mult(consecutive: int) -> float:
 	return Stamina.consecutive_parry_stamina_mult(consecutive)
 
@@ -542,6 +582,9 @@ static func stamina_attack_cost_from_intensity(intensity: float) -> float:
 static func stamina_parry_cost_from_intensity(intensity: float) -> float:
 	return Stamina.stamina_parry_cost_from_intensity(intensity)
 
+static func partial_parry_stamina_mult(absorption: float) -> float:
+	return Stamina.partial_parry_stamina_mult(absorption)
+
 static func stamina_dodge_cost_from_intensity(intensity: float) -> float:
 	return Stamina.stamina_dodge_cost_from_intensity(intensity)
 
@@ -639,11 +682,16 @@ static func parry_control_for_bind_deflect(
 	parry_readiness: float,
 	parry_off_balance: bool,
 	late_parry: bool,
-	contact_type: String
+	contact_type: String,
+	bind_friction_mult: float = 1.0
 ) -> float:
 	return Parry.parry_control_for_bind_deflect(
-		c_d_final, parry_p_a, alignment, parry_readiness, parry_off_balance, late_parry, contact_type
+		c_d_final, parry_p_a, alignment, parry_readiness, parry_off_balance, late_parry, contact_type, bind_friction_mult
 	)
+
+
+static func bind_friction_mult_for_weapon(def_weapon: Variant) -> float:
+	return Parry.bind_friction_mult_for_weapon(def_weapon)
 
 
 static func parry_telegraph_contact_mult(contact_type: String) -> float:
@@ -806,6 +854,10 @@ static func get_line_alignment_with_deflect(
 	attack_line: String, combatant: Dictionary, alignment_context: Dictionary = {}, wobble_context: Dictionary = {}
 ) -> float:
 	return AttackPath.get_line_alignment_with_deflect(attack_line, combatant, alignment_context, wobble_context)
+
+
+static func flex_factor_for_slenderness(slenderness: float) -> float:
+	return AttackPath.flex_factor_for_slenderness(slenderness)
 
 
 static func clamp_prob(v: float) -> float:

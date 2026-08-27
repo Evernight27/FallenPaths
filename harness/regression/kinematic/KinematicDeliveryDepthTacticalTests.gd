@@ -514,18 +514,20 @@ static func _run_kinematic_delivery_parry_v_intent_thrust_archetype(failures: Pa
 
 
 ## Tier 5.1 (optional long-tail): **SPEAR** **`spear_thrust`** integration  -  **`pre_cut_applied`** ~
-## **`sqrt(strike_ke_j)`** at two pinned **`velocity_override`** values.
+## **`strike_ke_j^CUT_DAMAGE_ENERGY_EXPONENT`** at two pinned **`velocity_override`** values.
 
 
 ## Tier 5.1 (optional long-tail): **SPEAR** **`spear_thrust`** integration  -  **`pre_cut_applied`** ~
-## **`sqrt(strike_ke_j)`** at two pinned **`velocity_override`** values.
-static func _run_kinematic_delivery_thrust_integration_pre_cut_scales_sqrt_ke(failures: PackedStringArray) -> void:
+## **`strike_ke_j^CUT_DAMAGE_ENERGY_EXPONENT`** at two pinned **`velocity_override`** values.
+static func _run_kinematic_delivery_thrust_integration_pre_cut_scales_ke_pow(failures: PackedStringArray) -> void:
     var arch: Dictionary = {"kinematic_delivery": WeaponConstants.KINEMATIC_DELIVERY_THRUST}
     var lo: Dictionary = CombatRegressionHarness._kin_dmg_integration_sample(
         9.0, 1.0, 1.0, {}, "SPEAR", "spear_thrust", 1.0, arch
     )
+    # hi velocity kept below the DAMAGE_KE_MAX / penetration caps so the ratio cleanly tracks the
+    # power law (vo=14 clamps the high sample and compresses the ratio).
     var hi: Dictionary = CombatRegressionHarness._kin_dmg_integration_sample(
-        14.0, 1.0, 1.0, {}, "SPEAR", "spear_thrust", 1.0, arch
+        11.0, 1.0, 1.0, {}, "SPEAR", "spear_thrust", 1.0, arch
     )
     var ke_lo: float = float(lo["strike_ke_j"])
     var ke_hi: float = float(hi["strike_ke_j"])
@@ -541,11 +543,13 @@ static func _run_kinematic_delivery_thrust_integration_pre_cut_scales_sqrt_ke(fa
         CombatRegressionHarness._fail(
             failures, "kin_thrust_int: pre_cut_hi should exceed pre_cut_lo (lo=%.4f hi=%.4f)" % [cut_lo, cut_hi]
         )
-    var want_ratio: float = sqrt(ke_hi / maxf(ke_lo, 0.001))
+    var want_ratio: float = pow(ke_hi / maxf(ke_lo, 0.001), WeaponConstants.CUT_DAMAGE_ENERGY_EXPONENT)
     var got_ratio: float = cut_hi / maxf(cut_lo, 0.001)
     if absf(got_ratio - want_ratio) > 0.04:
         CombatRegressionHarness._fail(
-            failures, "kin_thrust_int: pre_cut ratio %.4f want sqrt(ke) ratio %.4f" % [got_ratio, want_ratio]
+            failures,
+            "kin_thrust_int: pre_cut ratio %.4f want ke^%.2f ratio %.4f"
+            % [got_ratio, WeaponConstants.CUT_DAMAGE_ENERGY_EXPONENT, want_ratio]
         )
 
 
@@ -586,8 +590,10 @@ static func _run_kinematic_delivery_thrust_integration_pen_sharp_scales_ke_expon
     var lo: Dictionary = CombatRegressionHarness._kin_dmg_integration_sample(
         9.0, 1.0, 1.0, {}, "SPEAR", "spear_thrust", 1.0, arch
     )
+    # hi velocity kept below the DAMAGE_KE_MAX / penetration caps so the ratio cleanly tracks the
+    # power law (vo=14 clamps the high sample and compresses the ratio).
     var hi: Dictionary = CombatRegressionHarness._kin_dmg_integration_sample(
-        14.0, 1.0, 1.0, {}, "SPEAR", "spear_thrust", 1.0, arch
+        11.0, 1.0, 1.0, {}, "SPEAR", "spear_thrust", 1.0, arch
     )
     var ke_lo: float = float(lo["strike_ke_j"])
     var ke_hi: float = float(hi["strike_ke_j"])

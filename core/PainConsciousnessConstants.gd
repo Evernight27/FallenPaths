@@ -134,9 +134,28 @@ const INJURY_TYPE_PAIN_MULTIPLIERS: Dictionary = {"cut": 1.0, "crush": 1.15, "br
 # --- Stump (amputation site) pain: among the most severe acute pains. ---
 const STUMP_PAIN_MULTIPLIER: float = 1.5
 
+# --- Wound depth -> pain: deep penetrating wounds transect more nociceptor-rich tissue (periosteum,
+# deep fascia, viscera) -> more pain at equal damage. Reuses the S8 depth bands [1,5] mm. Shallow
+# (<=1 mm) is neutral because penetration_depth_severity_mult already discounts shallow cuts. ---
+const PAIN_DEPTH_FULL_MULT: float = 1.25
+
 
 static func get_body_part_pain_multiplier(part: String) -> float:
     return BODY_PART_PAIN_MULTIPLIERS.get(part, 1.0)
+
+
+static func get_wound_depth_pain_multiplier(penetration_to_tissue_mm: float) -> float:
+    if penetration_to_tissue_mm < 0.0:
+        return 1.0
+    if penetration_to_tissue_mm <= BleedingConstants.PENETRATION_DEPTH_SEVERITY_MIN_MM:
+        return 1.0
+    if penetration_to_tissue_mm >= BleedingConstants.PENETRATION_DEPTH_SEVERITY_FULL_MM:
+        return PAIN_DEPTH_FULL_MULT
+    var span: float = (
+        BleedingConstants.PENETRATION_DEPTH_SEVERITY_FULL_MM - BleedingConstants.PENETRATION_DEPTH_SEVERITY_MIN_MM
+    )
+    var t: float = (penetration_to_tissue_mm - BleedingConstants.PENETRATION_DEPTH_SEVERITY_MIN_MM) / span
+    return lerpf(1.0, PAIN_DEPTH_FULL_MULT, clampf(t, 0.0, 1.0))
 
 
 static func get_sub_region_pain_multiplier(part: String, sub_region: String) -> float:

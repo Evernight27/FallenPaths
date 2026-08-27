@@ -15,6 +15,8 @@ static func run(failures: PackedStringArray) -> void:
     _run_muscle_fatigue_flag_off_wind_up_unchanged(failures)
     _run_muscle_fatigue_attack_raises_dominant_limb(failures)
     _run_muscle_fatigue_formation_raises_legs(failures)
+    _run_muscle_fatigue_production_formation_move_raises_legs(failures)
+    _run_muscle_fatigue_close_attempt_raises_initiator_legs(failures)
     _run_muscle_fatigue_offense_damp_when_limb_tired(failures)
     _run_muscle_fatigue_high_limb_lengthens_wind_up(failures)
     _run_muscle_fatigue_waiting_recovery(failures)
@@ -163,6 +165,113 @@ static func _run_muscle_fatigue_formation_raises_legs(failures: PackedStringArra
             if r_leg <= 0.01 or l_leg <= 0.01:
                 HarnessFixtures._fail(
                     failures, "muscle_fatigue_formation: want leg fatigue got R=%.4f L=%.4f" % [r_leg, l_leg]
+                )
+    )
+
+
+## Production wiring: a formation move (rotate_file) accumulates leg muscle-fatigue on BOTH movers via
+## `CombatFormationFlow.start_rotate_file` -> `apply_formation_exertion`. Previously the leg-fatigue writer was
+## dead in production (only the harness exercised it), so formation movement never tired the legs.
+static func _run_muscle_fatigue_production_formation_move_raises_legs(failures: PackedStringArray) -> void:
+    _with_flag(
+        true,
+        func() -> void:
+            seed(44710)
+            var mgr: Node = CombatManager.new()
+            for _i in 6:
+                mgr.register(HarnessFixtures._new_entity("SWORD"), "player")
+            for _j in 3:
+                mgr.register(HarnessFixtures._new_entity("SWORD"), "enemy")
+            mgr.start({"files": 3, "ranks": 2, "density": "normal"}, {"files": 3, "ranks": 1, "density": "normal"})
+            var a: Dictionary = HarnessFixtures._harness_find_living_at_rank_file(mgr, "player", 0, 0)
+            var b: Dictionary = HarnessFixtures._harness_find_living_at_rank_file(mgr, "player", 0, 1)
+            if a.is_empty() or b.is_empty():
+                HarnessFixtures._fail(failures, "muscle_fatigue_prod_formation: missing rank-0 file-0/file-1 pair")
+                HarnessFixtures._free_manager(mgr)
+                return
+            var a_id: int = CombatantEntityAccess.id_int(a)
+            var b_id: int = CombatantEntityAccess.id_int(b)
+            var a_before: float = CombatMuscleFatigue.max_leg_fatigue(a)
+            var b_before: float = CombatMuscleFatigue.max_leg_fatigue(b)
+            a["gauge"] = 100.0
+            b["gauge"] = 100.0
+            CombatFormationFlow.start_rotate_file(mgr, a_id, b_id)
+            var a_after: float = CombatMuscleFatigue.max_leg_fatigue(a)
+            var b_after: float = CombatMuscleFatigue.max_leg_fatigue(b)
+            if CombatantEntityAccess.state_str(a) != CombatConstants.STATE_SWAP_RANK:
+                HarnessFixtures._fail(
+                    failures,
+                    "muscle_fatigue_prod_formation: rotate_file did not start (state=%s)"
+                    % CombatantEntityAccess.state_str(a)
+                )
+            if a_after <= a_before + 0.01 or b_after <= b_before + 0.01:
+                HarnessFixtures._fail(
+                    failures,
+                    "muscle_fatigue_prod_formation: want leg fatigue rise a=%.4f->%.4f b=%.4f->%.4f"
+                    % [a_before, a_after, b_before, b_after]
+                )
+            HarnessFixtures._free_manager(mgr)
+    )
+
+
+## Production wiring: a successful close attempt (closing distance) accumulates leg muscle-fatigue on the
+## INITIATOR only via `CombatEngagementResolver.resolve_close_attempt` -> `apply_formation_exertion`. Closing
+## distance is a leg-driven advance; the defender does not move (their band is a symmetric modeling artifact).
+## Leg fatigue is arm-independent, so parry capacity is unaffected.
+static func _run_muscle_fatigue_close_attempt_raises_initiator_legs(failures: PackedStringArray) -> void:
+    _with_flag(
+        true,
+        func() -> void:
+            seed(44711)
+            var fixtures: Array = HarnessFixtures._harness_7v3_wing_rank0_fixtures()
+            var mgr: Node = fixtures[0] as Node
+            var p: Dictionary = fixtures[1] as Dictionary
+            var en: Dictionary = fixtures[2] as Dictionary
+            if p.is_empty() or en.is_empty():
+                HarnessFixtures._fail(failures, "muscle_fatigue_close: missing 7v3 wing fixtures")
+                HarnessFixtures._free_manager(mgr)
+                return
+            var p_id: int = CombatantEntityAccess.id_int(p)
+            var e_id: int = CombatantEntityAccess.id_int(en)
+            HarnessFixtures._harness_bind_pair_long_band(p, en)
+            if not CombatMeleeListing.attempt_close_listed_for_pair(mgr, p, e_id, CombatConstants.DISTANCE_LONG):
+                HarnessFixtures._fail(failures, "muscle_fatigue_close: setup want listable close at LONG")
+                HarnessFixtures._free_manager(mgr)
+                return
+            var sd: Dictionary = CombatantEntityAccess.stats_dict_for_mutation(p)
+            sd["strength"] = 400.0
+            var sd_e: Dictionary = CombatantEntityAccess.stats_dict_for_mutation(en)
+            sd_e["agility"] = 5.0
+            var p_before: float = CombatMuscleFatigue.max_leg_fatigue(p)
+            var e_before: float = CombatMuscleFatigue.max_leg_fatigue(en)
+            var cap: Array = []
+            mgr.action_resolved.connect(
+                func(_a: int, _t: int, result: Dictionary) -> void:
+                    cap.clear()
+                    cap.append(result)
+            )
+            CombatEngagementResolver.resolve_close_attempt(mgr, p_id, e_id)
+            var p_after: float = CombatMuscleFatigue.max_leg_fatigue(p)
+            var e_after: float = CombatMuscleFatigue.max_leg_fatigue(en)
+            HarnessFixtures._free_manager(mgr)
+            if cap.is_empty():
+                HarnessFixtures._fail(failures, "muscle_fatigue_close: expected action_resolved")
+                return
+            var r: Dictionary = cap[0] as Dictionary
+            if str(r.get("outcome", "")) != "close_success":
+                HarnessFixtures._fail(
+                    failures, "muscle_fatigue_close: expected close_success got %s" % str(r)
+                )
+                return
+            if p_after <= p_before + 0.01:
+                HarnessFixtures._fail(
+                    failures,
+                    "muscle_fatigue_close: want initiator leg fatigue rise %.4f->%.4f" % [p_before, p_after]
+                )
+            if e_after > e_before + 0.001:
+                HarnessFixtures._fail(
+                    failures,
+                    "muscle_fatigue_close: defender should not gain leg fatigue %.4f->%.4f" % [e_before, e_after]
                 )
     )
 

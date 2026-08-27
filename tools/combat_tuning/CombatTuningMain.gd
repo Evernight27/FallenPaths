@@ -903,8 +903,10 @@ func _infer_end_cause(winner_side: String) -> String:
 	var def_node = _get_entity_access().node_variant(def_c) if not def_c.is_empty() else null
 
 	# Determine incapacitation cause with body-part specificity.
-	# Strict `<` mirrors CoreEntity.is_dead / _get_death_reason so a combatant sitting exactly ON the
-	# threshold (blood_volume == threshold) is not mislabeled bled_out before the next tick drops them below.
+	# Strict `<` (deliberately NOT the `<=` used by is_dead / _get_death_reason): a combatant sitting
+	# exactly ON the threshold is one whose blood was clamped there by emit_death_once after a
+	# vital-part kill — that is a strike "kill", not a "bled_out". Only blood strictly below the
+	# threshold (drained by the bleeding system) is a genuine bleed-out.
 	if not atk_c.is_empty() and not _get_entity_access().alive_bool(atk_c):
 		if atk_node != null and is_instance_valid(atk_node) and atk_node.has_method("_get_blood_loss_death_threshold"):
 			var death_thresh = float(atk_node._get_blood_loss_death_threshold())
@@ -943,7 +945,10 @@ func _infer_end_cause(winner_side: String) -> String:
 	if incapacitated_entity != null and is_instance_valid(incapacitated_entity):
 		incapacitated_entity.ensure_consciousness_current()
 		var cons: float = incapacitated_entity.consciousness
-		var blood_pct: float = float(incapacitated_entity.blood_volume) if incapacitated_entity.has_method("blood_volume") else 100.0
+		# blood_volume is a PROPERTY on CoreEntity (not a method), so has_method() is always false and
+		# blood_pct silently defaulted to 100.0 — which made the "blood loss" cause below never fire.
+		# Use a property check so the real remaining-blood percentage is read.
+		var blood_pct: float = float(incapacitated_entity.blood_volume) if "blood_volume" in incapacitated_entity else 100.0
 
 		# Unconscious (blood/head trauma dropped true consciousness): the cause is a
 		# consciousness-drop mechanism. Conscious cowering (destroyed limbs) is mechanical.
@@ -969,8 +974,10 @@ func _infer_end_cause(winner_side: String) -> String:
 					return "head trauma"
 
 			# Check blood loss — Class III/IV hemorrhage causes unconsciousness.
-			var atls_remaining: float = (blood_pct / 100.0) * BleedingConstants.MAX_BLOOD_VOLUME if blood_pct > 0 else 0.0
-			var atls_class: int = BleedingConstants.atls_hemorrhage_class_from_remaining_pct(atls_remaining / BleedingConstants.MAX_BLOOD_VOLUME) if BleedingConstants.MAX_BLOOD_VOLUME > 0 else 4
+			# atls_hemorrhage_class_from_remaining_pct expects a percentage (0-100), so pass blood_pct
+			# directly. (The old code round-tripped through a fraction, so a 39%-remaining fighter was
+			# tested as 0.39 against the 85/70/60 percentage thresholds.)
+			var atls_class: int = BleedingConstants.atls_hemorrhage_class_from_remaining_pct(blood_pct)
 			if atls_class >= 3 and blood_pct < 70.0:
 				return "blood loss"
 

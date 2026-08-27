@@ -14,7 +14,9 @@ func _init() -> void:
         ai.archetype = arch
         ai.velocity_m_s = vo
         var ke: float = WeaponDamageHelper.compute_kinetic_energy_j(spear, ai)
-        var raw: float = WeaponConstants.DAMAGE_KE_SCALE * sqrt(maxf(0.0, ke)) * maxf(0.1, 80.0 / 100.0) * 1.0
+        var raw: float = (
+            WeaponConstants.CUT_DAMAGE_KE_SCALE * pow(maxf(0.0, ke), WeaponConstants.CUT_DAMAGE_ENERGY_EXPONENT)
+        ) * maxf(0.1, 80.0 / 100.0) * 1.0
         var ct: float = WeaponDamageHelper._get_effective_sharp_contact_cm(spear, "st")
         var cf_new: float = pow(WeaponConstants.BASELINE_CONTACT_CM / ct, 0.23)
         cf_new = minf(cf_new, 1.50)

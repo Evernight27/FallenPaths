@@ -672,6 +672,125 @@ static func _run_combat_log_formatter_fled_outcome(failures: PackedStringArray) 
         HarnessFixtures._fail(failures, "combat_log_fled: want fled the field got %s" % line)
 
 
+## B4: healthy-unit rout — an unharmed soldier breaks when the line is severely shattered (very low cohesion +
+## heavy casualties), even at full blood volume. Stricter than the wounded path.
+static func _run_healthy_unit_rout_severe_collapse(failures: PackedStringArray) -> void:
+    var mgr: Node = CombatManager.new()
+    for i in 4:
+        mgr.register(HarnessFixtures._new_entity("SWORD"), "player")
+    mgr.register(HarnessFixtures._new_entity("SWORD"), "enemy")
+    mgr.start({"files": 1, "ranks": 4, "line_discipline": CombatConstants.LINE_DISCIPLINE_STRICT}, {"files": 1, "ranks": 1})
+    mgr.set_meta("_engagement_mode_cached", "formation")
+    var front_c: Dictionary = mgr.combatants[0]
+    var ent: CoreEntity = CombatantEntityAccess.scene_node(front_c) as CoreEntity
+    var form: Dictionary = FormationSlots.formation_record_for_manager(mgr, "player")
+    ent.blood_volume = 100.0  # healthy (above the retreat threshold of 85)
+    form[CombatConstants.FORMATION_KEY_STANDING_AT_START] = 4
+    # Firm line, healthy unit -> no healthy rout.
+    form["line_cohesion"] = 0.88
+    if CombatFormationRout.healthy_unit_rout_warranted(mgr, front_c):
+        HarnessFixtures._fail(failures, "healthy_rout: healthy unit on a firm line should not warrant rout")
+    # Severe collapse: 3 of 4 others absent -> casualty ratio 0.75; cohesion 0.15 (< 0.42 * 0.5 = 0.21).
+    for i in range(1, 4):
+        mgr.combatants[i][DataKeys.COMBATANT_COMBAT_ABSENT] = true
+    form["line_cohesion"] = 0.15
+    if not CombatFormationRout.healthy_unit_rout_warranted(mgr, front_c):
+        HarnessFixtures._fail(failures, "healthy_rout: healthy unit in severe collapse should warrant rout")
+    HarnessFixtures._free_manager_restore_global_rng(mgr)
+
+
+## B5: leader-death contagion — killing the party leader drops the side's raw morale-cohesion (loss of command).
+static func _run_leader_death_morale_shock(failures: PackedStringArray) -> void:
+    var mgr: Node = CombatManager.new()
+    var leader_ent: CoreEntity = HarnessFixtures._new_entity("SWORD")
+    leader_ent.is_party_leader = true
+    mgr.register(leader_ent, "player")
+    var ally_ent: CoreEntity = HarnessFixtures._new_entity("SWORD")
+    mgr.register(ally_ent, "player")
+    mgr.register(HarnessFixtures._new_entity("SWORD"), "enemy")
+    mgr.start({"files": 2, "ranks": 1, "line_discipline": CombatConstants.LINE_DISCIPLINE_STRICT}, {"files": 1, "ranks": 1})
+    mgr.set_meta("_engagement_mode_cached", "formation")
+    var leader_c: Dictionary = mgr.combatants[0]
+    var ally_c: Dictionary = mgr.combatants[1]
+    leader_c[DataKeys.SNAPSHOT_IS_PARTY_LEADER] = true
+    var raw_before: float = float(ally_c.get(DataKeys.MORALE_COHESION_FACTOR_RAW, 1.0))
+    mgr.on_combatant_died(leader_c)
+    var raw_after: float = float(ally_c.get(DataKeys.MORALE_COHESION_FACTOR_RAW, 1.0))
+    var expected: float = raw_before * CombatFormationRout.LEADER_DEATH_MORALE_SHOCK_MULT
+    if absf(raw_after - expected) > 0.001:
+        HarnessFixtures._fail(
+            failures,
+            (
+                "leader_shock: ally cohesion should drop (before=%.4f after=%.4f want=%.4f)"
+                % [raw_before, raw_after, expected]
+            )
+        )
+    HarnessFixtures._free_manager_restore_global_rng(mgr)
+
+
+## Fear-of-injury / unit-cohesion loss: witnessing a comrade wounded or fall drops the side's raw
+## morale-cohesion (bounded by the floor); the victim is untouched; a waiting tick recovers morale.
+static func _run_fear_of_injury_drain(failures: PackedStringArray) -> void:
+    var mgr: Node = CombatManager.new()
+    var a_ent: CoreEntity = HarnessFixtures._new_entity("SWORD")
+    mgr.register(a_ent, "player")
+    var b_ent: CoreEntity = HarnessFixtures._new_entity("SWORD")
+    mgr.register(b_ent, "player")
+    mgr.register(HarnessFixtures._new_entity("SWORD"), "enemy")
+    mgr.start(
+        {"files": 2, "ranks": 1, "line_discipline": CombatConstants.LINE_DISCIPLINE_STRICT},
+        {"files": 1, "ranks": 1}
+    )
+    var a_c: Dictionary = mgr.combatants[0]
+    var b_c: Dictionary = mgr.combatants[1]
+    var a_id: int = CombatantEntityAccess.id_int(a_c)
+    # Witness a comrade (a) take a wound: b drops by FEAR_WOUND_DRAIN; a (the victim) is untouched.
+    var b_before: float = float(b_c.get(DataKeys.MORALE_COHESION_FACTOR_RAW, 1.0))
+    var a_before: float = float(a_c.get(DataKeys.MORALE_COHESION_FACTOR_RAW, 1.0))
+    CombatMoraleCohesion.apply_fear_drain_for_witnesses(mgr, a_id)
+    var b_after_wound: float = float(b_c.get(DataKeys.MORALE_COHESION_FACTOR_RAW, 1.0))
+    var a_after_wound: float = float(a_c.get(DataKeys.MORALE_COHESION_FACTOR_RAW, 1.0))
+    if absf(b_after_wound - (b_before - CombatMoraleCohesion.FEAR_WOUND_DRAIN)) > 0.001:
+        HarnessFixtures._fail(
+            failures,
+            "fear_wound: witness b should drop by FEAR_WOUND_DRAIN (before=%.4f after=%.4f)" % [b_before, b_after_wound]
+        )
+    if absf(a_after_wound - a_before) > 0.001:
+        HarnessFixtures._fail(
+            failures,
+            "fear_wound: victim a should be untouched (before=%.4f after=%.4f)" % [a_before, a_after_wound]
+        )
+    # Witness a comrade (a) fall: b drops by FEAR_DEATH_DRAIN.
+    var b_before_death: float = float(b_c.get(DataKeys.MORALE_COHESION_FACTOR_RAW, 1.0))
+    CombatMoraleCohesion.apply_cohesion_loss_for_witnesses(mgr, a_c)
+    var b_after_death: float = float(b_c.get(DataKeys.MORALE_COHESION_FACTOR_RAW, 1.0))
+    if absf(b_after_death - (b_before_death - CombatMoraleCohesion.FEAR_DEATH_DRAIN)) > 0.001:
+        HarnessFixtures._fail(
+            failures,
+            "fear_death: witness b should drop by FEAR_DEATH_DRAIN (before=%.4f after=%.4f)" % [b_before_death, b_after_death]
+        )
+    # Floor: repeated drains never push morale below MORALE_DRAIN_FLOOR.
+    for i in range(200):
+        CombatMoraleCohesion.apply_fear_drain_for_witnesses(mgr, a_id)
+    var b_floored: float = float(b_c.get(DataKeys.MORALE_COHESION_FACTOR_RAW, 1.0))
+    if b_floored < CombatMoraleCohesion.MORALE_DRAIN_FLOOR - 0.001:
+        HarnessFixtures._fail(
+            failures,
+            "fear_floor: morale should not drop below the floor (got=%.4f floor=%.4f)"
+            % [b_floored, CombatMoraleCohesion.MORALE_DRAIN_FLOOR]
+        )
+    # Safe-state recovery: a waiting tick nudges morale back toward 1.0.
+    var b_before_recover: float = float(b_c.get(DataKeys.MORALE_COHESION_FACTOR_RAW, 1.0))
+    CombatMoraleCohesion.recover_morale_if_safe(b_c, 1.0)
+    var b_after_recover: float = float(b_c.get(DataKeys.MORALE_COHESION_FACTOR_RAW, 1.0))
+    if b_after_recover <= b_before_recover:
+        HarnessFixtures._fail(
+            failures,
+            "fear_recover: waiting should recover morale (before=%.4f after=%.4f)" % [b_before_recover, b_after_recover]
+        )
+    HarnessFixtures._free_manager_restore_global_rng(mgr)
+
+
 ## p4f Expand closeout entry  -  full Tier 6.2 flee / rout suite (listing, AI, UX, resolve).
 static func run(failures: PackedStringArray) -> void:
     _run_flee_not_listed_when_immobile(failures)
@@ -697,3 +816,6 @@ static func run(failures: PackedStringArray) -> void:
     _run_flee_ui_gauge_label_fled(failures)
     _run_flee_combat_start_clears_absent_state(failures)
     _run_combat_log_formatter_fled_outcome(failures)
+    _run_healthy_unit_rout_severe_collapse(failures)
+    _run_leader_death_morale_shock(failures)
+    _run_fear_of_injury_drain(failures)

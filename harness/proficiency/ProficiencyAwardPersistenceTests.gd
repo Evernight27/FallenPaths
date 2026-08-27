@@ -493,13 +493,51 @@ static func _run_endurance_healing_speed_mult(failures: PackedStringArray) -> vo
 
     ent.endurance = 150
     var mult_150: float = ent._get_endurance_healing_speed_mult()
-    if absf(mult_150 - 0.9) > 0.01:  # 1.0 - clampf(50/500, 0, 0.25) = 1.0 - 0.1 = 0.9
-        _fail(failures, "end_hsm@150: should be 0.9 (got %.4f)" % mult_150)
+    if absf(mult_150 - 1.2) > 0.01:  # 1.0 + clampf(50/250, 0, 0.25) = 1.0 + 0.2 = 1.2 (higher END heals faster)
+        _fail(failures, "end_hsm@150: should be 1.2 (got %.4f)" % mult_150)
 
     ent.endurance = 80
     var mult_80: float = ent._get_endurance_healing_speed_mult()
     if absf(mult_80 - 1.0) > 0.01:
         _fail(failures, "end_hsm@80: should be 1.0 (got %.4f)" % mult_80)
+
+    HarnessFixtures._free_harness_node(ent)
+
+
+## Nutrition healing speed multiplier scales correctly (malnutrition slows healing).
+static func _run_nutrition_healing_speed_mult(failures: PackedStringArray) -> void:
+    var ent: CoreEntity = _new_entity("SWORD")
+    if not ent.has_method("_get_nutrition_healing_speed_mult"):
+        _fail(failures, "nut_hsm: entity missing method")
+        HarnessFixtures._free_harness_node(ent)
+        return
+
+    # Default is well-fed (1.0) -> 1.0x.
+    var mult_full: float = ent._get_nutrition_healing_speed_mult()
+    if absf(mult_full - 1.0) > 0.001:
+        _fail(failures, "nut_hsm@full: should be 1.0 (got %.4f)" % mult_full)
+
+    # Starving (0.0) -> NUTRITION_HEAL_STARVATION_MULT (0.6x).
+    ent.set_nutrition_level(0.0)
+    var mult_starve: float = ent._get_nutrition_healing_speed_mult()
+    if absf(mult_starve - HealingConstants.NUTRITION_HEAL_STARVATION_MULT) > 0.001:
+        _fail(
+            failures,
+            "nut_hsm@starve: should be %.4f (got %.4f)" % [HealingConstants.NUTRITION_HEAL_STARVATION_MULT, mult_starve]
+        )
+
+    # Half-fed (0.5) -> midpoint between starvation and full.
+    ent.set_nutrition_level(0.5)
+    var mult_half: float = ent._get_nutrition_healing_speed_mult()
+    var expected_half: float = lerpf(HealingConstants.NUTRITION_HEAL_STARVATION_MULT, 1.0, 0.5)
+    if absf(mult_half - expected_half) > 0.001:
+        _fail(failures, "nut_hsm@half: should be %.4f (got %.4f)" % [expected_half, mult_half])
+
+    # Clamps above 1.0 (over-fed is not a thing).
+    ent.set_nutrition_level(1.5)
+    var mult_clamp: float = ent._get_nutrition_healing_speed_mult()
+    if absf(mult_clamp - 1.0) > 0.001:
+        _fail(failures, "nut_hsm@clamp: should be 1.0 (got %.4f)" % mult_clamp)
 
     HarnessFixtures._free_harness_node(ent)
 

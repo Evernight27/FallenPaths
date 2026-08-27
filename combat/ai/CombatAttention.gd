@@ -950,7 +950,8 @@ static func should_respect_bait(c: Dictionary, rng: RandomNumberGenerator = null
 		## After repeated exploitation, the deception has been "seen through."
 		return false
 	var resistance: float = ds.get(DataKeys.DECEPTION_RESISTANCE, 0.0)
-	if resistance > CombatConstants.DECEPTION_ESTABLISH_PROB:
+	# Above the alertness threshold the defender has seen through the deception — no longer baitable.
+	if resistance > CombatConstants.DECEPTION_RESISTANCE_BAIT_THRESHOLD:
 		return false
 	var max_bait_prob: float = CombatConstants.DECEPTION_EXPLOIT_BAIT_PROB_MAX
 	var t: float = float(exploit_counter) / 3.0

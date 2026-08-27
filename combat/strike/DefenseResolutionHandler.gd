@@ -149,7 +149,7 @@ static func _resolve_partial_parry_follow_through(
 	if time_to_react <= 0.0:
 		# Floor raised from 0.15 (Tuning T3.2): insufficient-react-time twist needs meaningful dodge capacity, not near-
 		# zero.
-		time_factor = 0.35
+		time_factor = CombatConstants.TWIST_DODGE_MIN_TIME_FACTOR
 	var leg: float = CombatantEntityAccess.get_leg_functionality(tgt)
 	var perf: float = CombatantEntityAccess.get_performance_modifier(tgt)
 	var tgt_stats := CombatantEntityAccess.stats_dict(tgt)
@@ -167,8 +167,8 @@ static func _resolve_partial_parry_follow_through(
 		attack_type_mod = 1.0 + CombatConstants.PARRY_FOLLOW_THROUGH_CUT_BONUS
 	var twist_partial_min: float = CombatConstants.PARRY_FOLLOW_THROUGH_PARTIAL_MIN
 	var parry_ratio: float = pa.get(DataKeys.ATTACK_PARRY_REMAINING_RATIO, 1.0)
-	var parry_quality_scale: float = 1.0 - 0.3 * parry_ratio
-	parry_quality_scale = clampf(parry_quality_scale, 0.7, 1.0)
+	var parry_quality_scale: float = 1.0 - CombatConstants.TWIST_DODGE_PARRY_QUALITY_SLOPE * parry_ratio
+	parry_quality_scale = clampf(parry_quality_scale, CombatConstants.TWIST_DODGE_PARRY_QUALITY_FLOOR, 1.0)
 	var dodge_chance_follow: float = CombatantEntityAccess.get_dodge_chance(tgt, pa.get(DataKeys.PA_WIND_UP_DURATION, 0.5))
 	var part_follow: String = (
 		BodyPartConstants.get_weighted_random_part(targetable) if not targetable.is_empty() else ""
@@ -420,6 +420,8 @@ static func _resolve_parry(
 		# Thrust deflections cost more recovery — redirecting linear body-weight momentum requires full blade repositioning.
 		if contact_type_for_outcome.to_lower().strip_edges() == "stab":
 			rec_dur *= CombatConstants.parry_thrust_recovery_mult(parry_intensity)
+		# Deflected attacks cost extra recovery — blade knocked offline requires extra repositioning vs a clean miss.
+		rec_dur *= CombatConstants.parry_deflect_recovery_mult(parry_intensity)
 		var eff_atk_line: String = pa.get(DataKeys.ATTACK_EFFECTIVE_ATTACK_LINE, attack_line)
 		var atk_weapon_ctx = CombatantEntityAccess.get_weapon(atk)
 		var atk_angle_at_contact: float = _parry_attack_angle_deg(atk, arc_start, arc_end, parry_progress, eff_atk_line)
@@ -447,7 +449,9 @@ static func _resolve_parry(
 			m_a_velocity,
 			kinematics_fs,
 			pa.get("strike_measure_ratio", -1.0),
-			interpose_extra
+			interpose_extra,
+			CombatantEntityAccess.get_weapon(tgt),
+			parry_progress
 		)
 		CombatDebug.log(
 			(
@@ -514,6 +518,8 @@ static func _resolve_parry(
 		# Thrust edge-deflections (rare but possible with strong alignment) cost more recovery.
 		if edge_contact.to_lower().strip_edges() == "stab":
 			rec_dur_edge *= CombatConstants.parry_thrust_recovery_mult(parry_intensity_edge)
+		# Deflected attacks cost extra recovery — blade knocked offline requires extra repositioning vs a clean miss.
+		rec_dur_edge *= CombatConstants.parry_deflect_recovery_mult(parry_intensity_edge)
 		var atk_angle_edge: float = _parry_attack_angle_deg(atk, arc_start, arc_end, parry_progress, eff_atk_line_edge)
 		var wobble_edge: Dictionary = CombatantEntityAccess.parry_wobble_context_for_combatant(tgt, parry_readiness)
 		var kinematics_edge: Dictionary = _strike_kinematics_for_parry_clash(
@@ -539,7 +545,9 @@ static func _resolve_parry(
 			m_a_velocity,
 			kinematics_edge,
 			pa.get("strike_measure_ratio", -1.0),
-			interpose_extra
+			interpose_extra,
+			CombatantEntityAccess.get_weapon(tgt),
+			parry_progress
 		)
 		CombatDebug.log(
 			(
@@ -575,6 +583,9 @@ static func _resolve_parry(
 	# Attacker's body weight drives forward — no "slide off" geometry like cutting edge.
 	var is_thrust: bool = contact_type_current.to_lower().strip_edges() == "stab"
 	var base_reduction: float = c_d_final * redirect_mult
+	# Conservation of momentum: even a perfect parry cannot absorb 100% of attack force.
+	# Capped at PARRY_MAX_DAMAGE_REDUCTION (85%) so ~15% residual always passes through.
+	base_reduction = minf(base_reduction, parry_p_a * CombatConstantsParry.PARRY_MAX_DAMAGE_REDUCTION)
 	# Compute remaining momentum first (before thrust adjustment).
 	var remaining_momentum_raw: float = maxf(0.0, parry_p_a - base_reduction)
 	var effective_reduction_applied: float = base_reduction
@@ -613,6 +624,8 @@ static func _resolve_parry(
 		# Thrust redirect-stops also cost more recovery.
 		if is_thrust:
 			rec_dur_zero *= CombatConstants.parry_thrust_recovery_mult(parry_intensity_zero)
+		# Deflected attacks cost extra recovery — blade knocked offline requires extra repositioning vs a clean miss.
+		rec_dur_zero *= CombatConstants.parry_deflect_recovery_mult(parry_intensity_zero)
 		var eff_atk_line_z: String = pa.get(DataKeys.ATTACK_EFFECTIVE_ATTACK_LINE, attack_line)
 		var atk_weapon_z = CombatantEntityAccess.get_weapon(atk)
 		var atk_angle_z: float = _parry_attack_angle_deg(atk, arc_start, arc_end, parry_progress, eff_atk_line_z)
@@ -643,7 +656,9 @@ static func _resolve_parry(
 			m_a_velocity,
 			kinematics_z,
 			pa.get("strike_measure_ratio", -1.0),
-			partial_extra_z
+			partial_extra_z,
+			CombatantEntityAccess.get_weapon(tgt),
+			parry_progress
 		)
 		CombatDebug.log("parry_deflect_redirect %s blocked %s ctrl=%.3f" % [def_name, atk_name, parry_clash_zero.get(CombatConstants.CLASH_KEY_PARRY_CONTROL, CombatConstants.DEFAULT_PARRY_CONTROL)])
 		# The [HEMA] exchange line already carries parry=deflect + ctrl; this applier record is redundant for
@@ -698,11 +713,11 @@ static func _resolve_parry(
 	# Clamp reduced velocity to prevent unphysical amplification from small division mass.
 	# A parry follow-through cannot exceed the attacker's intent velocity, and for heavy weapons
 	# (spear ~2kg strike mass) should retain more momentum than light weapons (dagger ~0.45kg).
-	v_reduced = minf(v_reduced, v_intent * 1.1) if v_intent > 0.0 else v_reduced
-	var strike_mass_for_floor: float = m_a_vel if m_a_vel >= MIN_STRIKE_MASS_FOR_VEL_KG else 0.45
+	v_reduced = minf(v_reduced, v_intent * CombatConstants.PARRY_FOLLOW_THROUGH_VEL_CLAMP) if v_intent > 0.0 else v_reduced
+	var strike_mass_for_floor: float = m_a_vel if m_a_vel >= MIN_STRIKE_MASS_FOR_VEL_KG else CombatConstants.PARRY_V_MIN_FALLBACK_MASS_KG
 	var v_min_mass_scaled: float = maxf(
 		CombatConstants.PARRY_V_MIN_NEAR_DEFLECT,
-		clampf(strike_mass_for_floor / 2.7, 0.0, 1.0) * (v_intent * CombatConstants.PARRY_V_MIN_FRACTION)
+		clampf(strike_mass_for_floor / CombatConstants.PARRY_V_MIN_REFERENCE_MASS_KG, 0.0, 1.0) * (v_intent * CombatConstants.PARRY_V_MIN_FRACTION)
 	) if v_intent > 0.0 else CombatConstants.PARRY_V_MIN_NEAR_DEFLECT
 	var v_min_eff: float = (
 		v_intent
@@ -714,7 +729,7 @@ static func _resolve_parry(
 	)
 	# Use mass-scaled minimum when remaining_ratio is low (near-deflect parry): heavy weapons retain more momentum.
 	var v_min_final: float = v_min_eff
-	if remaining_ratio < 0.3:
+	if remaining_ratio < CombatConstants.PARRY_V_MIN_MASS_SCALE_THRESHOLD:
 		v_min_final = maxf(v_min_eff, v_min_mass_scaled)
 	pa[DataKeys.PA_VELOCITY_M_S] = maxf(v_reduced, v_min_final)
 	pa[DataKeys.ATTACK_PARRY_REMAINING_RATIO] = remaining_ratio
@@ -769,7 +784,9 @@ static func _resolve_parry(
 		m_a_velocity,
 		kinematics_p,
 		pa.get("strike_measure_ratio", -1.0),
-		partial_extra
+		partial_extra,
+		CombatantEntityAccess.get_weapon(tgt),
+		parry_progress
 	)
 	return {
 		"action": "parry_partial",
@@ -847,12 +864,16 @@ static func _build_parry_clash_context(
 	m_a_velocity: float,
 	kinematics: Dictionary,
 	strike_measure_ratio: float,
-	extra: Dictionary = {}
+	extra: Dictionary = {},
+	def_weapon: Variant = null,
+	parry_progress: float = 0.5
 ) -> Dictionary:
 	var contact_ct: String = WeaponConstants.contact_type_for_move_id(attack_type)
 	var margin_ratio: float = CombatConstants.parry_deflect_margin_ratio(c_d_final, parry_p_a)
+	# Blade-width friction (HEMA waffenfühlen): the parrying weapon's blade width sets bind friction.
+	var bind_friction: float = CombatConstants.bind_friction_mult_for_weapon(def_weapon)
 	var parry_control: float = CombatConstants.parry_control_for_bind_deflect(
-		c_d_final, parry_p_a, alignment, parry_readiness, parry_off_balance, late_parry, contact_ct
+		c_d_final, parry_p_a, alignment, parry_readiness, parry_off_balance, late_parry, contact_ct, bind_friction
 	)
 	var ctx: Dictionary = {
 		"archetype_id": kinematics.get(DataKeys.PA_ARCHETYPE_ID, ""),
@@ -870,6 +891,7 @@ static func _build_parry_clash_context(
 		"defender_guard_line": guard_line,
 		"guard_angle_deg": guard_angle_deg,
 		"parry_time_to_react": parry_time_to_react,
+		"parry_progress": parry_progress,
 		"parry_readiness": parry_readiness,
 		"late_parry": late_parry,
 		"parry_off_balance": parry_off_balance,
@@ -882,6 +904,7 @@ static func _build_parry_clash_context(
 		"kinematic_delivery": kinematics.get(DataKeys.WD_KINEMATIC_DELIVERY, ""),
 		"strike_velocity_m_s": kinematics.get("strike_velocity_m_s", -1.0),
 		"strike_kinetic_energy_j": kinematics.get("strike_kinetic_energy_j", 0.0),
+		"strike_momentum_kg_ms": kinematics.get("strike_momentum_kg_ms", 0.0),
 		"strike_measure_ratio": strike_measure_ratio,
 	}
 	for k in extra:

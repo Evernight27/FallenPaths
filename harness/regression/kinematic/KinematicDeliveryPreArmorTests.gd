@@ -2,10 +2,10 @@ class_name KinematicDeliveryPreArmorTests
 extends CombatRegressionHarnessCore
 
 
-## Tier 5.1: **`compute_pre_armor_cut`** scales with **`sqrt(KE)`** at fixed strength/**`arm_mod`** when
-## **`velocity_m_s`** pins tip speed (no clamp skew)  -  **SWORD** **`oberhau`**, **AXE** **`diagonal_chop`**,
-## **DAGGER** **`quick_slash`** (swing). **`compute_pre_armor_blunt`** rises with pinned speed on **MACE**
-## **`direct_blow`** (momentum path).
+## Tier 5.1: **`compute_pre_armor_cut`** scales with **`KE^CUT_DAMAGE_ENERGY_EXPONENT`** at fixed
+## strength/**`arm_mod`** when **`velocity_m_s`** pins tip speed (no clamp skew)  -  **SWORD** **`oberhau`**,
+## **AXE** **`diagonal_chop`**, **DAGGER** **`quick_slash`** (swing). **`compute_pre_armor_blunt`** rises with
+## pinned speed on **MACE** **`direct_blow`** (momentum path).
 static func _run_kinematic_delivery_pre_armor_cut_sqrt_ke_ratio_and_blunt_rises_with_speed(
     failures: PackedStringArray
 ) -> void:
@@ -30,14 +30,14 @@ static func _run_kinematic_delivery_pre_armor_cut_sqrt_ke_ratio_and_blunt_rises_
         _fail(failures, "kin_pre_armor_cut: expected ke_hi > ke_lo got lo=%.4f hi=%.4f" % [ke_lo, ke_hi])
     if cut_hi <= cut_lo + 1e-4:
         _fail(failures, "kin_pre_armor_cut: cut_hi should exceed cut_lo (got lo=%.4f hi=%.4f)" % [cut_lo, cut_hi])
-    var want_ratio: float = sqrt(ke_hi / ke_lo)
+    var want_ratio: float = pow(ke_hi / ke_lo, WeaponConstants.CUT_DAMAGE_ENERGY_EXPONENT)
     var got_ratio: float = cut_hi / cut_lo
     if absf(got_ratio - want_ratio) > 0.03:
         _fail(
             failures,
             (
-                "kin_pre_armor_cut: cut ratio %.4f want sqrt(ke) ratio %.4f (ke lo=%.4f hi=%.4f)"
-                % [got_ratio, want_ratio, ke_lo, ke_hi]
+                "kin_pre_armor_cut: cut ratio %.4f want ke^%.2f ratio %.4f (ke lo=%.4f hi=%.4f)"
+                % [got_ratio, WeaponConstants.CUT_DAMAGE_ENERGY_EXPONENT, want_ratio, ke_lo, ke_hi]
             )
         )
     var arch_swing_cut: Dictionary = {"kinematic_delivery": WeaponConstants.KINEMATIC_DELIVERY_SWING}
@@ -67,14 +67,14 @@ static func _run_kinematic_delivery_pre_armor_cut_sqrt_ke_ratio_and_blunt_rises_
             _fail(failures, "%s: expected ke_hi > ke_lo got lo=%.4f hi=%.4f" % [pfx_c, ke_lo_c, ke_hi_c])
         if cut_hi_c <= cut_lo_c + 1e-4:
             _fail(failures, "%s: cut_hi should exceed cut_lo (lo=%.4f hi=%.4f)" % [pfx_c, cut_lo_c, cut_hi_c])
-        var want_r_c: float = sqrt(ke_hi_c / ke_lo_c)
+        var want_r_c: float = pow(ke_hi_c / ke_lo_c, WeaponConstants.CUT_DAMAGE_ENERGY_EXPONENT)
         var got_r_c: float = cut_hi_c / cut_lo_c
         if absf(got_r_c - want_r_c) > 0.03:
             _fail(
                 failures,
                 (
-                    "%s: cut ratio %.4f want sqrt(ke) ratio %.4f (ke lo=%.4f hi=%.4f)"
-                    % [pfx_c, got_r_c, want_r_c, ke_lo_c, ke_hi_c]
+                    "%s: cut ratio %.4f want ke^%.2f ratio %.4f (ke lo=%.4f hi=%.4f)"
+                    % [pfx_c, got_r_c, WeaponConstants.CUT_DAMAGE_ENERGY_EXPONENT, want_r_c, ke_lo_c, ke_hi_c]
                 )
             )
     var mace: Weapon = HarnessFixtures.get_cached_weapon("MACE")
@@ -470,16 +470,16 @@ static func _run_kinematic_delivery_impact_contact_time_speed_dependent(failures
 
 ## Sub-band energy consistency: **`sub_band_energy_factor`** is 1.0 at/above band-min KE, ramps to the floor at
 ## **`SUB_BAND_MINIMUM_RATIO`**, and hard-zeros below — and it scales BOTH reported **`compute_kinetic_energy_j`**
-## and pre-armor damage (cut via sqrt(KE), blunt momentum linearly) so a weak strike can't report low energy while
-## still dealing full tissue deformation. Locked on SWORD `oberhau` (swing) at pinned speeds across the ramp, with
-## cut tracking sqrt(raw·f) and blunt tracking raw·f.
+## and pre-armor damage (cut via KE^CUT_DAMAGE_ENERGY_EXPONENT, blunt momentum linearly) so a weak strike can't
+## report low energy while still dealing full tissue deformation. Locked on SWORD `oberhau` (swing) at pinned
+## speeds across the ramp, with cut tracking (raw·f)^CUT_DAMAGE_ENERGY_EXPONENT and blunt tracking raw·f.
 
 
 ## Sub-band energy consistency: **`sub_band_energy_factor`** is 1.0 at/above band-min KE, ramps to the floor at
 ## **`SUB_BAND_MINIMUM_RATIO`**, and hard-zeros below — and it scales BOTH reported **`compute_kinetic_energy_j`**
-## and pre-armor damage (cut via sqrt(KE), blunt momentum linearly) so a weak strike can't report low energy while
-## still dealing full tissue deformation. Locked on SWORD `oberhau` (swing) at pinned speeds across the ramp, with
-## cut tracking sqrt(raw·f) and blunt tracking raw·f.
+## and pre-armor damage (cut via KE^CUT_DAMAGE_ENERGY_EXPONENT, blunt momentum linearly) so a weak strike can't
+## report low energy while still dealing full tissue deformation. Locked on SWORD `oberhau` (swing) at pinned
+## speeds across the ramp, with cut tracking (raw·f)^CUT_DAMAGE_ENERGY_EXPONENT and blunt tracking raw·f.
 static func _run_kinetic_delivery_sub_band_energy_consistency(failures: PackedStringArray) -> void:
     var sword: Weapon = HarnessFixtures.get_cached_weapon("SWORD")
     if sword == null:
@@ -517,11 +517,25 @@ static func _run_kinetic_delivery_sub_band_energy_consistency(failures: PackedSt
         if absf(ke_reported - ke_raw * f) > 1e-3:
             _fail(failures, "%s: reported KE %.4f want raw*factor=%.4f" % [pfx, ke_reported, ke_raw * f])
         var cut: float = WeaponDamageHelper.compute_pre_armor_cut(sword, ai, 100.0, 1.0)
-        var want_cut_ke: float = WeaponConstants.DAMAGE_KE_SCALE * sqrt(maxf(0.0, ke_raw * f))
-        if want_cut_ke > 0.5 and absf(cut / want_cut_ke - 1.0) > 0.25:
+        # The cut also carries a contact_factor (effective sharp width vs baseline), so the expected
+        # value must include it to stay consistent with compute_pre_armor_cut.
+        var contact_cm: float = maxf(
+            WeaponDamageHelper._get_effective_sharp_contact_cm(sword, move_cut),
+            WeaponConstants.MIN_CONTACT_WIDTH_CM
+        )
+        var contact_factor: float = minf(
+            pow(WeaponConstants.BASELINE_CONTACT_CM / contact_cm, WeaponConstants.CONTACT_DAMAGE_EXPONENT),
+            WeaponConstants.CONTACT_DAMAGE_FACTOR_MAX
+        )
+        var want_cut_ke: float = (
+            WeaponConstants.CUT_DAMAGE_KE_SCALE * pow(maxf(0.0, ke_raw * f), WeaponConstants.CUT_DAMAGE_ENERGY_EXPONENT)
+            * contact_factor
+        )
+        if want_cut_ke > 0.5 and absf(cut / want_cut_ke - 1.0) > 0.05:
             _fail(
                 failures,
-                "%s: cut %.4f should track sqrt(raw*factor)=%.4f (contact_factor aside)" % [pfx, cut, want_cut_ke]
+                "%s: cut %.4f should track (raw*factor)^%.2f*contact=%.4f (contact_factor=%.3f)"
+                % [pfx, cut, WeaponConstants.CUT_DAMAGE_ENERGY_EXPONENT, want_cut_ke, contact_factor]
             )
     var ai_hi: AttackInstance = AttackInstance.new(move_cut, 0.5)
     ai_hi.archetype = arch_swing

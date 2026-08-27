@@ -142,6 +142,7 @@ static func run_early(failures: PackedStringArray) -> void:
 
 static func run_mid(failures: PackedStringArray) -> void:
     Tier1DepthPolearmHostilePairTests._run_ai_targeting_incap_hostile_mult(failures)
+    Tier1DepthPolearmHostilePairTests._run_ai_targeting_heavy_armor_avoidance(failures)
     Tier1DepthPolearmHostilePairTests._run_no_hostile_actions_listed_vs_incap_enemy(failures)
     Tier1DepthPolearmHostilePairTests._run_stalemate_melee_rank1_when_rank0_incap(failures)
     Tier1DepthPolearmHostilePairTests._run_ordered_melee_opponents_file_opposed_sort(failures)

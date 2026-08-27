@@ -16,75 +16,87 @@ static func _run_parry_deflect_awards_end_gains(failures: PackedStringArray) -> 
         _fail(failures, "parry_end_gains: setup failed")
         return
 
+    var mgr: Node = data.get("mgr")
     var enemy_ent: Node = data.get("enemy_ent")
-
-    # Set up attack on player that will be parried.
-    var atk: Dictionary = CombatantEntityAccess.manager_get_combatant(data.get("mgr"), data.get("p_id"))
-    if atk.is_empty():
-        _fail(failures, "parry_end_gains: no player combatant")
+    var p_id: int = data.get("p_id")
+    var enemy: Dictionary = mgr.combatants[1]
+    if enemy.is_empty():
+        _fail(failures, "parry_end_gains: no enemy combatant")
         return
+    var enemy_id: int = CombatantEntityAccess.id_int(enemy)
+    var initial_end: float = float(enemy_ent._proficiency_bonus.get("endurance", 0))
 
-    atk.state = CombatConstants.STATE_WIND_UP
-    atk.pending_attack = {
-        "target_id": 1,
-        "intensity": 0.5,
-        "attack_type": "thrust",
+    # Proficiency gains are awarded in apply_result (not resolve_attack). Apply a parry_deflect
+    # result where the player (attacker) is parried by the enemy (defender). Momentum 0 skips the
+    # recoil so only the proficiency award is exercised.
+    var atk: Dictionary = CombatantEntityAccess.manager_get_combatant(mgr, p_id)
+    atk.pending_attack = {"target_id": enemy_id, "intensity": 0.5, "attack_type": "thrust"}
+    var pclash: Dictionary = {
+        "kinematic_delivery": "thrust",
+        "strike_measure_ratio": 1.05,
+        "parry_control": 0.9,
+        "strike_momentum_kg_ms": 0.0,
+        "strike_kinetic_energy_j": 0.0,
     }
-
-    var result: Dictionary = AttackResolver.resolve_attack(data.get("mgr"), data.get("p_id"))
-
-    if result.get("action", "") == "parry_deflect":
-        var bonus_end: float = float(enemy_ent._proficiency_bonus.get("endurance", 0))
-        if bonus_end < 0.1:
-            _fail(
-                failures, "parry_end_gains: defender END gain too low on parry_deflect (got %.2f)" % bonus_end
-            )
+    AttackResultApplier.apply_result(
+        mgr, p_id, {"action": "parry_deflect", "target_id": enemy_id, "parry_clash_context": pclash}
+    )
+    var bonus_end: float = float(enemy_ent._proficiency_bonus.get("endurance", 0))
+    if bonus_end < initial_end + 0.1:
+        _fail(
+            failures, "parry_end_gains: defender END gain too low on parry_deflect (got %.2f)" % bonus_end
+        )
 
     ProficiencyAwardPersistenceTests._free_proficiency_combat(data)
 
 
-## Parry partial awards no END gain to defender (parry absorbed the strike).
-
-
-## Parry partial awards no END gain to defender (parry absorbed the strike).
-static func _run_parry_partial_no_defender_gain(failures: PackedStringArray) -> void:
+## Parry partial awards a PARTIAL END gain to the defender (absorbing the reduced hit) — less than a full
+## parry_deflect, but consistent with the hit path where absorbing damage trains END.
+## Parry partial awards a PARTIAL END gain to the defender (absorbing the reduced hit) — less than a full
+## parry_deflect, but consistent with the hit path where absorbing damage trains END.
+static func _run_parry_partial_awards_partial_end_gain(failures: PackedStringArray) -> void:
     if not CompanyState.read_stub_proficiency_enabled():
         return
 
     var data: Dictionary = ProficiencyAwardPersistenceTests._setup_proficiency_combat(failures)
     if data.is_empty():
-        _fail(failures, "parry_partial_no_defender: setup failed")
+        _fail(failures, "parry_partial_end: setup failed")
         return
 
+    var mgr: Node = data.get("mgr")
     var enemy_ent: Node = data.get("enemy_ent")
+    var p_id: int = data.get("p_id")
+    var enemy: Dictionary = mgr.combatants[1]
+    if enemy.is_empty():
+        _fail(failures, "parry_partial_end: no enemy combatant")
+        return
+    var enemy_id: int = CombatantEntityAccess.id_int(enemy)
     var initial_end: float = float(enemy_ent._proficiency_bonus.get("endurance", 0))
 
-    # Set up attack on player that will be partially parried.
-    var atk: Dictionary = CombatantEntityAccess.manager_get_combatant(data.get("mgr"), data.get("p_id"))
-    if atk.is_empty():
-        _fail(failures, "parry_partial_no_defender: no player combatant")
-        return
-
-    atk.state = CombatConstants.STATE_WIND_UP
-    atk.pending_attack = {
-        "target_id": 1,
-        "intensity": 0.5,
-        "attack_type": "thrust",
+    # Proficiency gains are awarded in apply_result (not resolve_attack). Apply a parry_partial
+    # result where the player (attacker) is partially parried by the enemy (defender). Momentum 0
+    # skips the recoil so only the proficiency award is exercised.
+    var atk: Dictionary = CombatantEntityAccess.manager_get_combatant(mgr, p_id)
+    atk.pending_attack = {"target_id": enemy_id, "intensity": 0.5, "attack_type": "thrust"}
+    var pclash: Dictionary = {
+        "kinematic_delivery": "thrust",
+        "strike_measure_ratio": 1.05,
+        "parry_control": 0.9,
+        "strike_momentum_kg_ms": 0.0,
+        "strike_kinetic_energy_j": 0.0,
     }
-
-    var result: Dictionary = AttackResolver.resolve_attack(data.get("mgr"), data.get("p_id"))
-
-    var action: String = result.get("action", "")
-    if not action.is_empty():
-        var final_end: float = float(enemy_ent._proficiency_bonus.get("endurance", 0))
-        if action == "parry_partial" and final_end > initial_end + 0.001:
-            _fail(
-                failures,
-                (
-                    "parry_partial_no_defender: defender END should not increase on parry_partial (initial=%.2f fin"
-                    + "al=%.2f)" % [initial_end, final_end]
-                )
+    AttackResultApplier.apply_result(
+        mgr, p_id, {"action": "parry_partial", "target_id": enemy_id, "parry_clash_context": pclash}
+    )
+    var final_end: float = float(enemy_ent._proficiency_bonus.get("endurance", 0))
+    if not (final_end > initial_end + 0.001):
+        _fail(
+            failures,
+            (
+                "parry_partial_end: defender END should increase (partial absorption) on parry_partial "
+                + "(initial=%.2f final=%.2f)" % [initial_end, final_end]
             )
+        )
 
     ProficiencyAwardPersistenceTests._free_proficiency_combat(data)
 

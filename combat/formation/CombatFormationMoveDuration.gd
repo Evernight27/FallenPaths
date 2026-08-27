@@ -68,6 +68,22 @@ static func _armor_mult(initiator: Dictionary, partner: Dictionary = {}) -> floa
     return maxf(a0, a1)
 
 
+## Leg functionality speed factor for formation footwork: a fractured/crippled leg slows
+## repositioning (duration ∝ 1/speed). Pair moves are paced by the slower member (mirrors
+## `_armor_mult`). Healthy legs return 1.0 (duration unchanged); the clamp caps the slowdown so a
+## destroyed leg slows the unit rather than freezing it (cowering handles total immobilization).
+static func _leg_mult(initiator: Dictionary, partner: Dictionary = {}) -> float:
+    var l0: float = clampf(
+        CombatantEntityAccess.get_leg_functionality(initiator), CombatConstants.MOVEMENT_LEG_FUNC_MIN, 1.0
+    )
+    if partner.is_empty():
+        return l0
+    var l1: float = clampf(
+        CombatantEntityAccess.get_leg_functionality(partner), CombatConstants.MOVEMENT_LEG_FUNC_MIN, 1.0
+    )
+    return minf(l0, l1)
+
+
 static func estimate_adjacent_rank_pair_duration_s(
     manager: Node, initiator: Dictionary, partner: Dictionary, move_kind: String
 ) -> float:
@@ -86,6 +102,9 @@ static func estimate_adjacent_rank_pair_duration_s(
     # exhausted units reposition FASTER.
     if CombatMuscleFatigue.enabled() and not initiator.is_empty():
         duration /= CombatMuscleFatigue.step_speed_mult(initiator, "forward")
+    # Leg functionality: a fractured/crippled leg slows footwork (duration ∝ 1/speed); the slower
+    # member paces the pair move. Healthy legs (1.0) leave duration unchanged.
+    duration /= _leg_mult(initiator, partner)
     return duration
 
 
@@ -97,9 +116,14 @@ static func estimate_solo_fall_back_duration_s(manager: Node, initiator: Diction
     var lane_foot: float = ZoneOfControl.get_lane_and_footing_duration_multiplier(manager, fid, f)
     var pressure_mod: float = ZoneOfControl.get_opponent_pressure_duration_multiplier(manager, fid)
     var duration: float = _agi_scale_s(initiator) * lane_foot * pressure_mod * _armor_mult(initiator)
-    # Muscle fatigue: fatigued legs make disengagement slower.
+    # Muscle fatigue: fatigued legs make disengagement slower. step_speed_mult is a SPEED factor in
+    # [floor, 1.0], so divide the duration by it (duration ∝ 1/speed) — the old multiply inverted this and made
+    # exhausted units retreat FASTER.
     if CombatMuscleFatigue.enabled() and not initiator.is_empty():
-        duration *= CombatMuscleFatigue.step_speed_mult(initiator, "retreat")
+        duration /= CombatMuscleFatigue.step_speed_mult(initiator, "retreat")
+    # Leg functionality: a fractured/crippled leg slows the retreat (duration ∝ 1/speed). Healthy
+    # legs (1.0) leave duration unchanged.
+    duration /= _leg_mult(initiator)
     return duration
 
 
@@ -111,9 +135,14 @@ static func estimate_rotate_file_duration_s(manager: Node, initiator: Dictionary
     var lane_foot: float = ZoneOfControl.get_lane_and_footing_duration_multiplier(manager, fid, f0)
     var pressure_mod: float = ZoneOfControl.get_opponent_pressure_duration_multiplier(manager, fid)
     var duration: float = _agi_scale_s(initiator) * lane_foot * pressure_mod * _armor_mult(initiator, partner)
-    # Muscle fatigue: fatigued legs make rotation slower.
+    # Muscle fatigue: fatigued legs make rotation slower. step_speed_mult is a SPEED factor in [floor, 1.0], so
+    # divide the duration by it (duration ∝ 1/speed) — the old multiply inverted this and made exhausted units
+    # rotate FASTER. (formation_movement_weight_mult is an AI decision weight, not a speed — wrong kind of factor.)
     if CombatMuscleFatigue.enabled() and not initiator.is_empty():
-        duration *= CombatMuscleFatigue.formation_movement_weight_mult(initiator, CombatConstants.MOVE_ID_ROTATE_FILE)
+        duration /= CombatMuscleFatigue.step_speed_mult(initiator, "forward")
+    # Leg functionality: a fractured/crippled leg slows rotation (duration ∝ 1/speed); the slower
+    # member paces the pair move. Healthy legs (1.0) leave duration unchanged.
+    duration /= _leg_mult(initiator, partner)
     return duration
 
 

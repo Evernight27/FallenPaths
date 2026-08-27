@@ -8,6 +8,16 @@ extends RefCounted
 ## ally proximity and banner carrier presence; applied as bonus/malus to plug action weights.
 ## L6 rout morale check: `morale_check_during_rout(combatant_id, manager) -> bool` gates rout behavior based on
 ## side morale state (returns true when the combatant's side has sufficient collective morale to resist rout).
+##
+## Unit-cohesion loss (fear of injury): witnessing a comrade take a wound or fall drops the side's raw
+## morale-cohesion. Bounded by MORALE_DRAIN_FLOOR so line cohesion stays well above the flee threshold
+## (FORMATION_FLEE_LINE_COHESION_MAX). Leader deaths are handled by the stronger leader-death shock
+## (CombatFormationRout.apply_leader_death_morale_shock) and do not double-trigger the death drain.
+const FEAR_WOUND_DRAIN: float = 0.01
+const FEAR_DEATH_DRAIN: float = 0.02
+const MORALE_DRAIN_FLOOR: float = 0.70
+const MORALE_SAFE_RECOVERY_PER_SEC: float = 0.005
+const PARRY_MORALE_FLOOR_MULT: float = 0.85
 
 
 static func apply_to_formations(manager: Node) -> void:
@@ -108,3 +118,62 @@ static func morale_check_during_rout(combatant_id: int, manager: Node) -> bool:
     var avg_morale: float = _average_combatant_morale_cohesion(manager, side)
     var threshold: float = CombatConstantsMentalStack.MENTAL_STACK_LOST_COHESION_ROUT_THRESHOLD as float
     return line_cohesion > (threshold / 10.0) and avg_morale > 0.3
+
+
+## Unit-cohesion loss (fear of injury): a comrade just took a wound, so every other living member of that
+## side's line drops a little morale. The wounded combatant is the victim (not a witness) and is skipped.
+## No-op in a 1v1 (no other same-side combatant to witness). Bounded by MORALE_DRAIN_FLOOR.
+static func apply_fear_drain_for_witnesses(manager: Node, wounded_id: int) -> void:
+    if manager == null:
+        return
+    var wounded: Dictionary = CombatantEntityAccess.manager_get_combatant(manager, wounded_id)
+    if wounded.is_empty():
+        return
+    var side: String = CombatantEntityAccess.side_str(wounded)
+    for c in manager.combatants:
+        if not CombatantEntityAccess.is_living_on_side(c, side):
+            continue
+        if CombatantEntityAccess.id_int(c) == wounded_id:
+            continue
+        _drain_raw_morale(c, FEAR_WOUND_DRAIN)
+
+
+## Unit-cohesion loss: a comrade just fell, so every other living member of that side's line drops morale.
+## The dead combatant is no longer living and is skipped by is_living_on_side. Leader deaths are handled by
+## the stronger leader-death shock, so the caller skips this for the party leader (see CombatManager).
+static func apply_cohesion_loss_for_witnesses(manager: Node, dead: Dictionary) -> void:
+    if manager == null or dead.is_empty():
+        return
+    var side: String = CombatantEntityAccess.side_str(dead)
+    for c in manager.combatants:
+        if not CombatantEntityAccess.is_living_on_side(c, side):
+            continue
+        _drain_raw_morale(c, FEAR_DEATH_DRAIN)
+
+
+static func _drain_raw_morale(c: Dictionary, amount: float) -> void:
+    var raw: float = float(c.get(DataKeys.MORALE_COHESION_FACTOR_RAW, 1.0))
+    c[DataKeys.MORALE_COHESION_FACTOR_RAW] = maxf(MORALE_DRAIN_FLOOR, raw - amount)
+
+
+## Safe-state recovery: while waiting (out of the exchange) a fighter regains composure toward full morale.
+static func recover_morale_if_safe(c: Dictionary, delta: float) -> void:
+    if delta <= 0.0:
+        return
+    var raw: float = float(c.get(DataKeys.MORALE_COHESION_FACTOR_RAW, 1.0))
+    if raw >= 1.0:
+        return
+    c[DataKeys.MORALE_COHESION_FACTOR_RAW] = minf(1.0, raw + MORALE_SAFE_RECOVERY_PER_SEC * delta)
+
+
+## Maps per-combatant raw morale [MORALE_DRAIN_FLOOR, 1.0] to a parry readiness multiplier [0.85, 1.0].
+## At full morale (1.0) there is no effect; at the drain floor (0.70) parry readiness is reduced by 15%.
+## Models HEMA/clinical: fear degrades fine motor control and reaction timing for blade-on-blade catches.
+
+
+static func morale_parry_readiness_mult(morale: float) -> float:
+    if morale >= 1.0:
+        return 1.0
+    if morale <= MORALE_DRAIN_FLOOR:
+        return PARRY_MORALE_FLOOR_MULT
+    return lerpf(PARRY_MORALE_FLOOR_MULT, 1.0, (morale - MORALE_DRAIN_FLOOR) / (1.0 - MORALE_DRAIN_FLOOR))

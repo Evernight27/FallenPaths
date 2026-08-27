@@ -40,6 +40,7 @@ static func start_combat(world: Node2D, enemies: Array):
 	for p in players:
 		if p.has_method("set_process_input"):
 			p.set_process_input(false)
+		_apply_weapon_edge_wear(p)
 	var pb = _find_party_button(world)
 	if pb:
 		pb.visible = false
@@ -109,6 +110,8 @@ static func handle_battle_ended(world: Node2D, winner: String, defeated: Node):
 			_get_company_state().apply_battle_lost_mood(world)
 		CampaignEncounterBridge.clear_transient_combat_meta(world)
 		_apply_last_fought_day_to_roster(world)
+		_apply_battle_fatigue_to_roster(world)
+		_apply_battle_weapon_wear_to_roster(world)
 		_get_company_state().clear_active_contract(world)
 		if ends_run:
 			var title: String = str(contract.get("contract_title", "Contract"))
@@ -131,6 +134,8 @@ static func handle_battle_ended(world: Node2D, winner: String, defeated: Node):
 	BattleEndHandler.handle_victory(world, player, winner)
 	CampaignEncounterBridge.on_return_from_combat(world, winner)
 	_apply_last_fought_day_to_roster(world)
+	_apply_battle_fatigue_to_roster(world)
+	_apply_battle_weapon_wear_to_roster(world)
 	await SettlementPanel.show_and_await(world)
 	var pb = _find_party_button(world)
 	if pb:
@@ -181,6 +186,38 @@ static func _apply_last_fought_day_to_roster(world: Node2D):
 		var entity: Node = CampaignEncounterBridge.health_entity_from_character(n)
 		if entity != null and entity.has_method("_get_training_pending"):
 			entity.last_fought_day = day_index
+
+
+## Campaign weariness: a fought battle tires the whole roster (lower stamina cap next fight). Not gated on
+## proficiency — fatigue is a base survival mechanic. Recovered by camp rest (CompanyCamp.try_camp_heal).
+static func _apply_battle_fatigue_to_roster(world: Node2D) -> void:
+	if world == null:
+		return
+	for n in CampaignEncounterBridge.get_fightable_party_nodes(world):
+		var entity: Node = CampaignEncounterBridge.health_entity_from_character(n)
+		if entity != null and entity.has_method("add_campaign_fatigue_battle"):
+			entity.add_campaign_fatigue_battle()
+
+
+## Weapon edge wear: a fought battle dulls the roster's edges (worn edge cuts less next fight).
+## Accumulated at battle end; applied to the weapon's sharpness at battle start (see _apply_weapon_edge_wear).
+## Restored by sharpening at camp rest (CompanyCamp.try_camp_heal).
+static func _apply_battle_weapon_wear_to_roster(world: Node2D) -> void:
+	if world == null:
+		return
+	for n in CampaignEncounterBridge.get_fightable_party_nodes(world):
+		var entity: Node = CampaignEncounterBridge.health_entity_from_character(n)
+		if entity != null and entity.has_method("add_weapon_edge_wear_battle"):
+			entity.add_weapon_edge_wear_battle()
+
+
+## Apply a member's accumulated edge wear to their weapon's sharpness before a battle starts.
+static func _apply_weapon_edge_wear(p: Node) -> void:
+	if p == null:
+		return
+	var entity: Node = CampaignEncounterBridge.health_entity_from_character(p)
+	if entity != null and entity.has_method("apply_weapon_edge_wear_to_weapon"):
+		entity.apply_weapon_edge_wear_to_weapon()
 
 
 static func _append_death_recap_to_detail(detail: String, death_lines: PackedStringArray) -> String:

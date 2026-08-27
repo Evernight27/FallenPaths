@@ -401,16 +401,21 @@ static func compute_kinetic_energy_j(weapon: RefCounted, attack_instance: RefCou
     return _raw_kinetic_energy_j(weapon, attack_instance) * sub_band_energy_factor(weapon, attack_instance)
 
 
-# Pre-armor CUT (sharp) from KE and effective edge: scale * sqrt(KE) * strength_mod * arm_mod * contact_factor(effective
-# sharp), clamped.
+# Pre-armor CUT (sharp) from KE and effective edge: CUT_DAMAGE_KE_SCALE * KE^CUT_DAMAGE_ENERGY_EXPONENT
+# * strength_mod * arm_mod * contact_factor(effective sharp), clamped.
 static func compute_pre_armor_cut(
     weapon: RefCounted, attack_instance: RefCounted, strength: float, arm_mod: float
 ) -> float:
     var ke_j: float = compute_kinetic_energy_j(weapon, attack_instance)
-    # The sub-band ramp is already folded into ke_j (sqrt for cut), so no separate factor here — damage and
+    # The sub-band ramp is already folded into ke_j, so no separate factor here — damage and
     # reported energy stay consistent by construction.
     var strength_mod: float = maxf(0.1, float(strength) / 100.0)
-    var raw: float = WeaponConstants.DAMAGE_KE_SCALE * sqrt(maxf(0.0, ke_j)) * strength_mod * arm_mod
+    # Cut scales as KE^CUT_DAMAGE_ENERGY_EXPONENT (Williams-consistent), re-anchored at 100 J -> 35.
+    var raw: float = (
+        WeaponConstants.CUT_DAMAGE_KE_SCALE * pow(maxf(0.0, ke_j), WeaponConstants.CUT_DAMAGE_ENERGY_EXPONENT)
+        * strength_mod
+        * arm_mod
+    )
     var at: String = attack_instance.get("attack_type")
     if at == null or not (at is String):
         at = WeaponConstants.ATTACK_TYPE_CUT

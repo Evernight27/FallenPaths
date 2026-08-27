@@ -155,19 +155,74 @@ static func _run_kinematic_delivery_closing_speed_engagement_angle_scales_pre_cu
         )
     var ratio_cut: float = cut_rear / maxf(cut_front, 0.001)
     var ratio_ke: float = ke_rear / maxf(ke_front, 0.001)
-    if absf(ratio_cut - sqrt(ratio_ke)) > 0.06:
+    # pre_cut composes the closing-speed channel (KE^CUT_DAMAGE_ENERGY_EXPONENT) AND the engagement-angle
+    # damage multiplier (rear lands on an unguarded side). KE is unaffected by the engagement multiplier
+    # (velocity-only).
+    var eng_front: float = StrikePhysics.engagement_damage_multiplier(front["tgt"] as Dictionary)
+    var eng_rear: float = StrikePhysics.engagement_damage_multiplier(rear["tgt"] as Dictionary)
+    var want_ratio: float = pow(ratio_ke, WeaponConstants.CUT_DAMAGE_ENERGY_EXPONENT) * (
+        eng_rear / maxf(eng_front, 0.001)
+    )
+    if absf(ratio_cut - want_ratio) > 0.06:
         CombatRegressionHarness._fail(
-            failures, "kin_close_pre: pre_cut ratio %.4f want sqrt(ke ratio) %.4f" % [ratio_cut, sqrt(ratio_ke)]
+            failures,
+            "kin_close_pre: pre_cut ratio %.4f want ke^%.2f*eng %.4f (eng front=%.2f rear=%.2f)"
+            % [ratio_cut, WeaponConstants.CUT_DAMAGE_ENERGY_EXPONENT, want_ratio, eng_front, eng_rear]
+        )
+
+
+## Tier 5.1 (optional long-tail): **`StrikePhysics.engagement_damage_multiplier`** — a clean rear strike
+## lands on an unguarded side and hits harder than a front strike; flank is a smaller bonus. Unit:
+## front/unstamped = 1.0, flank = 1.10, rear = 1.20. Integration: rear pre_cut exceeds front by the
+## engagement factor on top of the closing-speed channel (closing speed alone is only ~1.045).
+static func _run_kinematic_delivery_engagement_damage_multiplier_rear_hits_harder(failures: PackedStringArray) -> void:
+    # Unit: engagement multiplier by stamped angle.
+    var m_front: float = StrikePhysics.engagement_damage_multiplier({"engagement_angle": "front"})
+    var m_flank: float = StrikePhysics.engagement_damage_multiplier({"engagement_angle": "flank"})
+    var m_rear: float = StrikePhysics.engagement_damage_multiplier({"engagement_angle": "rear"})
+    var m_default: float = StrikePhysics.engagement_damage_multiplier({})
+    if not is_equal_approx(m_front, 1.0):
+        CombatRegressionHarness._fail(failures, "kin_eng: front mult want 1.0 got %.4f" % m_front)
+    if not is_equal_approx(m_default, 1.0):
+        CombatRegressionHarness._fail(failures, "kin_eng: unstamped mult want 1.0 got %.4f" % m_default)
+    if not is_equal_approx(m_flank, 1.10):
+        CombatRegressionHarness._fail(failures, "kin_eng: flank mult want 1.10 got %.4f" % m_flank)
+    if not is_equal_approx(m_rear, 1.20):
+        CombatRegressionHarness._fail(failures, "kin_eng: rear mult want 1.20 got %.4f" % m_rear)
+    if not (m_rear > m_flank and m_flank > m_front):
+        CombatRegressionHarness._fail(
+            failures, "kin_eng: ordering want rear>flank>front got %.4f/%.4f/%.4f" % [m_rear, m_flank, m_front]
+        )
+    # Integration: rear pre_cut exceeds front by the engagement factor on top of closing speed.
+    var vo_pin: float = 11.0
+    var front: Dictionary = CombatRegressionHarness._kin_dmg_integration_sample(
+        vo_pin, 1.0, 1.0, {}, "SWORD", "oberhau", 1.0, {}, {"engagement_angle": "front"}
+    )
+    var rear: Dictionary = CombatRegressionHarness._kin_dmg_integration_sample(
+        vo_pin, 1.0, 1.0, {}, "SWORD", "oberhau", 1.0, {}, {"engagement_angle": "rear"}
+    )
+    var cut_front: float = float(front["pre_cut"])
+    var cut_rear: float = float(rear["pre_cut"])
+    CombatRegressionHarness._free_manager(front["mgr"] as Node)
+    CombatRegressionHarness._free_manager(rear["mgr"] as Node)
+    if cut_front <= 0.5:
+        CombatRegressionHarness._fail(failures, "kin_eng: front pre_cut too small %.4f" % cut_front)
+    # Closing speed alone gives ~1.045; the engagement factor (1.20) must be visible on top.
+    if cut_rear <= cut_front * 1.20:
+        CombatRegressionHarness._fail(
+            failures,
+            "kin_eng: rear pre_cut %.4f should exceed front*1.20 %.4f (engagement factor visible)"
+            % [cut_rear, cut_front * 1.20]
         )
 
 
 ## Tier 5.1 (optional long-tail): **SWORD** **`mixed`** **0.35** blend  -  integration **`pre_cut_applied`** tracks
-## **`sqrt(strike_ke_j)`** at assembled **`v`**.
+## **`strike_ke_j^CUT_DAMAGE_ENERGY_EXPONENT`** at assembled **`v`**.
 
 
 ## Tier 5.1 (optional long-tail): **SWORD** **`mixed`** **0.35** blend  -  integration **`pre_cut_applied`** tracks
-## **`sqrt(strike_ke_j)`** at assembled **`v`**.
-static func _run_kinematic_delivery_mixed_integration_pre_cut_scales_sqrt_ke(failures: PackedStringArray) -> void:
+## **`strike_ke_j^CUT_DAMAGE_ENERGY_EXPONENT`** at assembled **`v`**.
+static func _run_kinematic_delivery_mixed_integration_pre_cut_scales_ke_pow(failures: PackedStringArray) -> void:
     var vo_pin: float = 11.0
     var arch: Dictionary = {
         "kinematic_delivery": WeaponConstants.KINEMATIC_DELIVERY_MIXED,
@@ -187,11 +242,13 @@ static func _run_kinematic_delivery_mixed_integration_pre_cut_scales_sqrt_ke(fai
     CombatRegressionHarness._free_manager(hi["mgr"] as Node)
     if ke_hi <= ke_lo + 1e-4 or cut_hi <= cut_lo + 1e-4:
         CombatRegressionHarness._fail(failures, "kin_mixed_pre: need rising ke/pre_cut")
-    var want_ratio: float = sqrt(ke_hi / maxf(ke_lo, 0.001))
+    var want_ratio: float = pow(ke_hi / maxf(ke_lo, 0.001), WeaponConstants.CUT_DAMAGE_ENERGY_EXPONENT)
     var got_ratio: float = cut_hi / maxf(cut_lo, 0.001)
     if absf(got_ratio - want_ratio) > 0.05:
         CombatRegressionHarness._fail(
-            failures, "kin_mixed_pre: pre_cut ratio %.4f want sqrt(ke) %.4f" % [got_ratio, want_ratio]
+            failures,
+            "kin_mixed_pre: pre_cut ratio %.4f want ke^%.2f %.4f"
+            % [got_ratio, WeaponConstants.CUT_DAMAGE_ENERGY_EXPONENT, want_ratio]
         )
 
 
@@ -373,12 +430,12 @@ static func _run_kinematic_delivery_target_mass_scales_blunt_pre_armor(failures:
 
 
 ## Tier 5.1 (optional long-tail): **AXE** **`diagonal_chop`** integration  -  **`pre_cut_applied`** ~
-## **`sqrt(strike_ke_j)`**.
+## **`strike_ke_j^CUT_DAMAGE_ENERGY_EXPONENT`**.
 
 
 ## Tier 5.1 (optional long-tail): **AXE** **`diagonal_chop`** integration  -  **`pre_cut_applied`** ~
-## **`sqrt(strike_ke_j)`**.
-static func _run_kinematic_delivery_axe_integration_pre_cut_scales_sqrt_ke(failures: PackedStringArray) -> void:
+## **`strike_ke_j^CUT_DAMAGE_ENERGY_EXPONENT`**.
+static func _run_kinematic_delivery_axe_integration_pre_cut_scales_ke_pow(failures: PackedStringArray) -> void:
     var arch: Dictionary = {"kinematic_delivery": WeaponConstants.KINEMATIC_DELIVERY_SWING}
     var lo: Dictionary = CombatRegressionHarness._kin_dmg_integration_sample(
         9.0, 1.0, 1.0, {}, "AXE", "diagonal_chop", 1.0, arch
@@ -394,10 +451,12 @@ static func _run_kinematic_delivery_axe_integration_pre_cut_scales_sqrt_ke(failu
     CombatRegressionHarness._free_manager(hi["mgr"] as Node)
     if ke_hi <= ke_lo + 1e-4 or cut_hi <= cut_lo + 1e-4:
         CombatRegressionHarness._fail(failures, "kin_axe_int: need rising ke/pre_cut")
-    var want_ratio: float = sqrt(ke_hi / maxf(ke_lo, 0.001))
+    var want_ratio: float = pow(ke_hi / maxf(ke_lo, 0.001), WeaponConstants.CUT_DAMAGE_ENERGY_EXPONENT)
     if absf(cut_hi / maxf(cut_lo, 0.001) - want_ratio) > 0.04:
         CombatRegressionHarness._fail(
-            failures, "kin_axe_int: pre_cut ratio %.4f want sqrt(ke) %.4f" % [cut_hi / cut_lo, want_ratio]
+            failures,
+            "kin_axe_int: pre_cut ratio %.4f want ke^%.2f %.4f"
+            % [cut_hi / cut_lo, WeaponConstants.CUT_DAMAGE_ENERGY_EXPONENT, want_ratio]
         )
 
 
@@ -499,12 +558,12 @@ static func _run_kinematic_delivery_unarmed_afterblow_scales_pre_blunt(failures:
 
 
 ## Tier 5.1 (optional long-tail): **DAGGER** **`quick_slash`** integration  -  **`pre_cut_applied`** ~
-## **`sqrt(strike_ke_j)`**.
+## **`strike_ke_j^CUT_DAMAGE_ENERGY_EXPONENT`**.
 
 
 ## Tier 5.1 (optional long-tail): **DAGGER** **`quick_slash`** integration  -  **`pre_cut_applied`** ~
-## **`sqrt(strike_ke_j)`**.
-static func _run_kinematic_delivery_dagger_integration_pre_cut_scales_sqrt_ke(failures: PackedStringArray) -> void:
+## **`strike_ke_j^CUT_DAMAGE_ENERGY_EXPONENT`**.
+static func _run_kinematic_delivery_dagger_integration_pre_cut_scales_ke_pow(failures: PackedStringArray) -> void:
     var arch: Dictionary = {"kinematic_delivery": WeaponConstants.KINEMATIC_DELIVERY_SWING}
     var lo: Dictionary = CombatRegressionHarness._kin_dmg_integration_sample(
         10.0, 1.0, 1.0, {}, "DAGGER", "quick_slash", 1.0, arch
@@ -520,10 +579,12 @@ static func _run_kinematic_delivery_dagger_integration_pre_cut_scales_sqrt_ke(fa
     CombatRegressionHarness._free_manager(hi["mgr"] as Node)
     if ke_hi <= ke_lo + 1e-4 or cut_hi <= cut_lo + 1e-4:
         CombatRegressionHarness._fail(failures, "kin_dagger_int: need rising ke/pre_cut")
-    var want_ratio: float = sqrt(ke_hi / maxf(ke_lo, 0.001))
+    var want_ratio: float = pow(ke_hi / maxf(ke_lo, 0.001), WeaponConstants.CUT_DAMAGE_ENERGY_EXPONENT)
     if absf(cut_hi / maxf(cut_lo, 0.001) - want_ratio) > 0.04:
         CombatRegressionHarness._fail(
-            failures, "kin_dagger_int: pre_cut ratio %.4f want sqrt(ke) %.4f" % [cut_hi / cut_lo, want_ratio]
+            failures,
+            "kin_dagger_int: pre_cut ratio %.4f want ke^%.2f %.4f"
+            % [cut_hi / cut_lo, WeaponConstants.CUT_DAMAGE_ENERGY_EXPONENT, want_ratio]
         )
 
 

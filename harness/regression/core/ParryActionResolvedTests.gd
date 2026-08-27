@@ -1043,3 +1043,75 @@ static func _run_kinematic_delivery_velocity_from_intensity_bridges_get_effectiv
 ## **`velocity_m_s`** pins tip speed (no clamp skew)  -  **SWORD** **`oberhau`**, **AXE** **`diagonal_chop`**,
 ## **DAGGER** **`quick_slash`** (swing). **`compute_pre_armor_blunt`** rises with pinned speed on **MACE**
 ## **`direct_blow`** (momentum path).
+
+
+## Parry recoil (physics): **`DefenseResolutionHandler._build_parry_clash_context`** carries the incoming blow's
+## **`strike_momentum_kg_ms`** into the **`parry_clash_context`** so the parry-deflection impulse model can read it.
+## (Previously only KE/velocity were copied, leaving the momentum-based deflection/recoil dead.)
+static func _run_parry_clash_context_carries_strike_momentum(failures: PackedStringArray) -> void:
+    var kinematics: Dictionary = {
+        "archetype_id": "sword",
+        "kinematic_delivery": "swing",
+        "strike_velocity_m_s": 8.0,
+        "strike_kinetic_energy_j": 50.0,
+        "strike_momentum_kg_ms": 9.5,
+    }
+    var ctx: Dictionary = DefenseResolutionHandler._build_parry_clash_context(
+        "high", "oberhau", 20.0, 10.0, 8.0, 9.0, 0.9, "left", 15.0, 0.3, 0.8, false, false, false,
+        1.5, 1.5, 8.0, kinematics, 1.0, {}
+    )
+    if not ctx.has("strike_momentum_kg_ms"):
+        _fail(failures, "clash_momentum: clash context missing strike_momentum_kg_ms")
+        return
+    if absf(float(ctx.get("strike_momentum_kg_ms", 0.0)) - 9.5) > 0.001:
+        _fail(failures, "clash_momentum: want momentum 9.5 got %.3f" % float(ctx.get("strike_momentum_kg_ms", 0.0)))
+    if absf(float(ctx.get("strike_kinetic_energy_j", 0.0)) - 50.0) > 0.001:
+        _fail(failures, "clash_momentum: want KE 50.0 got %.3f" % float(ctx.get("strike_kinetic_energy_j", 0.0)))
+
+
+## Parry recoil (physics): a **full parry** (`parry_deflect`) transmits a fraction of the incoming blow's momentum
+## into the defender's braced arm, scaled by **`parry_control`** (a well-braced parry catches more of the blow).
+## High control + heavy blow -> a small `parry_deflection_shock` blunt fires; low control -> suppressed by the 0.5 gate.
+static func _run_full_parry_recoil_scales_with_parry_control(failures: PackedStringArray) -> void:
+    for row: Dictionary in [
+        {"ctrl": 0.9, "want_recoil": true},
+        {"ctrl": 0.3, "want_recoil": false},
+    ]:
+        var ctrl: float = float(row["ctrl"])
+        var want_recoil: bool = bool(row["want_recoil"])
+        var mgr: Node = MgrScript.new()
+        mgr.register(_new_entity("SWORD"), "player")
+        mgr.register(_new_entity("SWORD"), "enemy")
+        mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+        var p: Dictionary = mgr.combatants[0]
+        var e: Dictionary = mgr.combatants[1]
+        var p_id: int = EntityAccess.id_int(p)
+        var e_id: int = EntityAccess.id_int(e)
+        var captured: Array = []
+        mgr.action_resolved.connect(
+            func(_first_id: int, _second_id: int, res: Dictionary) -> void:
+                captured.append(res.duplicate(true))
+        )
+        e["pending_attack"] = {
+            "target_id": p_id, "attack_type": "thrust", "effective_attack_line": "high", "intensity": 0.5
+        }
+        var pclash: Dictionary = {
+            "kinematic_delivery": "thrust",
+            "strike_measure_ratio": 1.05,
+            "parry_control": ctrl,
+            "strike_momentum_kg_ms": 12.0,
+            "strike_kinetic_energy_j": 60.0,
+        }
+        AttackResultApplier.apply_result(
+            mgr, e_id, {"action": "parry_deflect", "target_id": p_id, "parry_clash_context": pclash}
+        )
+        var saw_recoil: bool = false
+        for res in captured:
+            if str((res as Dictionary).get("outcome", "")) == "parry_deflection_shock":
+                saw_recoil = true
+                break
+        if want_recoil and not saw_recoil:
+            _fail(failures, "full_parry_recoil: ctrl=%.2f expected a parry_deflection_shock but none fired" % ctrl)
+        if not want_recoil and saw_recoil:
+            _fail(failures, "full_parry_recoil: ctrl=%.2f expected no recoil (below 0.5 gate) but one fired" % ctrl)
+        _free_manager(mgr)

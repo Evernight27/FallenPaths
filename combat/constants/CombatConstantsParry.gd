@@ -7,6 +7,11 @@ const PARRY_DEFLECT_THRESHOLD := 0.45
 const PARRY_TECHNIQUE_VARIANCE := 0.12
 const PARRY_V_MIN_FRACTION := 0.2
 const PARRY_V_MIN_NEAR_DEFLECT := 0.1
+## Partial-parry follow-through velocity physics (DefenseResolutionHandler).
+const PARRY_FOLLOW_THROUGH_VEL_CLAMP := 1.1      ## Follow-through velocity cannot exceed 110% of intent velocity.
+const PARRY_V_MIN_FALLBACK_MASS_KG := 0.45      ## Light-weapon fallback strike mass (dagger class) for v_min mass scaling.
+const PARRY_V_MIN_REFERENCE_MASS_KG := 2.7      ## Heavy-weapon reference strike mass (spear class) for v_min mass scaling.
+const PARRY_V_MIN_MASS_SCALE_THRESHOLD := 0.3   ## Remaining-ratio threshold below which mass-scaled v_min applies.
 const PASSIVE_PARRY_MIN_TIME_FOR_FULL_S := 0.25
 const PARRY_BLADE_MOVEMENT_S := 0.13
 const PARRY_MOVEMENT_MASS_STRENGTH_MIN := 0.5
@@ -17,6 +22,7 @@ const COMMITMENT_FRACTION_FEINT := 0.35
 const RECOVERY_READINESS_EARLY := 0.5
 const RECOVERY_READINESS_LATE := 0.85
 const OFF_BALANCE_DURATION_S := 0.4
+const OFF_BALANCE_DEFLECT_DURATION_S := 1.0          ## Base off-balance after parry deflect — extends beyond recovery so the action_ready surcharge fires.
 const OFF_BALANCE_PARRY_CAPACITY_MULT := 0.7
 const OFF_BALANCE_GAUGE_FILL_MULT := 0.5
 ## Additive readiness surcharge (seconds) while off-balance, replacing the multiplicative x2 divisor.
@@ -24,6 +30,8 @@ const OFF_BALANCE_GAUGE_FILL_MULT := 0.5
 ## multiplicatively with stamina/armor/perf degradation (that stack created 13s+ readiness gaps).
 const OFF_BALANCE_ACTION_READY_EXTRA_S := 1.5
 const PARRY_BONUS_AFTER_DEFLECT_S := 2.0
+const PARRY_BONUS_MULT_MIN := 1.05              ## Marginal parry (low control): 5% capacity boost.
+const PARRY_BONUS_MULT_MAX := 1.15              ## Perfect parry (high control): 15% capacity boost.
 const GUARD_AFTER_ATTACK := 0.4
 const GUARD_RISE_RATE := 0.6
 const PARRY_DODGE_STRENGTH_RATIO := 2.2
@@ -72,6 +80,10 @@ const PARRY_MAX_DAMAGE_REDUCTION := 0.85  # best case: 85% reduction for perfect
 ## Unarmed parry: bare hands/forearms deflect far less of a blade's force than a weapon parry (documented spec:
 ## pre_blunt scales by lerp(0.5, 1, parry_remaining_ratio) — max 50% reduction).
 const PARRY_UNARMED_MAX_DAMAGE_REDUCTION := 0.5
+## HEMA bind pressure (Waffenfühlen): opponent pressing the bind reduces defender's parry capacity.
+## Linear map: at opponent pressure 0 → 1.0 (no effect), at pressure 1.0 → floor (30% reduction).
+## Correctly reads the OPPONENT's pressure, not the defender's (the original was inverted and removed).
+const BIND_PRESSURE_DEFENDER_PARRY_CAP_FLOOR: float = 0.70
 
 const PARRY_BIND_CONTROL_THRESHOLD := 0.48
 const PARRY_CONTROL_ALIGNMENT_FLOOR := 0.15
@@ -82,6 +94,24 @@ const PARRY_CONTROL_ALIGNMENT_FLOOR := 0.15
 const PARRY_THRUST_NO_GLANCE := false             ## Thrusts can glancing at high obliquity (>cos60) — point contact slides off blade edge.
 const PARRY_THRUST_LINEAR_COMMITMENT_PENALTY := 0.18   ## Extra momentum carry when thrust parry fails (attacker drives through).
 const PARRY_THRUST_RECOVERY_MULT := 1.25           ## Thrust deflections cost 25% more recovery — linear force requires full repositioning.
+const PARRY_DEFLECT_RECOVERY_MULT := 1.20          ## Deflected attacks cost 20% more recovery — blade knocked offline requires extra repositioning.
+## Parry-vs-dodge decision tuning (DefenseChoiceResolver).
+const PASSIVE_DEFENSE_BIAS := 0.90                 ## Historical combat favors blade defense — parry energy discounted 10% vs dodge.
+const PARRY_BELOW_GLANCING_DODGE_BOOST := 1.25     ## Below glancing floor: parry is physically ineffective, dodge gets +25%.
+const PARRY_GLANCING_DODGE_BOOST := 1.15           ## Glancing tier: parry needs capacity surplus, dodge gets +15%.
+## Twist-dodge after partial parry (DefenseResolutionHandler).
+const TWIST_DODGE_MIN_TIME_FACTOR := 0.35          ## Insufficient-react-time twist still has meaningful dodge capacity, not near-zero.
+const TWIST_DODGE_PARRY_QUALITY_SLOPE := 0.30      ## Better parry = better dodge position; 30% max reduction at full remaining ratio.
+const TWIST_DODGE_PARRY_QUALITY_FLOOR := 0.70      ## Dodge capacity floor when parry quality is worst (full remaining ratio).
+## Reach disparity parry penalty (DefenseChoiceResolver._reach_disparity_parry_penalty).
+## When the attacker's weapon is longer than the defender's, the defender's parry capacity is penalized.
+const REACH_DISPARITY_THRESHOLD_M := 0.30          ## Reach delta below this (meters) is free — no penalty.
+const REACH_DISPARITY_PENALTY_SLOPE := 0.30        ## Capacity lost per meter of excess reach delta.
+const REACH_DISPARITY_PENALTY_FLOOR := 0.25        ## Parry capacity floor — reach disparity can't reduce capacity below 25%.
+## Reach-based parry readiness bonus (DefenseChoiceResolver._reach_parry_readiness_bonus).
+## HEMA "Langen-ort": longer weapons extend the blade into the attack trajectory earlier.
+const REACH_READINESS_SCALE_PER_M := 0.06          ## 6% readiness bonus per meter of net reach advantage.
+const REACH_READINESS_CAP := 0.15                  ## Cap at +/-15% — beyond this, other factors dominate.
 const PARRY_THRUST_BLOCK_ONLY_THRESHOLD := 0.88    ## Thrusts can be deflected via blade leverage (strong vs weak) — below 1.0 reflects cross-guard catch.
 const PARRY_THRUST_GLANCE_ALIGNMENT_FLOOR := 0.5   ## cos60 — thrust glancing requires this alignment; below this it's a miss, not a glancing parry.
 const ARCHETYPES_NEVER_BIND: Array[String] = ["heavy_blunt"]
@@ -109,6 +139,52 @@ const PARRY_PROACTIVE_CONTROL_BONUS: float = 0.08
 ## Reactive late-parry penalty — defender is reacting, not initiating contact.
 const PARRY_REACTIVE_CAPACITY_MULT: float = 0.85
 const PARRY_LATE_CAPACITY_FLOOR := 0.45
+## Committed-weapon (mid-swing) blade-control penalty. A defender already in their own wind-up has their
+## blade locked in their own attack arc — they cannot reposition it to meet the incoming strike, so their
+## reflexive parry is a fixed late catch with reduced blade control. Applied ON TOP of the late-parry floor
+## (which is timing-based and shared with any slow-reaction parry from a waiting defender). A mid-swing
+## defender should be strictly weaker than a waiting defender who simply reacted slowly.
+const PARRY_MID_SWING_CAPACITY_MULT := 0.80
+## Parry recoil mass-scale bounds. A heavier parrying weapon absorbs more of the impact, reducing the
+## recoil transmitted to the arm. The recoil scales with the mass ratio (m_a / m_d), clamped to these
+## bounds. At equal masses (D001 SWORD mirror) the scale is 1.0 — no behavior change.
+const PARRY_RECOIL_MASS_SCALE_MIN := 0.5
+const PARRY_RECOIL_MASS_SCALE_MAX := 1.5
+## Two-handed bracing. A two-handed grip braces the weapon into the torso/core, creating a longer lever
+## and distributing the impact across both arms. This (a) transmits less recoil to any single arm and
+## (b) holds parry structure better against a strong blow. SWORD/DAGGER/MACE/AXE are one-handed (neutral
+## 1.0); only SPEAR is two-handed, so the D001 SWORD soak is unaffected.
+const PARRY_TWO_HANDED_RECOIL_MULT := 0.70
+const PARRY_TWO_HANDED_CAPACITY_BONUS := 1.10
+## Parry recoil alignment scale. A square-on catch (high alignment) drives the full force of the blow
+## straight into the blade and arm; a glancing catch (low alignment) deflects the force along the blade,
+## so less reaches the wrist. Recoil scales linearly from GLANCING (least) to SQUARE (most) with alignment.
+## At alignment 0.5 the scale is ~1.0 (neutral). The D001 SWORD soak's light parries stay below the recoil
+## damage gate, so this does not shift the mandatory signoff.
+const PARRY_RECOIL_GLANCING_MULT := 0.85
+const PARRY_RECOIL_SQUARE_MULT := 1.15
+## Parry recoil blade-flex scale. A flexible (slender) blade flexes on impact, spreading the impulse
+## over a longer contact time (lower peak force) so less recoil reaches the arm; a stiff (wide) blade
+## transmits a sharper, higher-peak impulse so more recoil. Driven by the blade-flex factor
+## (CombatConstantsAttackPath.flex_factor_for_slenderness), which is 1.0 at the SWORD reference
+## slenderness — so the D001 SWORD soak is neutral.
+const PARRY_RECOIL_FLEX_MULT_MIN := 0.7
+const PARRY_RECOIL_FLEX_MULT_MAX := 1.3
+## Parry recoil forte/schwach scale. A well-timed parry meets the blade early (near the forte/handle),
+## a short lever arm from the hand so less recoil reaches the wrist; a late parry meets it late (near
+## the schwach/tip), a long lever arm so more recoil. Driven by parry progress (weapon-independent),
+## linear from FORTE (least recoil) to SCHWACH (most recoil). At progress 0.5 the scale is ~1.0 (neutral).
+## The D001 SWORD soak's light parries stay below the recoil damage gate, so this does not shift signoff.
+const PARRY_RECOIL_FORTE_MULT := 0.90
+const PARRY_RECOIL_SCHWACH_MULT := 1.10
+## Parry recoil body-mass scale (Newtonian inertia / footing). A heavier, well-rooted defender has more
+## inertia, so the same impulse produces less acceleration and less arm shock. Recoil scales as
+## reference_mass / body_mass, clamped to [MIN, MAX]. At the reference mass (adult human, 75 kg) the
+## scale is 1.0 (neutral). A missing/unknown mass (0.0) yields neutral 1.0 — D001 entities carry no
+## species, so the SWORD soak is unaffected.
+const PARRY_RECOIL_BODY_MASS_REFERENCE_KG := CombatDesignAnchors.REFERENCE_ADULT_MASS_KG
+const PARRY_RECOIL_BODY_MASS_SCALE_MIN := 0.85
+const PARRY_RECOIL_BODY_MASS_SCALE_MAX := 1.15
 ## Minimum parry capacity as a fraction of attack momentum when alignment is at the partial guard threshold (cos45).
 ## Prevents the multiplicative modifier cascade from reducing parry_c_d below functional levels — even with heavy
 ## stamina/exhaustion/pain penalties, a well-aligned defender should always have meaningful parry options.
@@ -144,6 +220,19 @@ const BIND_CROSS_SECTION_RIGIDITY_FLOOR: float = 0.70  # minimum control gain fr
 ## A fully-flat blade has max surface friction but lower torsional stiffness; a deeply-fullered blade has less contact
 ## but resists deflection during bind — trade-off modeled via cross-section rigidty factor.
 const BIND_FULLER_RIGIDITY_BONUS: float = 0.15         # bonus control for high-rigidity (less fuller) blades
+
+## Bind friction from the parrying weapon's blade width (HEMA waffenfühlen). A wider parrying blade has
+## more contact surface -> more friction -> a better catch. Only blade-contact parries benefit; shaft/haft
+## parries use leverage, not blade friction, so they return 1.0. The baseline (BIND_DEFAULT_BLADE_WIDTH_CM)
+## yields exactly 1.0, so the default sword is unchanged.
+static func bind_friction_mult_for_weapon(def_weapon: Variant) -> float:
+    if def_weapon == null:
+        return 1.0
+    if str(def_weapon.get_parry_contact_type()) != "blade":
+        return 1.0
+    var w: float = float(def_weapon.blade_width)
+    return 1.0 + BIND_BLADE_WIDTH_FRICTION_MULT * (w - BIND_DEFAULT_BLADE_WIDTH_CM)
+
 
 const GUARD_TRANSITION_COST_SCALE := 0.4
 const GUARD_TRANSITION_MULT_MAX := 1.35
@@ -214,6 +303,95 @@ static func parry_thrust_recovery_mult(intensity: float) -> float:
     ## Thrust deflections cost more recovery time — redirecting linear body-weight momentum requires full blade repositioning.
     ## Scales slightly with intensity: heavier thrusts = more follow-through to absorb.
     return 1.0 + (PARRY_THRUST_RECOVERY_MULT - 1.0) * clampf(intensity, 0.3, 1.0) / 0.7
+
+
+static func parry_deflect_recovery_mult(intensity: float) -> float:
+    ## Deflected attacks cost extra recovery — blade knocked offline requires extra repositioning vs a clean miss.
+    ## Scales with intensity: heavier attacks = more blade displacement = more recovery. At unit intensity the
+    ## full PARRY_DEFLECT_RECOVERY_MULT boost applies; at zero intensity a minimum boost (the 0.3 clamp floor)
+    ## still applies because even a light deflect displaces the blade.
+    var min_mult: float = 1.0 + (PARRY_DEFLECT_RECOVERY_MULT - 1.0) * 0.3 / 0.7
+    return lerpf(min_mult, PARRY_DEFLECT_RECOVERY_MULT, clampf(intensity, 0.0, 1.0))
+
+
+static func off_balance_deflect_duration(intensity: float) -> float:
+    ## Off-balance after parry deflect scales with intensity — heavier deflection = more disorientation.
+    ## Low intensity: 0.5x base (0.5s). High intensity: 1.0x base (1.0s).
+    ## Must exceed typical recovery duration (0.5-1.5s) for the action_ready surcharge to fire.
+    return OFF_BALANCE_DEFLECT_DURATION_S * lerpf(0.5, 1.0, clampf(intensity, 0.0, 1.0))
+
+
+static func parry_bonus_mult(parry_control: float) -> float:
+    ## Post-parry capacity bonus scales with parry quality — a clean blade catch gives a bigger
+    ## tempo advantage than a marginal deflect. Linear map from MIN (low control) to MAX (high control).
+    var t: float = clampf((parry_control - PARRY_BIND_CONTROL_THRESHOLD) / (1.0 - PARRY_BIND_CONTROL_THRESHOLD), 0.0, 1.0)
+    return lerpf(PARRY_BONUS_MULT_MIN, PARRY_BONUS_MULT_MAX, t)
+
+
+static func parry_recoil_mass_scale(m_a: float, m_d: float) -> float:
+    ## Recoil mass-scale: a heavier parrying weapon absorbs more of the impact, reducing the recoil
+    ## transmitted to the arm. Scales with the mass ratio (m_a / m_d), clamped to [MIN, MAX].
+    ## At equal masses (D001 SWORD mirror) the scale is 1.0 — no behavior change.
+    if m_a <= 0.0 or m_d <= 0.0:
+        return 1.0
+    return clampf(m_a / m_d, PARRY_RECOIL_MASS_SCALE_MIN, PARRY_RECOIL_MASS_SCALE_MAX)
+
+
+static func parry_two_handed_recoil_mult(is_two_handed: bool) -> float:
+    ## A two-handed parry braces the weapon into the torso, distributing the impact across both arms
+    ## and the core, so less recoil is transmitted to any single arm. One-handed: neutral 1.0.
+    return PARRY_TWO_HANDED_RECOIL_MULT if is_two_handed else 1.0
+
+
+static func parry_two_handed_capacity_mult(is_two_handed: bool) -> float:
+    ## A two-handed parry holds structure better (longer lever + torso bracing), giving a small
+    ## capacity bonus. One-handed: neutral 1.0.
+    return PARRY_TWO_HANDED_CAPACITY_BONUS if is_two_handed else 1.0
+
+
+static func parry_recoil_alignment_mult(alignment: float) -> float:
+    ## Recoil alignment scale: a square-on catch (alignment 1.0) drives the full force of the blow
+    ## straight into the blade and arm, while a glancing catch (alignment 0.0) deflects the force
+    ## along the blade so less reaches the wrist. Linear map from GLANCING (least recoil) to
+    ## SQUARE (most recoil). At alignment 0.5 the scale is ~1.0 (neutral).
+    return lerpf(PARRY_RECOIL_GLANCING_MULT, PARRY_RECOIL_SQUARE_MULT, clampf(alignment, 0.0, 1.0))
+
+
+static func parry_recoil_flex_mult(flex_factor: float) -> float:
+    ## Recoil blade-flex scale: a flexible (slender) blade flexes on impact, spreading the impulse
+    ## over a longer contact time (lower peak force) so less recoil reaches the arm; a stiff (wide)
+    ## blade transmits a sharper, higher-peak impulse so more recoil. The flex factor (from
+    ## CombatConstantsAttackPath.flex_factor_for_slenderness) is 1.0 at the SWORD reference, which
+    ## maps to a neutral 1.0 here — the D001 SWORD soak is unaffected.
+    var t: float = clampf(
+        (flex_factor - CombatConstantsAttackPath.FLEX_FACTOR_MIN)
+        / (CombatConstantsAttackPath.FLEX_FACTOR_MAX - CombatConstantsAttackPath.FLEX_FACTOR_MIN),
+        0.0, 1.0
+    )
+    return lerpf(PARRY_RECOIL_FLEX_MULT_MAX, PARRY_RECOIL_FLEX_MULT_MIN, t)
+
+
+static func parry_recoil_progress_mult(parry_progress: float) -> float:
+    ## Recoil forte/schwach scale: a well-timed parry meets the blade early (near the forte/handle),
+    ## a short lever arm from the hand so less recoil reaches the wrist; a late parry meets it late
+    ## (near the schwach/tip), a long lever arm so more recoil. Linear map from FORTE (least recoil)
+    ## to SCHWACH (most recoil) with parry progress. At progress 0.5 the scale is ~1.0 (neutral).
+    return lerpf(PARRY_RECOIL_FORTE_MULT, PARRY_RECOIL_SCHWACH_MULT, clampf(parry_progress, 0.0, 1.0))
+
+
+static func parry_recoil_body_mass_scale(body_mass_kg: float) -> float:
+    ## Recoil body-mass scale (Newtonian inertia / footing): a heavier, well-rooted defender has more
+    ## inertia, so the same impulse produces less acceleration and less arm shock. Scales as
+    ## reference_mass / body_mass, clamped to [MIN, MAX]. At the reference mass (adult human) the
+    ## scale is 1.0 (neutral). A missing/unknown mass (0.0) yields neutral 1.0 — D001 entities carry
+    ## no species, so the SWORD soak is unaffected.
+    if body_mass_kg <= 0.0:
+        return 1.0
+    return clampf(
+        PARRY_RECOIL_BODY_MASS_REFERENCE_KG / body_mass_kg,
+        PARRY_RECOIL_BODY_MASS_SCALE_MIN,
+        PARRY_RECOIL_BODY_MASS_SCALE_MAX
+    )
 
 
 static func parry_bind_control_reached(parry_control: float) -> bool:
@@ -298,7 +476,8 @@ static func parry_control_for_bind_deflect(
     parry_readiness: float,
     parry_off_balance: bool,
     late_parry: bool,
-    contact_type: String
+    contact_type: String,
+    bind_friction_mult: float = 1.0
 ) -> float:
     var margin_ratio: float = parry_deflect_margin_ratio(c_d_final, parry_p_a)
 
@@ -345,6 +524,10 @@ static func parry_control_for_bind_deflect(
         # (attacker drives through rather than glancing off)
         var thrust_penetration_bonus: float = PARRY_THRUST_LINEAR_COMMITMENT_PENALTY * (1.0 - margin_ratio)
         effective_margin += thrust_penetration_bonus
+
+    # Blade-width friction (HEMA waffenfühlen): a wider parrying blade grips the bind better. Applied
+    # before the clamp so a narrow blade can slip below the bind threshold (ctrl < 0.48).
+    p *= bind_friction_mult
 
     return clampf(p, 0.0, 1.0)
 

@@ -43,6 +43,11 @@ const AI_TARGETING_ENGAGEMENT_MODE_FORMATION_MULT := 1.025
 
 const AI_TARGETING_ENGAGEMENT_MODE_SKIRMISH_MULT := 1.0
 
+## Armor avoidance: a real fighter prefers a softer target — striking heavy armor is less efficient (less damage
+## per blow), so a fully-armored opponent (>= FORMATION_ARMOR_MASS_REF_KG) gets this reduced AI targeting weight.
+## Gentle preference (not a hard ban): armored foes are still engaged, just deprioritized vs unarmored options.
+const AI_TARGETING_HEAVY_ARMOR_MULT := 0.8
+
 const AI_TARGETING_INCAP_HOSTILE_MULT := 0.42
 
 const AI_TARGETING_LINE_COH_HI_MULT := 1.03

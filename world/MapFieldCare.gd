@@ -53,6 +53,19 @@ static func can_offer_field_tourniquet(_world: Node2D, member: Dictionary) -> bo
     return not _first_tourniquet_part(entity).is_empty()
 
 
+## Fluid resuscitation is systemic (whole-body), not part-targeted: offered when a living casualty
+## is decompensated (blood below the decompensation threshold) and a medical supply is available.
+static func can_offer_field_resuscitation(world: Node2D, member: Dictionary) -> bool:
+    if _get_company_state().get_medical_supplies(world) < 1:
+        return false
+    var entity: Node = _entity_for_member(member)
+    if entity == null:
+        return false
+    if entity.blood_volume <= BleedingConstants.BLOOD_LOSS_DEATH_THRESHOLD:
+        return false
+    return entity.blood_volume < BleedingConstants.DECOMPENSATION_BLOOD_THRESHOLD
+
+
 ## Part ready to dress (pressure held or bleed controlled)  -  for UI labels.
 static func field_bandage_part_ready(member: Dictionary) -> String:
     var entity: Node = _entity_for_member(member)
@@ -108,6 +121,13 @@ static func format_field_tourniquet_button_label(_world: Node2D, member: Diction
     if part_s.is_empty():
         return "Field tourniquet (2m)"
     return "Field tourniquet (%s '. 2m)" % part_s
+
+
+static func format_field_resuscitation_button_label(world: Node2D, member: Dictionary) -> String:
+    var entity: Node = _entity_for_member(member)
+    var blood: int = int(round(entity.blood_volume)) if entity != null else 0
+    var med_bit: String = _get_company_state().format_field_bandage_med_bit(world, entity)
+    return "Resuscitate (blood %d%%, %s)" % [blood, med_bit]
 
 
 static func member_untreated_part_count(member: Dictionary) -> int:
@@ -412,6 +432,35 @@ static func try_field_tourniquet(world: Node2D, member: Dictionary) -> bool:
     _advance_field_care_time(entity)
     _get_company_state().refresh_hud(world)
     _log_field_care_success(world, "tourniquet", part, member)
+    return ok
+
+
+## Systemic fluid resuscitation: no procedure-time advance (a volume replacement, not a 2-minute
+## dressing). Hemostasis is managed separately — the player is expected to control the bleed first.
+static func try_field_resuscitation(world: Node2D, member: Dictionary) -> bool:
+    if not can_offer_field_resuscitation(world, member):
+        return false
+    var entity: Node = _entity_for_member(member)
+    if entity == null or not entity.has_method("_apply_fluid_resuscitation"):
+        return false
+    if not _get_company_state().consume_medical(world, 1):
+        return false
+    var eff: float = _get_company_state().compute_field_treatment_effectiveness(entity, world, true)
+    var ok: bool = entity._apply_fluid_resuscitation(eff)
+    if not ok:
+        _get_company_state().set_medical_supplies(world, _get_company_state().get_medical_supplies(world) + 1)
+        _log_field_care_failure(world, "resuscitation", "", member, "med refunded; beyond field resuscitation")
+        return false
+    if entity.has_method("ensure_consciousness_current"):
+        entity.ensure_consciousness_current()
+    _get_company_state().refresh_hud(world)
+    _log_field_care_success(
+        world,
+        "resuscitation",
+        "",
+        member,
+        "blood=%.0f%% med_left=%d" % [entity.blood_volume, _get_company_state().get_medical_supplies(world)]
+    )
     return ok
 
 

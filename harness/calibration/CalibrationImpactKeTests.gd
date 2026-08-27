@@ -133,10 +133,12 @@ static func _append_impact_ke_section(lines: PackedStringArray, failures: Packed
         ai.archetype = {"kinematic_delivery": WeaponConstants.KINEMATIC_DELIVERY_SWING}
         var ke_j: float = WeaponDamageHelper.compute_kinetic_energy_j(sword, ai)
         var pre_cut: float = WeaponDamageHelper.compute_pre_armor_cut(sword, ai, 100.0, 1.0)
-        var est_damage: float = WeaponConstants.DAMAGE_KE_SCALE * sqrt(maxf(0.0, ke_j))
+        var est_damage: float = (
+            WeaponConstants.CUT_DAMAGE_KE_SCALE * pow(maxf(0.0, ke_j), WeaponConstants.CUT_DAMAGE_ENERGY_EXPONENT)
+        )
         lines.append(
             (
-                "oberhau_swing i=%.1f KE_J=%.0f pre_armor_cut=%.1f sqrt_KE_scale_damage=%.1f"
+                "oberhau_swing i=%.1f KE_J=%.0f pre_armor_cut=%.1f cut_ke_scale_damage=%.1f"
                 % [intensity, ke_j, pre_cut, est_damage]
             )
         )

@@ -37,13 +37,23 @@ const PENETRATION_EXPONENT: float = 0.6  # 1/1.67; thicker armor needs dispropor
 # uses these (see ImpactVelocityModel._tier_a_default_band).
 const VELOCITY_MIN_M_S: float = 6.0
 const VELOCITY_MAX_M_S: float = 24.0
-# Damage pre-armor: scale * sqrt(KE) * strength_mod * arm_mod * contact_factor.
-# sqrt(KE) is a game abstraction — Yoganandan et al. (J. Trauma) reports LINEAR energy thresholds
-# for tissue severance (~400-600 J sharp for arm), but a square-root flattens the damage curve so
-# extreme strikes don't trivialize armor. Calibrated so DESIGN_KE_ARM_J=100 gives ~35 pre_armor,
-# and DAMAGE_KE_MAX=90 corresponds to KE=(90/3.5)^2 ≈ 661 J — within the arm-severance band.
-const DAMAGE_KE_SCALE: float = 3.5  # Game-tuning constant; sqrt(KE) flattening calibrated so 100J→35 dmg, cap at ~522J≈arm-severance
+# Legacy KE->damage scale (sqrt(KE) law). No longer drives the cut channel (see CUT_DAMAGE_* below); it
+# remains the calibration anchor for bone-damage excess energy (CombatDamageMechanism) and species
+# tissue-capacity derivation (SpeciesResource). Historical note: it was originally the pre-armor cut law
+# (100 J -> ~35 pre_armor, cap ~661 J within the Yoganandan arm-severance band).
+const DAMAGE_KE_SCALE: float = 3.5  # Legacy sqrt(KE) anchor; retained for bone/tissue-capacity calibration only
 const DAMAGE_KE_MIN: float = 1.0
+# Cut-damage energy law: pre-armor cut scales as KE^CUT_DAMAGE_ENERGY_EXPONENT. The exponent matches the
+# Williams penetration exponent (KE^0.6) so the cut channel and the penetration channel agree on how the
+# SAME strike kinetic energy converts to effect — the earlier sqrt(KE) (KE^0.5) was a non-physical "game
+# abstraction" (see DAMAGE_KE_SCALE note) that under-scaled high-energy cuts. Tissue-severance work is
+# near-linear in energy, so a steeper (still sub-linear, still capped at DAMAGE_KE_MAX) curve is more
+# physically grounded while preserving the anti-trivialization intent.
+const CUT_DAMAGE_ENERGY_EXPONENT: float = 0.6
+# Cut-damage KE scale, re-anchored at the 100 J -> 35 pre-armor calibration point (35.0 / 100^0.6).
+# At the anchor the cut damage is identical to the old sqrt(KE) law; below it cuts land slightly softer,
+# above it slightly harder (<=~10% across the combat-realistic 35-160 J band).
+const CUT_DAMAGE_KE_SCALE: float = 2.2083
 
 # Pre-armor sharp damage hard cap — corresponds to KE=(90/3.5)^2 ≈ 661 J, within the Yoganandan arm-severance band (400-600J).
 const DAMAGE_KE_MAX: float = 90.0
@@ -81,9 +91,13 @@ const BLUNT_HEAD_MAX_CONTACT_CM: float = 2.5
 const MIN_CUT_RATIO: float = 0.02
 
 # --- Effective edge (sharpness) for cutting ---
-## Sharpness 0-1: effective sharp contact = geometric / (SHARPNESS_FACTOR_MIN + (1 - SHARPNESS_FACTOR_MIN) * sharpness).
-## Sharpness 1 = geometric; sharpness 0 = geometric/0.2 (duller = wider effective contact = less penetration).
-const SHARPNESS_FACTOR_MIN: float = 0.2
+## Sharpness 0-1 maps to the edge's effective bearing (contact) width: a freshly ground edge has a NARROW apex
+## (small bearing width -> high pressure), a dull edge has a wide rolled/burnished edge capped at the FULL blade
+## width (the cutting edge can never be wider than the blade itself). effective = lerp(geometric, apex, sharpness)
+## where apex = max(MIN_CONTACT_WIDTH_CM, geometric * SHARP_APEX_FRACTION). Sharper -> narrower -> higher pressure.
+## (Replaces the old hyperbolic geometric/(0.2+0.8*s), which gave a sharp edge the full blade width and a dull edge
+## 5x the blade width — physically impossible.)
+const SHARP_APEX_FRACTION: float = 0.25
 
 # --- Edge geometry (wedge mechanics by included angle) ---
 ## Clinical/metallurgical basis: cutting force depends on wedge angle — sharper edges displace less material per mm depth.

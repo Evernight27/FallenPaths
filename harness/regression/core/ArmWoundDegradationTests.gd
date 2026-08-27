@@ -116,6 +116,68 @@ static func _run_arm_wound_attack_modifier_and_parry_ease(failures: PackedString
     _free_manager(mgr2)
 
 
+## Two-handed weapon handling: a compromised supporting (offhand) arm reduces attack power for a
+## two-handed weapon (one-handed handling), but not for a one-handed weapon. `TWO_HAND_ONE_ARM_FLOOR`
+## is the floor when the offhand arm is fully destroyed.
+static func _run_two_handed_weapon_offhand_arm_degradation(failures: PackedStringArray) -> void:
+    var spear := _new_entity("SPEAR")
+    if not WeaponConstants.weapon_is_two_handed(spear.weapon):
+        _fail(failures, "two_hand: SPEAR should be flagged two-handed")
+        return
+    var sword := _new_entity("SWORD")
+    if WeaponConstants.weapon_is_two_handed(sword.weapon):
+        _fail(failures, "two_hand: SWORD should not be flagged two-handed")
+        return
+    # Healthy: no two-handed penalty (offhand arm intact).
+    var spear_healthy: Dictionary = EntityEquipment.attack_damage_modifier_factors(spear)
+    if not is_equal_approx(spear_healthy.get("two_hand", 1.0), 1.0):
+        _fail(
+            failures,
+            "two_hand_healthy: SPEAR two_hand factor want 1.0 got %f" % spear_healthy.get("two_hand", 1.0)
+        )
+    var spear_total_healthy: float = float(spear_healthy.get("total", 0.0))
+    # Destroy the supporting (offhand / left) arm -> one-handed handling of the two-handed weapon.
+    _destroy_arm(spear, BodyPartConstants.PART_LEFT_ARM)
+    var spear_crippled: Dictionary = EntityEquipment.attack_damage_modifier_factors(spear)
+    var two_hand_crippled: float = float(spear_crippled.get("two_hand", 1.0))
+    if not is_equal_approx(two_hand_crippled, EntityEquipment.TWO_HAND_ONE_ARM_FLOOR):
+        _fail(
+            failures,
+            "two_hand_crippled: SPEAR two_hand factor want %f (floor) got %f"
+            % [EntityEquipment.TWO_HAND_ONE_ARM_FLOOR, two_hand_crippled]
+        )
+    var spear_total_crippled: float = float(spear_crippled.get("total", 0.0))
+    if not is_equal_approx(
+        spear_total_crippled / spear_total_healthy, EntityEquipment.TWO_HAND_ONE_ARM_FLOOR
+    ):
+        _fail(
+            failures,
+            "two_hand_crippled: SPEAR total ratio want %f got %f (healthy=%.4f crippled=%.4f)"
+            % [
+                EntityEquipment.TWO_HAND_ONE_ARM_FLOOR,
+                spear_total_crippled / spear_total_healthy,
+                spear_total_healthy,
+                spear_total_crippled
+            ]
+        )
+    # One-handed weapon: destroying the offhand arm must not apply a two-handed penalty.
+    _destroy_arm(sword, BodyPartConstants.PART_LEFT_ARM)
+    var sword_crippled: Dictionary = EntityEquipment.attack_damage_modifier_factors(sword)
+    if not is_equal_approx(sword_crippled.get("two_hand", 1.0), 1.0):
+        _fail(
+            failures,
+            "two_hand_one_handed: SWORD two_hand factor must stay 1.0 got %f"
+            % sword_crippled.get("two_hand", 1.0)
+        )
+
+
+## Zero tissue + bone for an arm so `get_arm_functionality` returns 0.0 (destroyed).
+static func _destroy_arm(e: Node, arm: String) -> void:
+    e.body_cutting[arm] = 0.0
+    e.body_blunt[arm] = 0.0
+    e.bone_health[arm] = 0.0
+
+
 ## Fresh entity, one crafted localized wound (damage 0 -> no pain/blood noise; only sub_region + severity feed grip).
 static func _arm_grip_mult(arm: String, sub_region: String, severity: String) -> float:
     var e := _new_entity("SWORD")

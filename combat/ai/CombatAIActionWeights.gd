@@ -482,10 +482,10 @@ static func _compute_attack_weight_components(
 	)
 	var target_id: int = a.get(DataKeys.ACTION_TARGET_ID, -1)
 	var opp_degrad_m: float = 1.0
+	# Wounded-opponent exploit applies to ALL offensive moves (not just feints) — a real fighter finishes the
+	# weakest target. The old feint-only gate left the AI blind to wound state when choosing which enemy to strike.
 	if target_id >= 0 and move_id != CombatConstants.MOVE_ID_ATTEMPT_CLOSE:
-		var is_feint_move: bool = str(move_id).ends_with("_feint") or ("move_id" in a and str(a.get("move_id", "")).ends_with("_feint"))
-		if is_feint_move:
-			opp_degrad_m = _opponent_degradation_weight_mult(manager, target_id)
+		opp_degrad_m = _opponent_degradation_weight_mult(manager, target_id)
 	var w: float = (
 		base_stamina
 		* CombatTargetScoring.ai_targeting_weight_mult(

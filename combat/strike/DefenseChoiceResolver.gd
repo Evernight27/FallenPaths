@@ -222,7 +222,9 @@ static func choose_defense(
 				## effectively increasing readiness. Models HEMA "Langen-ort" (long game) where polearms control distance.
 				var reach_readiness_bonus: float = _reach_parry_readiness_bonus(def_weapon, atk_weapon)
 				parry_readiness = clampf(
-					pr_base * st_rd * ex_rd * CombatAttention.focus_effective(tgt) * yomi_rd * (1.0 + reach_readiness_bonus), 0.0, 1.0
+					pr_base * st_rd * ex_rd * CombatAttention.focus_effective(tgt) * yomi_rd * (1.0 + reach_readiness_bonus)
+					* CombatMoraleCohesion.morale_parry_readiness_mult(tgt.get(DataKeys.MORALE_COHESION_FACTOR_RAW, 1.0)),
+					0.0, 1.0
 				)
 				var pr_guard_feint: float = (
 					parry_readiness
@@ -235,6 +237,11 @@ static func choose_defense(
 				if parry_off_balance:
 					parry_c_d *= CombatConstants.OFF_BALANCE_PARRY_CAPACITY_MULT
 				parry_c_d *= _parry_bonus_if_active(tgt)
+				# HEMA bind pressure: opponent pressing the bind reduces defender's parry capacity.
+				if manager != null:
+					parry_c_d *= CombatBindPressure.defender_parry_cap_mult(
+						atk, CombatantEntityAccess.combat_clock_float(manager)
+					)
 				# Guard zone: parry bonus when target_part == guard_zone, penalty when unguarded (feint D).
 				parry_c_d *= _guard_zone_modifier(
 					pa, tgt, targetable, attack_type, pr_guard_feint, CombatantEntityAccess.id_int(atk)
@@ -353,6 +360,12 @@ static func choose_defense(
 				parry_c_d = _compute_parry_c_d(def_weapon, tgt, contact_type_late)
 				c_d_raw = parry_c_d
 				parry_c_d *= CombatConstants.PARRY_LATE_CAPACITY_FLOOR
+				# HEMA: a mid-swing defender's blade is locked in their own attack arc — they cannot reposition it
+				# to meet the incoming strike, so their reflexive parry has reduced blade control. Applied on top of
+				# the timing-based late floor so a committed weapon is strictly weaker than a waiting defender's
+				# slow reaction.
+				if force_reflexive_parry:
+					parry_c_d *= CombatConstants.PARRY_MID_SWING_CAPACITY_MULT
 				# Attack arc: large span = blade moved far; harder to catch late.
 				var arc_span: float = pa.get("arc_span_deg", 0.0)
 				if arc_span > CombatConstants.ARC_SPAN_LATE_PARRY_THRESHOLD_DEG:
@@ -375,6 +388,7 @@ static func choose_defense(
 						* CombatAttention.focus_effective(tgt)
 						* yomi_rd_late
 						* (1.0 + reach_readiness_bonus_late)
+						* CombatMoraleCohesion.morale_parry_readiness_mult(tgt.get(DataKeys.MORALE_COHESION_FACTOR_RAW, 1.0))
 					),
 					0.0,
 					1.0
@@ -388,6 +402,11 @@ static func choose_defense(
 				if parry_off_balance:
 					parry_c_d *= CombatConstants.OFF_BALANCE_PARRY_CAPACITY_MULT
 				parry_c_d *= _parry_bonus_if_active(tgt)
+				# HEMA bind pressure: opponent pressing the bind reduces defender's parry capacity.
+				if manager != null:
+					parry_c_d *= CombatBindPressure.defender_parry_cap_mult(
+						atk, CombatantEntityAccess.combat_clock_float(manager)
+					)
 				# Guard zone: parry bonus when target_part == guard_zone, penalty when unguarded (feint D).
 				parry_c_d *= _guard_zone_modifier(
 					pa, tgt, targetable, attack_type, pr_guard_feint_late, CombatantEntityAccess.id_int(atk)
@@ -552,11 +571,15 @@ static func choose_defense(
 				# late parries contact farther toward blade tip (weak). Uses parry_progress to estimate where
 				# along the defender's blade the contact occurs.
 				var spatial_strong_frac: float = 0.5  # fallback default
+				# HEMA: forte/schwach difference scales with blade flexibility — a flexible blade (long/thin)
+				# flexes more under load, so its forte/schwach difference is larger than a stiff blade's.
+				var flex_factor: float = 1.0
 				if def_w_arch is Weapon:
 					var eff_wind_val: float = maxf(0.001, wind_up_duration * comm_frac)
 					var pp: float = 1.0 - clampf(parry_time_to_react / eff_wind_val, 0.0, 1.0) if not late_parry else 0.85
 					spatial_strong_frac = def_w_arch.get_spatial_strong_fraction_at_parry(pp)
-				full_strong_mod *= 1.0 + CombatConstants.DEFENDER_STRONG_BONUS * spatial_strong_frac * weak_exp
+					flex_factor = CombatConstants.flex_factor_for_slenderness(def_w_arch.get_blade_slenderness())
+				full_strong_mod *= 1.0 + CombatConstants.DEFENDER_STRONG_BONUS * flex_factor * spatial_strong_frac * weak_exp
 			var strong_mod: float = lerpf(1.0, full_strong_mod, contact_quality)
 			parry_c_d *= strong_mod
 		parry_c_d *= CombatWeaponForm.mod(
@@ -679,9 +702,9 @@ static func choose_defense(
 		var effective_dodge_chance: float = dodge_chance * part_mod
 		# Below glancing floor (cos60): parry is physically ineffective — boost dodge and skip parry decision entirely.
 		if preview_align < CombatConstants.PARRY_GLANCING_ALIGNMENT_FLOOR:
-			effective_dodge_chance *= 1.25
+			effective_dodge_chance *= CombatConstants.PARRY_BELOW_GLANCING_DODGE_BOOST
 		elif preview_align < CombatConstants.PARRY_PARTIAL_GUARD_ALIGNMENT_THRESHOLD and not interpose_active:
-			effective_dodge_chance *= 1.15
+			effective_dodge_chance *= CombatConstants.PARRY_GLANCING_DODGE_BOOST
 		var full_dodge_prob: float = effective_dodge_chance * CombatConstants.DODGE_FULL_THRESHOLD
 		var partial_dodge_avg_ratio: float = (CombatConstants.DODGE_PARTIAL_RATIO_MIN + 1.0) * 0.5
 		var energy_dodge: float = (
@@ -724,7 +747,7 @@ static func choose_defense(
 			0.0 if (parry_full or parry_edge) else CombatConstants.glancing_factor(parry_remaining_est, glancing_exp)
 		)
 		# Historical combat favors passive defense — bias parry decision toward block/deflect over dodge.
-		var passive_defense_bias: float = 0.90
+		var passive_defense_bias: float = CombatConstants.PASSIVE_DEFENSE_BIAS
 		var energy_parry_biased: float = energy_parry * passive_defense_bias if not (parry_full or parry_edge) else energy_parry
 		var dodge_better: bool = energy_dodge < energy_parry_biased
 		var clean_dodge_likely: bool = full_dodge_prob >= CombatConstants.PARRY_PREFER_DODGE_FULL_THRESHOLD
@@ -875,6 +898,10 @@ static func _compute_parry_c_d(def_weapon, tgt: Dictionary, contact_type: String
 		if mod_dict is Dictionary:
 			var mult: float = mod_dict.get(contact_key, 1.0)
 			c_d_full *= mult
+	# HEMA: a two-handed grip braces the weapon into the torso/core, holding parry structure better
+	# against a strong blow (longer lever + both arms). One-handed (SWORD/DAGGER/MACE/AXE) is neutral
+	# 1.0 — D001 SWORD soak unaffected. Applied to base capacity so it feeds both on-time and late.
+	c_d_full *= CombatConstants.parry_two_handed_capacity_mult(WeaponConstants.weapon_is_two_handed(def_weapon))
 	return c_d_full
 
 
@@ -906,8 +933,9 @@ static func _apply_guard_line_matching(
 ## Unified contact geometry: alignment × leverage. Blade gets alignment only (leverage=1); shaft/haft get alignment ×
 ## leverage factor.
 ## Merges angular (attack vs guard) and linear (where along shaft contact happens) into one multiplier.
-## Micro-floor at 0.001 prevents degenerate zero-capacity from exactly-zero alignment while keeping the
-## continuous cosine model intact — a blade in motion can accidentally intercept even at poor angles.
+## A 0.35 geometry floor (deliberate gameplay choice) keeps parrying forgiving: even a poorly-aligned guard
+## retains ~35% parry capacity before the guard-zone penalty is applied, so a blade in motion can still
+## intercept at poor angles. (An earlier micro-floor of 0.001 was replaced by this higher floor.)
 static func _get_contact_geometry(alignment: float, def_weapon) -> float:
 	var is_blade: bool = not CombatantEntityAccess.weapon_has_parts(def_weapon) or CombatantEntityAccess.weapon_parry_contact_type(def_weapon) == "blade"
 	var effective_align: float = alignment
@@ -957,7 +985,7 @@ static func _get_parry_capacity_mult(def_weapon, tgt: Dictionary, parry_time_to_
 static func _parry_bonus_if_active(tgt: Dictionary) -> float:
 	var now_s: float = CombatTiming.now_seconds()
 	if tgt.get(DataKeys.PA_PARRY_BONUS_UNTIL, -1.0) > now_s:
-		return 1.1
+		return float(tgt.get(DataKeys.PA_PARRY_BONUS_MULT, 1.1))
 	return 1.0
 
 
@@ -1036,11 +1064,15 @@ static func _reach_disparity_parry_penalty(atk: Dictionary, tgt: Dictionary) -> 
 	else:
 		def_range = float(def_weapon.melee_range)
 	var disparity = atk_range - def_range
-	if disparity <= 0.3:
+	if disparity <= CombatConstants.REACH_DISPARITY_THRESHOLD_M:
 		return 1.0
 	# Slope 0.3 (was 0.5): reach delta is already partly priced by _reach_parry_readiness_bonus, so a
 	# steeper slope double-counted the same advantage (sword 0.65 / dagger 0.30 -> 0.79 / 0.58).
-	var penalty = clampf(1.0 - (disparity - 0.3) * 0.3, 0.25, 1.0)
+	var penalty = clampf(
+		1.0 - (disparity - CombatConstants.REACH_DISPARITY_THRESHOLD_M) * CombatConstants.REACH_DISPARITY_PENALTY_SLOPE,
+		CombatConstants.REACH_DISPARITY_PENALTY_FLOOR,
+		1.0
+	)
 	return penalty
 
 
@@ -1298,4 +1330,8 @@ static func _reach_parry_readiness_bonus(def_weapon: Variant, atk_weapon: Varian
 	## Scale factor: 6% readiness bonus per meter of net reach advantage, capped at +0.15 (2.5m advantage).
 	## Baseline ~1.0m weapons (short sword) vs ~2.0m spear → +0.06 bonus; vs dagger ~0.4m → -0.036 penalty.
 	var net_reach: float = def_len - atk_len
-	return clampf(net_reach * 0.06, -0.15, 0.15)
+	return clampf(
+		net_reach * CombatConstants.REACH_READINESS_SCALE_PER_M,
+		-CombatConstants.REACH_READINESS_CAP,
+		CombatConstants.REACH_READINESS_CAP
+	)

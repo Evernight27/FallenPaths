@@ -63,6 +63,19 @@ const GAIN_BLOOD_PERIL_BASE: float = 0.8
 const GAIN_PARRY_DEFLECT_STR_MULT: float = 0.5
 const GAIN_PARRY_DEFLECT_END_MULT: float = 0.5
 const GAIN_PARRY_PARTIAL_STR_MULT: float = 0.3
+## A partial parry still transmits some force into the defender's arm (less than a full deflect), so the
+## defender earns a partial END gain for absorbing — consistent with the hit path (absorbing damage trains END).
+const GAIN_PARRY_PARTIAL_END_MULT: float = 0.3
+
+# --- Opponent-difficulty scaling (desirable difficulty: beating a stronger foe teaches more) ---
+## Reference opponent strength; beating a foe at this strength yields the baseline (1.0x) STR gain.
+const GAIN_DIFFICULTY_STR_BASE: float = 100.0
+## STR-gain change per point of opponent strength above/below the reference (0.005 -> +50 STR = +25%, -50 STR = -25%).
+const GAIN_DIFFICULTY_STR_SCALE: float = 0.005
+## Floor: beating a very weak foe still teaches a little (no negative learning).
+const GAIN_DIFFICULTY_STR_MIN: float = 0.85
+## Ceiling: beating an elite foe teaches up to 35% more (diminishing returns beyond this).
+const GAIN_DIFFICULTY_STR_MAX: float = 1.35
 
 # --- Medical patient END gain fraction (fraction of blood peril base) ---
 const GAIN_MEDICAL_PATIENT_END_MULT: float = 0.5
@@ -426,6 +439,17 @@ static func get_severity_mult(severity: String) -> float:
     if severity in SEVERITY_MULT:
         return float(SEVERITY_MULT[severity])
     return 1.0
+
+
+## Opponent-difficulty multiplier for attacker STR gain (desirable-difficulty principle): beating a stronger
+## foe (higher target strength) yields more learning, a weaker foe yields less. Reference strength (100) -> 1.0;
+## scales linearly by GAIN_DIFFICULTY_STR_SCALE, clamped to [GAIN_DIFFICULTY_STR_MIN, GAIN_DIFFICULTY_STR_MAX].
+static func opponent_difficulty_mult(target_strength: float) -> float:
+    return clampf(
+        1.0 + (target_strength - GAIN_DIFFICULTY_STR_BASE) * GAIN_DIFFICULTY_STR_SCALE,
+        GAIN_DIFFICULTY_STR_MIN,
+        GAIN_DIFFICULTY_STR_MAX
+    )
 
 
 # --- Internal helpers ---

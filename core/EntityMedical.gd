@@ -76,6 +76,7 @@ static func _apply_stabilizing_treatment(
     var wound_count: int = entity.wounds[part].size()
     var reduction: float = 0.0
     if success:
+        var cleared_infection: bool = false
         for injury in entity.wounds[part]:
             var eff: float = effectiveness
             if injury.get("is_arterial", false):
@@ -87,7 +88,16 @@ static func _apply_stabilizing_treatment(
                 injury["is_stabilized"] = true
                 if BleedingConstants.BANDAGE_STABILIZATION_DURATION > 0.0:
                     injury["stabilized_remaining_seconds"] = BleedingConstants.BANDAGE_STABILIZATION_DURATION
+            # A clean definitive dressing treats infection: clear it so healing resumes at full speed.
+            if injury.get("is_infected", false):
+                injury["is_infected"] = false
+                injury["infection_progress"] = 0.0
+                cleared_infection = true
         mark_dict[part] = true
+        if cleared_infection:
+            log_medical_session(
+                "%s infection_cleared(%s): clean dressing treated the wound infection" % [entity.name, part]
+            )
     else:
         var closeness: float = 1.0
         if success_chance < 1.0:
@@ -254,6 +264,33 @@ static func _apply_stabilize(entity: Node, part: String, effectiveness: float = 
     else:
         log_medical_session("%s _apply_stabilize(%s) => failed, %d wound(s)" % [entity.name, part, r.wound_count])
     return r.success
+
+
+# --- Fluid resuscitation (field) ---
+
+
+## Field fluid resuscitation / transfusion: restores a fraction of the current blood deficit for a
+## living casualty. This is the countermeasure to decompensated shock — raising `blood_volume` back
+## above the decompensation threshold automatically clears the decompensation bleed-acceleration,
+## ATLS performance penalty, and stamina cap (all stateless reads of `blood_volume`). Returns false
+## when the casualty is dead or already at full volume (nothing to restore).
+static func _apply_fluid_resuscitation(entity: Node, effectiveness: float = 1.0) -> bool:
+    if entity.is_dead():
+        return false
+    if entity.blood_volume >= BleedingConstants.MAX_BLOOD_VOLUME:
+        return false
+    var deficit: float = BleedingConstants.MAX_BLOOD_VOLUME - entity.blood_volume
+    if deficit <= 0.0:
+        return false
+    var restore_frac: float = clampf(
+        BleedingConstants.FLUID_RESUSCITATION_DEFICIT_RESTORE_FRACTION * effectiveness, 0.0, 1.0
+    )
+    var restored: float = deficit * restore_frac
+    entity.blood_volume = minf(BleedingConstants.MAX_BLOOD_VOLUME, entity.blood_volume + restored)
+    log_medical_session(
+        "%s _apply_fluid_resuscitation => blood %.0f%% (+%.0f%%)" % [entity.name, entity.blood_volume, restored]
+    )
+    return true
 
 
 # --- Packing ---
@@ -727,6 +764,28 @@ static func _apply_tourniquet(entity: Node, part: String, effectiveness: float =
 
 static func _remove_tourniquet(entity: Node, part: String) -> void:
     entity.tourniquet_applied.erase(part)
+
+
+## Ischemic soft-tissue damage from a tourniquet left on too long (necrosis / compartment injury). Reduces the
+## limb's cutting + blunt tissue channels by a fixed fraction of the part max (bone is unaffected — ischemia
+## damages soft tissue, not bone). Called on tourniquet expiry (EntityHealing).
+static func apply_tourniquet_ischemia_damage(entity: Node, part: String) -> void:
+    if part.is_empty():
+        return
+    var max_tissue: float = float(entity.body_max.get(part, 0.0))
+    if max_tissue <= 0.0:
+        return
+    var damage: float = max_tissue * BleedingConstants.TOURNIQUET_ISCHEMIA_TISSUE_FRACTION
+    if damage <= 0.0:
+        return
+    entity.body_cutting[part] = entity._round_tissue(maxf(0.0, entity.body_cutting.get(part, 0.0) - damage))
+    entity.body_blunt[part] = entity._round_tissue(maxf(0.0, entity.body_blunt.get(part, 0.0) - damage))
+    log_medical_session(
+        (
+            "%s tourniquet_ischemia(%s): TQ left on too long => -%.1f tissue (ischemic necrosis)"
+            % [entity.name, part, damage]
+        )
+    )
 
 
 static func _get_tourniquet_application_time_seconds() -> float:

@@ -211,6 +211,8 @@ func register(node: Node, side: String) -> int:
 
 func _on_entity_health_changed(combatant_id: int) -> void:
 	combatant_health_changed.emit(combatant_id)
+	# Unit-cohesion loss (fear of injury): witnessing a comrade take a wound drops the side's morale.
+	CombatMoraleCohesion.apply_fear_drain_for_witnesses(self, combatant_id)
 
 
 ## Resets per-combatant engagement fields (combat end, new encounter, medical phase handoff).
@@ -897,6 +899,12 @@ func on_combatant_died(c: Dictionary) -> void:
 	CounterTempo.clear_window(c)
 	CombatAttention.clear_focus_and_yomi(c)
 	c.erase(CombatConstants.COMBATANT_KEY_INCOMING_ATTACK_TELEGRAPH_PART)
+	# Leader-death contagion (B5): losing the party leader drops the side's cohesion (loss of command).
+	CombatFormationRout.apply_leader_death_morale_shock(self, c)
+	# Unit-cohesion loss: witnessing a comrade fall drops the side's morale. Leader deaths are already
+	# handled by the stronger shock above, so skip the fear drain to avoid double-triggering.
+	if not CombatFormationRout.is_party_leader_combatant(c):
+		CombatMoraleCohesion.apply_cohesion_loss_for_witnesses(self, c)
 	CombatFormationFlow.on_combatant_died(self, c)
 
 

@@ -52,6 +52,10 @@ const BLOOD_VOLUME_RECOVERY_DURATION_SECONDS: float = 24.0 * 3600.0  # 24 hours 
 # healed (1 - e^(-3) 'permille^ 0.95).
 const EXPONENTIAL_HEAL_TAU_DIVISOR: float = 3.0
 
+# --- Nutrition: malnutrition impairs wound healing (clinical: protein/energy deficiency slows tissue repair).
+# nutrition_level 1.0 (well-fed) -> 1.0x; 0.0 (starving) -> NUTRITION_HEAL_STARVATION_MULT (0.6x).
+const NUTRITION_HEAL_STARVATION_MULT: float = 0.6
+
 # --- Per-wound healing (individual pain resolution and wound lifecycle) ---
 # Injury types: "cut", "crush", "bruise", "fracture" (BleedingConstants). Each wound gets its own healing duration by
 # part + severity + type.

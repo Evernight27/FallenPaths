@@ -706,6 +706,59 @@ static func _run_camp_2_bridge_spot_checks(failures: PackedStringArray) -> void:
     _free_harness_world(restart_world)
     _cleanup_harness_ui_overlay()
 
+    # --- Camp-2.7: field fluid resuscitation (decompensated-shock countermeasure) ---
+    var resus_world: Node2D = _make_world(1, 0, true)
+    CompanyState.set_medical_supplies(resus_world, 2)
+    var pm_resus: Node = resus_world.get_meta("party_manager")
+    var resus_ent: Node = _add_living_entity_member(pm_resus, "Resus")
+    var resus_member: Dictionary = PartyMemberSnapshot.snapshot_from_member(
+        {"name": "Resus", "node_ref": resus_ent}
+    )
+    # Healthy (full-blood) member: not offered.
+    if MapFieldCare.can_offer_field_resuscitation(resus_world, resus_member):
+        _fail(failures, "Camp-2.7: resuscitation should not be offered to a full-blood member")
+    else:
+        _pass()
+    # Decompensated (blood in the 30-50 window): offered, and one bolus lifts them out of the window.
+    resus_ent.blood_volume = 45.0
+    resus_ent.ensure_consciousness_current()
+    if not MapFieldCare.can_offer_field_resuscitation(resus_world, resus_member):
+        _fail(failures, "Camp-2.7: resuscitation should be offered to a decompensated (blood<50) member")
+    else:
+        _pass()
+    var resus_med_before: int = CompanyState.get_medical_supplies(resus_world)
+    if not MapFieldCare.try_field_resuscitation(resus_world, resus_member):
+        _fail(failures, "Camp-2.7: field resuscitation should succeed on a decompensated member")
+    else:
+        _pass()
+    if resus_ent.blood_volume < BleedingConstants.DECOMPENSATION_BLOOD_THRESHOLD:
+        _fail(
+            failures,
+            "Camp-2.7: resuscitation should lift blood above the decompensation threshold (got %.1f)"
+            % resus_ent.blood_volume
+        )
+    else:
+        _pass()
+    if CompanyState.get_medical_supplies(resus_world) != resus_med_before - 1:
+        _fail(failures, "Camp-2.7: resuscitation should consume one medical supply")
+    else:
+        _pass()
+    # Dead (blood at/below death threshold): not offered.
+    resus_ent.blood_volume = 25.0
+    resus_ent.ensure_consciousness_current()
+    if MapFieldCare.can_offer_field_resuscitation(resus_world, resus_member):
+        _fail(failures, "Camp-2.7: resuscitation should not be offered to a dead (blood<=30) member")
+    else:
+        _pass()
+    # No medical supplies: not offered even when decompensated.
+    resus_ent.blood_volume = 45.0
+    CompanyState.set_medical_supplies(resus_world, 0)
+    if MapFieldCare.can_offer_field_resuscitation(resus_world, resus_member):
+        _fail(failures, "Camp-2.7: resuscitation should not be offered without medical supplies")
+    else:
+        _pass()
+    _release_harness_world(resus_world)
+
     CompanyChecksCamp3EncounterTests._run_camp_4_contract_flavor(failures)
     CompanyChecksCamp3EncounterTests._run_encounter_entry_rollback(failures)
     CompanyChecksCamp3EncounterTests._run_combat_start_abort_cleanup(failures)

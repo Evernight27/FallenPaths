@@ -11,6 +11,9 @@ const ARMOR_TIER_NONE_THRESHOLD := 2.0
 const ARMOR_TIER_LIGHT_THRESHOLD := 8.0
 const ARMOR_TIER_MEDIUM_THRESHOLD := 16.0
 const ARMOR_TIER_HEAVY_THRESHOLD := 30.0
+# Armor degradation: protection falls 1.0 -> 0.3 as absorbed damage reaches the part's resistance threshold, then
+# continues to complete failure (0.0) at this multiple of the threshold. Heavily battered armor no longer protects.
+const ARMOR_COMPLETE_FAILURE_ABSORBED_MULT := 2.0
 
 # Armor piece sharp resistance lookup (outer layer RHA).
 const _ARMOR_PIECE_RESISTANCE: Dictionary = {
@@ -259,8 +262,20 @@ static func is_armor_degraded(combatant: Dictionary, part: String) -> bool:
 	return false
 
 
+## Degradation factor from absorbed damage vs the part's resistance threshold. Protection falls 1.0 -> 0.3 as
+## absorbed reaches the threshold, then continues to complete failure (0.0) at ARMOR_COMPLETE_FAILURE_ABSORBED_MULT
+## times the threshold — heavily battered armor no longer protects.
+static func _armor_degradation_factor_from_absorbed(absorbed: float, threshold: float) -> float:
+	if threshold <= 0.0:
+		return 1.0
+	var ratio: float = clampf(absorbed / threshold, 0.0, float(ARMOR_COMPLETE_FAILURE_ABSORBED_MULT))
+	if ratio <= 1.0:
+		return lerpf(1.0, 0.3, ratio)
+	return lerpf(0.3, 0.0, ratio - 1.0)
+
+
 ## Get armor degradation factor — how much RHA protection remains based on cumulative absorbed damage.
-## Returns a ratio between 0.3 (severely degraded) and 1.0 (intact), scaled linearly with absorbed damage.
+## Returns a ratio between 0.0 (failed) and 1.0 (intact), scaled with absorbed damage.
 static func get_armor_degradation_factor(combatant: Dictionary, part: String) -> float:
 	var node = _combatant_node(combatant)
 	if node == null or not node.has_method("_get_armor_for_part"):
@@ -271,18 +286,13 @@ static func get_armor_degradation_factor(combatant: Dictionary, part: String) ->
 		var tracker: Dictionary = get_degradation_tracker(combatant)
 		if not tracker.has(part):
 			return 1.0
-		var absorbed: float = tracker[part]
-		# Linear degradation from intact (0 damage) to fully degraded (max_resistance).
-		var ratio: float = clampf(absorbed / max_resistance, 0.0, 1.0)
-		return lerpf(1.0, 0.3, ratio)
+		return _armor_degradation_factor_from_absorbed(tracker[part], max_resistance)
 	elif piece is Dictionary:
 		var dur: float = piece.get("durability", ArmorConstants.DEFAULT_ARMOR_LAYER_DURABILITY)
 		var tracker: Dictionary = get_degradation_tracker(combatant)
 		if not tracker.has(part):
 			return 1.0
-		var absorbed: float = tracker[part]
-		var ratio: float = clampf(absorbed / maxf(dur, 0.01), 0.0, 1.0)
-		return lerpf(1.0, 0.3, ratio)
+		return _armor_degradation_factor_from_absorbed(tracker[part], maxf(dur, 0.01))
 	return 1.0
 
 

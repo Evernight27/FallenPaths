@@ -39,13 +39,36 @@ static func _process_healing(entity: Node, seconds: float) -> void:
                         injury["is_stabilized"] = false
                         injury.erase("stabilized_remaining_seconds")
     # Tourniquet expiry: if max duration > 0, release TQ after duration (limb ischemia risk). Bleeding can resume.
+    # A TQ left on too long causes ischemic soft-tissue damage to the limb (necrosis / compartment injury).
     if BleedingConstants.TOURNIQUET_MAX_DURATION_SECONDS > 0.0:
         for part in entity.tourniquet_applied.keys():
             EntityMedical.ensure_tourniquet_dict_entry(entity, part)
             var data: Dictionary = entity.tourniquet_applied[part]
             var applied_at: float = data.get("applied_at", 0.0)
             if entity._game_time_seconds - applied_at >= BleedingConstants.TOURNIQUET_MAX_DURATION_SECONDS:
+                EntityMedical.apply_tourniquet_ischemia_damage(entity, part)
                 entity.tourniquet_applied.erase(part)
+    # Wound infection: untreated wounds accumulate infection risk over days (a clean dressing or tourniquet
+    # greatly reduces it). Progresses only on day-scale time advances (never during a battle), so campaign-only.
+    var per_day: float = seconds / HealingConstants.SECONDS_PER_DAY
+    if per_day > 0.0:
+        for part in entity.wounds.keys():
+            var treated: bool = EntityWounds.part_has_definitive_hemostasis(entity, part)
+            for injury in entity.wounds[part]:
+                if injury.get("is_infected", false):
+                    continue
+                var risk: float = BleedingConstants.wound_infection_daily_risk(injury, treated)
+                if risk <= 0.0:
+                    continue
+                var progress: float = float(injury.get("infection_progress", 0.0)) + per_day * risk
+                if progress >= 1.0:
+                    injury["is_infected"] = true
+                    injury["infection_progress"] = 1.0
+                    EntityMedical.log_medical_session(
+                        "%s wound_infected(%s): untreated wound became infected" % [entity.name, part]
+                    )
+                else:
+                    injury["infection_progress"] = progress
 
     for part in entity._get_body_part_list():
         if part not in entity.body_max or part not in entity.bone_max:
@@ -85,6 +108,33 @@ static func _process_healing(entity: Node, seconds: float) -> void:
         var conc_info: Dictionary = EntityPainConsciousness.get_concussion_phase_info(entity)
         var conc_healing_mult: float = conc_info.get("healing_mult", 1.0)
         heal_speed *= conc_healing_mult
+        # Malnutrition impairs wound healing: a starving member heals slower than a well-fed one.
+        if entity.has_method("_get_nutrition_healing_speed_mult"):
+            heal_speed *= entity._get_nutrition_healing_speed_mult()
+        # Infected wounds heal slower (systemic response + tissue damage from the infection).
+        if entity.wounds.has(part):
+            var infected_here: bool = false
+            for injury in entity.wounds[part]:
+                if injury.get("is_infected", false):
+                    infected_here = true
+                    break
+            if infected_here:
+                heal_speed *= BleedingConstants.WOUND_INFECTION_HEAL_SPEED_MULT
+        # Active bleeding diverts repair resources + impairs local perfusion: the faster this part bleeds,
+        # the slower its tissue/bone repair. An open, untreated arterial wound cannot close while systolic
+        # pressure drives flow through it, so repair stalls until definitive hemostasis (TQ/pack/clot).
+        var part_bleed: float = EntityWounds.get_bleeding_rate_for_part(entity, part)
+        if part_bleed > BleedingConstants.BLEEDING_RATE_EPSILON:
+            var untreated_arterial: bool = false
+            if not EntityWounds.part_has_definitive_hemostasis(entity, part):
+                for injury in entity.wounds[part]:
+                    if (
+                        injury.get("is_arterial", false)
+                        and float(injury.get("current_bleeding_rate", 0.0)) > BleedingConstants.BLEEDING_RATE_EPSILON
+                    ):
+                        untreated_arterial = true
+                        break
+            heal_speed *= BleedingConstants.bleed_healing_speed_mult(part_bleed, untreated_arterial)
         var tau_tissue: float = tissue_duration / (HealingConstants.EXPONENTIAL_HEAL_TAU_DIVISOR * heal_speed)
         var add_cut: float = remain_cut * (1.0 - exp(-seconds / tau_tissue))
         var add_blunt: float = remain_blunt * (1.0 - exp(-seconds / tau_tissue))

@@ -5,10 +5,14 @@ extends RefCounted
 
 ## CAMP_HEAL_ENTRY.
 const CAMP_HEAL_ENTRY: String = "both"
-## CAMP_HEAL_SECONDS.
-const CAMP_HEAL_SECONDS: float = 600.0
+## A camp rest is "+1 day" (the day counter advances by 1), so it must apply one full day of healing.
+## Healing durations are defined in days (HealingConstants.SECONDS_PER_DAY = 86400 s), so the rest feeds a
+## full day of game-time into the exponential healing/bleeding advance. (The old 600 s x 3.0 = 1800 s applied
+## only ~30 min of healing per "day", decoupling healing from the day counter by 48x — a 6-week bone break
+## needed ~2000 in-game days.)
+const CAMP_HEAL_SECONDS: float = HealingConstants.SECONDS_PER_DAY
 ## CAMP_HEAL_MULTIPLIER.
-const CAMP_HEAL_MULTIPLIER: float = 3.0
+const CAMP_HEAL_MULTIPLIER: float = 1.0
 ## FIELD_CARE_MARCH_CHAIN.
 const FIELD_CARE_MARCH_CHAIN: String = "pressure (free) -- bandage/pack/TQ"
 
@@ -267,8 +271,13 @@ static func try_camp_heal(world: Node2D, from_party_menu: bool = false) -> bool:
     if not _get_economy().consume_medical(world, 1):
         return false
     var day_before: int = _get_state().get_day_index(world)
+    # Snapshot rest quality from current provisions BEFORE the day advance consumes food: a well-fed
+    # company rests well (full recovery); a starving company rests poorly (partial recovery).
+    var rest_quality: float = compute_rest_quality(world)
     _advance_party_healing(world, CAMP_HEAL_SECONDS, CAMP_HEAL_MULTIPLIER)
     _get_state().try_advance_day(world)
+    _apply_roster_rest_quality(world, rest_quality)
+    _sharpen_roster_weapons(world)
     _try_apply_decay(world)
     _try_merge_training_pending(world)
     _get_mood().apply_camp_rest_mood(world)
@@ -278,13 +287,14 @@ static func try_camp_heal(world: Node2D, from_party_menu: bool = false) -> bool:
             OperationalLog
             . play_world(
                 (
-                    "camp_heal seconds=%.0f mult=%.1f med_left=%d day=%d->%d all_dressed=true mood=+%.0f"
+                    "camp_heal seconds=%.0f mult=%.1f med_left=%d day=%d->%d rest_quality=%.2f all_dressed=true mood=+%.0f"
                     % [
                         CAMP_HEAL_SECONDS,
                         CAMP_HEAL_MULTIPLIER,
                         _get_economy().get_medical_supplies(world),
                         day_before,
                         _get_state().get_day_index(world),
+                        rest_quality,
                         _get_mood().MOOD_CAMP_REST_DELTA,
                     ]
                 )
@@ -336,6 +346,39 @@ static func _advance_party_healing(world: Node2D, seconds: float, multiplier: fl
                 entity._process_healing(effective)
         if n.has_method("ensure_consciousness_current"):
             n.ensure_consciousness_current()
+
+
+## Rest quality (0..1) from current provisions: a well-fed company (enough food for the roster) rests
+## well (1.0); a starving company rests poorly (REST_QUALITY_FLOOR). This is a snapshot of "are we
+## well-provisioned right now?" and is taken before the day advance consumes the day's rations.
+static func compute_rest_quality(world: Node2D) -> float:
+    var roster: int = _get_state().count_living_roster(world)
+    if roster <= 0:
+        return 1.0
+    var need: int = roster * _get_economy().FOOD_PER_MEMBER_PER_DAY
+    if need <= 0:
+        return 1.0
+    var have: int = _get_economy().get_food_supplies(world)
+    var adequacy: float = clampf(float(have) / float(need), 0.0, 1.0)
+    return lerpf(CoreEntity.REST_QUALITY_FLOOR, 1.0, adequacy)
+
+
+## Campaign weariness: a night's rest at camp recovers accumulated fatigue by the rest quality. A
+## well-provisioned camp (quality 1.0) fully clears it; a poor camp recovers only a fraction, leaving
+## residual weariness that lowers the next battle's stamina cap.
+static func _apply_roster_rest_quality(world: Node2D, quality: float) -> void:
+    for n in CampaignEncounterBridge.get_fightable_party_nodes(world):
+        var entity: Node = CampaignEncounterBridge.health_entity_from_character(n)
+        if entity != null and entity.has_method("apply_rest_quality"):
+            entity.apply_rest_quality(quality)
+
+
+## Weapon edge wear: a rest at camp lets the company sharpen its weapons (edge restored to full).
+static func _sharpen_roster_weapons(world: Node2D) -> void:
+    for n in CampaignEncounterBridge.get_fightable_party_nodes(world):
+        var entity: Node = CampaignEncounterBridge.health_entity_from_character(n)
+        if entity != null and entity.has_method("sharpen_weapon"):
+            entity.sharpen_weapon()
 
 
 static func format_post_fight_field_care_short_log(parts_left: int) -> String:

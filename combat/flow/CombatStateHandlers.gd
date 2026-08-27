@@ -143,9 +143,7 @@ static func complete_recovery(manager: Node, c: Dictionary) -> void:
     var eff_line: String = c.get(CombatConstants.PA_KEY_EFFECTIVE_ATTACK_LINE, "")
     var cause: String = CombatConstants.normalize_recovery_cause(str(c.get(DataKeys.ATTACK_RECOVERY_CAUSE, "")))
     if cause == "attack_deflect":
-        var def_guard: String = c.get(DataKeys.PA_DEFENDER_GUARD_LINE_AT_PARRY, "")
-        var clash_ctx: Dictionary = CombatantEntityAccess.nested_dictionary_read(c, "parry_clash_context")
-        GuardLineUpdater.set_guard_deflected(c, move_id, eff_line, def_guard, clash_ctx)
+        # Guard already displaced at parry time — just clean up stored data.
         c.erase(DataKeys.PA_DEFENDER_GUARD_LINE_AT_PARRY)
         c.erase(DataKeys.PA_DEFENDER_FORM_AT_PARRY)
         c.erase(DataKeys.PA_PARRY_CLASH_CONTEXT)
@@ -276,8 +274,13 @@ static func process_waiting(_manager: Node, c: Dictionary, delta: float) -> void
     # recovers at the partial rate — matching the "recovers while waiting" tooltip. Cowering (limbs fully
     # down) recovers at the full rate via process_cowering_idle.
     _get_muscle_fatigue().process_recovering_recovery(c, delta)
+    # Out of the exchange a fighter regains composure — morale slowly recovers toward full.
+    CombatMoraleCohesion.recover_morale_if_safe(c, delta)
     CounterTempo.process_waiting(_manager, c)
     CombatFlurryBind.process_waiting(_manager, c)
+    # HEMA: sustained bind pressure fatigues the holding muscles — pressure decays over time (progressive
+    # leverage degradation after the grace period). Previously dead code; now ticked each waiting frame.
+    CombatBindPressure.apply_decay(c, _manager, delta)
     CombatFootwork.reconcile_idle_offset(c)
     CombatUiHints.refresh_waiting_tick_stamps(_manager, c)
 

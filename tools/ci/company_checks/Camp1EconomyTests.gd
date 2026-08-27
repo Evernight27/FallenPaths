@@ -719,6 +719,165 @@ static func _run_camp_1_6_camp_heal(failures: PackedStringArray) -> void:
     _free_harness_world(bleed_world)
 
 
+## Campaign weariness: fighting + daily ops accumulate fatigue (lower stamina cap); camp rest clears it.
+static func _run_camp_fatigue_weariness_stamina(failures: PackedStringArray) -> void:
+    var world: Node2D = _make_world(0, 0, true)
+    var pm: Node = world.get_meta("party_manager")
+    var ent: Node = _add_living_entity_member(pm, "Worn")
+    _add_player_at_camp(world)
+    if not ent.has_method("_get_campaign_stamina_mult"):
+        _fail(failures, "Camp-fatigue: missing entity stamina API")
+        _free_harness_world(world)
+        return
+    # Fresh: no fatigue -> stamina mult 1.0.
+    if absf(ent._get_campaign_stamina_mult() - 1.0) > 0.001:
+        _fail(failures, "Camp-fatigue: fresh stamina mult want 1.0 got %.3f" % ent._get_campaign_stamina_mult())
+    else:
+        _pass()
+    # A battle adds fatigue -> stamina mult drops below 1.0.
+    ent.add_campaign_fatigue_battle()
+    var after_battle: float = ent._get_campaign_stamina_mult()
+    if not (after_battle < 1.0):
+        _fail(failures, "Camp-fatigue: after battle mult should be < 1.0 got %.3f" % after_battle)
+    else:
+        _pass()
+    # Repeated battles clamp at the floor.
+    for i in range(30):
+        ent.add_campaign_fatigue_battle()
+    var floor_mult: float = ent._get_campaign_stamina_mult()
+    var floor: float = CoreEntity.CAMPAIGN_FATIGUE_STAMINA_FLOOR
+    if absf(floor_mult - floor) > 0.001:
+        _fail(failures, "Camp-fatigue: maxed mult want floor %.3f got %.3f" % [floor, floor_mult])
+    else:
+        _pass()
+    # Camp rest clears fatigue -> mult back to 1.0.
+    ent.clear_campaign_fatigue()
+    if absf(ent._get_campaign_stamina_mult() - 1.0) > 0.001:
+        _fail(failures, "Camp-fatigue: after rest mult want 1.0 got %.3f" % ent._get_campaign_stamina_mult())
+    else:
+        _pass()
+    _free_harness_world(world)
+
+
+## Rest quality: a well-fed camp fully clears campaign fatigue; a starving camp only partially
+## recovers it (REST_QUALITY_FLOOR), leaving residual weariness. Food adequacy drives the quality.
+static func _run_camp_rest_quality_starvation_partial_recovery(failures: PackedStringArray) -> void:
+    var world: Node2D = _make_world(0, 0, true)
+    var pm: Node = world.get_meta("party_manager")
+    var ent: Node = _add_living_entity_member(pm, "Resting")
+    _add_player_at_camp(world)
+    if not ent.has_method("apply_rest_quality"):
+        _fail(failures, "Rest-quality: missing entity rest API")
+        _free_harness_world(world)
+        return
+    # Max out fatigue.
+    for i in range(30):
+        ent.add_campaign_fatigue_battle()
+    if absf(ent.campaign_fatigue - 1.0) > 0.001:
+        _fail(failures, "Rest-quality: fixture should max fatigue to 1.0 got %.3f" % ent.campaign_fatigue)
+        _free_harness_world(world)
+        return
+    # Well-fed: enough food for the roster -> quality 1.0 -> full clear.
+    var roster: int = CompanyState.count_living_roster(world)
+    CompanyState.set_food_supplies(world, roster * CompanyState.FOOD_PER_MEMBER_PER_DAY)
+    var fed_quality: float = CompanyCamp.compute_rest_quality(world)
+    if absf(fed_quality - 1.0) > 0.001:
+        _fail(failures, "Rest-quality: well-fed quality want 1.0 got %.3f" % fed_quality)
+    else:
+        _pass()
+    ent.apply_rest_quality(fed_quality)
+    if absf(ent.campaign_fatigue - 0.0) > 0.001:
+        _fail(failures, "Rest-quality: well-fed rest should fully clear fatigue got %.3f" % ent.campaign_fatigue)
+    else:
+        _pass()
+    # Starving: no food -> quality at the floor -> partial recovery (fatigue reduced but not cleared).
+    for i in range(30):
+        ent.add_campaign_fatigue_battle()
+    CompanyState.set_food_supplies(world, 0)
+    var starve_quality: float = CompanyCamp.compute_rest_quality(world)
+    if absf(starve_quality - CoreEntity.REST_QUALITY_FLOOR) > 0.001:
+        _fail(
+            failures,
+            "Rest-quality: starving quality want floor %.3f got %.3f"
+            % [CoreEntity.REST_QUALITY_FLOOR, starve_quality]
+        )
+    else:
+        _pass()
+    ent.apply_rest_quality(starve_quality)
+    var residual: float = ent.campaign_fatigue
+    if not (residual > 0.0 and residual < 1.0):
+        _fail(
+            failures,
+            "Rest-quality: starving rest should partially recover (0 < residual < 1) got %.3f" % residual
+        )
+    else:
+        _pass()
+    _free_harness_world(world)
+
+
+## Weapon edge wear: fighting dulls the edge (lower weapon sharpness); sharpening at camp restores it.
+## Uses a fresh weapon instance (not the shared harness cache) so the mutation cannot leak across tests.
+static func _run_weapon_edge_wear_sharpening(failures: PackedStringArray) -> void:
+    var world: Node2D = _make_world(0, 0, true)
+    var pm: Node = world.get_meta("party_manager")
+    var ent: Node = _add_living_entity_member(pm, "Swordsman")
+    _add_player_at_camp(world)
+    EncounterSpawner.equip_weapon_id(ent, "SWORD")
+    var w: Variant = ent.get_weapon()
+    if w == null or not ("sharpness" in w):
+        _fail(failures, "Weapon-wear: fixture should have a sharpness-bearing weapon")
+        _free_harness_world(world)
+        return
+    var fresh_sharpness: float = float(w.sharpness)
+    # Fresh edge (wear 0): applying wear leaves the weapon sharpness unchanged.
+    ent.apply_weapon_edge_wear_to_weapon()
+    if absf(float(w.sharpness) - fresh_sharpness) > 0.001:
+        _fail(failures, "Weapon-wear: fresh edge should leave sharpness %.3f unchanged" % fresh_sharpness)
+    else:
+        _pass()
+    # A battle dulls the edge -> applying wear lowers the weapon sharpness.
+    ent.add_weapon_edge_wear_battle()
+    if ent.weapon_edge_wear <= 0.0:
+        _fail(failures, "Weapon-wear: battle should add wear (got %.3f)" % ent.weapon_edge_wear)
+    else:
+        _pass()
+    ent.apply_weapon_edge_wear_to_weapon()
+    if float(w.sharpness) >= fresh_sharpness:
+        var worn_sharpness: float = float(w.sharpness)
+        _fail(failures, "Weapon-wear: worn edge should lower sharpness (fresh=%.3f worn=%.3f)" % [fresh_sharpness, worn_sharpness])
+    else:
+        _pass()
+    # Repeated battles clamp wear at 1.0 -> sharpness at the dull floor.
+    for i in range(30):
+        ent.add_weapon_edge_wear_battle()
+    if absf(ent.weapon_edge_wear - 1.0) > 0.001:
+        _fail(failures, "Weapon-wear: maxed wear want 1.0 got %.3f" % ent.weapon_edge_wear)
+    else:
+        _pass()
+    ent.apply_weapon_edge_wear_to_weapon()
+    if absf(float(w.sharpness) - CoreEntity.WEAPON_EDGE_WEAR_DULL_SHARPNESS) > 0.001:
+        _fail(
+            failures,
+            "Weapon-wear: maxed sharpness want %.3f got %.3f"
+            % [CoreEntity.WEAPON_EDGE_WEAR_DULL_SHARPNESS, float(w.sharpness)]
+        )
+    else:
+        _pass()
+    # Sharpening at camp restores the edge -> applying wear (now 0) leaves sharpness at fresh.
+    ent.sharpen_weapon()
+    if ent.weapon_edge_wear != 0.0:
+        _fail(failures, "Weapon-wear: sharpening should reset wear to 0 (got %.3f)" % ent.weapon_edge_wear)
+    else:
+        _pass()
+    ent.apply_weapon_edge_wear_to_weapon()
+    var restored_sharpness: float = float(w.sharpness)
+    if absf(restored_sharpness - fresh_sharpness) > 0.001:
+        _fail(failures, "Weapon-wear: after sharpening sharpness want %.3f got %.3f" % [fresh_sharpness, restored_sharpness])
+    else:
+        _pass()
+    _free_harness_world(world)
+
+
 # --- Camp-1.7 ---
 
 

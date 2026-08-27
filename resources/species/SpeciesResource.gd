@@ -110,6 +110,18 @@ func resolved_reference_mass_kg() -> float:
     return REFERENCE_ADULT_MASS_KG * (float(total) / float(CombatDesignAnchors.REFERENCE_HUMAN_TISSUE_SUM))
 
 
+## Body-size reach scale: a smaller wielder has shorter arms, so shorter effective weapon reach (the weapon's
+## blade length is fixed, but the arm that extends it scales with body size). Height proxy via cube root of the
+## mass ratio; clamped to a gentle +/-10% so the effect is modest and engagement dynamics stay stable.
+## Human (75 kg) -> 1.0; goblin (38 kg) -> 0.9.
+func body_reach_scale() -> float:
+    var mass: float = resolved_reference_mass_kg()
+    if mass <= 0.0:
+        return 1.0
+    var height_scale: float = pow(mass / REFERENCE_ADULT_MASS_KG, 1.0 / 3.0)
+    return clampf(height_scale, 0.9, 1.1)
+
+
 static func derived_limb_body_max(part: String, reference_mass_kg: float) -> int:
     if not is_limb_part(part):
         return 0
@@ -127,7 +139,9 @@ static func derived_limb_bone_max(part: String, limb_tissue_max: int) -> int:
     return maxi(1, int(round(float(limb_tissue_max) * ratio)))
 
 
-## Mass-derived limb cap floored by exported hand-tuned tissue (preserves goblin spindly-limb intent).
+## Mass-derived limb tissue capped by the exported hand-tuned value (preserves goblin spindly-limb intent): the
+## hand-tuned export is a CEILING, so a species whose mass-derived limb toughness exceeds the export is clamped
+## down to it. (A floor would use maxi(); the calibration harness pins this mini() cap.)
 static func derived_limb_body_max_profiled(part: String, reference_mass_kg: float, hand_tuned_tissue: int) -> int:
     var mass_val: int = derived_limb_body_max(part, reference_mass_kg)
     return maxi(1, mini(mass_val, hand_tuned_tissue))

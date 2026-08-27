@@ -10,10 +10,34 @@ const LEADER_COHESION_EXEMPTION_MULT: float = 1.5
 ## Per-entity morale variance — ±5% individual threshold offset for flee decisions.
 ## Models historical unit variation: veteran fighters hold longer, militia rout earlier.
 const FLEE_MORALE_VARIANCE_RANGE: float = 0.05
+## Leader-death contagion: when the party leader falls, surviving members' raw morale-cohesion takes a one-time
+## multiplicative shock (loss of command). 0.85 = a 15% cohesion drop — a morale blow, not a rout trigger.
+const LEADER_DEATH_MORALE_SHOCK_MULT: float = 0.85
+## Healthy-unit rout: even an unharmed soldier breaks when the line is severely shattered. Cohesion must be below
+## this fraction of the normal flee threshold (0.5 -> ~0.21) AND casualties above the normal floor + the pad below.
+const HEALTHY_ROUT_COHESION_FRACTION: float = 0.5
+## Healthy-unit rout casualty pad: casualties must exceed the normal flee floor by this much (0.30 + 0.20 = 0.50).
+const HEALTHY_ROUT_CASUALTY_PAD: float = 0.20
 
 
 static func is_party_leader_combatant(c: Dictionary) -> bool:
     return bool(c.get(DataKeys.SNAPSHOT_IS_PARTY_LEADER, false))
+
+
+## Leader-death contagion (B5): when the party leader falls, the side's command structure is disrupted and its
+## cohesion takes a one-time morale shock. Reduces each surviving member's raw morale-cohesion so line cohesion
+## drops — a morale blow that makes rout more likely, not a rout trigger.
+static func apply_leader_death_morale_shock(manager: Node, dead: Dictionary) -> void:
+    if manager == null or dead.is_empty():
+        return
+    if not is_party_leader_combatant(dead):
+        return
+    var side: String = _get_entity_access().side_str(dead)
+    for c in manager.combatants:
+        if not _get_entity_access().is_living_on_side(c, side):
+            continue
+        var raw: float = float(c.get(DataKeys.MORALE_COHESION_FACTOR_RAW, 1.0))
+        c[DataKeys.MORALE_COHESION_FACTOR_RAW] = raw * LEADER_DEATH_MORALE_SHOCK_MULT
 
 
 ## Canonical: **`CombatantEntityAccess.flee_abandonment_warranted`** delegates here.
@@ -220,6 +244,31 @@ static func formation_stress_abandonment_path(manager: Node, c: Dictionary) -> b
     return bv < CombatConstants.FORMATION_RETREAT_BLOOD_VOLUME_MAX and formation_stressed_for_rout(manager, c)
 
 
+## Healthy-unit rout (B4): even an unharmed soldier breaks when the line is severely shattered — very low cohesion
+## AND heavy casualties. Stricter than the wounded path (which covers low blood), so this only fires in near-total
+## collapse ("the line broke" contagion). Not for duels / disarmed / immediate-peril (those have their own paths).
+static func healthy_unit_rout_warranted(manager: Node, c: Dictionary) -> bool:
+    if c.is_empty() or manager == null:
+        return false
+    if is_true_duel(manager):
+        return false
+    if _get_entity_access().get_attacking_arm(c).is_empty():
+        return false
+    var node: Variant = _get_entity_access().node_variant(c)
+    if node == null:
+        return false
+    var bv: float = _get_entity_access().get_blood_volume_from_node(node as Node)
+    # Only healthy units — the wounded path already covers low blood volume.
+    if bv < CombatConstants.FORMATION_RETREAT_BLOOD_VOLUME_MAX:
+        return false
+    # Severe collapse: cohesion well below the normal flee threshold AND casualties well above the normal floor.
+    if line_cohesion_for_combatant(manager, c) >= flee_line_cohesion_max(manager, c) * HEALTHY_ROUT_COHESION_FRACTION:
+        return false
+    if casualty_ratio_for_combatant(manager, c) < flee_casualty_ratio_min(manager, c) + HEALTHY_ROUT_CASUALTY_PAD:
+        return false
+    return true
+
+
 ## Abandon-field (`flee`) warranted '"" personal catastrophe, helpless, or wounded under a breaking formation.
 static func abandonment_warranted(manager: Node, c: Dictionary) -> bool:
     ensure_rout_baseline(manager)
@@ -259,6 +308,11 @@ static func abandonment_warranted(manager: Node, c: Dictionary) -> bool:
                 return false
             if line_cohesion_for_combatant(manager, c) > flee_line_cohesion_max(manager, c) * LEADER_COHESION_EXEMPTION_MULT:
                 return false
+        if side_holding_field(manager, c):
+            return false
+        return true
+    # Healthy-unit rout (B4): an unharmed soldier breaks when the line is severely shattered.
+    if healthy_unit_rout_warranted(manager, c):
         if side_holding_field(manager, c):
             return false
         return true

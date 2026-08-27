@@ -135,17 +135,33 @@ static func _track_consecutive_action_start(c: Dictionary) -> void:
     c[CombatConstantsStamina.COMBATANT_KEY_CONSECUTIVE_ACTIONS] = count
 
 
-static func _track_consecutive_parry_for_defender(tgt: Dictionary) -> int:
+static func _track_consecutive_parry_for_defender(tgt: Dictionary, manager: Node = null) -> int:
     if tgt.is_empty():
         return 1
     var state: String = tgt.get(DataKeys.COMBATANT_STATE, "")
     # If defender is in recovery, parry streak resets.
     if state == CombatConstants.STATE_RECOVERING:
         tgt[CombatConstantsStamina.COMBATANT_KEY_CONSECUTIVE_PARRIES] = 1
+        _stamp_last_parry_clock(tgt, manager)
         return 1
-    var count: int = tgt.get(CombatConstantsStamina.COMBATANT_KEY_CONSECUTIVE_PARRIES, 0) + 1
+    # HEMA: parry fatigue decays with rest. If the gap since the last parry exceeds the reset window,
+    # the defender has recovered enough that the streak resets — the fatigue compounds only for
+    # back-to-back parries, not for parries separated by a long rest.
+    var count: int = 1
+    if manager != null:
+        var now: float = CombatantEntityAccess.combat_clock_float(manager)
+        var last: float = float(tgt.get(DataKeys.PA_LAST_PARRY_CLOCK, -1.0))
+        if last >= 0.0 and (now - last) <= CombatConstants.PARRY_FATIGUE_RESET_S:
+            count = int(tgt.get(CombatConstantsStamina.COMBATANT_KEY_CONSECUTIVE_PARRIES, 0)) + 1
     tgt[CombatConstantsStamina.COMBATANT_KEY_CONSECUTIVE_PARRIES] = count
+    _stamp_last_parry_clock(tgt, manager)
     return count
+
+
+static func _stamp_last_parry_clock(tgt: Dictionary, manager: Node) -> void:
+    if tgt.is_empty() or manager == null:
+        return
+    tgt[DataKeys.PA_LAST_PARRY_CLOCK] = CombatantEntityAccess.combat_clock_float(manager)
 
 
 static func _pending_attack_read(atk: Dictionary) -> Dictionary:
@@ -472,16 +488,103 @@ static func apply_result(manager: Node, attacker_id: int, result: Dictionary) ->
             atk.state = CombatConstants.STATE_RECOVERING
             atk.state_timer = 0.0
             atk.state_duration = result.get(DataKeys.ATTACK_RECOVERY_DURATION, 0.5)
-            atk[DataKeys.PA_OFF_BALANCE_UNTIL] = CombatTiming.now_seconds() + CombatConstants.OFF_BALANCE_DURATION_S
+            # HEMA: parry-deflect off-balance scales with intensity — heavier deflection = more disorientation.
+            var deflect_ob_duration: float = CombatConstants.off_balance_deflect_duration(
+                pa_deflect.get(CombatConstants.PA_KEY_INTENSITY, CombatConstants.PA_DEFAULT_INTENSITY)
+            )
+            atk[DataKeys.PA_OFF_BALANCE_UNTIL] = CombatTiming.now_seconds() + deflect_ob_duration
+            # HEMA: blade displacement is immediate — deflection is a physical event, not deferred to recovery end.
+            var atk_move_disp: String = atk.get(DataKeys.PA_LAST_MOVE_ID, atk.get(DataKeys.ATTACK_LAST_MOVE_ID, ""))
+            var atk_eff_disp: String = atk.get(DataKeys.ATTACK_EFFECTIVE_ATTACK_LINE, "")
+            var atk_def_guard_disp: String = atk.get(DataKeys.PA_DEFENDER_GUARD_LINE_AT_PARRY, "")
+            var atk_clash_disp: Dictionary = atk.get(DataKeys.PA_PARRY_CLASH_CONTEXT, {})
+            GuardLineUpdater.set_guard_deflected(atk, atk_move_disp, atk_eff_disp, atk_def_guard_disp, atk_clash_disp)
         if not tgt.is_empty():
-            var consec_parries: int = _track_consecutive_parry_for_defender(tgt)
+            var consec_parries: int = _track_consecutive_parry_for_defender(tgt, manager)
             _consume_stamina(manager, tgt, _stamina_parry_cost_for_defender(atk, incoming_parry_intensity, consec_parries))
+            # Parry recoil: a full parry is a momentum exchange — even a perfect parry transmits a fraction of the
+            # incoming blow's momentum into the defender's braced arm (impulse-momentum). A well-braced parry
+            # (high parry_control) catches more of the blow and transmits more to the arm. Mirrors the partial-parry
+            # deflection model; the >0.5 gate keeps light (sword) parries effectively free.
+            var recoil_clash_raw: Variant = result.get(DataKeys.PA_PARRY_CLASH_CONTEXT, null)
+            var recoil_clash: Dictionary = recoil_clash_raw if recoil_clash_raw is Dictionary else {}
+            var recoil_momentum: float = recoil_clash.get("strike_momentum_kg_ms", 0.0)
+            if recoil_momentum > 0.0:
+                var parry_ctrl: float = float(
+                    recoil_clash.get(CombatConstants.CLASH_KEY_PARRY_CONTROL, CombatConstants.DEFAULT_PARRY_CONTROL)
+                )
+                var recoil_node: Node = CombatantEntityAccess.scene_node(tgt)
+                var recoil_def_weapon = CombatantEntityAccess.get_weapon(tgt)
+                # HEMA: a heavier parrying weapon absorbs more of the impact, reducing the
+                # recoil transmitted to the arm. Scale by the mass ratio (m_a / m_d) — equal masses (D001
+                # SWORD mirror) yield 1.0, so the behavior is unchanged for the soak.
+                var recoil_mass_scale: float = CombatConstants.parry_recoil_mass_scale(
+                    recoil_clash.get("m_a_parry", 0.0), recoil_clash.get("m_d_parry", 0.0)
+                )
+                # HEMA: a two-handed grip braces the weapon into the torso, distributing the impact
+                # across both arms and the core, so less recoil reaches any single arm. One-handed
+                # (SWORD/DAGGER/MACE/AXE) is neutral 1.0 — D001 SWORD soak unaffected.
+                var recoil_two_handed_mult: float = CombatConstants.parry_two_handed_recoil_mult(
+                    WeaponConstants.weapon_is_two_handed(recoil_def_weapon)
+                )
+                # HEMA: a square-on catch (high alignment) drives the full force of the blow straight
+                # into the blade and arm; a glancing catch (low alignment) deflects the force along the
+                # blade, so less reaches the wrist. Alignment is already in the clash context.
+                var recoil_alignment_mult: float = CombatConstants.parry_recoil_alignment_mult(
+                    float(recoil_clash.get("alignment", 0.5))
+                )
+                # HEMA: a flexible (slender) blade flexes on impact, spreading the impulse over a longer
+                # contact time (lower peak force) so less recoil reaches the arm; a stiff (wide) blade
+                # transmits a sharper impulse so more recoil. The flex factor is 1.0 at the SWORD
+                # reference slenderness, so the D001 SWORD soak is neutral.
+                var recoil_flex_mult: float = CombatConstants.parry_recoil_flex_mult(
+                    CombatConstants.flex_factor_for_slenderness(
+                        recoil_def_weapon.get_blade_slenderness() if recoil_def_weapon != null else 0.0
+                    )
+                )
+                # HEMA: a well-timed parry meets the blade early (near the forte/handle), a short lever
+                # arm so less recoil reaches the wrist; a late parry meets it late (near the schwach/tip),
+                # a long lever arm so more recoil. Driven by parry progress (weapon-independent).
+                var recoil_progress_mult: float = CombatConstants.parry_recoil_progress_mult(
+                    float(recoil_clash.get("parry_progress", 0.5))
+                )
+                # HEMA: a heavier, well-rooted defender has more inertia (Newtonian), so the same
+                # impulse produces less acceleration and less arm shock. Scales as
+                # reference_mass / body_mass. D001 entities carry no species (null) -> neutral 1.0.
+                var recoil_body_mass: float = 0.0
+                if recoil_node != null and "species" in recoil_node and recoil_node.species != null:
+                    var recoil_species = recoil_node.species
+                    if recoil_species.has_method("resolved_reference_mass_kg"):
+                        recoil_body_mass = recoil_species.resolved_reference_mass_kg()
+                var recoil_body_mass_scale: float = CombatConstants.parry_recoil_body_mass_scale(recoil_body_mass)
+                var recoil_transfer: float = recoil_momentum * WeaponConstants.PARRY_DEFLECTION_MOMENTUM_FRACTION * parry_ctrl * recoil_mass_scale * recoil_two_handed_mult * recoil_alignment_mult * recoil_flex_mult * recoil_progress_mult * recoil_body_mass_scale
+                var base_recoil: float = recoil_transfer * WeaponConstants.IMPULSE_DAMAGE_SCALE
+                if recoil_node != null and recoil_node.has_method("_get_vital_parts"):
+                    var right_pain: float = EntityPainConsciousness._get_effective_pain_for_region(recoil_node, BodyPartConstants.PART_RIGHT_ARM)
+                    var left_pain: float = EntityPainConsciousness._get_effective_pain_for_region(recoil_node, BodyPartConstants.PART_LEFT_ARM)
+                    var arm_shock_mult: float = (
+                        PainConsciousnessConstants.get_pain_performance_modifier(right_pain)
+                        + PainConsciousnessConstants.get_pain_performance_modifier(left_pain)
+                    ) * 0.5
+                    base_recoil *= maxf(arm_shock_mult, CombatConstants.PERF_MOD_MIN)
+                var recoil_part: String = BodyPartConstants.PART_CHEST
+                var weapon_side: String = CombatantEntityAccess.get_attacking_arm(tgt)
+                if weapon_side in [BodyPartConstants.PART_RIGHT_ARM, BodyPartConstants.PART_LEFT_ARM]:
+                    recoil_part = weapon_side
+                var applied_recoil: float = base_recoil * WeaponConstants.PARRY_DEFLECTION_SHOCK_TRANSFER
+                if applied_recoil > 0.5 and recoil_node != null:
+                    _apply_parry_deflection_blunt(manager, tgt, target_id, applied_recoil, recoil_part)
             # Weapon position: defender's blade met attacker's; blade ends in attack line.
             # Use effective_attack_line for diagonal moves (actual contact line).
             var move_id: String = atk.get(DataKeys.PA_LAST_MOVE_ID, atk.get(DataKeys.ATTACK_LAST_MOVE_ID, "")) if not atk.is_empty() else ""
             var eff_line: String = atk.get(DataKeys.ATTACK_EFFECTIVE_ATTACK_LINE, "") if not atk.is_empty() else ""
             GuardLineUpdater.set_guard_from_move(tgt, move_id, eff_line)
+            # HEMA: parry bonus scales with parry quality — a clean catch gives a bigger tempo advantage.
+            var _bonus_clash_raw: Variant = result.get(DataKeys.PA_PARRY_CLASH_CONTEXT, null)
+            var _bonus_clash: Dictionary = _bonus_clash_raw if _bonus_clash_raw is Dictionary else {}
+            var _bonus_ctrl: float = float(_bonus_clash.get(CombatConstants.CLASH_KEY_PARRY_CONTROL, CombatConstants.DEFAULT_PARRY_CONTROL))
             tgt[DataKeys.PA_PARRY_BONUS_UNTIL] = CombatTiming.now_seconds() + CombatConstants.PARRY_BONUS_AFTER_DEFLECT_S
+            tgt[DataKeys.PA_PARRY_BONUS_MULT] = CombatConstants.parry_bonus_mult(_bonus_ctrl)
             if not CombatMobilityRetreat.cannot_commit_melee(tgt):
                 CounterTempo.grant_riposte_chain(manager, tgt, attacker_id)
                 var clash_raw: Variant = result.get(DataKeys.PA_PARRY_CLASH_CONTEXT, null)
@@ -541,8 +644,13 @@ static func apply_result(manager: Node, attacker_id: int, result: Dictionary) ->
                 atk[DataKeys.PA_DEFENDER_GUARD_LINE_AT_PARRY] = tgt.get(DataKeys.ATTACK_GUARD_LINE, CombatConstants.GUARD_DEFAULT)
                 atk[DataKeys.PA_DEFENDER_FORM_AT_PARRY] = CombatantEntityAccess.form_str(tgt)
         if not tgt.is_empty():
-            var consec_parries_partial: int = _track_consecutive_parry_for_defender(tgt)
-            _consume_stamina(manager, tgt, _stamina_parry_cost_for_defender(atk, incoming_partial_intensity, consec_parries_partial))
+            var consec_parries_partial: int = _track_consecutive_parry_for_defender(tgt, manager)
+            # HEMA: a partial parry absorbs only a fraction of the incoming momentum — a light deflect
+            # is a smaller isometric demand than a full braced stop. Scale cost by absorption (1 - remaining).
+            var partial_remaining: float = pa_partial_emit.get(DataKeys.ATTACK_PARRY_REMAINING_RATIO, 1.0)
+            var partial_absorption: float = 1.0 - clampf(partial_remaining, 0.0, 1.0)
+            var partial_base_cost: float = _stamina_parry_cost_for_defender(atk, incoming_partial_intensity, consec_parries_partial)
+            _consume_stamina(manager, tgt, partial_base_cost * CombatConstants.partial_parry_stamina_mult(partial_absorption))
             var pa_partial: Dictionary = _pending_attack_read(atk) if not atk.is_empty() else {}
             if not pa_partial.is_empty():
                 _record_resolved_exchange_yomi(tgt, attacker_id, pa_partial, true)
@@ -585,6 +693,11 @@ static func apply_result(manager: Node, attacker_id: int, result: Dictionary) ->
                     tgt[DataKeys.PA_PARRY_BONUS_UNTIL] = (
                         CombatTiming.now_seconds() + CombatConstants.PARRY_BONUS_AFTER_DEFLECT_S
                     )
+                    tgt[DataKeys.PA_PARRY_BONUS_MULT] = CombatConstants.parry_bonus_mult(float(
+                        clash_bind.get(
+                            CombatConstants.CLASH_KEY_PARRY_CONTROL, CombatConstants.DEFAULT_PARRY_CONTROL
+                        )
+                    ))
                     CombatBindPressure.set_after_parry_bind(tgt, manager, attacker_id, float(
                             clash_bind.get(
                                 CombatConstants.CLASH_KEY_PARRY_CONTROL, CombatConstants.DEFAULT_PARRY_CONTROL
@@ -600,10 +713,12 @@ static func apply_result(manager: Node, attacker_id: int, result: Dictionary) ->
                 else:
                     tgt.erase(DataKeys.PA_PARRY_AGAINST_ID)
                     tgt.erase(DataKeys.PA_PARRY_BONUS_UNTIL)
+                    tgt.erase(DataKeys.PA_PARRY_BONUS_MULT)
             else:
                 tgt.erase(DataKeys.PA_PARRY_WAS_BIND)
                 tgt.erase(DataKeys.PA_PARRY_AGAINST_ID)
                 tgt.erase(DataKeys.PA_PARRY_BONUS_UNTIL)
+                tgt.erase(DataKeys.PA_PARRY_BONUS_MULT)
             _defender_set_idle_after_parry(tgt)
         # Apply parry deflection damage — momentum impulse transfers through blade into defender's body.
         # HEMA force-plate: blade contact time ~20ms, 20% of incoming momentum transmits to defender's arm.
@@ -899,7 +1014,8 @@ static func notify_proficiency_gains_from_resolve(
                 )
 
         "hit":
-            # Attacker hit - STR gain scaled by damage dealt.
+            # Attacker hit - STR gain scaled by damage dealt AND opponent difficulty (beating a stronger foe
+            # teaches more — desirable-difficulty principle).
             if attacker_entity != null and "_proficiency_bonus" in attacker_entity:
                 var dmg: float = result_dict.get(DataKeys.RESULT_DMG, 0)
                 var str_gain := (
@@ -909,6 +1025,11 @@ static func notify_proficiency_gains_from_resolve(
                         EntityProficiency.GAIN_MELEE_HIT_MAX_DMG_CONTRIB
                     )
                 )
+                if not tgt.is_empty():
+                    var target_str: float = CombatantEntityAccess.stats_dict(tgt).get(
+                        DataKeys.ENTITY_STRENGTH, EntityProficiency.GAIN_DIFFICULTY_STR_BASE
+                    )
+                    str_gain *= EntityProficiency.opponent_difficulty_mult(target_str)
                 EntityProficiency.award_stat_gain(attacker_entity, "strength", str_gain, weapon_id, form_str)
 
                 # Severe wound bonus (severity from result_dict).
@@ -972,7 +1093,8 @@ static func notify_proficiency_gains_from_resolve(
                 )
 
         "parry_partial":
-            # Attacker gets partial STR gain; defender gets no gain (parry absorbed).
+            # Attacker gets partial STR gain; defender gets a partial END gain for absorbing the reduced hit
+            # (a partial parry still transmits some force into the defender's arm — less than a full deflect).
             if attacker_entity != null and "_proficiency_bonus" in attacker_entity:
                 EntityProficiency.award_stat_gain(
                     attacker_entity,
@@ -980,6 +1102,12 @@ static func notify_proficiency_gains_from_resolve(
                     EntityProficiency.GAIN_STRIKE_ATTEMPTED_BASE * EntityProficiency.GAIN_PARRY_PARTIAL_STR_MULT,
                     weapon_id,
                     form_str
+                )
+            if not tgt.is_empty() and target_entity != null and "_proficiency_bonus" in target_entity:
+                EntityProficiency.award_stat_gain(
+                    target_entity,
+                    "endurance",
+                    EntityProficiency.GAIN_DAMAGE_ABSORBED_BASE * EntityProficiency.GAIN_PARRY_PARTIAL_END_MULT
                 )
 
         "defeated":
@@ -1048,9 +1176,9 @@ static func _apply_parry_deflection_blunt(manager: Node, tgt: Dictionary, target
     if dmg_blunt < 0.5 or tgt.is_empty():
         return
     var node_tgt: Node = CombatantEntityAccess.scene_node(tgt)
-    if node_tgt == null or not node_tgt.has_method("apply_blunt_damage"):
+    if node_tgt == null or not node_tgt.has_method("take_damage_split"):
         return
-    node_tgt.apply_blunt_damage(dmg_blunt, part)
+    node_tgt.take_damage_split(0.0, dmg_blunt, part)
     if CombatConstants.combat_debug_active():
         var tgt_name: String = CombatantEntityAccess.get_display_name(tgt, target_id)
         CombatDebug.log("[ParryDeflect] %s took %.1f blunt from parry shock on %s" % [tgt_name, dmg_blunt, part])

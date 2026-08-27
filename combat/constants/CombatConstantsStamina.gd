@@ -17,6 +17,15 @@ const STAMINA_ATTACK_COST_SCALE := 13.0
 const STAMINA_PARRY_COST := 12.0
 const STAMINA_PARRY_COST_BASE := 8.0
 const STAMINA_PARRY_COST_SCALE := 5.0
+## A partial parry absorbs only a fraction of the incoming momentum (1 - remaining_ratio). A light
+## deflect is a smaller isometric demand than a full braced stop, so its stamina cost is discounted.
+## This is the floor: a partial parry that absorbs nothing still costs this fraction of a full parry
+## (the defender still raised the blade and made contact).
+const PARTIAL_PARRY_STAMINA_FLOOR := 0.5
+## Time window (seconds) within which consecutive parries compound fatigue. If the gap between parries
+## exceeds this, the defender has rested enough that the fatigue resets — the streak counter returns to 1.
+## Matches the typical recovery window (default 1.5s).
+const PARRY_FATIGUE_RESET_S := 1.5
 ## Dodge stamina cost — footwork step + body reposition burns energy; ~60% of parry to reflect lower mechanical demand
 ## but still meaningful (real fighters cannot evade indefinitely without fatigue).
 const STAMINA_DODGE_COST_BASE := 5.0
@@ -69,6 +78,13 @@ static func stamina_attack_cost_from_intensity(intensity: float) -> float:
 
 static func stamina_parry_cost_from_intensity(intensity: float) -> float:
     return STAMINA_PARRY_COST_BASE + STAMINA_PARRY_COST_SCALE * clampf(intensity, 0.0, 1.0)
+
+
+## Stamina cost multiplier for a partial parry, scaled by momentum absorption (1 - remaining_ratio).
+## A light deflect (little absorption) costs PARTIAL_PARRY_STAMINA_FLOOR of a full parry; a near-full
+## stop (full absorption) costs the full amount. Linear in absorption.
+static func partial_parry_stamina_mult(absorption: float) -> float:
+    return lerpf(PARTIAL_PARRY_STAMINA_FLOOR, 1.0, clampf(absorption, 0.0, 1.0))
 
 static func stamina_dodge_cost_from_intensity(intensity: float) -> float:
     return STAMINA_DODGE_COST_BASE + STAMINA_DODGE_COST_SCALE * clampf(intensity, 0.0, 1.0)

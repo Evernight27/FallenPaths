@@ -279,6 +279,8 @@ static func _serialize_entity(entity: Node) -> Dictionary:
         "training_pending": _deep_dup(entity.training_pending) if "training_pending" in entity else {},
         "last_fought_day": int(entity.last_fought_day) if "last_fought_day" in entity else 0,
         "last_fought_in_combat": bool(entity.last_fought_in_combat) if "last_fought_in_combat" in entity else false,
+        "campaign_fatigue": float(entity.campaign_fatigue) if "campaign_fatigue" in entity else 0.0,
+        "weapon_edge_wear": float(entity.weapon_edge_wear) if "weapon_edge_wear" in entity else 0.0,
         "weapon_id": EncounterSpawner.weapon_id_from_entity(entity),
         "armor_by_part": EncounterSpawner.armor_ids_from_entity(entity),
     }
@@ -393,6 +395,10 @@ static func _apply_entity(entity: Node, data: Dictionary) -> void:
         entity.last_fought_day = data.get("last_fought_day", 0)
     if data.has("last_fought_in_combat"):
         entity.last_fought_in_combat = data.get("last_fought_in_combat", false)
+    if data.has("campaign_fatigue"):
+        entity.campaign_fatigue = clampf(float(data.get("campaign_fatigue", 0.0)), 0.0, 1.0)
+    if data.has("weapon_edge_wear"):
+        entity.weapon_edge_wear = clampf(float(data.get("weapon_edge_wear", 0.0)), 0.0, 1.0)
     _sync_entity_vitals(entity)
 
 

@@ -551,6 +551,71 @@ static func _run_formation_move_duration_heavy_armor_slows_estimate(failures: Pa
         _fail(failures, "form_dur_armor: want heavy armor in hint got '%s'" % heavy_hint)
 
 
+## Tier 0: a fractured/crippled leg slows formation-move duration estimates (footwork ∝ 1/leg speed).
+static func _run_formation_move_duration_leg_injury_slows_estimate(failures: PackedStringArray) -> void:
+    var mgr: Node = MgrScript.new()
+    var ent_healthy := _new_entity("SWORD")
+    mgr.register(ent_healthy, "player")
+    var ent_crippled := _new_entity("SWORD")
+    mgr.register(ent_crippled, "player")
+    for _j in 4:
+        mgr.register(_new_entity("SWORD"), "enemy")
+    mgr.start({"files": 4, "ranks": 1}, {"files": 4, "ranks": 1})
+    var healthy_c: Dictionary = mgr.combatants[0]
+    var crippled_c: Dictionary = mgr.combatants[1]
+    var healthy_dur: float = FormationMoveDuration.estimate_solo_fall_back_duration_s(mgr, healthy_c)
+    # Destroy one leg (tissue + bone) on the second member: hobbling gait (~0.55 leg functionality).
+    ent_crippled.body_cutting["left_leg"] = 0.0
+    ent_crippled.body_blunt["left_leg"] = 0.0
+    ent_crippled.bone_health["left_leg"] = 0.0
+    var crippled_dur: float = FormationMoveDuration.estimate_solo_fall_back_duration_s(mgr, crippled_c)
+    # Pair moves are paced by the slower member: healthy initiator + crippled partner slows the pair.
+    var pair_dur: float = FormationMoveDuration.estimate_adjacent_rank_pair_duration_s(
+        mgr, healthy_c, crippled_c, "swap_rank"
+    )
+    _free_manager(mgr)
+    if crippled_dur < healthy_dur * 1.5:
+        _fail(
+            failures,
+            "form_dur_leg: crippled %.3f should exceed healthy %.3f (>=1.5x hobbling slowdown)"
+            % [crippled_dur, healthy_dur]
+        )
+    if pair_dur < healthy_dur * 1.5:
+        _fail(
+            failures,
+            "form_dur_leg: pair %.3f should be paced by crippled member (>=1.5x of %.3f)" % [pair_dur, healthy_dur]
+        )
+
+
+## Fracture cliff: a fractured (bone-depleted) but tissue-intact leg must retain a hobbling value, not
+## collapse to 0.0 (total immobilization) — which was worse than a destroyed leg (0.55), a backwards ordering.
+static func _run_fractured_leg_retains_hobbling_functionality(failures: PackedStringArray) -> void:
+    var ent: CoreEntity = _new_entity("SWORD")
+    var healthy: float = BodyPartQuery.get_leg_functionality(ent)
+    if healthy < 0.99:
+        _fail(failures, "fracture_cliff: healthy leg functionality should be ~1.0 (got %.4f)" % healthy)
+    # Fracture the left leg: bone depleted, tissue intact (still bears partial weight).
+    ent.bone_health["left_leg"] = 0.0
+    var fractured: float = BodyPartQuery.get_leg_functionality(ent)
+    if fractured <= 0.0:
+        _fail(
+            failures,
+            "fracture_cliff: fractured leg should retain a hobbling value > 0.0 (got %.4f)" % fractured
+        )
+    if fractured > 0.55:
+        _fail(
+            failures,
+            "fracture_cliff: fractured leg (%.4f) should not exceed a destroyed-leg hobble (0.55)" % fractured
+        )
+    var expected: float = sqrt(BodyPartQuery.LIMB_BONE_FUNCTIONAL_RATIO)
+    if absf(fractured - expected) > 0.01:
+        _fail(
+            failures,
+            "fracture_cliff: fractured leg (%.4f) should be ~sqrt(LIMB_BONE_FUNCTIONAL_RATIO)=%.4f"
+            % [fractured, expected]
+        )
+
+
 ## P4b: formation duration UI copy  -  canonical tokens, turn-display strip, ii5a-style crowded hint.
 
 

@@ -137,7 +137,14 @@ static func weapon_melee_reach(combatant: Dictionary, default_reach: float = 1.5
     var weapon: Variant = get_weapon(combatant)
     if weapon == null:
         return default_reach
-    return float(weapon.melee_range)
+    var reach: float = float(weapon.melee_range)
+    # Body-size scaling: a smaller wielder has shorter arms, so shorter effective reach (see SpeciesResource).
+    var node: Variant = node_variant(combatant)
+    if node is Node and "species" in node:
+        var species: Variant = (node as Node).species
+        if species != null and species.has_method("body_reach_scale"):
+            reach *= float(species.body_reach_scale())
+    return reach
 
 
 ## Living ally on **`actor`**'s side (alive, same side).

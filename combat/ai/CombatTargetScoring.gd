@@ -436,6 +436,12 @@ static func hostile_pair_targeting_weight_mult(
     w *= stance_ai_targeting_mult(atk)
     if TacticalCombat.attacker_has_co_located_slot_mate_threatening(manager, atk, opp):
         w *= CombatConstants.IV12_AI_COLOCATED_TARGET_BIAS_MULT
+    # Armor avoidance: a real fighter prefers a softer target — striking heavy armor is less efficient (less
+    # damage per blow), so a heavily-armored opponent gets a reduced weight. 0 armor -> 1.0 (no penalty).
+    var opp_node: Node = CombatantEntityAccess.scene_node(opp)
+    var opp_armor_kg: float = CombatantEntityAccess.get_total_armor_mass_kg_from_node(opp_node)
+    var armor_t: float = clampf(opp_armor_kg / maxf(CombatConstants.FORMATION_ARMOR_MASS_REF_KG, 0.001), 0.0, 1.5)
+    w *= lerpf(1.0, CombatConstants.AI_TARGETING_HEAVY_ARMOR_MULT, armor_t)
     if CombatantEntityAccess.is_incapacitated(opp):
         w *= CombatConstants.AI_TARGETING_INCAP_HOSTILE_MULT
     if CombatantEntityAccess.state_str(opp) == CombatConstants.STATE_MEDICAL_WIND_UP:

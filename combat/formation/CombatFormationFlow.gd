@@ -316,6 +316,10 @@ static func start_pair_move(manager: Node, initiator_id: int, partner_id: int, m
     partner.state = st
     partner.state_timer = 0.0
     partner.state_duration = duration
+    # Formation movement is leg exertion: both movers accumulate leg muscle-fatigue (slows subsequent
+    # movement via step_speed_mult, degrades dodge/precision). Reuses the production leg-fatigue writer.
+    CombatMuscleFatigue.apply_formation_exertion(init, move_kind)
+    CombatMuscleFatigue.apply_formation_exertion(partner, move_kind)
     if CombatDebug.flow_verbose_enabled():
         var n0: String = CombatantEntityAccess.get_display_name(init, initiator_id)
         var n1: String = CombatantEntityAccess.get_display_name(partner, partner_id)
@@ -362,6 +366,7 @@ static func start_fall_back_solo(manager: Node, initiator_id: int) -> void:
     init.state = CombatConstants.STATE_FALLING_BACK
     init.state_timer = 0.0
     init.state_duration = duration
+    CombatMuscleFatigue.apply_formation_exertion(init, CombatConstants.MOVE_ID_FALL_BACK)
     if CombatDebug.flow_verbose_enabled():
         var n0: String = CombatantEntityAccess.get_display_name(init, initiator_id)
         CombatDebug.flow_log("fall_back_solo_start %s (%d) (%.2fs)" % [n0, initiator_id, duration])
@@ -413,6 +418,8 @@ static func start_rotate_file(manager: Node, initiator_id: int, partner_id: int)
     partner.state = CombatConstants.STATE_SWAP_RANK
     partner.state_timer = 0.0
     partner.state_duration = duration
+    CombatMuscleFatigue.apply_formation_exertion(init, CombatConstants.MOVE_ID_ROTATE_FILE)
+    CombatMuscleFatigue.apply_formation_exertion(partner, CombatConstants.MOVE_ID_ROTATE_FILE)
     if CombatDebug.flow_verbose_enabled():
         var n0: String = CombatantEntityAccess.get_display_name(init, initiator_id)
         var n1: String = CombatantEntityAccess.get_display_name(partner, partner_id)
@@ -774,6 +781,8 @@ static func start_plug_forward(manager: Node, initiator_id: int, partner_id: int
     partner.state = CombatConstants.STATE_PLUG_FORWARD
     partner.state_timer = 0.0
     partner.state_duration = duration
+    CombatMuscleFatigue.apply_formation_exertion(init, CombatConstants.MOVE_ID_PLUG_FORWARD)
+    CombatMuscleFatigue.apply_formation_exertion(partner, CombatConstants.MOVE_ID_PLUG_FORWARD)
     FormationSlots.remove_combatant_from_slots(slots, CombatantEntityAccess.id_int(init))
     FormationSlots.slot_set_single(slots, Vector2i(r_partner, f), CombatantEntityAccess.id_int(partner))
     if CombatDebug.flow_verbose_enabled():

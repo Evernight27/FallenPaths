@@ -582,10 +582,14 @@ static func apply_damage_split(
 		EntityWounds.add_wound(
 			entity, part, BleedingConstants.INJURY_TYPE_FRACTURE, to_bone, sub_region, fracture_severity, impact_ke
 		)
-	# Concussion from head bone damage (Issue 1).
+	# Concussion from head bone damage (Issue 1). Uses allocated_bone (the KE-allocated bone trauma the strike
+	# DELIVERS to the skull, pre health-pool clamp) rather than the clamped to_bone — a concussion is caused by the
+	# impact force, not by how much of the bone-health pool was consumed. This makes the ratio able to exceed 1.0
+	# for heavy head blows (previously to_bone was capped at cur_bone <= bone_max, so the ratio was always <= 1.0
+	# and the CONCUSSION_BONE_THRESHOLD_MIN gate was unreachable — the whole concussion system was dead code).
 	if to_bone > 0.0 and part == BodyPartConstants.PART_HEAD:
 		var head_bone_max: float = maxf(1.0, float(entity.bone_max.get(part, 8)))
-		EntityPainConsciousness.try_enter_concussion_from_head_bone_damage(entity, to_bone / head_bone_max)
+		EntityPainConsciousness.try_enter_concussion_from_head_bone_damage(entity, allocated_bone / head_bone_max)
 	# Track last hit blunt KE for realistic head trauma classification (Issue: dagger HEAD_TRAUMA at 17J).
 	if part == BodyPartConstants.PART_HEAD and impact_ke > 0.0 and to_blunt > 0.0:
 		entity.set_meta("_last_hit_blunt_ke_j", impact_ke)
@@ -652,13 +656,14 @@ static func apply_damage_split(
 	if entity._is_part_severed(part):
 		var stump_damage: float = entity.body_max.get(part, 10)
 		pain_from_this_hit_raw = entity._get_pain_contribution_for_wound(
-			part, stump_damage, BleedingConstants.SEVERITY_CRITICAL, BleedingConstants.INJURY_TYPE_CUT, sub_region, true
+			part, stump_damage, BleedingConstants.SEVERITY_CRITICAL, BleedingConstants.INJURY_TYPE_CUT, sub_region,
+			true, wound_pen_mm
 		)
 	else:
 		if to_cut > 0.0:
 			var sev_cut: String = EntityWounds.severity_from_damage(entity, part, to_cut, sub_region, impact_ke)
 			pain_from_this_hit_raw += entity._get_pain_contribution_for_wound(
-				part, to_cut, sev_cut, BleedingConstants.INJURY_TYPE_CUT, sub_region, false
+				part, to_cut, sev_cut, BleedingConstants.INJURY_TYPE_CUT, sub_region, false, wound_pen_mm
 			)
 		if to_blunt > 0.0:
 			var total_blunt_source: float = blunt_from_deflection + blunt_from_direct

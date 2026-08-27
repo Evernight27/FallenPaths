@@ -77,6 +77,16 @@ static func on_day_tick(world: Node2D) -> void:
         return
     if _get_state().read_stub_provisions_enabled():
         _apply_daily_provisions(world)
+    _apply_roster_daily_fatigue(world)
+
+
+## Campaign weariness: each day of operations (marching, operating) adds a little fatigue to every member.
+## Recovered by camp rest. Kept small so a rested company stays fresh; compounds if the player never rests.
+static func _apply_roster_daily_fatigue(world: Node2D) -> void:
+    for n in CampaignEncounterBridge.get_fightable_party_nodes(world):
+        var entity: Node = CampaignEncounterBridge.health_entity_from_character(n)
+        if entity != null and entity.has_method("add_campaign_fatigue_day"):
+            entity.add_campaign_fatigue_day()
 
 
 static func _apply_daily_provisions(world: Node2D) -> void:
@@ -84,18 +94,31 @@ static func _apply_daily_provisions(world: Node2D) -> void:
     if need <= 0:
         return
     var have: int = _get_state().get_food_supplies(world)
+    var fed_fraction: float = 1.0
     if have >= need:
         _get_state().set_food_supplies(world, have - need)
+        fed_fraction = 1.0
         if OperationalLog.is_play_session_active():
             OperationalLog.play_world("provisions fed=%d food_left=%d" % [need, _get_state().get_food_supplies(world)])
-        return
-    if have > 0:
-        _get_state().set_food_supplies(world, 0)
-    _get_mood()._apply_not_fed_mood(world)
-    if OperationalLog.is_play_session_active():
-        OperationalLog.play_world(
-            "provisions short need=%d had=%d mood=%.0f" % [need, have, _get_mood().MOOD_NOT_FED_DELTA]
-        )
+    else:
+        if have > 0:
+            _get_state().set_food_supplies(world, 0)
+        fed_fraction = clampf(float(have) / float(need), 0.0, 1.0)
+        _get_mood()._apply_not_fed_mood(world)
+        if OperationalLog.is_play_session_active():
+            OperationalLog.play_world(
+                "provisions short need=%d had=%d mood=%.0f" % [need, have, _get_mood().MOOD_NOT_FED_DELTA]
+            )
+    _apply_roster_nutrition(world, fed_fraction)
+
+
+## Set each living member's nutrition level from the day's feeding fraction (1.0 = well-fed, <1.0 = short rations).
+## Malnutrition slows wound healing (see CoreEntity._get_nutrition_healing_speed_mult).
+static func _apply_roster_nutrition(world: Node2D, fed_fraction: float) -> void:
+    for n in CampaignEncounterBridge.get_fightable_party_nodes(world):
+        var entity: Node = CampaignEncounterBridge.health_entity_from_character(n)
+        if entity != null and entity.has_method("set_nutrition_level"):
+            entity.set_nutrition_level(fed_fraction)
 
 
 static func on_overworld_step(world: Node2D) -> void:

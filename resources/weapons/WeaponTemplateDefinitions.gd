@@ -308,6 +308,7 @@ static func _weapon_definitions_build() -> Dictionary:
                 "tempest": "high_port",
             },
             "mass": 1.8,
+            "is_two_handed": true,
             "parry_speed_factor": 1.0,
             "bind_riposte_contact_types": ["stab"],
             "blade_width": 2.5,
