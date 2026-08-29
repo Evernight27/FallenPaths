@@ -15,7 +15,6 @@ const USE_NORMALIZED_PAIN: bool = true  # Method B = canonical implementation
 # PAIN_REFERENCE = typical pain from 1 moderate hit. Thresholds = NRS - -  PAIN_PER_NRS. Update when damage scale
 # changes.
 const PAIN_REFERENCE_MODERATE_HIT: float = 6.0
-const PAIN_PER_NRS_POINT: float = 3.0  # total_pain / this 'permille^ NRS; research: NRS 4 = first effect
 const PAIN_MODERATE: float = PAIN_REFERENCE_MODERATE_HIT * 2.0  # ~12: ~2 moderate hits
 const PAIN_SEVERE: float = PAIN_REFERENCE_MODERATE_HIT * 4.0  # ~24
 const PAIN_EXTREME: float = PAIN_REFERENCE_MODERATE_HIT * 6.0  # ~36
@@ -61,9 +60,7 @@ const PAIN_PERFORMANCE_EXTREME: float = 0.65  # -65% (NRS 10+: extreme impairmen
 ## Motor modifier affects: swing speed/velocity, movement rate, wind-up duration, grip strength for weapon handling.
 ## Clinical basis: attentional capture (cognitive) occurs at lower pain levels than motor inhibition;
 ## a fighter with moderate leg pain can still strike fast but aims poorly.
-const PAIN_COGNITIVE_SCALE_STEEPNESS: float = 1.25   # cognitive degrades 25% faster per NRS point than motor
-const PAIN_MOTOR_BASELINE_FLOOR: float = 0.6          # at max pain, motor still retains 60% function (survival reflex)
-const PAIN_COGNITIVE_BASELINE_FLOOR: float = 0.3      # at max pain, cognitive degrades to 30% (impaired but not absent)
+## (Steepness/floor values are inline in get_combined_performance_modifier; clinical basis in RESEARCH_pain_cognition_performance.md.)
 
 # --- Conciousness: direct scale (effective_consciousness / 100 = performance scale). ---
 # Incapacitation when true consciousness < this (no longer able to act).
@@ -253,29 +250,6 @@ static func get_pain_shock_duration_seconds(pain_value: float, triggering_hit_da
     return base_duration * impact_mult
 
 
-# --- Arm degradation penalties (Issue 3: flat hit-chance reduction per damage ratio) ---
-# Key = sub-region; value = flat penalty applied to arm-hit chance at 100% damage ratio.
-const ARM_HIT_CHANCE_PENALTIES: Dictionary = {
-    "hand": 0.5,       # hand destroyed => -50% hit chance on that arm
-    "forearm": 0.25,   # forearm severely damaged => -25%
-    "upper_arm": 0.10, # upper arm damaged => -10%
-}
-
-# Scaling: penalty = key_penalty * damage_ratio (linear interpolation from 0 at ratio=0).
-# body_cutting stores REMAINING tissue health, so damage = max - body_cutting; a destroyed arm
-# (body_cutting -> 0) takes the full penalty, a healthy arm (body_cutting = max) takes none.
-static func get_arm_hit_chance_penalty(entity: Node, arm_part: String) -> float:
-    if not ("body_max" in entity) or not ("body_cutting" in entity):
-        return 0.0
-    var max_val: float = entity.body_max.get(arm_part, 1.0)
-    if max_val <= 0.0:
-        return 0.0
-    var damage: float = maxf(0.0, max_val - entity.body_cutting.get(arm_part, 0.0))
-    var damage_ratio: float = clampf(damage / max_val, 0.0, 1.0)
-    var base_penalty: float = ARM_HIT_CHANCE_PENALTIES.get(arm_part, 0.0)
-    return base_penalty * damage_ratio
-
-
 # --- Concussion phase identifiers (numeric constants for match/case). ---
 const CONCUSSION_PHASE_CRITICAL: int = 1
 const CONCUSSION_PHASE_ACUTE: int = 2
@@ -287,17 +261,11 @@ const CONCUSSION_PHASE_RECOVERY: int = 4
 ## then gradual tapering. Weights chosen to approximate this curve across capped game durations:
 ## Critical(15%) captures immediate post-injury confusion/disorientation (~minutes),
 ## Acute(40%) covers the peak symptom period where most patients are still impaired,
-## Subacute(35%) represents the longest recovery window where gradual improvement occurs,
-## Recovery(10%) is the tail-end return-to-baseline period.
+## Subacute(35%) represents the longest recovery window where gradual improvement occurs.
+## Recovery is the remainder (1.0 - the three above) — the tail-end return-to-baseline period.
 const CONCUSSION_PHASE_WEIGHT_CRITICAL: float = 0.15
 const CONCUSSION_PHASE_WEIGHT_ACUTE: float = 0.40
 const CONCUSSION_PHASE_WEIGHT_SUBACUTE: float = 0.35
-const CONCUSSION_PHASE_WEIGHT_RECOVERY: float = 0.10
-
-# --- Concussion perception impairment boundary (used for continuous triage scoring). ---
-## The minimum perception_mult value at concussion onset; used to normalize severity-to-triage mapping.
-## Matches clinical data (GCS 13-15, LOC <30min): perception drops to ~35% of normal immediately post-injury.
-const CONCUSSION_PERCEPTION_CRITICAL_MIN: float = 0.35
 
 # --- TBI / concussion wound-healing impairment (Issue 8). ---
 ## Clinical evidence: traumatic brain injury impairs inflammatory cascade, fibroblast migration, and collagen synthesis.

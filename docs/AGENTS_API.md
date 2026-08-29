@@ -130,6 +130,7 @@ Use when tracing a cross-cutting concern. Open **only** the owning file(s) for y
 | Harness literal strings copied into production | Literals OK in harness `*Tail.gd` / fixtures; production uses constants |
 | Read `c.stamina` without `c.breath` fallback | Both keys set — `"breath"` canonical in new code |
 | New breath-only call sites | `stamina_factor()` / `breath_factor()` alias |
+| Global `randf()` in damage/bleed paths (shifts the seeded D-001 soak RNG sequence → breaks e.g. `ii5_cowering_executed`) | Dedicated `RandomNumberGenerator` seeded from entity+part+game-time (see `EntityDamage.gd` internal-bleed roll) |
 
 **Layers (do not conflate):** menu/resolver **move IDs** · CoreEntity **method names** (`apply_bandage`) · formation flow **`FORMATION_MOVE_KIND_*`** — see `CombatFormationFlow.gd` header.
 

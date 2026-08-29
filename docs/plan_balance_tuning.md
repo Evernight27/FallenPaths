@@ -1,8 +1,74 @@
 # Combat Balance Tuning Plan
 
 **Date:** 2026-07-11
-**Last Updated:** 2026-08-01 — Wounded-vitals exploit implemented; read-guard added
+**Last Updated:** 2026-08-28 — physics verification added; broken proposals superseded (see below). Prior: 2026-08-01 wounded-vitals exploit implemented; read-guard added.
 **Status:** PROPOSAL (pending approval) — **Read-guard:** "Current:" baselines below are pre-ship history, not shipped values; shipped bleeding/death live in `core/BleedingConstants.gd`. Code anchors: line 91, §Issue 2 (lines 522-544).
+
+## Physics Verification (2026-08-28) — supersedes the broken proposals below
+
+> **Verdict:** the plan mixes physically-sound changes with three physically-wrong ones and several stale baselines. The corrected executable set is at the bottom of this section. Proposals marked ⚠️ below are superseded — do not implement them as written.
+
+**Shipped anchors (re-anchored; the "Current:" values in this doc are pre-ship history):**
+`BLOOD_LOSS_RATE_MULTIPLIER = 0.072` (ref uncontrolled-bleed TTD ≈ 41 s, inside the 30–120 s band) · `BLOOD_LOSS_DEATH_THRESHOLD = 30` · head base 1.5, scalp sub-region 1.8, **combined cap `MAX_BODY_PART_SUBREGION_BLEED_MULT = 2.4`** · forearm sub-region 1.15, hand 1.05 · neck sub-region 2.2.
+
+### Physically sound — keep
+- **Arms (Change 3):** grip degradation from arm wounds + systemic blood loss (McCready 1988 / ATLS). The most defensible change. **Correct the stacking math:** hand sub-region is **1.05×** (not 1.35×), so arm 1.3 × hand 1.05 = **1.365×** (not 1.62×).
+- **Thrusts (Change 2 / Issue 3):** deeper penetration `STAB_PENETRATION_MULT = 1.6`, 15% internal bleed (0.15 HP/s, unclottable), bone fraction ×1.4, armor pen ×1.25. Thrust-as-finisher matches Fiore / Meyer / Silver.
+- **Hit/miss (Change 4):** game balance, reasonable direction (HEMA exchanges are frequently non-decisive).
+- **Head-lethality direction:** supported by Visby 1361 / Towton 1461 osteology (high fatal cranial trauma on unarmored heads).
+
+### Physically wrong — corrected / dropped
+1. **⚠️ Scalp 1.8 → 23.0 (34.5×) — DROPPED.** Two independent reasons:
+   - *Category error:* Klemp et al. 1989's 35.7 vs 1.5 mL/100g/min is a **perfusion-per-tissue-mass** ratio, not a **wound-bleeding-rate** ratio. A scalp laceration bleeds ~2–5× a forearm laceration of equal size (dense anastomosis, poor vessel retraction), not 24×.
+   - *Technically impossible:* `MAX_BODY_PART_SUBREGION_BLEED_MULT = 2.4` caps the effective head bleed. Head 1.5 × scalp 1.8 = 2.7 is **already capped to 2.4×**. Setting scalp to 23.0 changes nothing. The only lever for more head bleed is raising the cap itself (a deliberate, gated change) — not the sub-region value.
+2. **⚠️ 92% head-trauma mortality — MISAPPLIED.** Vinas & Pilitsis 2006's 92% is for **penetrating (gunshot)** cranial injury, not blunt trauma. A sword blow is blunt. The direction (head more lethal) stands on the archaeological data, but the 92% figure must not be cited for blunt-head lethality.
+3. **⚠️ Thrusts +30% external bleed — DROPPED (backwards).** This doc's own line 50 states "incised/cut wounds bleed faster externally," and the shipped `BLEEDING_RATES` agree (cut moderate 1.2 vs stab 0.85; cut critical 4.5 vs stab 3.2). The physically-correct thrust differentiator is *deeper penetration + internal bleed*, not higher external bleed.
+4. **⚠️ `BLOOD_LOSS_RATE_MULTIPLIER` 0.10 → 0.15 — DROPPED.** Stale baseline (shipped is 0.072, not 0.10); 0.15 → ref TTD ≈ 19.8 s, **outside the 30–120 s band** (and past the 60 s danger-window gate); the plan's own stated TTDs (critical ~48 s) match the shipped 0.072, not 0.15. If faster bleeding is wanted, do a proper §12 retune **within** the band (e.g. 0.072 → 0.09 → TTD ≈ 33 s) with the full gate re-run.
+5. **⚠️ "death at 35%" — STALE.** Shipped `BLOOD_LOSS_DEATH_THRESHOLD = 30`.
+
+### Stale — already implemented
+- **⚠️ "No concussion mechanic exists" — FALSE.** A full concussion system is already wired in: `EntityPainConsciousness.try_enter_concussion_from_head_bone_damage` (called from `EntityDamage.gd:592`), phase-based per `RESEARCH_concussion_mTBI_combat.md §6b`, with cumulative re-impact, persistent fatigue (cap 0.45), and a second-impact-syndrome catastrophic outcome. Issue 1's "Add Brain Injury Mechanic" is **already done** — do not re-implement. Remaining head work is tuning the existing system, not adding it.
+
+### Status (2026-08-28) — read this first
+
+> **Most of this plan was already shipped before this pass.** Verify against the shipped code (below) before implementing anything — do not re-implement what's already there.
+
+**Implemented this pass (2026-08-28) — gate green (d001 + regression + calibration + doc-links):**
+1. **Thrust internal bleed (Change 2, the missing half):** a deep torso thrust opens a slow *unclottable* internal-organ bleed (0.15 HP/s). Chance **scales with penetration depth** (0 below `PENETRATION_DEPTH_SEVERITY_MIN_MM`, full `INTERNAL_BLEED_CHANCE_TORSO_THRUST = 0.15` at `PENETRATION_DEPTH_SEVERITY_FULL_MM`) so a shallow thrust can't reach the organ plane.
+    - `core/BleedingConstants.gd`: `INJURY_TYPE_INTERNAL_BLEED`, `INTERNAL_BLEED_CHANCE_TORSO_THRUST`, `internal_bleed_chance_torso_thrust()`, `internal_bleed_severity_for_penetration()` (shallow nick = moderate, deep pierce = severe — drives decomp time + pain; capped at severe), `is_unclottable()`, arterial guard.
+    - **Confirmed live (2026-08-28):** a SWORD thrust reaches ~6.5mm (full depth → 15% chance); the internal bleed fires at ~17% through the real `apply_damage_split` path (probe, 400 trials). It is rare by design (deep chest thrusts only), so a given seeded D-001 soak may show 0 — that is expected, not dead code. Durable integration assertion in `WoundedDefenderCautionTests._run_thrust_internal_bleed`.
+   - `core/EntityDamage.gd`: the roll (torso + stab), **dedicated RNG** seeded from entity+part+game-time.
+    - `core/EntityWounds.gd`: unclottable path in `process_bleeding` (rate held constant, no clotting/compensation decay, until the wound heals) **and** external-hemostasis immunity in `get_bleeding_rate_for_part` (direct pressure / tourniquet cannot reduce it — an internal-organ bleed sits inside the body, so compressible-wound reductions don't apply).
+2. **Base miss 8%→10% (Change 4):** `MISS_CHANCE_BASE` 0.08 → 0.10 (`combat/constants/CombatConstantsDamage.gd:7`). HEMA exchanges are frequently non-decisive; the attacker is less generous. (The plan's "6%" baseline was stale — shipped was 0.08.)
+3. **Wounded-defender caution (Change 4, the accurate "caution" alternative):** a defender who is hurt (pain + blood loss) **guards up** — higher parry readiness. The behavioral mirror of the wounded-vitals exploit (attackers press damaged vitals). Distinct from physical degradation (which reduces parry *capacity*): this raises the *preference/readiness* to parry. Feature-gated (`FEATURE_WOUNDED_DEFENDER_CAUTION`), deterministic (no RNG), capped at `1.0 + WOUNDED_DEFENDER_CAUTION_MAX_BONUS` (0.10).
+    - `combat/constants/CombatConstantsFeatureFlags.gd`: flag + `WOUNDED_DEFENDER_CAUTION_PAIN_REF` (6.0, NRS severe-pain boundary) / `_BLOOD_REF` (30.0, ATLS Class III) / `_MAX_BONUS` (0.10).
+    - `combat/weapon_form/PassiveParryContext.gd`: `wound_caution_parry_readiness_mult()` (pain + blood-loss → modest bonus), folded into `get_passive_parry_readiness`.
+    - `harness/regression/core/WoundedDefenderCautionTests.gd`: durable gate test (fresh=1.0, wounded>1.0, feature-off=1.0, capped) + thrust internal-bleed test.
+    - **Empirical (headless D-001, 2026-08-28):** ii2b sword duels ran **5 / 8 / 5 exchanges** — inside the 3–8 target. 7v7 brawl: 22 hits + 19 avoided over 79 turns (large engagement, as expected). All gates green.
+
+**Already shipped — do NOT re-implement:**
+- **Arms (Change 3):** `FEATURE_ARM_WOUND_DEGRADATION` on — sub-region × severity grip loss (`CombatConstantsFeatureFlags.gd:77-110`), exact "-15% attack / -10% parry" ratio (`ARM_WOUND_GRIP_PARRY_PENALTY_RATIO = 10/15`), research gates require it on.
+- **Concussion (Issue 1):** `EntityPainConsciousness.try_enter_concussion_from_head_bone_damage` (wired at `EntityDamage.gd:592`), phase-based, cumulative re-impact, persistent fatigue, second-impact syndrome.
+- **Dodge (Change 4, half):** flat 12% dodge replaced by a windup/reaction-time model capped at 0.35 (`EntityPainConsciousness.gd:11,36`).
+- **Thrust penetration (Change 2, half):** `STAB_PENETRATION_MULT = 1.5` (`WeaponConstants.gd:233`) already deepens thrust penetration.
+- **Thrust armor penetration (Change 2, half):** already modeled via the contact-area factor — a stab's smaller tip area raises `area_factor` → more penetration (`WeaponDamageHelper.gd:535-554`). An explicit ×1.25 would double-count.
+- **Head vitals (Issue 1):** `VITAL_DAMAGE_MULTIPLIERS` already at the proposed values — head **neck 1.75 / face 1.25**, chest thoracic 1.50 / abdominal 1.35 / sternum 1.80 (`core/BleedingConstants.gd:157-176`).
+
+**Remaining (not done this pass):**
+- **Exchange decay (Change 4, third part) — RESEARCHED, NOT IMPLEMENTED (2026-08-28).** The proposal ("after 3 consecutive clean hits, both fighters +5% miss for 2 rounds") is **redundant and physically questionable**; do not implement it as written:
+  - *Fatigue half is already shipped:* the hit-chance `perf_mod` (`AttackResolver.gd:579,633`) multiplies in `exhaustion_performance_mult(combatant.exhaustion)` (`CombatantCombatStateAccess.gd:165-167`). Attackers burn stamina → `CombatExhaustion` accumulates → hit chance drops. Quantified: a 3–8 exchange fight (6–16 attacks, ~14.5–21 stamina each) reaches exhaustion ~0.1–0.3 → **0.6–5.4%** hit-chance reduction (curve², floor 0.40) — comparable to the proposed +5%. Adding the fudge **double-counts fatigue**.
+  - *The "both fighters" framing is wrong:* the fighter landing 3 clean hits is the one **in control**, not more likely to miss. Penalizing the successful attacker has no HEMA/physics basis.
+  - *Accurate alternative:* a **wounded** fighter defends more (higher parry/dodge readiness) and is less accurate — driven by wounds/pain/blood, not a flat hit-count. **The parry-readiness half is now implemented** as `FEATURE_WOUNDED_DEFENDER_CAUTION` (see "Implemented this pass" #3 above). **The "less accurate" half is already shipped** — the hit-chance `perf_mod` (`get_hit_chance_performance_modifier` → `EntityPainConsciousness.get_performance_modifier`, `core/EntityPainConsciousness.gd:637,739`) already folds in pain, consciousness, blood loss (hypovolemic Class I–IV), and concussion, so a hurt/bleeding/concussed attacker already has reduced hit chance. No follow-up needed.
+- **Bleeding rate (Change 5):** dropped as proposed (see ⚠️ #4 above). If soak shows fights too long, do a proper §12 retune **within** the 30–120 s TTD band.
+- **Head bleed route:** capped at `MAX_BODY_PART_SUBREGION_BLEED_MULT = 2.4`. Raising the cap is a separate gated decision (not a sub-region value change).
+
+**Gotchas for future work:**
+- **RNG:** never use global `randf()` in damage/bleed paths — it shifts the seeded D-001 soak RNG sequence and breaks checks (confirmed: a global `randf()` in the internal-bleed roll broke `ii5_cowering_executed`). Use a dedicated `RandomNumberGenerator` seeded from entity+part+game-time. (Also in [`AGENTS_API#anti-patterns`](AGENTS_API.md#anti-patterns).)
+- **Penetration depth is a game unit, not mm:** `PENETRATION_DEPTH_SEVERITY_MIN_MM = 1.0` (shallow graze) → `PENETRATION_DEPTH_SEVERITY_FULL_MM = 5.0` (full depth, organ/bone plane). Reuse these bands so severity/arterial/internal-bleed all agree on "deep enough to matter."
+- **Unclottable wounds:** `is_unclottable()` (internal bleed) bypasses clotting/compensation decay in `process_bleeding`; the rate is constant until the wound heals. External bandage/pressure cannot stop it (that's the point — it's internal).
+- **Fatigue already degrades hit chance:** `perf_mod` in the hit/miss roll includes `exhaustion_performance_mult` (and pain/blood via the entity modifier). Do **not** add a separate "fatigue → miss" mechanic (e.g. the proposed exchange-decay) — it double-counts. Fight-duration levers are base miss, parry/dodge rates, damage, and bleed rate — not a hit-count fudge.
+
+---
 
 ## Implemented: Wounded-Vitals Exploit (2026-08-01)
 

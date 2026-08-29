@@ -32,6 +32,7 @@ const ARCHETYPE_POMMEL: String = "pommel_strike"
 const ARCHETYPE_HEAVY_BLUNT: String = "heavy_blunt"
 const ARCHETYPE_THRUSTING_BLUNT: String = "thrusting_blunt"
 const ARCHETYPE_POLE_SWING: String = "pole_swing"
+const ARCHETYPE_POLE_SLASH: String = "pole_slash"
 const ARCHETYPE_POLL_STRIKE: String = "poll_strike"
 
 ## Kinematic delivery for `WeaponDamageHelper` (abstract  -  no unit positions): thrust = linear band + point-mass KE;
@@ -345,7 +346,11 @@ static func _weapon_definitions_build() -> Dictionary:
                 }
             ],
             "parry_part_id": "shaft",
-            "impact_velocity_bands": {"stab": {"min": 5.0, "max": 8.0}},
+            # cut band override (Tier C, not mass-rescaled): the long-lever slash needs a higher tip-speed
+            # ceiling than the mass-scaled default (12*0.85=10.2 m/s) to reach realistic KE. 14 m/s -> ~87J
+            # max (well under the 145J committed ceiling); ARCHETYPE_POLE_SLASH vf=0.80 keeps committed
+            # slashes in the ~55-66J range.
+            "impact_velocity_bands": {"stab": {"min": 5.0, "max": 8.0}, "cut": {"min": 5.0, "max": 14.0}},
             "strike_physics":
             {
                 "station_mean": 0.48,
@@ -462,6 +467,20 @@ static func _archetype_definitions_build() -> Dictionary:
             "velocity_intensity_curve": 0.95,
             "cut_ratio": -1.0,
             "recovery_multiplier": 1.15,
+            "windup_multiplier": 1.1,
+            "kinematic_delivery": KINEMATIC_DELIVERY_SWING
+        },
+        ARCHETYPE_POLE_SLASH:
+        {
+            # Long-lever polearm CUT (blade strikes at the tip, r≈2.05m). KE = ½·I·(v/r)² is suppressed
+            # by the 1/r² lever penalty, so this needs a higher velocity_factor than POLE_SWING (which is
+            # calibrated for the short-lever shaft-butt blunt, r≈1.0m). Sharing POLE_SWING's vf=0.62 dropped
+            # the committed spear slash to ~17-30J (below the 45J floor). With the spear's Tier C cut band
+            # (5-14 m/s), vf=0.80 lands committed slashes at ~55-66J (in the 45-130J spear band).
+            "velocity_factor": 0.80,
+            "velocity_intensity_curve": 0.95,
+            "cut_ratio": -1.0,
+            "recovery_multiplier": 1.1,
             "windup_multiplier": 1.1,
             "kinematic_delivery": KINEMATIC_DELIVERY_SWING
         },

@@ -368,19 +368,24 @@ static func get_bleeding_rate_for_part(entity: Node, part: String) -> float:
 	if not entity.wounds.has(part):
 		return 0.0
 	var rate: float = 0.0
+	var unclottable_rate: float = 0.0
 	var under_pressure: bool = part_has_active_direct_pressure(entity, part)
 	for injury in entity.wounds[part]:
 		var r: float = injury.get("current_bleeding_rate", 0.0)
+		if BleedingConstants.is_unclottable(str(injury.get("injury_type", ""))):
+			# Internal-organ bleed: external pressure/tourniquet cannot reach it — no reduction.
+			unclottable_rate += r
+			continue
 		if under_pressure:
 			r *= BleedingConstants.direct_pressure_held_flow_retained(injury.get("is_arterial", false))
 		rate += r
-	if not entity.tourniquet_applied.has(part):
-		return rate
-	EntityMedical.ensure_tourniquet_dict_entry(entity, part)
-	var data: Dictionary = entity.tourniquet_applied[part]
-	var eff: float = data.get("effectiveness", 1.0)
-	var reduction: float = eff * BleedingConstants.TOURNIQUET_REDUCTION_AT_FULL
-	return rate * (1.0 - reduction)
+	if entity.tourniquet_applied.has(part):
+		EntityMedical.ensure_tourniquet_dict_entry(entity, part)
+		var data: Dictionary = entity.tourniquet_applied[part]
+		var eff: float = data.get("effectiveness", 1.0)
+		var reduction: float = eff * BleedingConstants.TOURNIQUET_REDUCTION_AT_FULL
+		rate *= (1.0 - reduction)
+	return rate + unclottable_rate
 
 
 static func get_total_bleeding_rate(entity: Node) -> float:
@@ -437,25 +442,6 @@ static func get_part_intervention_threat(entity: Node, part: String) -> float:
 	if EntityMedical._is_tourniquet_indicated_for_part(entity, part):
 		bonus += 1.15
 	return rate * 3.5 + bonus
-
-
-## Concussion triage priority escalation (Issue 6a).
-## A concussed entity receives a medical urgency boost so treatment AI prioritizes them alongside
-## actively-bleeding casualties. Uses interpolated perception_mult for continuous severity scoring:
-## lower perception_mult = more impaired = higher triage priority.
-static func get_concussion_triage_bonus(entity: Node) -> float:
-	if entity == null or not entity.has_meta("_concussion_until_time"):
-		return 0.0
-	var info: Dictionary = EntityPainConsciousness.get_concussion_phase_info(entity)
-	var perc_mult: float = info.get("perception_mult", 1.0)
-	## Map perception_mult [0.35..1.0] → triage bonus [8.0..0.0]:
-	## At onset (perc=0.35): urgent, equivalent to multi-part critical bleeding (bonus=8).
-	## Mid-recovery (perc≈0.73): moderate urgency (bonus≈4).
-	## Near baseline (perc→1.0): bonus fades toward 0.
-	var cur_impairment: float = 1.0 - perc_mult # 0 at full health, ~0.65 at worst concussion
-	var max_possible_impairment: float = 1.0 - PainConsciousnessConstants.CONCUSSION_PERCEPTION_CRITICAL_MIN
-	var normalized: float = clampf(cur_impairment / maxf(max_possible_impairment, 0.001), 0.0, 1.0)
-	return lerp(0.0, 8.0, normalized)
 
 
 ## Untreated parts highest threat first (map field care + triage ordering).
@@ -546,6 +532,13 @@ static func process_bleeding(entity: Node, delta: float) -> void:
 		while i >= 0:
 			var injury: Dictionary = list[i]
 			var rate: float = injury.get("current_bleeding_rate", 0.0)
+			var injury_type: String = str(injury.get("injury_type", ""))
+			if BleedingConstants.is_unclottable(injury_type):
+				# Internal-organ bleed: external pressure/bandage cannot reach it, so the rate is constant
+				# (no clotting decay, no compensation decay). It only stops when the wound heals.
+				injury["current_bleeding_rate"] = float(injury.get("base_bleeding_rate", rate))
+				i -= 1
+				continue
 			var clotting: float
 			if injury.get("is_stabilized", false):
 				clotting = BleedingConstants.CLOTTING_RATE_STABILIZED

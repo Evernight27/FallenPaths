@@ -3,7 +3,6 @@ extends RefCounted
 
 ## Static method forwards for CombatConstants (consts live on CombatConstants.gd).
 
-const AfterblowConstants := preload("res://combat/constants/CombatAfterblowConstants.gd")
 const TimingConstants := preload("res://combat/constants/CombatConstantsTiming.gd")
 const Stamina := preload("res://combat/constants/CombatConstantsStamina.gd")
 const AttackPath := preload("res://combat/constants/CombatConstantsAttackPath.gd")
@@ -18,7 +17,6 @@ const ParryChoice := preload("res://combat/constants/CombatConstantsParryChoice.
 const FeatureFlags := preload("res://combat/constants/CombatConstantsFeatureFlags.gd")
 const RecoveryCause := preload("res://combat/constants/CombatConstantsRecoveryCause.gd")
 const MentalStack := preload("res://combat/constants/CombatConstantsMentalStack.gd")
-const _CounterTempo := preload("res://combat/constants/CombatConstantsCounterTempo.gd")
 const Parry := preload("res://combat/constants/CombatConstantsParry.gd")
 const Footwork := preload("res://combat/constants/CombatConstantsFootwork.gd")
 const FormationMove := preload("res://combat/constants/CombatConstantsFormationMove.gd")
@@ -607,6 +605,14 @@ static func is_feature_arm_wound_degradation_enabled() -> bool:
 
 static func set_feature_arm_wound_degradation_load(enabled: bool) -> void:
 	FeatureFlags.set_feature_arm_wound_degradation_load(enabled)
+
+
+static func is_feature_wounded_defender_caution_enabled() -> bool:
+	return FeatureFlags.is_feature_wounded_defender_caution_enabled()
+
+
+static func set_feature_wounded_defender_caution_load(enabled: bool) -> void:
+	FeatureFlags.set_feature_wounded_defender_caution_load(enabled)
 
 
 static func arm_wound_degradation_doc_sync_line() -> String:

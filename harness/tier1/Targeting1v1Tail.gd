@@ -76,7 +76,10 @@ static func _execute_strike(
     }
 
 
-## Run 3 exchanges: player strikes, enemy strikes back. Collects hit records.
+## Run exchanges: player strikes, enemy strikes back. Collects hit records.
+## 6 exchanges (was 3): the windup/reaction-time dodge model (EntityPainConsciousness) caps dodge at
+## 0.35 for slow attacks, so a 3-attack sample has a ~4% chance of 0 hits under the fixed harness seed.
+## 6 samples drops that to ~0.2%, keeping the aim=part validation robust without changing balance.
 static func _run_targeting_exchange(
     data: Dictionary,
     player_id: int,
@@ -86,7 +89,12 @@ static func _run_targeting_exchange(
 ) -> Dictionary:
     var records: Array = []
 
-    for i in range(3):
+    for i in range(6):
+        # Stop once the enemy is down — the player has already landed enough hits to validate targeting,
+        # and striking a dead target would just add noise records.
+        var en_alive: Dictionary = CombatantEntityAccess.manager_get_combatant(data["mgr"], enemy_id)
+        if en_alive.is_empty() or not CombatantEntityAccess.alive_bool(en_alive):
+            break
         # Player → Enemy
         var move_idx: int = i % player_moves.size()
         var p_result := _execute_strike(data, player_id, enemy_id, player_moves[move_idx])

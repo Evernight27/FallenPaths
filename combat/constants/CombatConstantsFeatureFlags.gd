@@ -23,8 +23,6 @@ const ARM_INTERPOSE_MAX_ALIGN := 0.72
 const ARM_INTERPOSE_ALIGNMENT_BOOST := 0.22
 const ARM_INTERPOSE_MAX_PATH_INDEX := 4
 const ARM_INTERPOSE_HIT_WEIGHT_MULT := 1.55
-const ARM_INTERPOSE_MULT := 0.55
-const ARM_INTERPOSE_MULT_LIGHT_ARMOR := 0.70
 const FEATURE_IV6_ATTACK_PATH_OCTANT := true
 const FEATURE_SURROUND_ARC_OCCUPANCY := true
 const SURROUND_ARC_HALF_WIDTH_DEG := 38.0
@@ -75,6 +73,18 @@ const FEATURE_FIGHT_EXHAUSTION_INDEX := true
 const FEATURE_WOUNDED_VITALS_EXPLOIT := true
 ## Doc-10 Issue 2 (plan_balance_tuning.md): arm sub-region + severity degrade weapon function (grip).
 const FEATURE_ARM_WOUND_DEGRADATION := true
+## Doc-10 (plan_balance_tuning.md): a wounded defender guards up — higher parry readiness. Behavioral mirror of
+## FEATURE_WOUNDED_VITALS_EXPLOIT (attackers press damaged vitals). Distinct from physical degradation (which
+## reduces parry CAPACITY): this raises the PREFERENCE/readiness to parry. Driven by pain + blood loss, not a
+## flat hit-count (see plan_balance_tuning.md "exchange decay" research note).
+const FEATURE_WOUNDED_DEFENDER_CAUTION := true
+## Full caution at this normalized pain (NRS-like, ref ~6.0). NRS 6 = severe-pain boundary (research §5a:
+## 20-30% cognitive drain, simplified decisions) — a fighter this hurt guards up.
+const WOUNDED_DEFENDER_CAUTION_PAIN_REF := 6.0
+## Full caution at this blood loss (100 - blood_volume). ATLS Class III onset ~30% loss (confusion, self-preservation).
+const WOUNDED_DEFENDER_CAUTION_BLOOD_REF := 30.0
+## Max parry-readiness bonus at full caution (modest so it doesn't dominate the parry decision).
+const WOUNDED_DEFENDER_CAUTION_MAX_BONUS := 0.10
 ## Doc-9 (yomi_transitions): a partial-parry **bind** opens the defender counterstrike (riposte chain) window.
 const FEATURE_PARRY_COUNTERSTRIKE_WINDOW := true
 ## Mercy & execution: standing units may finish downed opponents (MOVE_ID_EXECUTE), weighted by personality
@@ -140,6 +150,7 @@ static var _feature_t44_spatial_file_dodge_bias_load: int = -1
 static var _feature_t44_spatial_flurry_pa_load: int = -1
 static var _feature_fight_exhaustion_index: bool = FEATURE_FIGHT_EXHAUSTION_INDEX
 static var _feature_arm_wound_degradation_load: int = -1
+static var _feature_wounded_defender_caution_load: int = -1
 static var _feature_parry_counterstrike_window_load: int = -1
 static var _feature_mercy_execute_load: int = -1
 
@@ -634,6 +645,17 @@ static func set_feature_arm_wound_degradation_load(enabled: bool) -> void:
     _feature_arm_wound_degradation_load = 1 if enabled else 0
 
 
+## Wounded-defender caution (plan_balance_tuning.md): a hurt defender guards up (higher parry readiness).
+static func is_feature_wounded_defender_caution_enabled() -> bool:
+    if _feature_wounded_defender_caution_load >= 0:
+        return _feature_wounded_defender_caution_load != 0
+    return FEATURE_WOUNDED_DEFENDER_CAUTION
+
+
+static func set_feature_wounded_defender_caution_load(enabled: bool) -> void:
+    _feature_wounded_defender_caution_load = 1 if enabled else 0
+
+
 static func arm_wound_degradation_doc_sync_line() -> String:
     return (
         "arm wound degradation: feature=%s penalty_per_unit=%.2f floor=%.2f "
@@ -695,6 +717,7 @@ static func reset_harness_feature_load_overrides() -> void:
     _feature_ambient_pain_shock = FEATURE_AMBIENT_PAIN_SHOCK
     _feature_fight_exhaustion_index = FEATURE_FIGHT_EXHAUSTION_INDEX
     _feature_arm_wound_degradation_load = -1
+    _feature_wounded_defender_caution_load = -1
     _feature_parry_counterstrike_window_load = -1
     _feature_ms_feint_resistance_load = -1
     _feature_ms_post_strike_load = -1

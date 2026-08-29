@@ -26,8 +26,6 @@ const DODGE_AGI_PERCEPTION_SENSITIVITY: float = 0.4   # agility+perception reduc
 ## Pure biomechanics (sqrt(2d/a) with d=0.4 m, a=3-5 m/s²) gives ~0.40-0.52 s; the constant below is a deliberate
 ## gameplay floor set lower so fast-attack dodges stay feasible (dodge is separately capped at DODGE_CHANCE_CEILING).
 const DODGE_MIN_STEP_TIME_S: float = 0.28              # trained fighter minimum physical step to clear path (gameplay floor)
-const DODGE_UNTRAINED_STEP_MULT: float = 1.4           # untrained fighters have longer step times
-const DODGE_REQUIRED_DISPLACEMENT_M: float = 0.4       # lateral displacement needed to avoid strike (m)
 
 ## Dodge ceiling — caps the final dodge_chance to match historical HEMA data showing typical
 ## evasion rates of ~25-35% against trained opponents in close combat when windup exceeds MRT.
@@ -60,10 +58,6 @@ const CONCUSSION_DAMAGE_RATIO_FACTOR: float = 0.2    # damage ratio contribution
 ## In-game angular velocity (rad/s) at head COM converted to acceleration via α = Δω/Δt where Δt ≈ 0.01s impact duration.
 const CONCUSSION_ROTATIONAL_ACC_THRESHOLD_RAD_S2: float = 8.0    # mild TBI onset (VT 5-star scale)
 const CONCUSSION_ROTATIONAL_ACC_SEVERE_RAD_S2: float = 35.0      # severe TBI / guaranteed concussion
-## NOTE: ROTATIONAL_WEIGHT_FACTOR is currently unused — the rotational path (`try_enter_concussion_from_rotation`)
-## is not wired into strike resolution. Only `try_enter_concussion_from_head_bone_damage` fires in gameplay.
-## This constant exists for a future combined-severity implementation; changing it has no effect until then.
-const CONCUSSION_ROTATIONAL_WEIGHT_FACTOR: float = 0.6
 
 # Clinical phase durations for SIS re-impact window check only (not used as game-time boundaries).
 ## Phase boundary weights are in PainConsciousnessConstants.CONCUSSION_PHASE_WEIGHT_*.
@@ -201,7 +195,8 @@ static func try_enter_adrenaline_dump(entity: Node, severity_factor: float = 1.0
 		return  # Below absolute floor — decompensated shock, baroreceptor failure
 	# Compute per-entity threshold jitter for inter-individual variability (-5% to +5%).
 	# Uses entity name hash as pseudo-seed so the same entity always has the same threshold within a session.
-	var jitter_seed: int = hash(entity.name) if entity.has_method("name") else 0
+	# (name is a built-in Node property, always present — no guard needed.)
+	var jitter_seed: int = hash(entity.name)
 	var orig_rand := RandomNumberGenerator.new()
 	orig_rand.seed = jitter_seed
 	var threshold_jitter: float = orig_rand.randf_range(-5.0, 5.0)
@@ -253,39 +248,8 @@ static func tick_adrenaline_dump(entity: Node) -> void:
 			entity._set_adrenaline_phase("surge")
 
 
-# Phase-based perception/cognitive modifiers (fraction of baseline function). Gradual recovery curve:
-## Values below are boundary points for interpolation in get_concussion_phase_info.
-## Within each phase, values interpolate linearly between the onset and offset boundaries.
-## Critical: 35-42% function (58-65% reduction) — matches clinical GCS 13-15 data at concussion onset.
-## Acute: 42-60% function (40-58% reduction) — significant impairment gradually improving.
-## Subacute: 60-85% function (15-40% reduction) — residual foggy thinking improving toward baseline.
-## Recovery: 85-100% function — gradual return to full baseline.
-const CONCUSSION_PERCEPTION_CRITICAL_MULT: float = 0.35 # onset value at concussion time
-const CONCUSSION_PERCEPTION_ACUTE_END_MULT: float = 0.60 # end of acute phase
-const CONCUSSION_PERCEPTION_RECOVERY_START_MULT: float = 0.85 # start of recovery (after subacute)
-
-# New modifier categories beyond perception — concussion affects balance, reaction time, visual tracking.
-## Reaction time delay added by concussion phase (ms over baseline). Combat impact: +100-500ms can be the difference between parrying and being hit.
-## Values are boundary points; interpolation occurs within each phase in get_concussion_phase_info.
-const REACTION_TIME_MS_ADD_CRITICAL_START: float = 500.0 # onset of concussion
-const REACTION_TIME_MS_ADD_ACUTE_END: float = 300.0      # end of acute phase
-const REACTION_TIME_MS_ADD_RECOVERY_END: float = 0.0     # full recovery
-
-## Balance/movement control impairment by concussion phase (fraction of baseline). Vestibular disruption causes gait unsteadiness.
-const BALANCE_MULT_CRITICAL_START: float = 0.50 # onset of concussion
-const BALANCE_MULT_ACUTE_END: float = 0.70      # end of acute phase
-const BALANCE_MULT_RECOVERY_END: float = 1.0     # full recovery
-
-## Visual tracking impairment — ability to follow moving targets/weapons (smooth pursuit, saccadic dysfunction).
-const VISUAL_TRACKING_MULT_CRITICAL_START: float = 0.30 # onset of concussion
-const VISUAL_TRACKING_MULT_ACUTE_END: float = 0.55      # end of acute phase
-const VISUAL_TRACKING_MULT_RECOVERY_END: float = 1.0    # full recovery
-
-## Spatial judgment delay — inability to accurately judge distance, trajectory, timing. Combat impact:
-## +200-480ms makes parrying/aiming nearly impossible at close range. Per research §6c.
-const SPATIAL_JUDGMENT_MS_ADD_CRITICAL_START: float = 480.0 # onset of concussion
-const SPATIAL_JUDGMENT_MS_ADD_ACUTE_END: float = 240.0      # end of acute phase
-const SPATIAL_JUDGMENT_MS_ADD_RECOVERY_END: float = 0.0     # full recovery
+# Phase-based perception/cognitive/balance/reaction/visual/spatial modifiers interpolate continuously in
+# get_concussion_phase_info (values are inline there; clinical basis in RESEARCH_concussion_mTBI_combat.md §6b-6c).
 
 # Second Impact Syndrome (SIS) — catastrophic brain swelling when hit during vulnerable window.
 ## Tier boundaries per research §6d: Critical (0-5min, ×3-5x), Early (5-15min, ×2-3x), Late (15min-2hr, ×1.5-2x).
@@ -293,7 +257,6 @@ const SPATIAL_JUDGMENT_MS_ADD_RECOVERY_END: float = 0.0     # full recovery
 const SIS_CRITICAL_WINDOW_S: float = 300.0               # 5 minutes — research §6d critical tier boundary
 const SIS_EARLY_WINDOW_S: float = 900.0                  # 15 minutes — research §6d early tier boundary
 const SIS_LATE_WINDOW_S: float = 7200.0                  # 2 hours — research §6d late tier boundary
-const SECOND_IMPACT_VULNERABLE_WINDOW_AFTER_MILD_S: float = 3600.0 # 1hr for mild concussion (no prior)
 const SIS_SEVERITY_MULTIPLIER_CRITICAL: float = 4.5      # hit within first 5min — per research ×3-5x range
 const SIS_SEVERITY_MULTIPLIER_EARLY: float = 2.5         # 5min - 15min — per research ×2-3x range
 const SIS_SEVERITY_MULTIPLIER_LATE: float = 1.75         # 15min - 2hr — per research ×1.5-2x range
@@ -587,7 +550,7 @@ static func update_consciousness(entity: Node) -> void:
 	if head_max_total > 0.0:
 		base_consciousness = 100.0 * (head_total / head_max_total)
 	if entity.has_method("is_vital_part_critically_damaged") and entity.is_vital_part_critically_damaged():
-		base_consciousness = minf(base_consciousness, 15.0)
+		base_consciousness = minf(base_consciousness, 4.0)
 	var blood_mod: float = get_blood_consciousness_modifier(entity)
 	var true_consciousness: float = base_consciousness * blood_mod
 	# Adrenaline pain suppression — catecholamine surge reduces pain perception by ~50% during sustained dump.
@@ -827,14 +790,6 @@ static func get_limb_crippling_modifier(entity: Node, limb_part: String) -> floa
 	return clampf(tissue_factor * bone_factor, 0.0, 1.0)
 
 
-static func get_all_limb_crippling_modifiers(entity: Node) -> Dictionary:
-	var modifiers: Dictionary = {}
-	for part in BodyPartConstants.BODY_PARTS:
-		if BodyPartQuery.is_limb(part):
-			modifiers[part] = get_limb_crippling_modifier(entity, part)
-	return modifiers
-
-
 static func get_cumulative_limb_penalty(entity: Node) -> float:
 	# Blend all limb penalties — losing one arm is worse than two minor leg injuries due to weapon handling priority.
 	var right_arm_mod: float = 1.0
@@ -930,10 +885,6 @@ static func get_dodge_chance_with_windup(entity: Node, attacker_windup_override:
 	## regardless of perception/agility — the strike reaches target before body can displace laterally.
 	## This prevents "superhuman" dodges where reaction time alone allows evasion of fast attacks.
 	var step_time: float = DODGE_MIN_STEP_TIME_S
-	if not entity.has_method("_is_untrained"):
-		pass  # assume trained unless marked otherwise
-	elif entity._is_untrained():
-		step_time *= DODGE_UNTRAINED_STEP_MULT
 	# Armor encumbrance increases effective step time — heavy armor slows lateral displacement.
 	var encumbrance_mult: float = _get_armor_encumbrance_modifier(entity)
 	step_time /= encumbrance_mult
@@ -1254,8 +1205,6 @@ static func _get_sis_severity_multiplier(seconds_since_onset: float, cumulative_
 	"""Returns severity multiplier for Second Impact Syndrome based on time since initial concussion.
 	Tiers per research §6d: Critical (0-5min, ×4.5), Early (5-15min, ×2.5), Late (15min-2hr, ×1.75).
 	Cumulative concussions extend the vulnerable window by 30% per prior hit."""
-	if seconds_since_onset == INF:
-		return SIS_SEVERITY_MULTIPLIER_CRITICAL # first impact / just occurred — always critical tier
 	var late_window_extended: float = SIS_LATE_WINDOW_S * (1.0 + cumulative_count * 0.3)
 	if seconds_since_onset < SIS_CRITICAL_WINDOW_S:
 		return SIS_SEVERITY_MULTIPLIER_CRITICAL # 0-5min
@@ -1278,41 +1227,6 @@ static func _calculate_total_recovery_duration(severity: float, cumulative_count
 	var total_with_sis: float = cumulative_total + sis_extension
 	# Apply hard cap after SIS extension to prevent runaway durations in extreme cases.
 	return minf(total_with_sis, CONCUSSION_MAX_TOTAL_DURATION_S * 1.5)
-
-
-static func get_second_impact_vulnerable(entity: Node) -> bool:
-	"""Check if entity is in SIS vulnerable window (brain still healing from prior concussion).
-	Tier boundaries: Critical 0-5min, Early 5-15min, Late 15min-2hr; cumulative hits extend by 30% each."""
-	if not is_concussed(entity):
-		var last_time: float = -1.0
-		if entity.has_meta("_last_concussion_time"):
-			last_time = float(entity.get_meta("_last_concussion_time", -1.0))
-		if last_time < 0.0:
-			return false
-		var current_time: float = _get_current_simulation_time(entity)
-		var elapsed: float = current_time - last_time
-		var cumulative_count: int = get_cumulative_concussion_count(entity)
-		var late_window_extended: float = SIS_LATE_WINDOW_S * (1.0 + cumulative_count * 0.3)
-		return elapsed < maxf(late_window_extended, SIS_CRITICAL_WINDOW_S)
-	return true # actively concussed = vulnerable
-
-
-static func is_in_sis_critical_window(entity: Node) -> bool:
-	"""Returns true if second impact within first 5 minutes of initial concussion (SIS risk highest)."""
-	if not entity.has_meta("_last_concussion_time"):
-		return false
-	var last_time: float = float(entity.get_meta("_last_concussion_time", -1.0))
-	if last_time < 0.0:
-		return false
-	var current_time: float = _get_current_simulation_time(entity)
-	return (current_time - last_time) < SIS_CRITICAL_WINDOW_S
-
-
-static func get_cumulative_concussion_count(entity: Node) -> int:
-	"""Returns number of concussions this entity has sustained in the current session."""
-	if entity.has_meta("_cumulative_concussion_count"):
-		return int(entity.get_meta("_cumulative_concussion_count", 0))
-	return 0
 
 
 static func check_and_apply_sis_catastrophic_outcome(entity: Node, sis_severity: float) -> bool:

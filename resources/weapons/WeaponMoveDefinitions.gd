@@ -422,11 +422,12 @@ static func _move_definitions_build() -> Dictionary:
         },
         "spear_slash":
         {
-            # Spear cut: very long lever (2.05m) kills angular velocity — low KE even at band-max (~46J).
-            # Uses ARCHETYPE_POLE_SWING (vf=0.62, swing) to cap rotational KE into the 45-130J spear band.
+            # Spear cut: very long lever (2.05m) suppresses KE via the 1/r² penalty. Uses ARCHETYPE_POLE_SLASH
+            # (vf=0.80, swing) + the spear's Tier C cut band (5-14 m/s) so committed slashes land ~55-66J
+            # (in the 45-130J spear band) instead of the ~17-30J the shared POLE_SWING vf=0.62 produced.
             "name": "Slash with spearhead",
             "contact_type": ATTACK_TYPE_CUT,
-            "archetype_id": WeaponTemplateDefinitions.ARCHETYPE_POLE_SWING,
+            "archetype_id": WeaponTemplateDefinitions.ARCHETYPE_POLE_SLASH,
             "base_cooldown": 2.8,
             "attack_line": "left",
             "preferred_parts": ["left_arm", "right_arm"],

@@ -55,7 +55,33 @@ static func get_passive_parry_readiness(c: Dictionary) -> float:
     var overcommit_mult: Variant = c.get(DataKeys.PA_OVERCOMMIT_PARRY_MULT, null)
     if overcommit_mult != null and float(overcommit_mult) < 1.0:
         base *= float(overcommit_mult)
-    return base * CombatConstants.PASSIVE_PARRY_READINESS_BASELINE_MULT * CombatConstants.armor_burden_passive_readiness_mult(c)
+    return (
+        base
+        * CombatConstants.PASSIVE_PARRY_READINESS_BASELINE_MULT
+        * CombatConstants.armor_burden_passive_readiness_mult(c)
+        * wound_caution_parry_readiness_mult(c)
+    )
+
+
+## Wounded-fighter caution (plan_balance_tuning.md): a defender who is hurt (pain + blood loss) guards up —
+## higher parry readiness. Behavioral mirror of the wounded-vitals exploit (attackers press damaged vitals).
+## Distinct from physical degradation (which reduces parry CAPACITY): this raises the PREFERENCE/readiness to
+## parry. Feature-gated; deterministic (no RNG). Returns 1.0 when the feature is off or the defender is fresh.
+static func wound_caution_parry_readiness_mult(c: Dictionary) -> float:
+    if not CombatConstants.is_feature_wounded_defender_caution_enabled():
+        return 1.0
+    var entity: Node = CombatantEntityAccess.scene_node(c)
+    if entity == null or not entity.has_method("get_wounded_parts"):
+        return 1.0
+    # Pain component: normalized pain (NRS-like, ref ~6.0) ramping to full caution at severe pain.
+    var pain: float = EntityPainConsciousness.get_effective_pain_for_thresholds(entity)
+    var pain_t: float = clampf(pain / CombatConstants.WOUNDED_DEFENDER_CAUTION_PAIN_REF, 0.0, 1.0)
+    # Blood-loss component: a bleeding fighter becomes more self-preserving.
+    var blood: float = float(entity.blood_volume) if "blood_volume" in entity else 100.0
+    var blood_t: float = clampf((100.0 - blood) / CombatConstants.WOUNDED_DEFENDER_CAUTION_BLOOD_REF, 0.0, 1.0)
+    # Take the stronger signal (a fighter in acute pain OR bleeding out guards up).
+    var caution: float = maxf(pain_t, blood_t)
+    return 1.0 + caution * CombatConstants.WOUNDED_DEFENDER_CAUTION_MAX_BONUS
 
 
 ## True if combatant is still in "off balance" window (after miss or parry deflect).

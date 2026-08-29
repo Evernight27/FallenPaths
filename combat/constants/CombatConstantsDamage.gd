@@ -4,7 +4,9 @@ extends RefCounted
 const DAMAGE_TYPE_SHARP := "SHARP"
 const DAMAGE_TYPE_BLUNT := "BLUNT"
 
-const MISS_CHANCE_BASE := 0.08
+## Base miss chance (plan_balance_tuning.md Change 4): HEMA exchanges are frequently non-decisive
+## (30-50% result in no clean hit), so the attacker is less generous than the pre-ship 0.08 baseline.
+const MISS_CHANCE_BASE := 0.10
 const HIT_CHANCE_PERCEPTION_MIN := 0.8
 const HIT_CHANCE_PERCEPTION_MAX := 1.2
 ## Minimum cap on effective hit chance after all multiplicative penalties (stamina, pain, fatigue).

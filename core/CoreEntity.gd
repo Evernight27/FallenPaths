@@ -525,18 +525,27 @@ func is_dead() -> bool:
 
 
 ## True when a vital part (head/chest) has lost most of its tissue — total (cut + blunt) pools
-## below 30% of max. Previously this fired when a single pool was depleted, so one head hit (a
-## laceration that empties the cut pool) read as "critically damaged" and capped consciousness at
-## 15 — a one-shot head. Now a vital part must be mostly destroyed (~70%+ tissue loss) before it
-## counts, so a single laceration degrades consciousness smoothly (via the head-fraction term in
-## update_consciousness) instead of KO-ing, while a shattered head/chest still drops the fighter to
-## near-unconscious.
+## below 30% of max. A mostly-destroyed vital part caps consciousness at 4 (below the
+## incapacitation floor) so the fighter is unconscious, not a "zombie" winner.
+##
+## Head special case: a head blow KOs only when the skull is actually fractured (brain trauma).
+## A scalp laceration with a >=50%-intact skull degrades consciousness smoothly via the
+## head-fraction term in update_consciousness instead of one-shot KO — matching mTBI data where
+## loss of consciousness occurs in only ~10% of concussions and is brief. Without this gate a
+## sub-fracture head hit (e.g. a 56J clip below the ~80J skull-fracture anchor) emptied the small
+## head tissue pool and KO'd the fighter via the tissue cap alone. Chest has no skull equivalent,
+## so its tissue-destruction cap is unchanged.
 func is_vital_part_critically_damaged() -> bool:
 	const CRITICAL_TISSUE_FRACTION: float = 0.30
 	for part in _get_vital_parts():
 		var max_val: float = float(body_max.get(part, 0.0))
 		if max_val <= 0.0:
 			continue
+		if part == BodyPartConstants.PART_HEAD:
+			var skull_max: float = float(bone_max.get(part, 0.0))
+			var skull_remaining: float = float(bone_health.get(part, 0.0))
+			if skull_max > 0.0 and skull_remaining >= skull_max * 0.5:
+				continue
 		var total: float = float(body_cutting.get(part, 0.0) + body_blunt.get(part, 0.0))
 		if total < max_val * 2.0 * CRITICAL_TISSUE_FRACTION:
 			return true

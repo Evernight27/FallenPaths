@@ -105,7 +105,15 @@ static func _ke_sample_meta(result: Dictionary) -> Dictionary:
 		"move_id": _move_id_from_result(result),
 		"weapon_id": str(result.get("weapon_id", rd.get("weapon_id", ""))),
 		"kinematic_delivery": str(result.get("kinematic_delivery", rd.get("kinematic_delivery", ""))),
+		# Intended aim vs actual landed part — lets the cycle summary report aim-drift
+		# (fraction of intentional hits that land on a different part than aimed).
+		"aim_part": str(result.get("target_part", rd.get("target_part", ""))).strip_edges(),
+		"hit_part": str(rd.get("part", "")).strip_edges(),
 	}
+	var sample_move_id: String = str(sample.get("move_id", ""))
+	if not sample_move_id.is_empty():
+		var move_def: Dictionary = WeaponConstants.get_move(sample_move_id)
+		sample["archetype_id"] = str(move_def.get("archetype_id", ""))
 	var delivery: String = str(sample.get("kinematic_delivery", ""))
 	if delivery.is_empty():
 		var move_id: String = str(sample.get("move_id", ""))
@@ -758,20 +766,24 @@ static func format_cycle_hema_summary(
 		var partial_n: int = int(outcome_counts.get("parry_partial", 0))
 		# parry_bind is a subset of parry_deflect/parry_partial — do NOT double-count in totals.
 		var total_parry_count: int = deflect_n + partial_n
-		(
-			lines
-			. push_back(
-				(
-					"  rates: hit=%.1f%% parry=%.1f%% dodge=%.1f%% miss=%.1f%%"
-					% [
-						float(hit_n) / float(total_exchanges) * 100.0,
-						float(total_parry_count) / float(total_exchanges) * 100.0,
-						float(outcome_counts.get("dodge", 0)) / float(total_exchanges) * 100.0,
-						float(outcome_counts.get("miss", 0)) / float(total_exchanges) * 100.0,
-					]
-				)
-			)
-		)
+		var dodge_n: int = int(outcome_counts.get("dodge", 0))
+		var miss_n: int = int(outcome_counts.get("miss", 0))
+		# Residual exchange events counted in `exchanges` but not a strike outcome (e.g.
+		# parry_deflection_shock, the parrier's recoil self-event). Surfacing them keeps the
+		# rates line summing to 100% instead of silently dropping below it.
+		var other_n: int = total_exchanges - hit_n - total_parry_count - dodge_n - miss_n
+		var rates_line: String = "  rates: hit=%.1f%% parry=%.1f%% dodge=%.1f%% miss=%.1f%%" % [
+			float(hit_n) / float(total_exchanges) * 100.0,
+			float(total_parry_count) / float(total_exchanges) * 100.0,
+			float(dodge_n) / float(total_exchanges) * 100.0,
+			float(miss_n) / float(total_exchanges) * 100.0,
+		]
+		if other_n > 0:
+			rates_line += " other=%.1f%%" % (float(other_n) / float(total_exchanges) * 100.0)
+		lines.push_back(rates_line)
+		var aim_drift_line: String = format_aim_drift(ke_samples)
+		if not aim_drift_line.is_empty():
+			lines.push_back("  " + aim_drift_line)
 		if total_parry_count > 0:
 			(
 				lines
@@ -898,6 +910,37 @@ static func _ke_sample_is_follow_through(sample: Variant) -> bool:
 	return false
 
 
+## Light/probing swings (quick_slash, pommel_strike archetypes) are calibrated below the
+## committed-swing KE band by design (velocity_factor 0.7-0.75 vs 1.0). Identifying them lets the
+## committed_swing bucket report true committed swings instead of light strikes dragging in_band down.
+static func _ke_sample_is_light_swing(sample: Variant) -> bool:
+	if sample is not Dictionary:
+		return false
+	var arch: String = str((sample as Dictionary).get("archetype_id", ""))
+	return arch == WeaponConstants.ARCHETYPE_QUICK_SLASH or arch == WeaponConstants.ARCHETYPE_POMMEL
+
+
+## Aim-drift: fraction of intentional hits (aim_part set) that land on a different part than aimed.
+## Returns e.g. `aim_drift=37.8% (28/74)` or "" when no intentional hits were sampled.
+static func format_aim_drift(ke_samples: Array) -> String:
+	var intentional: int = 0
+	var drifted: int = 0
+	for raw in ke_samples:
+		if not (raw is Dictionary):
+			continue
+		var s: Dictionary = raw as Dictionary
+		var aim: String = str(s.get("aim_part", "")).strip_edges()
+		if aim.is_empty():
+			continue
+		intentional += 1
+		var hit: String = str(s.get("hit_part", "")).strip_edges()
+		if not hit.is_empty() and aim != hit:
+			drifted += 1
+	if intentional == 0:
+		return ""
+	return "aim_drift=%.1f%% (%d/%d)" % [float(drifted) / float(intentional) * 100.0, drifted, intentional]
+
+
 static func _format_ke_bucket_line(
 	label: String, samples: Array, use_weapon_band: bool, band_weapon_id: String = "SWORD", band_delivery: String = ""
 ) -> String:
@@ -952,6 +995,7 @@ static func _format_ke_bucket_lines(ke_samples: Array) -> String:
 	var swing_samples: Array = []
 	var thrust_samples: Array = []
 	var light_samples: Array = []
+	var light_swing_samples: Array = []
 	var follow_through_samples: Array = []
 	for raw in ke_samples:
 		all_samples.append(raw)
@@ -968,6 +1012,10 @@ static func _format_ke_bucket_lines(ke_samples: Array) -> String:
 			light_samples.append(raw)
 		elif _is_thrust_sample(raw):
 			thrust_samples.append(raw)
+		elif _ke_sample_is_light_swing(raw):
+			# Light/probing swings are below the committed-swing band by design — give them their own
+			# band-checked bucket so committed_swing in_band% reflects true committed swings.
+			light_swing_samples.append(raw)
 		else:
 			swing_samples.append(raw)
 	var parts := PackedStringArray()
@@ -977,7 +1025,12 @@ static func _format_ke_bucket_lines(ke_samples: Array) -> String:
 		var thrust_weapon: String = _dominant_weapon_in_samples(thrust_samples)
 		parts.append(_format_ke_bucket_line("thrust", thrust_samples, true, thrust_weapon, "thrust"))
 	if not light_samples.is_empty():
-		parts.append(_format_ke_bucket_line("light", light_samples, true, "DAGGER", "thrust"))
+		# Dagger samples are routed to the light bucket (see _format_ke_bucket_lines); label the ref
+		# "light" to match the bucket instead of the misleading "thrust" delivery tag.
+		parts.append(_format_ke_bucket_line("light", light_samples, true, "DAGGER", "light"))
+	if not light_swing_samples.is_empty():
+		var light_swing_weapon: String = _dominant_weapon_in_samples(light_swing_samples)
+		parts.append(_format_ke_bucket_line("light_swing", light_swing_samples, true, light_swing_weapon, "swing"))
 	if not follow_through_samples.is_empty():
 		parts.append(_format_ke_bucket_line("follow_through", follow_through_samples, false))
 	parts.append(_format_ke_bucket_line("all", all_samples, false))

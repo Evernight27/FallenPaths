@@ -396,6 +396,10 @@ static func apply_damage_split(
 		final_blunt *= vital_mult
 		total_final = final_cut + final_blunt
 		mechanical_post_armor = total_final
+	# NOTE: skull cut-absorption is applied to the ALLOCATED cut tissue (to_cut) after the mechanism is
+	# determined (see below), NOT here on final_cut. Reducing final_cut pre-allocation would lower cut_share
+	# and flip the mechanism sharp->mixed/blunt, corrupting bone allocation (a sword cut would then dump most
+	# of its energy into the skull bone). The mechanism must reflect how the weapon struck, not the skull.
 	var pen_to_tissue: float = 0.0
 	if final_cut > 0.0:
 		pen_to_tissue = pen_s
@@ -447,6 +451,13 @@ static func apply_damage_split(
 	var to_bone: float = alloc.get("to_bone", 0.0)
 	var to_cut: float = alloc.get("to_cut", 0.0)
 	var to_blunt: float = alloc.get("to_blunt", 0.0)
+	# Skull absorption: the dense ~7mm skull blunts a cut's edge before it reaches brain tissue, so a fraction
+	# of the cut TISSUE damage is absorbed. Applied to the allocated cut tissue (to_cut) AFTER the mechanism is
+	# determined, so the weapon's strike classification (sharp/blunt) and bone allocation are unaffected — only
+	# the brain tissue damage is reduced. Prevents a single committed cut from fully lacerating the head in one
+	# blow (see BleedingConstants.HEAD_SKULL_CUT_TRANSMISSION). Cut channel only; blunt/bone skull trauma is unaffected.
+	if part == BodyPartConstants.PART_HEAD and to_cut > 0.0:
+		to_cut *= BleedingConstants.HEAD_SKULL_CUT_TRANSMISSION
 	var mechanism_raw: String = str(alloc.get("mechanism", "mixed"))
 	var mfb_mechanism: String = str(mfb_alloc.get("mechanism", mechanism_raw))
 	var applied_mechanism: String = mechanism_raw
@@ -537,6 +548,24 @@ static func apply_damage_split(
 			BleedingConstants.INJURY_TYPE_STAB if contact_type == WeaponConstants.ATTACK_TYPE_STAB else BleedingConstants.INJURY_TYPE_CUT
 		)
 		EntityWounds.add_wound(entity, part, injury_type_for_wound, to_cut, sub_region, "", impact_ke, wound_pen_mm, wound_extras)
+		# Torso thrusts can open a slow internal-organ bleed (forensic: stabs penetrate deeper and reach
+		# organs surface cuts miss). A separate unclottable wound so it doesn't merge with the external stab.
+		# Chance scales with penetration depth (a shallow thrust can't reach the organ plane). Dedicated RNG
+		# (seeded from entity+part+game-time) so the roll is deterministic per run and varies per thrust
+		# WITHOUT consuming the global RNG sequence (which would shift seeded soak-test outcomes).
+		if contact_type == WeaponConstants.ATTACK_TYPE_STAB and part == BodyPartConstants.PART_CHEST:
+			var ib_chance: float = BleedingConstants.internal_bleed_chance_torso_thrust(wound_pen_mm)
+			if ib_chance > 0.0:
+				var ib_seed: int = hash(
+					"%s:%s:%d" % [entity.name, part, int(float(entity._game_time_seconds) * 1000.0)]
+				)
+				var ib_rng := RandomNumberGenerator.new()
+				ib_rng.seed = ib_seed
+				if ib_rng.randf() < ib_chance:
+					EntityWounds.add_wound(
+						entity, part, BleedingConstants.INJURY_TYPE_INTERNAL_BLEED, 1.0, sub_region,
+						BleedingConstants.internal_bleed_severity_for_penetration(wound_pen_mm), impact_ke, wound_pen_mm, {}
+					)
 	if to_blunt > 0.0:
 		var total_blunt_source: float = blunt_from_deflection + blunt_from_direct
 		var to_blunt_deflected: float = 0.0
@@ -759,7 +788,7 @@ static func _get_severance_threshold_for_part_entity_aware(entity: Node, part: S
 	"""Returns minimum damage to attempt severance for a specific body part, scaled by species tissue budget.
 	Scales thresholds proportionally so smaller species don't require human-scale damage to trigger severance."""
 	var base_threshold: float = _get_severance_threshold_for_part(part)
-	if entity == null or not entity.has_method("body_max"):
+	if entity == null or not ("body_max" in entity):
 		return base_threshold
 	var ref_tissue: float = SEVERANCE_REFERENCE_TISSUE_BY_PART.get(part, 10.0)
 	var cur_tissue: float = float(entity.body_max.get(part, int(ref_tissue)))

@@ -73,8 +73,9 @@ static func ke_band_min_max_for_weapon(weapon_id: String, kinematic_delivery: St
     if wid == "DAGGER":
         return Vector2(15.0, 70.0)
     if delivery == "thrust" and wid == "SPEAR":
-        # Spear thrust: m=3.5kg body-transfer × v²/2 at v=[5,8.0] → [56,112]J; matches committed strike ceiling (145J max)
-        return Vector2(40.0, 130.0)
+        # Spear thrust: m=3.5kg body-transfer × v²/2 at v=[5,8.0] → [56,112]J; matches committed strike ceiling (145J max).
+        # Floor matches the default SPEAR band (45J) so the [Matchup] header ref and the thrust in_band check agree.
+        return Vector2(45.0, 130.0)
     match wid:
         "AXE":
             # Axe cut: short blade (25cm) on long lever (1.105m → low omega) produces less KE than sword.

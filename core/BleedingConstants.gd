@@ -20,6 +20,11 @@ const INJURY_TYPE_CRUSH: String = "crush"
 const INJURY_TYPE_BRUISE: String = "bruise"
 const INJURY_TYPE_FRACTURE: String = "fracture"
 const INJURY_TYPE_COMPOUND_FRACTURE: String = "compound_fracture"
+## Internal-organ bleed: a torso thrust that reaches an organ opens a slow hemorrhage that external
+## pressure/bandaging cannot reach (forensic: stabs penetrate deeper and reach organs surface cuts miss).
+const INJURY_TYPE_INTERNAL_BLEED: String = "internal_bleed"
+## Chance a penetrating torso thrust opens an internal-organ bleed (plan_balance_tuning.md Change 2).
+const INTERNAL_BLEED_CHANCE_TORSO_THRUST: float = 0.15
 
 # --- Severity levels (from damage vs part max; maps to wound depth/vessel involvement) ---
 const SEVERITY_MINOR: String = "minor"
@@ -42,7 +47,11 @@ const BLEEDING_RATES: Dictionary = {
     ## elevated hemorrhage vs closed due to bone marrow vascularization and potential medullary vessel tearing.
     ## Rates are ~1.5× cut at moderate+ severity (not higher than cut — clinical Gustilo-Anderson data shows
     ## compound fractures bleed more than closed but typically less than deep lacerations of major vessels).
-    INJURY_TYPE_COMPOUND_FRACTURE: {SEVERITY_MINOR: 0.0, SEVERITY_MODERATE: 1.5, SEVERITY_SEVERE: 4.0, SEVERITY_CRITICAL: 5.0}
+    INJURY_TYPE_COMPOUND_FRACTURE: {SEVERITY_MINOR: 0.0, SEVERITY_MODERATE: 1.5, SEVERITY_SEVERE: 4.0, SEVERITY_CRITICAL: 5.0},
+    ## Internal-organ bleed: flat slow rate regardless of severity (a nicked organ oozes at a near-constant
+    ## rate until treated). Kept well below the cut/stab external rates — the lethality comes from it being
+    ## unclottable, not from a high instantaneous rate.
+    INJURY_TYPE_INTERNAL_BLEED: {SEVERITY_MINOR: 0.0, SEVERITY_MODERATE: 0.15, SEVERITY_SEVERE: 0.15, SEVERITY_CRITICAL: 0.15}
 }
 
 # --- Body part bleeding multipliers (scalp/face/trunk more vascular; StatPearls / clinical) ---
@@ -166,6 +175,14 @@ const VITAL_DAMAGE_MULTIPLIERS: Dictionary = {
     BodyPartConstants.PART_LEFT_LEG:  {"thigh": 1.20, "knee": 1.0, "calf": 0.9, "foot": 0.8, "inner_thigh": 1.50}
 }
 
+## Skull cut transmission — fraction of the allocated CUT (sharp) TISSUE damage that reaches brain tissue after the
+## dense ~7mm skull blunts the edge (1.0 - this = absorbed by the skull). Applied to the allocated cut tissue
+## (to_cut) AFTER the mechanism is determined, so the weapon's strike classification and bone allocation are
+## unaffected — only the brain tissue damage is reduced. Cut channel only (blunt/bone skull trauma is unaffected).
+## Prevents a single committed cut from fully lacerating the head in one blow, while keeping the head the most
+## fragile region and allowing multiple blows to destroy it.
+const HEAD_SKULL_CUT_TRANSMISSION: float = 0.2
+
 # Groin-specific multiplier — applied when the attack targets the upper inner thigh region which clinically contains
 # the femoral artery and vein in close proximity. A strike here has disproportionate hemorrhage risk even though it's
 # technically on a leg part. Applied as an additional ×1.5 on top of thigh's 1.20 (net = 1.8) for groin-targeted hits.
@@ -258,8 +275,6 @@ const DECOMPENSATION_BLOOD_THRESHOLD: float = 50.0  # blood volume % — below t
 ## Decompensation accelerates bleeding: failed vasoconstriction causes rebound vasodilation and
 ## increased capillary leak. Models the nonlinear collapse from compensatory to decompensated shock.
 const DECOMPENSATION_BLEED_ACCEL_MULT: float = 1.8  # +80% bleed rate when in decompensation
-## Decompensation accelerates blood volume drain (perfusion failure, microvascular leakage).
-const DECOMPENSATION_BLOOD_DRAIN_MULT: float = 1.25  # +25% blood loss rate when decompensated
 ## Field fluid resuscitation / transfusion: fraction of the current blood deficit restored per
 ## application at full effectiveness (scaled by treatment effectiveness). Closes the one-way
 ## decompensation death spiral — a medic can pull a bleeding-out comrade back above the
@@ -404,16 +419,6 @@ const BLEEDING_TYPE_CLOTTING_MULT: Dictionary = {
     BLEEDING_TYPE_CAPILLARY: 2.5     # capillary bleeding clots rapidly; minor wounds self-limiting in seconds
 }
 
-# Bandaging effectiveness by bleeding type.
-## Tourniquets are the only reliable intervention for arterial extremity hemorrhage (TCCC CoTCCC guidelines).
-## Simple bandages are ineffective on arterial bleeds without direct pressure applied simultaneously.
-const BLEEDING_TYPE_BANDAGE_EFFECTIVENESS: Dictionary = {
-    BLEEDING_TYPE_ARTERIAL: 0.25,     # bandaging alone rarely stops arterial bleeding; needs tourniquet
-    BLEEDING_TYPE_VENOUS: 1.0,        # baseline bandage effectiveness (TCCC conventional bandages ~32-70% hemostasis)
-    BLEEDING_TYPE_CAPILLARY: 1.5      # capillary bleeds easily controlled with simple dressing
-}
-
-
 # --- Bandaging ---
 # Research: arterial wounds need direct pressure / tourniquets; simple bandages less effective (pressure inhibits clot).
 # Option A: stronger reduction to compensate for slower clotting (2-5 min to hemostasis).
@@ -487,11 +492,6 @@ const DIRECT_PRESSURE_ARTERIAL_EFFECTIVENESS_MULT: float = 0.7  # first-touch tr
 # Bleeding rate +/-variance at wound creation (simulates hit in more/less vascular spot).
 const BLEEDING_RATE_VARIANCE_MIN: float = 0.9
 const BLEEDING_RATE_VARIANCE_MAX: float = 1.1
-
-## Deep penetrating injuries (spear thrust, dagger stab) disrupt major vessels by their nature — even low-energy
-## penetrations should bleed more than superficial cuts at equivalent damage values. This reflects ATLS data on
-## penetrating vs blunt trauma hemorrhage patterns.
-const PENETRATION_BLEED_MIN_MULT: float = 1.5
 
 # --- Tourniquet (limb-only; stops arterial/venous flow when applied correctly) ---
 # Only limbs can be tourniqueted; head/chest/junctional need packing/direct pressure. CoTCCC, TCCC guidelines.
@@ -623,8 +623,6 @@ static func penetration_depth_severity_mult(penetration_to_tissue_mm: float) -> 
     if penetration_to_tissue_mm >= PENETRATION_DEPTH_SEVERITY_FULL_MM:
         return 1.0
     var span: float = PENETRATION_DEPTH_SEVERITY_FULL_MM - PENETRATION_DEPTH_SEVERITY_MIN_MM
-    if span <= 0.01:
-        return 1.0
     var t: float = (penetration_to_tissue_mm - PENETRATION_DEPTH_SEVERITY_MIN_MM) / span
     return lerpf(PENETRATION_DEPTH_SEVERITY_SHALLOW_MULT, 1.0, clampf(t, 0.0, 1.0))
 
@@ -638,10 +636,34 @@ static func penetration_depth_arterial_mult(penetration_to_tissue_mm: float) -> 
     if penetration_to_tissue_mm >= PENETRATION_DEPTH_SEVERITY_FULL_MM:
         return PENETRATION_DEPTH_ARTERIAL_DEEP_MULT
     var span: float = PENETRATION_DEPTH_SEVERITY_FULL_MM - PENETRATION_DEPTH_SEVERITY_MIN_MM
-    if span <= 0.01:
-        return 1.0
     var t: float = (penetration_to_tissue_mm - PENETRATION_DEPTH_SEVERITY_MIN_MM) / span
     return lerpf(PENETRATION_DEPTH_ARTERIAL_SHALLOW_MULT, PENETRATION_DEPTH_ARTERIAL_DEEP_MULT, clampf(t, 0.0, 1.0))
+
+
+## Internal-organ bleed chance for a torso thrust, scaled by penetration depth (game mm).
+## A shallow thrust (pen < MIN) can't reach the organ plane; a deep thrust (pen >= FULL) reaches it at
+## full chance. Reuses the same depth bands as the severity/arterial models so all three agree on what
+## "deep enough to matter" means. Returns 0.0 when penetration is unknown (< 0) or too shallow.
+static func internal_bleed_chance_torso_thrust(penetration_to_tissue_mm: float) -> float:
+    if penetration_to_tissue_mm < PENETRATION_DEPTH_SEVERITY_MIN_MM:
+        return 0.0
+    if penetration_to_tissue_mm >= PENETRATION_DEPTH_SEVERITY_FULL_MM:
+        return INTERNAL_BLEED_CHANCE_TORSO_THRUST
+    var span: float = PENETRATION_DEPTH_SEVERITY_FULL_MM - PENETRATION_DEPTH_SEVERITY_MIN_MM
+    var t: float = (penetration_to_tissue_mm - PENETRATION_DEPTH_SEVERITY_MIN_MM) / span
+    return INTERNAL_BLEED_CHANCE_TORSO_THRUST * clampf(t, 0.0, 1.0)
+
+
+## Severity of an internal-organ bleed, scaled by penetration depth (game mm). A shallow thrust that just
+## reaches the organ plane nicks it lightly (moderate); a deep thrust that pierces through nicks it hard
+## (severe). Mirrors internal_bleed_chance_torso_thrust's depth bands. Capped at SEVERE — a nicked organ
+## oozes, it is not a severed artery, so it never reaches the CRITICAL arterial decomp band.
+static func internal_bleed_severity_for_penetration(penetration_to_tissue_mm: float) -> String:
+    if penetration_to_tissue_mm < PENETRATION_DEPTH_SEVERITY_MIN_MM:
+        return SEVERITY_MODERATE
+    var span: float = PENETRATION_DEPTH_SEVERITY_FULL_MM - PENETRATION_DEPTH_SEVERITY_MIN_MM
+    var t: float = (penetration_to_tissue_mm - PENETRATION_DEPTH_SEVERITY_MIN_MM) / span
+    return SEVERITY_SEVERE if t >= 0.5 else SEVERITY_MODERATE
 
 
 ## ATLS hemorrhage class 1 - 4 from remaining blood volume % (ATLS 10th ed. loss bands).
@@ -789,12 +811,21 @@ static func get_clotting_multiplier(severity: String) -> float:
     return CLOTTING_SEVERITY_MULTIPLIERS.get(severity, 1.0)
 
 
+## True when a wound type cannot be clotted by external means (pressure/bandage). Internal-organ bleeds
+## sit inside the body, so the clotting path holds their rate constant instead of decaying it.
+static func is_unclottable(injury_type: String) -> bool:
+    return injury_type == INJURY_TYPE_INTERNAL_BLEED
+
+
 # Chance (0.0-1.0) that a wound is arterial based on severity, injury type (cut vs crush), body part, and sub-region.
 # Research-based. Crush uses ARTERIAL_CRUSH_MULTIPLIER - -  SUB_REGION_BLUNT_ARTERIAL_MODIFIER for region-specific cut
 # vs blunt differentiation.
 static func get_arterial_chance(
     severity: String, injury_type: String, part: String, sub_region: String = "", penetration_to_tissue_mm: float = -1.0
 ) -> float:
+    # Internal-organ bleeds are a slow constant ooze, not an arterial event — no arterial chance/multiplier.
+    if injury_type == INJURY_TYPE_INTERNAL_BLEED:
+        return 0.0
     var base_chance: float = ARTERIAL_CHANCE_BY_SEVERITY.get(severity, 0.06)
     if injury_type == INJURY_TYPE_CRUSH:
         base_chance *= ARTERIAL_CRUSH_MULTIPLIER
