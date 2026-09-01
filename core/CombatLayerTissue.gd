@@ -126,13 +126,33 @@ static func soft_tissue_budget_mm(part: String) -> float:
 
 
 ## Remaining KE reaching bone for blunt MFB when `FEATURE_BLUNT_TISSUE_KE_GATE` is on.
+##
+## Crush-capacity model: soft tissue (muscle/fat/scalp) has a finite crush capacity equal to the
+## part's `budget` (J). A blow at or below the budget is fully absorbed (the tissue crumples and
+## dissipates it); a blow above the budget soaks exactly `budget` J and transmits the excess to bone.
+##     absorbed = min(budget, strike_ke_j);  transmitted = max(0.0, strike_ke_j - budget)
+## This is the physically-correct steady state for a yield/crush layer: at high KE the tissue stops
+## absorbing more than its capacity (it is already destroyed), so transmission grows linearly with the
+## blow rather than saturating at full pass-through. It gives the budget a real effect — a committed
+## 111 J swing into the 22 J arm soaks 22 J and sends ~89 J to bone (not ~110 J) — while keeping the
+## skull breakable (111 J mace/hammer to the 25 J head still sends ~86 J, above the ~80 J scalp anchor).
+## Low-KE glances below the budget transmit nothing (no false fractures); a sub-anchor blow still lands
+## below the bone fracture anchor, so the budget creates a genuine fracture threshold.
+##
+## NOTE: an earlier pure-exponential model `ke*(1-exp(-ke/budget))` passed ~99% of a 5x-budget blow
+## through (absorbing <1 J), making the budget a near-no-op at high KE (the blunt-KE research warn).
+## The flat model was once rejected on the claim it "under-transmitted the skull," but at the calibrated
+## anchors a committed mace (~108 J) sends ~83 J to the scalp — above the 80 J fracture anchor — so the
+## skull still fractures and concusses under the flat model.
 static func blunt_ke_reaching_bone(part: String, strike_ke_j: float) -> float:
     if strike_ke_j < 0.0:
         return -1.0
     if not BleedingConstants.FEATURE_BLUNT_TISSUE_KE_GATE:
         return strike_ke_j
     var budget: float = BLUNT_TISSUE_KE_BUDGET_J_BY_PART.get(part, 24.0)
-    return maxf(-1.0, strike_ke_j - budget)
+    if budget <= 0.0:
+        return strike_ke_j
+    return maxf(0.0, strike_ke_j - budget)
 
 
 static func _state_rank(state: String) -> int:

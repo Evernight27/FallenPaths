@@ -46,6 +46,14 @@ static func play_session_is_editor_f5() -> bool:
     return _play_session_active and not _play_session_scene.begins_with("headless://")
 
 
+## True when the active session is a genuine soak context: a real editor F5 (scene under res://)
+## or a headless D-001 soak (headless:// scene). Unit-test sessions ("harness", "test") return false.
+static func play_session_is_soak_context() -> bool:
+    if not _play_session_active:
+        return false
+    return _play_session_scene.begins_with("res://") or _play_session_scene.begins_with("headless://")
+
+
 ## Between fights in one F5 session: allow the same line to log again (new encounter).
 static func reset_fight_fp_channel_dedupe() -> void:
     _last_play_combat_body = ""

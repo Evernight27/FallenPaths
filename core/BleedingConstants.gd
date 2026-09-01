@@ -227,6 +227,13 @@ const MAX_BLOOD_VOLUME: float = 100.0
 # 30-120s gameplay band so the medical system creates real urgency. Shipped 0.072 -> ref-bleed TTD ~41s
 # (70 / (23.62 * 0.072)); the clinical 180-300s is a relative-ordering reference only, NOT the calibration target.
 const BLOOD_LOSS_RATE_MULTIPLIER: float = 0.0720
+## Hard cap on total blood loss rate (% blood/s) after all multipliers (KE blend, arterial,
+## decompensation, exertion). A sane ceiling for stacked arterial bleeds: at 3.5%/s the worst case
+## (100%→30% death threshold) is ~20s exsanguination, i.e. ~2x the reference-bleed TTD (~41s,
+## BLOOD_LOSS_RATE_MULTIPLIER 0.072). Arterial is intentionally faster than the 30-120s reference
+## band (that speed is what makes it arterial); the cap only stops the absurd top end (e.g. 5-10s).
+## To clamp the worst case to the 30s band floor instead, set this to ~2.33 (70/30).
+const MAX_TOTAL_BLOOD_LOSS_RATE: float = 3.5
 # Death when remaining blood_volume <= this. 30% remaining = 70% lost. Deliberately more lenient than clinical
 # exsanguination (~40-50% lost is fatal) so the medical system (tourniquet/bandage/pack) can still save a fighter;
 # the consciousness floor (BLOOD_CONSCIOUSNESS_FLOOR_THRESHOLD) carries the near-death weight — a fighter is
@@ -257,14 +264,6 @@ const MEDICAL_TRIAGE_DANGER_BLOOD_REMAINING: float = 55.0
 const MEDICAL_TRIAGE_PERIL_BLOOD_REMAINING: float = 47.0
 const MEDICAL_TRIAGE_DANGER_SECONDS: float = 60.0
 const MEDICAL_TRIAGE_PERIL_SECONDS: float = 30.0
-
- # --- Compensation phase (ATLS): vasoconstriction delays full bleeding rate onset. ---
-## When a wound first opens, sympathetic nervous system triggers vasoconstriction that limits
-## hemorrhage. Bleeding rate starts at near-full and decays toward a sustained baseline (~20%)
-## over ~30 seconds as compensatory mechanisms engage. Separate from clotting — this is the
-## physiological delay before full hemorrhage manifests.
-const COMPENSATION_FLOOR_MULT: float = 0.35   # bleeding decays to ~35% of initial rate
-const COMPENSATION_DECAY_RATE: float = 0.045  # per second; half-life ~15s to reach floor
 
  # --- Decompensation threshold: ATLS Class III→IV nonlinear collapse. ---
 ## When blood volume drops below this, compensatory mechanisms fail and the patient enters

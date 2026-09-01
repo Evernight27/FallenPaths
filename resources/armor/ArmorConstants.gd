@@ -29,6 +29,13 @@ const DURABILITY_LOSS_RATE: float = 0.1
 const DURABILITY_MIN_DAMAGE_FLAT: float = 0.5
 const DURABILITY_MIN_DAMAGE_RATIO: float = 0.05
 const BLUNT_DURABILITY_THRESHOLD_RATIO: float = 0.5
+# Joule-path durability wear: the joule walk (FEATURE_JOULE_ARMOR_BUDGET) calls the pure static
+# penetration/transmission math, which never mutated layer durability — so a piece absorbed
+# identically on contact 1 and contact 50 (armor never wore). This scale converts absorbed KE (J)
+# into durability loss so armor progressively fails under repeated blows. 0.5 normalizes J (a
+# committed strike ~100 J) to the same wear order-of-magnitude as the scalar path's damage units:
+# a plate layer (durability 100, rate 0.07) wears ~3.5/committed hit -> fails after ~28 hits.
+const JOULE_KE_DURABILITY_SCALE: float = 0.5
 
 # --- Generic layer stats (cloth, leather, mail, plate only) ---
 # Sharp resistance: mm RHA equivalent. Nonlinear pen = (KE/55)^0.6 - -  area_factor (Williams).

@@ -48,8 +48,20 @@ static func process_death_tick(manager: Node, c: Dictionary) -> String:
     CombatFootwork.clear_on_death(c)
     c.state = CombatConstants.STATE_DEAD
     cancel_events_for_dead_combatant(manager, c)
+    # Emit died signal for deaths caught by per-tick check (vital destruction grace period expiry
+    # or blood loss). The immediate emit was removed from EntityDamage for vital destruction;
+    # this is the deferred emission path that ensures the signal fires exactly once.
+    var death_scene_node: Node = CombatantEntityAccess.scene_node(c)
+    if death_scene_node != null:
+        EntityWounds.emit_death_once(death_scene_node)
     var death_reason: String = CombatantEntityAccess.get_death_reason(c)
     var who: String = CombatantEntityAccess.get_display_name(c)
+    # Grace-expiry trace: a vital death registered by the per-tick path means the vital-destruction
+    # grace countdown reached 0 (combat_time), i.e. the kill landed seconds after the fatal hit.
+    # vital_grace_has_elapsed() (not grace <= 0.0) excludes test-manipulated destructions where no
+    # grace was ever armed (remains -1.0), so only real expiries are traced.
+    if death_scene_node != null and death_scene_node.has_method("vital_grace_has_elapsed") and death_scene_node.vital_grace_has_elapsed():
+        CombatDebug.combat_session("VITAL_GRACE_EXPIRED %s -- %s" % [who, death_reason])
     if OperationalLog.play_session_is_editor_f5():
         CombatF5SoakTrace.note_death_tick(who, death_reason)
     else:

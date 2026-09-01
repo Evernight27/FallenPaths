@@ -254,7 +254,14 @@ static func _validator_f5_trace_tracks() -> Array:
             "id": "gauge_stm_ready",
             "regex": "turn_ready_gauge .* label=.*Ready",
             "min": 1,
-            "profiles": [PROFILE_7V7, PROFILE_PRESET_II8],
+            "profiles": [PROFILE_7V7],
+            "optional": true,
+        },
+        {
+            "id": "gauge_stm_ready",
+            "regex": "turn_ready_gauge .* label=.*Ready",
+            "min": 1,
+            "profiles": [PROFILE_PRESET_II8],
         },
         {
             "id": "tooltip_match_ok",

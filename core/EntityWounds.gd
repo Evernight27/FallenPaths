@@ -243,7 +243,6 @@ static func add_wound(
 		"is_arterial": is_arterial,
 		"created_at_game_time": entity._game_time_seconds,
 		"healing_duration_seconds": healing_duration,
-		"compensation_mult": 1.0,
 		"penetration_to_tissue_mm": penetration_to_tissue_mm
 	}
 	entity.wounds[part].append(injury)
@@ -322,8 +321,7 @@ static func create_stump_wound(entity: Node, part: String, sub_region: String) -
 		"is_arterial": is_arterial,
 		"created_at_game_time": entity._game_time_seconds,
 		"healing_duration_seconds": healing_duration,
-		"is_stump": true,
-		"compensation_mult": 1.0
+		"is_stump": true
 	}
 	return [injury]
 
@@ -535,7 +533,7 @@ static func process_bleeding(entity: Node, delta: float) -> void:
 			var injury_type: String = str(injury.get("injury_type", ""))
 			if BleedingConstants.is_unclottable(injury_type):
 				# Internal-organ bleed: external pressure/bandage cannot reach it, so the rate is constant
-				# (no clotting decay, no compensation decay). It only stops when the wound heals.
+				# (no clotting decay). It only stops when the wound heals.
 				injury["current_bleeding_rate"] = float(injury.get("base_bleeding_rate", rate))
 				i -= 1
 				continue
@@ -571,17 +569,8 @@ static func process_bleeding(entity: Node, delta: float) -> void:
 					var now: float = CombatTiming.now_seconds()
 					if now < entity._pain_shock_until_time:
 						clotting *= 0.75
-			# Compensatory delay (vasoconstriction): bleeding starts at full rate, then decays toward
-			# a sustained baseline (~35%) over ~30 s. This models the ATLS compensation phase where
-			# sympathetic nervous system triggers vasoconstriction to limit hemorrhage before shock onset.
-			var comp_mult: float = injury.get("compensation_mult", 1.0)
-			if comp_mult > BleedingConstants.COMPENSATION_FLOOR_MULT:
-				injury["compensation_mult"] = maxf(
-					BleedingConstants.COMPENSATION_FLOOR_MULT,
-					comp_mult - BleedingConstants.COMPENSATION_DECAY_RATE * delta
-				)
-			# Compensation (vasoconstriction) is tracked on the injury for display/debug; rate reduction is handled by
-			# clotting alone so bleeding decays on the clinical minutes timescale (moderate cuts clot in 2-7 min).
+			# Bleed-rate decay is handled by clotting alone (clinical minutes timescale); no separate
+			# vasoconstriction/compensation delay is applied.
 			rate *= exp(-clotting * delta)
 			rate = maxf(0.0, rate)
 			if rate <= BleedingConstants.BLEEDING_RATE_EPSILON:
@@ -672,7 +661,12 @@ static func process_blood_loss(entity: Node, delta: float) -> void:
 	if BloodVolumeMl.entity_uses_ml(entity):
 		BloodVolumeMl.process_blood_loss_tick(entity, total, delta, loss_mult, recovery_per_s)
 	elif total > 0.0:
-		var loss: float = BleedingConstants.blood_volume_loss_per_second(total, loss_mult) * delta
+		var loss_rate: float = BleedingConstants.blood_volume_loss_per_second(total, loss_mult)
+		# Cap total blood loss rate (same ceiling as the mL path). See
+		# BleedingConstants.MAX_TOTAL_BLOOD_LOSS_RATE: a sane ceiling for stacked arterial
+		# bleeds, not a 30s band floor.
+		loss_rate = minf(loss_rate, BleedingConstants.MAX_TOTAL_BLOOD_LOSS_RATE)
+		var loss: float = loss_rate * delta
 		entity.blood_volume = maxf(0.0, entity.blood_volume - loss)
 	if recovery_per_s > 0.0 and not BloodVolumeMl.entity_uses_ml(entity):
 		entity.blood_volume = minf(BleedingConstants.MAX_BLOOD_VOLUME, entity.blood_volume + recovery_per_s * delta)

@@ -207,7 +207,13 @@ static func _weapon_definitions_build() -> Dictionary:
                 {"id": "shaft", "length_cm": 55, "mass_fraction": 0.3, "parry_eligible": true, "striking_for": ["blunt"]}
             ],
             "parry_part_id": "shaft",
-            "impact_velocity_bands": {"blunt": {"min": 5.0, "max": 12.0}},
+            # Committed-velocity band. Max raised 12.0 -> 14.0 m/s: the old 12.0 m/s cap (x mass
+            # scaling ~0.875) limited committed mace KE to ~69 J, just under the ~80 J skull
+            # fracture anchor, so a committed mace blow could never fracture the skull or trigger
+            # concussion (0/10 head KOs in the weapon sweep). 14.0 m/s -> ~90 J committed, which
+            # with the tissue-yield gate (CombatLayerTissue.blunt_ke_reaching_bone) transmits past
+            # the anchor. Min unchanged (glancing blows stay weak).
+            "impact_velocity_bands": {"blunt": {"min": 5.0, "max": 14.0}},
             "strike_physics":
             {
                 "station_mean": 0.62,

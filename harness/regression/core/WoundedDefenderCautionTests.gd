@@ -168,6 +168,167 @@ static func _run_head_skull_ko_gate(failures: PackedStringArray) -> void:
 		_fail(failures, "skull_gate_healthy: pristine head must NOT be critically damaged")
 
 
+## Vital-destruction grace period (CoreEntity._vital_grace_remaining): a destroyed vital part
+## does NOT kill immediately. The grace countdown is armed by EntityDamage when the vital is
+## destroyed, decremented each process_blood_loss tick, and is_dead() returns true only when
+## the countdown reaches 0. During the grace the entity is incapacitated (consciousness capped)
+## but still alive. Per-part values: head 1.5s, chest 3.0s, fallback 2.5s.
+static func _run_vital_destruction_grace(failures: PackedStringArray) -> void:
+	# --- Fresh entity: no vital destroyed, not dead. ---
+	var fresh: CoreEntity = _new_entity("SWORD")
+	if fresh.is_vital_part_destroyed():
+		_fail(failures, "grace_fresh: fresh entity must NOT have destroyed vital")
+	if fresh.is_dead():
+		_fail(failures, "grace_fresh_dead: fresh entity must NOT be dead")
+	if fresh.vital_grace_has_elapsed():
+		_fail(failures, "grace_fresh_elapsed: fresh entity must NOT have elapsed grace")
+
+	# --- Destroy chest vital (both tissue pools to 0), grace armed. ---
+	var chest: CoreEntity = _new_entity("SWORD")
+	chest.body_cutting[BodyPartConstants.PART_CHEST] = 0.0
+	chest.body_blunt[BodyPartConstants.PART_CHEST] = 0.0
+	var chest_grace: float = CoreEntity.vital_grace_period_for_part(BodyPartConstants.PART_CHEST)
+	chest._vital_grace_remaining = chest_grace
+	if not chest.is_vital_part_destroyed():
+		_fail(failures, "grace_chest_destroyed: destroyed chest must report vital destroyed")
+	if chest.is_dead():
+		_fail(failures, "grace_chest_alive: during grace, entity must NOT be dead")
+	if chest.vital_grace_has_elapsed():
+		_fail(failures, "grace_chest_not_elapsed: grace must NOT have elapsed yet")
+	if not is_equal_approx(chest_grace, 3.0):
+		_fail(failures, "grace_chest_value: chest grace want 3.0 got %f" % chest_grace)
+
+	# --- Grace expiry: after countdown reaches 0, is_dead() returns true. ---
+	chest._vital_grace_remaining = 0.0
+	if not chest.is_dead():
+		_fail(failures, "grace_chest_expired: after grace expiry, entity must be dead")
+	if not chest.vital_grace_has_elapsed():
+		_fail(failures, "grace_chest_elapsed: after expiry, grace must have elapsed")
+
+	# --- Head uses shorter grace (1.5s). ---
+	var head: CoreEntity = _new_entity("SWORD")
+	head.body_cutting[BodyPartConstants.PART_HEAD] = 0.0
+	head.body_blunt[BodyPartConstants.PART_HEAD] = 0.0
+	var head_grace: float = CoreEntity.vital_grace_period_for_part(BodyPartConstants.PART_HEAD)
+	head._vital_grace_remaining = head_grace
+	if head.is_dead():
+		_fail(failures, "grace_head_alive: head during grace must NOT be dead")
+	if not is_equal_approx(head_grace, 1.5):
+		_fail(failures, "grace_head_value: head grace want 1.5 got %f" % head_grace)
+
+	# --- Limb destruction does NOT trigger vital grace. ---
+	var arm: CoreEntity = _new_entity("SWORD")
+	arm.body_cutting[BodyPartConstants.PART_RIGHT_ARM] = 0.0
+	arm.body_blunt[BodyPartConstants.PART_RIGHT_ARM] = 0.0
+	arm.bone_health[BodyPartConstants.PART_RIGHT_ARM] = 0.0
+	if arm.is_vital_part_destroyed():
+		_fail(failures, "grace_limb: destroyed arm must NOT count as vital destroyed")
+	if arm.is_dead():
+		_fail(failures, "grace_limb_dead: destroyed arm alone must NOT kill")
+
+	# --- process_blood_loss decrements the grace countdown. ---
+	var tick_test: CoreEntity = _new_entity("SWORD")
+	tick_test.body_cutting[BodyPartConstants.PART_CHEST] = 0.0
+	tick_test.body_blunt[BodyPartConstants.PART_CHEST] = 0.0
+	tick_test._vital_grace_remaining = 3.0
+	tick_test.process_blood_loss(1.0)
+	if not is_equal_approx(tick_test._vital_grace_remaining, 2.0):
+		_fail(failures, "grace_tick: after 1.0s tick, grace want 2.0 got %f" % tick_test._vital_grace_remaining)
+	tick_test.process_blood_loss(1.0)
+	tick_test.process_blood_loss(1.0)
+	if tick_test._vital_grace_remaining > 0.0:
+		_fail(failures, "grace_tick_zero: after 3.0s ticks, grace want <=0 got %f" % tick_test._vital_grace_remaining)
+	if not tick_test.is_dead():
+		_fail(failures, "grace_tick_dead: after grace fully elapsed via ticks, entity must be dead")
+
+	# --- Fallback grace for unlisted parts. ---
+	var fallback: float = CoreEntity.vital_grace_period_for_part("unknown_part")
+	if not is_equal_approx(fallback, CoreEntity.VITAL_DESTRUCTION_GRACE_PERIOD_S):
+		_fail(failures, "grace_fallback: unknown part grace want %f got %f" % [CoreEntity.VITAL_DESTRUCTION_GRACE_PERIOD_S, fallback])
+
+
+## Two-tier vital consciousness cap (EntityPainConsciousness.update_consciousness): a DESTROYED
+## vital caps consciousness at 4.0 (incapacitation), a merely CRITICALLY-damaged vital caps it at
+## 12.0 (severely impaired but conscious). Head is kept pristine and blood held at 100% so the
+## head-fraction and blood terms are neutral (base=100, blood_mod=1.0) and only the cap is
+## exercised. This pins the "less aggressive on critical hits" fix: a critical (non-destroyed)
+## vital must NOT be dragged down to the 4.0 incapacitation floor.
+static func _run_vital_consciousness_cap(failures: PackedStringArray) -> void:
+	# Control: healthy entity keeps full consciousness (head intact, blood 100%).
+	var healthy: CoreEntity = _new_entity("SWORD")
+	healthy.blood_volume = 100.0
+	healthy._update_consciousness()
+	if absf(healthy.consciousness - 100.0) > 0.01:
+		_fail(failures, "consc_cap_healthy: pristine want ~100.0 got %.2f" % healthy.consciousness)
+
+	# Critically damaged chest (tissue < 30% but not zero) -> cap at 12.0.
+	var chest_max: float = float(_new_entity("SWORD").body_max.get(BodyPartConstants.PART_CHEST, 30.0))
+	var critical: CoreEntity = _new_entity("SWORD")
+	critical.body_cutting[BodyPartConstants.PART_CHEST] = chest_max * 0.1
+	critical.body_blunt[BodyPartConstants.PART_CHEST] = chest_max * 0.1
+	critical.blood_volume = 100.0
+	critical._update_consciousness()
+	if not critical.is_vital_part_critically_damaged():
+		_fail(failures, "consc_cap_critical_setup: chest SHOULD be critically damaged")
+	if absf(critical.consciousness - 12.0) > 0.01:
+		_fail(failures, "consc_cap_critical: critical vital want cap 12.0 got %.2f" % critical.consciousness)
+
+	# Destroyed chest (tissue zero), grace armed so is_dead() is false during the grace -> cap at 4.0.
+	var destroyed: CoreEntity = _new_entity("SWORD")
+	destroyed.body_cutting[BodyPartConstants.PART_CHEST] = 0.0
+	destroyed.body_blunt[BodyPartConstants.PART_CHEST] = 0.0
+	destroyed.blood_volume = 100.0
+	destroyed._vital_grace_remaining = CoreEntity.vital_grace_period_for_part(BodyPartConstants.PART_CHEST)
+	destroyed._update_consciousness()
+	if not destroyed.is_vital_part_destroyed():
+		_fail(failures, "consc_cap_destroyed_setup: chest SHOULD read as destroyed")
+	if destroyed.is_dead():
+		_fail(failures, "consc_cap_destroyed_alive: during grace the entity must NOT be dead")
+	if absf(destroyed.consciousness - 4.0) > 0.01:
+		_fail(failures, "consc_cap_destroyed: destroyed vital want cap 4.0 got %.2f" % destroyed.consciousness)
+
+
+## Crush-capacity tissue KE gate (CombatLayerTissue.blunt_ke_reaching_bone): soft tissue soaks at most
+## its `budget` (J); a blow at/below the budget transmits nothing, a blow above it transmits
+## (ke - budget). Locks the flat model in place against a regression to the old pure-exponential
+## `ke*(1-exp(-ke/budget))`, which passed ~99% of a strong blow through and left the budget a no-op.
+static func _run_blunt_ke_crush_capacity(failures: PackedStringArray) -> void:
+	if not BleedingConstants.FEATURE_BLUNT_TISSUE_KE_GATE:
+		_fail(failures, "blunt_ke_crush: FEATURE_BLUNT_TISSUE_KE_GATE must be on")
+		return
+	var arm_budget: float = CombatLayerTissue.BLUNT_TISSUE_KE_BUDGET_J_BY_PART.get("right_arm", 22.0)
+	var head_budget: float = CombatLayerTissue.BLUNT_TISSUE_KE_BUDGET_J_BY_PART.get("head", 25.0)
+	# Below the budget: fully absorbed, nothing reaches bone.
+	if CombatLayerTissue.blunt_ke_reaching_bone("right_arm", arm_budget * 0.5) > 1e-6:
+		_fail(failures, "blunt_ke_crush_below: ke<=%f want 0 got %f" % [arm_budget * 0.5, CombatLayerTissue.blunt_ke_reaching_bone("right_arm", arm_budget * 0.5)])
+	# At the budget: nothing transmits.
+	if CombatLayerTissue.blunt_ke_reaching_bone("right_arm", arm_budget) > 1e-6:
+		_fail(failures, "blunt_ke_crush_at: ke=%f want 0 got %f" % [arm_budget, CombatLayerTissue.blunt_ke_reaching_bone("right_arm", arm_budget)])
+	# Above the budget: flat subtraction (ke - budget).
+	var ke_hi: float = arm_budget + 30.0
+	var expected_hi: float = 30.0
+	if absf(CombatLayerTissue.blunt_ke_reaching_bone("right_arm", ke_hi) - expected_hi) > 0.01:
+		_fail(failures, "blunt_ke_crush_flat: ke=%f want %f got %f" % [ke_hi, expected_hi, CombatLayerTissue.blunt_ke_reaching_bone("right_arm", ke_hi)])
+	# The budget has a real effect at committed KE: tissue must absorb at least ~budget J.
+	# (Anti no-op check — the old exponential absorbed <1 J at this KE.)
+	var committed_ke: float = 111.0
+	var committed_trans: float = CombatLayerTissue.blunt_ke_reaching_bone("right_arm", committed_ke)
+	var absorbed: float = committed_ke - committed_trans
+	if absorbed < arm_budget - 0.5:
+		_fail(failures, "blunt_ke_crush_effect: committed %f J absorbed only %f J (want >= ~%f)" % [committed_ke, absorbed, arm_budget])
+	# Monotonic in KE.
+	if CombatLayerTissue.blunt_ke_reaching_bone("right_arm", ke_hi) <= CombatLayerTissue.blunt_ke_reaching_bone("right_arm", arm_budget + 10.0):
+		_fail(failures, "blunt_ke_crush_mono: transmission must increase with KE")
+	# Head: a committed blow must still clear the scalp fracture anchor (skull stays breakable).
+	var head_trans: float = CombatLayerTissue.blunt_ke_reaching_bone("head", committed_ke)
+	var scalp_anchor: float = CombatDamageMechanism.blunt_fracture_j_anchor("head", "scalp")
+	if head_trans <= scalp_anchor:
+		_fail(failures, "blunt_ke_crush_head: committed head %f J must exceed scalp anchor %f (got %f)" % [committed_ke, scalp_anchor, head_trans])
+	if head_budget > 0.0:
+		if absf(head_trans - (committed_ke - head_budget)) > 0.01:
+			_fail(failures, "blunt_ke_crush_head_flat: head ke=%f want %f got %f" % [committed_ke, committed_ke - head_budget, head_trans])
+
+
 static func _inject_painful_wound(e: CoreEntity, part: String, sub_region: String, severity: String) -> void:
 	if not e.wounds.has(part):
 		e.wounds[part] = []

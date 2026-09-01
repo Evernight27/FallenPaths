@@ -28,6 +28,7 @@ docs/__pycache__/
 .audit_*.txt
 .medical_phase_harness_out.txt
 .f5_camp_smokes_batch.txt
+.batch_report.txt
 
 # CI / local lint venv
 .ci-venv/

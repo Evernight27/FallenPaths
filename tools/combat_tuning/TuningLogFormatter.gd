@@ -259,6 +259,112 @@ static func format_vitals_suffix(entity: Node) -> String:
 	return "blood=%.0f%% %s consc=%.0f" % [blood, atls, float(entity.consciousness)]
 
 
+## Tags each side's vitals string with [WIN]/[LOSS] so the collapsed fighter and the winner are
+## unambiguous even though vitals are always ordered Attacker-first. Returns e.g.
+## `[LOSS] Attacker blood=37% ATLS-IV consc=5 | [WIN] Defender blood=69% ATLS-III consc=95`.
+## Empty tags (plain join) for mutual/draw where no single side won.
+static func tagged_vitals_pair(atk_vitals: String, def_vitals: String, winner_name: String) -> String:
+	var atk_tag: String = ""
+	var def_tag: String = ""
+	if winner_name != "mutual" and winner_name != "draw":
+		if atk_vitals.begins_with(winner_name + " "):
+			atk_tag = "[WIN] "
+			def_tag = "[LOSS] "
+		else:
+			atk_tag = "[LOSS] "
+			def_tag = "[WIN] "
+	var bit := PackedStringArray()
+	if not atk_vitals.is_empty():
+		bit.append(atk_tag + atk_vitals)
+	if not def_vitals.is_empty():
+		bit.append(def_tag + def_vitals)
+	if bit.is_empty():
+		return ""
+	return " | ".join(bit)
+
+
+## Blood-loss + structural invariant audit. Blood volume only decreases via active wound
+## bleeding (so lost>3% with wounds=0 is a bleed-accounting bug), and tissue % should track with
+## wound count/severity. Returns a compact per-side line, e.g.
+## `recon atk blood 100→37% lost=63 wounds=4 bleed=1.5%/s tissue=82% | def ...`
+## Flags: `? unaccounted blood loss` (lost>3% + no wounds + no bleed);
+## `? death-state inconsistent` (is_dead() but blood>threshold and tissue>30%).
+static func format_realism_recon(atk_entity: Node, def_entity: Node) -> String:
+	var atk_bit: String = _recon_side_bit(atk_entity)
+	var def_bit: String = _recon_side_bit(def_entity)
+	if atk_bit.is_empty() and def_bit.is_empty():
+		return ""
+	return "recon " + atk_bit + " | " + def_bit
+
+
+## Extracts the flagged invariant warnings from a recon string (everything after the first `?`).
+## Used by _run_batch to accumulate anomaly counts without re-computing entity state.
+static func _format_recon_flags(recon: String) -> String:
+	var q_pos: int = recon.find("?")
+	if q_pos < 0:
+		return ""
+	return recon.substr(q_pos).strip_edges()
+
+
+static func _recon_side_bit(entity: Node) -> String:
+	if entity == null or not is_instance_valid(entity):
+		return ""
+	entity.ensure_consciousness_current()
+	var blood: float = float(entity.blood_volume)
+	var lost: float = _Bleeding.MAX_BLOOD_VOLUME - blood
+	var rate: float = 0.0
+	var wound_count: int = 0
+	if ("wounds" in entity) and (entity.wounds is Dictionary):
+		rate = EntityWounds.get_total_bleeding_rate(entity) * _Bleeding.BLOOD_LOSS_RATE_MULTIPLIER
+		var wounds: Dictionary = entity.wounds as Dictionary
+		for p in wounds.keys():
+			var arr: Array = wounds[p]
+			if arr is Array:
+				wound_count += arr.size()
+	var tissue_pct: float = 100.0
+	if "body_cutting" in entity and "body_max" in entity:
+		var total_tissue: float = 0.0
+		var max_tissue: float = 0.0
+		var body_max: Dictionary = entity.body_max as Dictionary
+		for p in body_max.keys():
+			total_tissue += float(entity.body_cutting.get(p, 0.0)) + float(entity.body_blunt.get(p, 0.0))
+			max_tissue += float(body_max[p]) * 2.0
+		if max_tissue > 0.0:
+			tissue_pct = total_tissue / max_tissue * 100.0
+	var flags: PackedStringArray = []
+	if lost > 3.0 and wound_count == 0 and rate < 0.05:
+		flags.append("? unaccounted blood loss")
+	if "is_dead" in entity and entity.is_dead():
+		var blood_above_thresh: bool = blood > _Bleeding.BLOOD_LOSS_DEATH_THRESHOLD
+		var tissue_above_crit: bool = true
+		if "is_vital_part_critically_damaged" in entity:
+			tissue_above_crit = not entity.is_vital_part_critically_damaged()
+		if blood_above_thresh and tissue_above_crit:
+			flags.append("? death-state inconsistent")
+	var flag_str: String = ""
+	if not flags.is_empty():
+		flag_str = " " + " ".join(flags)
+	var ttd_above: float = blood - _Bleeding.BLOOD_LOSS_DEATH_THRESHOLD
+	var ttd_str: String = "ttd=inf"
+	if rate > 0.0 and ttd_above > 0.0:
+		ttd_str = "ttd=~%ds" % int(round(ttd_above / rate))
+	elif ttd_above <= 0.0:
+		ttd_str = "ttd=0"
+	return (
+		"blood %d%%→%d%% lost=%d wounds=%d bleed=%.1f%%/s tissue=%d%% %s%s"
+		% [
+			int(round(_Bleeding.MAX_BLOOD_VOLUME)),
+			int(round(blood)),
+			int(round(lost)),
+			wound_count,
+			rate,
+			int(round(tissue_pct)),
+			ttd_str,
+			flag_str,
+		]
+	)
+
+
 ## Compact bleed-cause tag for a contact line so "why is this fighter's blood dropping" is answerable
 ## without cross-referencing the fight-end wound table. Returns e.g. `bleed=12.3%/s (forearm arterial, severe)` —
 ## the target part's total bleed rate, its worst sub-region when that wound is arterial, and the highest
@@ -652,13 +758,18 @@ static func _cause_code(cause: String) -> String:
 	if c.is_empty():
 		return "OTHER"
 	if c == "bled_out":
-		return "BLEED_OUT"
+		return "EXSANGUINATION"
+	if c == "vital_destroyed":
+		return "VITAL_DESTROYED"
 	if c == "kill":
 		return "KILL"
 	if c.begins_with("head"):
 		return "HEAD_TRAUMA"
-	if c.begins_with("blood loss"):
-		return "BLEED_OUT"
+	# Hemorrhagic syncope = unconscious (alive) from Class III/IV blood loss. Distinct from
+	# EXSANGUINATION (dead, blood below the death threshold) so the logs no longer conflate
+	# "unconscious from bleeding" with "bled out (dead)". Legacy "blood loss" prose maps here.
+	if c.begins_with("hemorrhagic syncope") or c.begins_with("blood loss"):
+		return "HEMORRHAGIC_SYNCOPE"
 	if c.begins_with("unconscious"):
 		return "UNCONSCIOUS"
 	if c.begins_with("leg") or c.begins_with("arm destruction"):
@@ -802,13 +913,9 @@ static func format_cycle_hema_summary(
 	lines.push_back("  damage: atk=%.1f def=%.1f" % [atk_dmg, def_dmg])
 	lines.push_back("  " + _format_ke_aggregate(ke_samples))
 	lines.push_back("  " + _format_ke_bucket_lines(ke_samples))
-	if not atk_vitals.is_empty() or not def_vitals.is_empty():
-		var vitals_bit := PackedStringArray()
-		if not atk_vitals.is_empty():
-			vitals_bit.append(atk_vitals)
-		if not def_vitals.is_empty():
-			vitals_bit.append(def_vitals)
-		lines.push_back("  " + " | ".join(vitals_bit))
+	var vitals_line: String = tagged_vitals_pair(atk_vitals, def_vitals, winner_name)
+	if not vitals_line.is_empty():
+		lines.push_back("  " + vitals_line)
 	lines.push_back("  " + aggregate_line)
 	return "\n".join(lines)
 
@@ -845,14 +952,10 @@ static func format_cycle_hema_summary_oneline(
 	var ke_line: String = _format_ke_aggregate(ke_samples)
 	if not ke_line.is_empty():
 		parts.append(ke_line.trim_prefix("KE_all: "))
-	parts.append("dmg=%d/%d" % [int(atk_dmg), int(def_dmg)])
-	var vitals_bit := PackedStringArray()
-	if not atk_vitals.is_empty():
-		vitals_bit.append(atk_vitals)
-	if not def_vitals.is_empty():
-		vitals_bit.append(def_vitals)
+	parts.append("dmg=atk%d/def%d" % [int(atk_dmg), int(def_dmg)])
+	var vitals_bit: String = tagged_vitals_pair(atk_vitals, def_vitals, winner_name)
 	if not vitals_bit.is_empty():
-		parts.append(" | ".join(vitals_bit))
+		parts.append(vitals_bit)
 	return "--- Cycle: %s wins (%s) — %s" % [winner_name, end_cause, " ".join(parts)]
 
 
@@ -920,8 +1023,11 @@ static func _ke_sample_is_light_swing(sample: Variant) -> bool:
 	return arch == WeaponConstants.ARCHETYPE_QUICK_SLASH or arch == WeaponConstants.ARCHETYPE_POMMEL
 
 
-## Aim-drift: fraction of intentional hits (aim_part set) that land on a different part than aimed.
-## Returns e.g. `aim_drift=37.8% (28/74)` or "" when no intentional hits were sampled.
+## Aim-drift: fraction of intentional CONTACTS (aim_part set, KE>0) that land on a different
+## part than aimed. Denominator is contacts, NOT strikes — so it is independent of the hit-rate
+## line (which is over all strikes). A fight can be hit=100% (every strike connected) AND
+## aim_drift=100% (every connection off the aimed part). Returns e.g. `aim_drift=37.8% (28/74
+## contacts)` or "" when no intentional contacts were sampled.
 static func format_aim_drift(ke_samples: Array) -> String:
 	var intentional: int = 0
 	var drifted: int = 0
@@ -938,7 +1044,7 @@ static func format_aim_drift(ke_samples: Array) -> String:
 			drifted += 1
 	if intentional == 0:
 		return ""
-	return "aim_drift=%.1f%% (%d/%d)" % [float(drifted) / float(intentional) * 100.0, drifted, intentional]
+	return "aim_drift=%.1f%% (%d/%d contacts)" % [float(drifted) / float(intentional) * 100.0, drifted, intentional]
 
 
 static func _format_ke_bucket_line(

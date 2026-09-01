@@ -678,9 +678,20 @@ static func apply_damage_split(
 						)
 	if entity._is_part_severed(part):
 		EntityWounds.ensure_stump_wound(entity, part, sub_region)
-	var vital: Array = entity._get_vital_parts()
-	if part in vital and ((entity.body_cutting.get(part, 0.0) <= 0.0 and entity.body_blunt.get(part, 0.0) <= 0.0) or (entity.bone_health.get(part, 0.0) <= 0.0 and (entity.body_cutting.get(part, 0.0) <= 0.0 or entity.body_blunt.get(part, 0.0) <= 0.0))):
-		EntityWounds.emit_death_once(entity)
+	# Vital destruction: death is deferred to the is_dead() grace countdown. Initialize the
+	# countdown here (the moment the vital tissue/bone is destroyed) so is_dead() returns
+	# false during the grace; the per-tick death check registers the kill once it elapses.
+	# The entity is incapacitated (consciousness capped) immediately via
+	# is_vital_part_destroyed() in update_consciousness.
+	# Use the same "vital destroyed" predicate that drives is_dead() and the consciousness cap
+	# (entity._is_vital_part_destroyed) so the grace trigger, death path, and incapacitation can
+	# never drift apart. Initialize the countdown the moment a vital is destroyed; do not extend
+	# it on subsequent hits (the grace started at the first destruction).
+	if entity._is_vital_part_destroyed(part):
+		if entity._vital_grace_remaining < 0.0:
+			var grace_s: float = CoreEntity.vital_grace_period_for_part(part)
+			entity._vital_grace_remaining = grace_s
+			CombatDebug.combat_session("VITAL_GRACE %s %s destroyed grace=%.1fs" % [entity.name, part, grace_s])
 	var pain_from_this_hit_raw: float = 0.0
 	if entity._is_part_severed(part):
 		var stump_damage: float = entity.body_max.get(part, 10)

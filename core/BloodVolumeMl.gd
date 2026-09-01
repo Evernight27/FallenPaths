@@ -72,7 +72,14 @@ static func process_blood_loss_tick(
 ) -> void:
     var max_ml: float = _ml_max(entity)
     if total_bleeding_rate > 0.0:
-        var loss_ml: float = blood_ml_loss_per_second(total_bleeding_rate, max_ml, loss_mult) * delta
+        # Cap the underlying pct/s rate (same ceiling as percent-mode) before converting to mL.
+        # See BleedingConstants.MAX_TOTAL_BLOOD_LOSS_RATE: a sane ceiling for stacked arterial
+        # bleeds, not a 30s band floor.
+        var pct_loss_per_s: float = minf(
+            BleedingConstants.blood_volume_loss_per_second(total_bleeding_rate, loss_mult),
+            BleedingConstants.MAX_TOTAL_BLOOD_LOSS_RATE
+        )
+        var loss_ml: float = pct_loss_per_s * max_ml / BleedingConstants.MAX_BLOOD_VOLUME * delta
         _set_ml(entity, maxf(0.0, _ml(entity) - loss_ml))
         sync_percent_from_ml(entity)
     if recovery_pct_per_s > 0.0:

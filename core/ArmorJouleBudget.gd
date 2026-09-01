@@ -41,11 +41,13 @@ static func account_ke_through_armor(
             var sharp_out: Dictionary = _sharp_ke_through_layer(ke_rem, pen_rha, layer)
             ke_rem = float(sharp_out.get("damage", ke_rem))
             absorbed += maxf(0.0, before - ke_rem)
+            armor.apply_joule_durability_loss(layer, before - ke_rem)
             if sharp_out.get("deflected", false):
                 sharp_mode = false
         else:
             ke_rem = _blunt_ke_through_layer(ke_rem, layer, penetration_blunt_momentum_per_area, blunt_contact_cm)
             absorbed += maxf(0.0, before - ke_rem)
+            armor.apply_joule_durability_loss(layer, before - ke_rem)
     ke_rem = maxf(0.0, ke_rem)
     absorbed = maxf(0.0, strike_ke_j - ke_rem)
     var frac: float = 1.0

@@ -143,6 +143,14 @@ func _open_log_file() -> void:
 	_log_file = FileAccess.open(_log_file_path, FileAccess.WRITE)
 	if _log_file != null:
 		_log_file.store_line("[Tuning] log file: %s" % ProjectSettings.globalize_path(_log_file_path))
+		_log_file.store_line(
+			"[legend] [Matchup] form/str/agi/end/perc grd=guard_line  |  [HEMA] i=intensity(0-1) p=power(0-1)"
+			+ " ft=follow_through(0-1) wind_up=windup_s"
+			+ "\n  dmg=integer_total  phys=cut+blunt+bone(post-allocation)"
+			+ "\n  pre_armor=physical pre-armor  mech=cut+blunt post-armor(+trauma/subregion/vital)"
+			+ "\n  part_hp=health before->after  bleed=rate%/s(cause)  recover=recovery_s"
+			+ "\n  cycle summaries: dmg=atkX/defY  [WIN]/[LOSS]=winner/loser"
+		)
 
 
 func store_line(line: String) -> void:
@@ -624,7 +632,7 @@ func _build_combatant_card(is_attacker: bool) -> Control:
 
 	# Blood
 	var blood_label: Label = Label.new()
-	blood_label.text = "Blood: --"
+	blood_label.text = "Blood: 0.0"
 	blood_label.add_theme_color_override("font_color", Color(0.7, 0.7, 0.8))
 	vbox.add_child(blood_label)
 	if is_attacker:
@@ -644,7 +652,7 @@ func _build_combatant_card(is_attacker: bool) -> Control:
 
 	# Stamina
 	var stamina_label: Label = Label.new()
-	stamina_label.text = "Stamina: --"
+	stamina_label.text = "Stamina: 100.0"
 	stamina_label.add_theme_color_override("font_color", Color(0.7, 0.85, 0.7))
 	vbox.add_child(stamina_label)
 	if is_attacker:
@@ -654,7 +662,7 @@ func _build_combatant_card(is_attacker: bool) -> Control:
 
 	# Gauge
 	var gauge_label: Label = Label.new()
-	gauge_label.text = "Gauge: --"
+	gauge_label.text = "Gauge: 0.0"
 	gauge_label.add_theme_color_override("font_color", Color(0.7, 0.85, 0.7))
 	vbox.add_child(gauge_label)
 	if is_attacker:
@@ -781,14 +789,21 @@ func _spawn_combatants() -> void:
 
 	# Batch mode: cancel initial ACTION_READY cooldowns (2-4 s) and fire immediately so the
 	# first cycle does not waste time waiting for timers.  Manual tuning still uses the delay.
+	# Shuffle the combatant order so combatant_id does not decide initiative: the event queue
+	# breaks resolve_at ties by AGI then id, so a fixed 0.0 delay always lets the lower-id
+	# combatant act first.  The 10 ms stagger is negligible vs the 2-4 s cooldown but breaks
+	# the tie deterministically (the RNG is seeded per cycle in _run_batch).
 	if manager.tuning_wait_for_player:
 		var eac := _get_entity_access()
+		var ids: Array = []
 		for c in manager.combatants:
 			if eac.alive_bool(c):
-				_EventScheduler.cancel_pending_action_ready(manager, eac.id_int(c))
-		for c in manager.combatants:
-			if eac.alive_bool(c):
-				_EventScheduler.schedule_action_ready(manager, eac.id_int(c), 0.0)
+				ids.append(eac.id_int(c))
+		for cid in ids:
+			_EventScheduler.cancel_pending_action_ready(manager, cid)
+		ids.shuffle()
+		for i in ids.size():
+			_EventScheduler.schedule_action_ready(manager, ids[i], float(i) * 0.01)
 
 	# Assign forms and guards after start so rank/file/etc are set
 	var atk_c: Dictionary = _get_entity_access().manager_get_combatant(manager, attacker_id)
@@ -872,6 +887,22 @@ func _record_exchange_outcome(outcome: String, result: Dictionary) -> void:
 		_cycle_ke_samples.append(sample)
 
 
+## Maps a dead entity's _get_death_reason() to a stable cause token.
+## vital_part_destroyed / vital_part_zero → "vital_destroyed" (strike kill)
+## blood_loss → "bled_out" (genuine exsanguination)
+## anything else → "kill" (fallback)
+func _death_cause_token(entity: Node) -> String:
+	if entity == null or not is_instance_valid(entity):
+		return "kill"
+	if entity.has_method("_get_death_reason"):
+		var reason: String = str(entity._get_death_reason()).strip_edges()
+		if reason.begins_with("vital_part"):
+			return "vital_destroyed"
+		if reason.begins_with("blood_loss"):
+			return "bled_out"
+	return "kill"
+
+
 func _infer_end_cause(winner_side: String) -> String:
 	if manager == null:
 		return "unknown"
@@ -903,22 +934,14 @@ func _infer_end_cause(winner_side: String) -> String:
 	var def_node = _get_entity_access().node_variant(def_c) if not def_c.is_empty() else null
 
 	# Determine incapacitation cause with body-part specificity.
-	# Strict `<` (deliberately NOT the `<=` used by is_dead / _get_death_reason): a combatant sitting
-	# exactly ON the threshold is one whose blood was clamped there by emit_death_once after a
-	# vital-part kill — that is a strike "kill", not a "bled_out". Only blood strictly below the
-	# threshold (drained by the bleeding system) is a genuine bleed-out.
+	# Uses the entity's own _get_death_reason() which checks vital-part destruction FIRST
+	# (a destroyed head/chest is the definitive cause of death), then blood loss. This
+	# correctly distinguishes VITAL_DESTROYED (strike kill) from EXSANGUINATION (bleed-out)
+	# without the old strict-< blood-threshold heuristic that mislabeled clamped blood.
 	if not atk_c.is_empty() and not _get_entity_access().alive_bool(atk_c):
-		if atk_node != null and is_instance_valid(atk_node) and atk_node.has_method("_get_blood_loss_death_threshold"):
-			var death_thresh = float(atk_node._get_blood_loss_death_threshold())
-			if float(atk_node.blood_volume) < death_thresh:
-				return "bled_out"
-		return "kill"
+		return _death_cause_token(atk_node)
 	if not def_c.is_empty() and not _get_entity_access().alive_bool(def_c):
-		if def_node != null and is_instance_valid(def_node) and def_node.has_method("_get_blood_loss_death_threshold"):
-			var death_thresh = float(def_node._get_blood_loss_death_threshold())
-			if float(def_node.blood_volume) < death_thresh:
-				return "bled_out"
-		return "kill"
+		return _death_cause_token(def_node)
 
 	# Incapacitation cause determination — check mechanism specificity.
 	var incapacitated_entity: Node = null
@@ -973,13 +996,13 @@ func _infer_end_cause(winner_side: String) -> String:
 				if has_realistic_head_trauma_ke:
 					return "head trauma"
 
-			# Check blood loss — Class III/IV hemorrhage causes unconsciousness.
-			# atls_hemorrhage_class_from_remaining_pct expects a percentage (0-100), so pass blood_pct
-			# directly. (The old code round-tripped through a fraction, so a 39%-remaining fighter was
-			# tested as 0.39 against the 85/70/60 percentage thresholds.)
+			# Check hemorrhage — Class III/IV blood loss causes unconsciousness (hypovolemic
+			# syncope). The fighter is ALIVE (blood still above the death threshold), so this is
+			# distinct from a genuine bleed-out death. atls_hemorrhage_class_from_remaining_pct
+			# expects a percentage (0-100), so pass blood_pct directly.
 			var atls_class: int = BleedingConstants.atls_hemorrhage_class_from_remaining_pct(blood_pct)
 			if atls_class >= 3 and blood_pct < 70.0:
-				return "blood loss"
+				return "hemorrhagic syncope"
 
 			# Unconscious without head trauma or severe hemorrhage — surface the consciousness value.
 			return "unconscious (consc=%.0f)" % cons
@@ -1516,6 +1539,21 @@ func _resolve_tuning_matchup_winner(atk_c: Dictionary, def_c: Dictionary) -> Str
 			return "attacker"
 		if atk_con <= PainConsciousnessConstants.INCAPACITATION_CONSCIOUSNESS_THRESHOLD and def_con <= PainConsciousnessConstants.INCAPACITATION_CONSCIOUSNESS_THRESHOLD:
 			return "mutual"
+	# Physiological-collapse guard: a fighter in severe distress (ATLS class III+ i.e. blood < 70%
+	# and low consciousness) should not be crowned winner over a clearly stable opponent via the
+	# structural-HP tiebreaker, which only sees intact tissue/bone pools. This fixes inverted labels
+	# like "Attacker wins" when the attacker is at 37% blood / ~5 consciousness while the defender
+	# is at 69% / 95. The consciousness guard above only fires at <= 5.0, so a true-consciousness
+	# value of ~5.0-5.5 (displayed as `consc=5`) slips past it and falls through to the HP tiebreaker.
+	if atk_node != null and is_instance_valid(atk_node) and def_node != null and is_instance_valid(def_node):
+		var atk_atls: int = BleedingConstants.atls_hemorrhage_class_from_remaining_pct(float(atk_node.blood_volume))
+		var def_atls: int = BleedingConstants.atls_hemorrhage_class_from_remaining_pct(float(def_node.blood_volume))
+		var atk_collapsed: bool = atk_atls >= 3 and float(atk_node.consciousness) < 50.0
+		var def_collapsed: bool = def_atls >= 3 and float(def_node.consciousness) < 50.0
+		if atk_collapsed and not def_collapsed:
+			return "defender"
+		if def_collapsed and not atk_collapsed:
+			return "attacker"
 	# Stalemate resolution tiebreaker: remaining HP, then blood volume.
 	if atk_node != null and is_instance_valid(atk_node) and def_node != null and is_instance_valid(def_node):
 		var atk_hp := 0.0
@@ -1635,6 +1673,9 @@ func _log_cycle_summary() -> void:
 		atk_vitals,
 		def_vitals
 	)
+	var recon: String = _Formatter.format_realism_recon(atk_node, def_node)
+	if not recon.is_empty():
+		summary += "\n  " + recon
 	_log_line(summary, "#88ccff", false)
 	if not _stdout_full_mirror:
 		print(
@@ -1740,7 +1781,15 @@ func _log_batch_cycle_summary(
 		atk_vitals,
 		def_vitals
 	)
-	_log_line(summary, "#88ccff")
+	var recon: String = _Formatter.format_realism_recon(atk_node, def_node)
+	if not recon.is_empty():
+		summary += "\n  " + recon
+	# The verbose per-cycle block goes to the tuning log file only (mirror=false keeps it off
+	# stdout). The compact one-line form is mirrored to stdout and accumulated into the
+	# agent-reachable report file by _run_batch (see _batch_report).
+	_log_line(summary, "#88ccff", false)
+	if _log_file != null:
+		_log_file.store_line(summary)
 	if not _stdout_full_mirror:
 		print(
 			_Formatter.format_cycle_hema_summary_oneline(
@@ -2202,6 +2251,11 @@ var _batch_strike_idx: int = 0
 ## True once the calibration-anchors preamble has been emitted for the current batch, so `_spawn_combatants`
 ## prints it once per batch rather than repeating the identical anchor block before every cycle.
 var _batch_preamble_emitted: bool = false
+## Compact per-cycle summaries accumulated across a batch (single scenario / weapon sweep / balance matrix).
+## Written to a project-root file (agent-reachable) so the useful info is separated from the verbose
+## per-strike user:// log — copy-paste THIS, not the 2000+ line tuning_log.
+var _batch_report: PackedStringArray = []
+const _BATCH_REPORT_FILENAME := ".batch_report.txt"
 
 
 func _close_batch_window() -> void:
@@ -2222,6 +2276,27 @@ func _batch_scroll_to_bottom() -> void:
 		_batch_scroll.scroll_vertical = int(bar.max_value)
 
 
+## Writes the compact per-cycle summaries (`_batch_report`) to a project-root file so agents and the
+## user can reach the useful batch info without opening the verbose per-strike user:// log. The verbose
+## [HEMA] per-strike lines and CSV stay in user://tuning_log_*.txt; this file is the copy-paste-safe summary.
+func _write_batch_report(title: String) -> void:
+	var root: String = ProjectSettings.globalize_path("res://")
+	var path: String = root.path_join(_BATCH_REPORT_FILENAME)
+	var lines := PackedStringArray()
+	lines.append("=== %s ===" % title)
+	lines.append("written=%s" % Time.get_datetime_string_from_system(false))
+	if not _log_file_path.is_empty():
+		lines.append("verbose_per_strike_log=%s" % ProjectSettings.globalize_path(_log_file_path))
+	lines.append("note=compact per-cycle summaries only; the verbose [HEMA] per-strike lines and CSV stay in the user:// log above")
+	lines.append("")
+	lines.append_array(_batch_report)
+	var f: FileAccess = FileAccess.open(path, FileAccess.WRITE)
+	if f != null:
+		f.store_string("\n".join(lines) + "\n")
+		f.close()
+	print("[Batch] compact report written to %s (%d lines)" % [path, lines.size()])
+
+
 func _run_balance_matrix_batch(
 	num_cycles_per_scenario: int,
 	csv_enabled: bool,
@@ -2233,6 +2308,7 @@ func _run_balance_matrix_batch(
 	result_label: RichTextLabel
 ):
 	var matrix_keys: Array[String] = _Config.balance_matrix_keys()
+	_batch_report.clear()
 	var matrix_lines := PackedStringArray()
 	matrix_lines.append(
 		"=== Balance Matrix (%d scenarios x %d cycles) ===" % [matrix_keys.size(), num_cycles_per_scenario]
@@ -2277,6 +2353,7 @@ func _run_balance_matrix_batch(
 	if is_instance_valid(close_btn):
 		close_btn.disabled = false
 	_auto_enabled = true
+	_write_batch_report("Balance Matrix (%d scenarios x %d cycles)" % [matrix_keys.size(), num_cycles_per_scenario])
 	_log_line("[Balance Matrix] %d scenarios complete" % matrix_keys.size(), "#88ff88")
 
 
@@ -2291,6 +2368,7 @@ func _run_weapon_sweep_batch(
 	result_label: RichTextLabel
 ):
 	var sweep_keys: Array[String] = _Config.weapon_sweep_keys()
+	_batch_report.clear()
 	var sweep_lines := PackedStringArray()
 	sweep_lines.append(
 		"=== Weapon sweep (%d weapons x %d cycles, random matchup) ===" % [sweep_keys.size(), num_cycles_per_weapon]
@@ -2341,6 +2419,7 @@ func _run_weapon_sweep_batch(
 		close_btn.disabled = false
 	_auto_waiting_for_death = true
 	_auto_enabled = true
+	_write_batch_report("Weapon sweep (%d weapons x %d cycles, random matchup)" % [sweep_keys.size(), num_cycles_per_weapon])
 	_log_line("[Weapon sweep] %d weapon types complete" % sweep_keys.size(), "#88ff88")
 
 
@@ -2359,6 +2438,10 @@ func _run_batch(
 	_batch_csv_lines.clear()
 	_batch_strike_idx = 0
 	_batch_preamble_emitted = false
+	# Top-level single-scenario batch owns the report file; sub-batches (sweep/matrix) accumulate
+	# into it and the runner writes once at the end.
+	if reset_batch_ui:
+		_batch_report.clear()
 	var _batch_lines: PackedStringArray = []
 	if is_instance_valid(result_label):
 		result_label.clear()
@@ -2405,7 +2488,13 @@ func _run_batch(
 
 	var cycle: int = 0
 	var sweep_weapon: String = _Config.weapon_id_from_sweep_key(scenario_key)
+	var _anomaly_counts: Dictionary = {}
 	while cycle < num_cycles and not _batch_abort:
+		# Seed the global RNG deterministically per cycle so the sweep is reproducible: stats,
+		# armor, and every in-fight roll (hit/parry/KE) are fixed for a given scenario+cycle.
+		# This makes weapon-effectiveness comparisons stable across runs (matches the probe_*
+		# scripts' seeded-rep pattern).
+		seed(hash("tuning_cycle_%s_%d" % [scenario_key, cycle]) & 0x7FFFFFFF)
 		if scenario_key == "Random":
 			_apply_random_matchup_configs()
 			atk_cfg = attacker_config
@@ -2472,21 +2561,51 @@ func _run_batch(
 		var cycle_outcomes: Dictionary = _cycle_outcome_counts.duplicate()
 		_log_batch_cycle_summary(cycle + 1, num_cycles, cycle_atk_cfg, cycle_def_cfg, scenario_key, b_atk_wins, b_def_wins, b_total_cycles)
 
+		# Build the compact fight line unconditionally so the report file is populated even
+		# headless (where result_label is null); the result_label render is the only conditional part.
+		var w_name: String = cycle_atk_cfg.display_name if cycle_winner == "attacker" else (cycle_def_cfg.display_name if cycle_winner == "defender" else "draw")
+		var l_name: String = cycle_def_cfg.display_name if cycle_winner == "attacker" else (cycle_atk_cfg.display_name if cycle_winner == "defender" else "")
+		var fight_line: String
+		if not l_name.is_empty():
+			fight_line = "Cycle %d/%d: %s beat %s — %d strikes (%s)" % [cycle + 1, num_cycles, w_name, l_name, strikes_this, cycle_end_cause]
+		else:
+			fight_line = "Cycle %d/%d: draw — %d strikes (%s)" % [cycle + 1, num_cycles, strikes_this, cycle_end_cause]
+		fight_line += " | atk dmg: %.1f, def dmg: %.1f" % [cycle_atk_dmg, cycle_def_dmg]
+		# Tagged vitals (blood/ATLS/consc) for both sides so the agent-reachable report is
+		# self-contained: blood-vs-damage reconciliation and collapse-vs-winner pairing are checkable
+		# without opening the verbose user:// per-strike log.
+		var atk_node_r = _get_entity_access().node_variant(atk_c2) if not atk_c2.is_empty() else null
+		var def_node_r = _get_entity_access().node_variant(def_c2) if not def_c2.is_empty() else null
+		if atk_node_r != null and is_instance_valid(atk_node_r):
+			atk_node_r.ensure_consciousness_current()
+		if def_node_r != null and is_instance_valid(def_node_r):
+			def_node_r.ensure_consciousness_current()
+		var atk_vitals_r: String = ""
+		var def_vitals_r: String = ""
+		if atk_node_r != null and is_instance_valid(atk_node_r):
+			atk_vitals_r = "%s %s" % [cycle_atk_cfg.display_name, _Formatter.format_vitals_suffix(atk_node_r)]
+		if def_node_r != null and is_instance_valid(def_node_r):
+			def_vitals_r = "%s %s" % [cycle_def_cfg.display_name, _Formatter.format_vitals_suffix(def_node_r)]
+		var vitals_r: String = _Formatter.tagged_vitals_pair(atk_vitals_r, def_vitals_r, w_name)
+		if not vitals_r.is_empty():
+			fight_line += " | " + vitals_r
+		var recon_r: String = _Formatter.format_realism_recon(atk_node_r, def_node_r)
+		if not recon_r.is_empty():
+			fight_line += " | " + recon_r
+		var recon_flags_r: String = _Formatter._format_recon_flags(recon_r)
+		if not recon_flags_r.is_empty():
+			for flag_token in recon_flags_r.split("?", false):
+				var fl: String = ("?" + flag_token).strip_edges()
+				if fl == "?":
+					continue
+				_anomaly_counts[fl] = int(_anomaly_counts.get(fl, 0)) + 1
+		if not cycle_outcomes.is_empty():
+			var parts: PackedStringArray = []
+			for key in cycle_outcomes:
+				parts.append("%s:%d" % [key, cycle_outcomes[key]])
+			fight_line += " | " + " ".join(parts)
+		_batch_lines.append(fight_line)
 		if is_instance_valid(result_label):
-			var w_name: String = cycle_atk_cfg.display_name if cycle_winner == "attacker" else (cycle_def_cfg.display_name if cycle_winner == "defender" else "draw")
-			var l_name: String = cycle_def_cfg.display_name if cycle_winner == "attacker" else (cycle_atk_cfg.display_name if cycle_winner == "defender" else "")
-			var fight_line: String
-			if not l_name.is_empty():
-				fight_line = "Cycle %d/%d: %s beat %s — %d strikes (%s)" % [cycle + 1, num_cycles, w_name, l_name, strikes_this, cycle_end_cause]
-			else:
-				fight_line = "Cycle %d/%d: draw — %d strikes (%s)" % [cycle + 1, num_cycles, strikes_this, cycle_end_cause]
-			fight_line += " | atk dmg: %.1f, def dmg: %.1f" % [cycle_atk_dmg, cycle_def_dmg]
-			if not cycle_outcomes.is_empty():
-				var parts: PackedStringArray = []
-				for key in cycle_outcomes:
-					parts.append("%s:%d" % [key, cycle_outcomes[key]])
-				fight_line += " | " + " ".join(parts)
-			_batch_lines.append(fight_line)
 			result_label.append_text(_bbcode_escape(fight_line) + "\n")
 			_batch_scroll_to_bottom()
 
@@ -2522,8 +2641,27 @@ func _run_batch(
 		"Avg atk dmg per cycle: %.1f  |  Avg def dmg per cycle: %.1f"
 		% [b_atk_dmg / float(maxf(b_total_cycles, 1)), b_def_dmg / float(maxf(b_total_cycles, 1))]
 	)
+	if not _anomaly_counts.is_empty():
+		var anomaly_parts: PackedStringArray = []
+		for flag_key in _anomaly_counts:
+			anomaly_parts.append("%s: %d" % [flag_key, _anomaly_counts[flag_key]])
+		summary += "\nAnomalies: %d/%d cycles flagged (%s)" % [
+			_anomaly_counts.values().reduce(func(a, b): return int(a) + int(b), 0),
+			b_total_cycles,
+			", ".join(anomaly_parts),
+		]
 	_batch_lines.append("")
 	_batch_lines.append(summary)
+
+	# Mirror this scenario's compact lines into the persistent report buffer. Sub-batches (sweep/matrix)
+	# prepend a per-scenario header; top-level single-scenario runs own the file and write it here.
+	var report_block := PackedStringArray()
+	if not reset_batch_ui:
+		report_block.append("--- %s ---" % scenario_key)
+	report_block.append_array(_batch_lines)
+	_batch_report.append_array(report_block)
+	if reset_batch_ui:
+		_write_batch_report("Batch: %s (%d cycles)" % [scenario_key, b_total_cycles])
 
 	if is_instance_valid(result_label):
 		var escaped_lines := PackedStringArray()

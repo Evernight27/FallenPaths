@@ -234,12 +234,34 @@ func _apply_durability_loss(layer: Dictionary, damage_absorbed: float, damage_ty
     )
 
 
+## Joule-path durability wear: called from ArmorJouleBudget.account_ke_through_armor with the KE (J)
+## this layer absorbed. The joule walk uses the pure static math (which never mutated durability),
+## so without this a piece absorbed identically on every contact. Converts absorbed J to durability
+## loss via JOULE_KE_DURABILITY_SCALE so armor progressively fails under repeated blows.
+func apply_joule_durability_loss(layer: Dictionary, absorbed_j: float) -> void:
+    if absorbed_j <= 0.0:
+        return
+    var rate: float = layer.get("durability_loss_rate", ArmorConstants.DURABILITY_LOSS_RATE)
+    var loss: float = absorbed_j * rate * ArmorConstants.JOULE_KE_DURABILITY_SCALE
+    layer["durability"] = maxf(
+        0.0, layer.get(ArmorConstants.ARMOR_LAYER_KEY_DURABILITY, ArmorConstants.DEFAULT_ARMOR_LAYER_DURABILITY) - loss
+    )
+
+
 func protects_body_part(part: String) -> bool:
     return body_part == part
 
 
 ## Shared sharp penetration math  -  used by both ArmorPiece and ArmorJouleBudget.
 ## Returns { damage, deflected }. Single source of truth for the penetration formula.
+##
+## Deflection is KE-dependent: the old flat branch (incoming * sharp_deflect_transmission) made
+## plate armor a near-binary on/off shield — a 35 J and a 145 J sword cut both transmitted ~29%
+## because sword-cut penetration (0.95-2.24 mm) is always below plate's 3.5 mm RHA. Now the
+## deflected transmission ramps from the layer's base value up to the penetration-branch floor
+## (PENETRATION_DAMAGE_REDUCTION_MAX complement, ~0.25) as penetration approaches the layer's
+## resistance, so a harder hit transmits more and the two branches meet continuously at the
+## threshold (no discontinuity).
 static func sharp_penetration_math(pen_rha: float, layer: Dictionary, incoming: float) -> Dictionary:
     var sharp_res: float = float(
         layer.get(
@@ -248,12 +270,18 @@ static func sharp_penetration_math(pen_rha: float, layer: Dictionary, incoming: 
     )
     var current_pen: float = pen_rha
     if current_pen < sharp_res:
-        var transmission: float = float(
+        var base_transmission: float = float(
             layer.get(
                 "sharp_deflect_transmission",
                 layer.get("deflection_transmission", ArmorConstants.SHARP_DEFLECT_TRANSMISSION_DEFAULT)
             )
         )
+        # Proximity of penetration to the layer's resistance: 0 = glancing (full deflection),
+        # 1 = at the threshold (armor nearly failing). Ramps the deflected transmission up to
+        # the penetration-branch floor so the branches are continuous at sharp_res.
+        var proximity: float = clampf(current_pen / maxf(0.001, sharp_res), 0.0, 1.0)
+        var penetration_floor: float = 1.0 - ArmorConstants.PENETRATION_DAMAGE_REDUCTION_MAX
+        var transmission: float = lerpf(base_transmission, penetration_floor, proximity)
         var after: float = incoming * clampf(transmission, 0.0, 1.0)
         return {"damage": after, "deflected": true}
     var factor: float = clampf(

@@ -261,6 +261,10 @@ Literal mL · layer tissue · material curves · ATLS consciousness · absolute 
 
 **TTD:** `(blood_volume − threshold) / (rate × BLOOD_LOSS_RATE_MULTIPLIER × loss_mult)` → default **~48 s**; tune mult for **30–120 s** band. **Sustained direct pressure** uses TCCC retained-flow fractions (**venous ~10%**, **arterial ~50%** of intrinsic wound rate for blood-loss integration) plus faster local clotting k (`CLOTTING_RATE_UNDER_DIRECT_PRESSURE`); constant-rate halving anchor (`clinical_ttd_seconds(0.5)`) ≈ **2×** TTD is the research gate only — live sim includes clotting `exp(-k×Δt)`.
 
+**Bleed rate cap:** `MAX_TOTAL_BLOOD_LOSS_RATE` = **3.5 %/s** hard ceiling on the summed rate after all multipliers (arterial + decompensation + exertion). Prevents stacked wounds from pushing exsanguination below ~20 s.
+
+**Vital-destruction grace:** a destroyed head/chest part does not register death immediately. `CoreEntity._vital_grace_remaining` (per-part: head **1.5 s**, chest **3.0 s**, fallback **2.5 s**) decrements each `process_blood_loss` tick; `is_dead()` returns true only when the countdown reaches 0. During the grace the fighter is incapacitated (consciousness capped at **4.0** for destroyed / **12.0** for critically-damaged vitals). `VITAL_GRACE` / `VITAL_GRACE_EXPIRED` lines appear in `FP_COMBAT` output.
+
 **Field care:** `MapFieldCare` (pressure → bandage → stabilize). **Camp rest:** `CompanyState.try_camp_heal`.
 
 <a id="5-literal-blood-volume-ml"></a>

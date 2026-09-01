@@ -700,7 +700,7 @@ static func blunt_fracture_j_excess_scaling_note() -> String:
     var anchor: float = CombatDamageMechanism.blunt_fracture_j_anchor("right_arm", "forearm")
     var excess: float = maxf(0.0, committed_oberhau_ke_j() - anchor)
     var damage: float = CombatDamageMechanism.j_excess_to_bone_damage(excess)
-    return "anchor_J=%.0f excess_J=%.0f damage=2*sqrt(excess)=%.2f" % [anchor, excess, damage]
+    return "anchor_J=%.0f excess_J=%.0f damage=KE_SCALE*sqrt(excess)=%.2f" % [anchor, excess, damage]
 
 
 static func material_curves_full_blend_when_on() -> bool:

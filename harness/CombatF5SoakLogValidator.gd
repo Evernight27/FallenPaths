@@ -6,7 +6,7 @@ extends RefCounted
 ## (`FP_HARNESS_MODE=f5_validate`) -> **`.f5_soak_validation.txt`**.
 
 const REPORT_TAG_BEGIN: String = "--- FP_F5_SOAK_VALIDATION —\n"
-const REPORT_TAG_END: String = "--- END FP_F5_SOAK_VALIDATION —\n"
+const REPORT_TAG_END: String = "--- END FP_F5_SOAK_VALIDATION ---\n"
 const REPORT_FILENAME: String = ".f5_soak_validation.txt"
 const DEFAULT_INPUT_FILENAME := ".f5_soak_in.txt"
 

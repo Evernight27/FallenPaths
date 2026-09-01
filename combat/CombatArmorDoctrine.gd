@@ -15,29 +15,6 @@ const ARMOR_TIER_HEAVY_THRESHOLD := 30.0
 # continues to complete failure (0.0) at this multiple of the threshold. Heavily battered armor no longer protects.
 const ARMOR_COMPLETE_FAILURE_ABSORBED_MULT := 2.0
 
-# Armor piece sharp resistance lookup (outer layer RHA).
-const _ARMOR_PIECE_RESISTANCE: Dictionary = {
-	"KETTLE_HELM": 3.5,
-	"LEATHER_CAP": 0.6,
-	"CLOTH_COIF": 0.9,
-	"CUIRASS": 4.4,      # plate(3.5) + cloth(0.9)
-	"GAMBESON": 0.9,
-	"HAUBERK": 2.4,       # mail(1.5) + cloth(0.9)
-	"LEATHER_CUIRASS": 0.6,
-	"VAMBRACES_RIGHT": 4.4,
-	"VAMBRACES_LEFT": 4.4,
-	"LEATHER_BRACERS_RIGHT": 0.6,
-	"LEATHER_BRACERS_LEFT": 0.6,
-	"ARM_WRAPS_RIGHT": 0.9,
-	"ARM_WRAPS_LEFT": 0.9,
-	"GREAVES_RIGHT": 4.4,
-	"GREAVES_LEFT": 4.4,
-	"LEG_WRAPS_RIGHT": 0.9,
-	"LEG_WRAPS_LEFT": 0.9,
-	"LEATHER_GREAVES_RIGHT": 0.6,
-	"LEATHER_GREAVES_LEFT": 0.6,
-}
-
 # Armor tier labels for UI/log.
 const TIER_NONE := "none"
 const TIER_LIGHT := "light"

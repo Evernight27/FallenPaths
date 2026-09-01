@@ -113,6 +113,12 @@ static func resolve_hit_part(
         # segment size keeps the aimed part the clear favorite (~60-70%) while still
         # allowing drift on glancing, poorly-aligned swings.
         intended_boost *= float(maxi(path_segment.size(), 2)) / 2.0
+        # Fatigue-driven aim drift: a tired attacker's aim is less precise, so the intended
+        # part is less likely to be the landing part (couples aim_drift to stamina).
+        if not attacker.is_empty():
+            intended_boost *= lerpf(
+                CombatConstantsAttackPath.AIM_DRIFT_FATIGUE_FLOOR, 1.0, CombatantEntityAccess.stamina_ratio(attacker)
+            )
         part_weights[intended_part] = part_weights.get(intended_part, 1.0) * intended_boost
     # Vitals-finish exploit: press a defender's already-damaged head/chest when the pathway reaches it.
     for vit in [BodyPartConstants.PART_HEAD, BodyPartConstants.PART_CHEST]:

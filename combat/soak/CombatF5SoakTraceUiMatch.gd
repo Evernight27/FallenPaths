@@ -188,7 +188,7 @@ static func _validator_profiles_for_fight() -> PackedStringArray:
             profiles.append(CombatD001TrackSpecs.PROFILE_PRESET_II8)
         SoakEncounterPresets.PRESET_II4D_EXHAUSTION, "ii4d":
             profiles.append(CombatD001TrackSpecs.PROFILE_PRESET_II4D)
-        _:
+        "7v7":
             profiles.append(CombatD001TrackSpecs.PROFILE_7V7)
     return profiles
 

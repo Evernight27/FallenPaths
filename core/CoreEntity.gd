@@ -153,6 +153,28 @@ var _adrenaline_cooldown_until: float = -1.0  # game time when next adrenaline d
 var _consciousness_dirty: bool = true
 
 var _death_notified: bool = false
+## Grace period after vital destruction before death is registered (seconds of combat time).
+## Models the real-world delay between organ destruction and circulatory collapse. Fallback for
+## parts not listed in VITAL_DESTRUCTION_GRACE_PERIODS.
+const VITAL_DESTRUCTION_GRACE_PERIOD_S: float = 2.5
+## Per-part grace periods after vital destruction (combat seconds). Head (brain/brainstem)
+## destruction collapses consciousness and autonomic control almost immediately (~1.5s); chest
+## (heart/great-vessel) destruction causes tamponade + hemorrhagic shock over a slightly longer
+## window (~3.0s) — long enough that in multi-fighter fights a coup de grâce can land on the
+## downed fighter before death registers, matching the historical execution flow.
+const VITAL_DESTRUCTION_GRACE_PERIODS: Dictionary = {
+	BodyPartConstants.PART_HEAD: 1.5,
+	BodyPartConstants.PART_CHEST: 3.0,
+}
+## Remaining grace time after a vital part is destroyed; decremented each combat tick in
+## process_blood_loss. Negative means "no active grace". Once it reaches 0, is_dead() returns true.
+var _vital_grace_remaining: float = -1.0
+
+
+## Grace period (combat seconds) to apply when `part` is destroyed as a vital. Uses the per-part
+## table; falls back to VITAL_DESTRUCTION_GRACE_PERIOD_S for unlisted parts.
+static func vital_grace_period_for_part(part: String) -> float:
+	return float(VITAL_DESTRUCTION_GRACE_PERIODS.get(part, VITAL_DESTRUCTION_GRACE_PERIOD_S))
 
 
 func _get_training_pending() -> Dictionary:
@@ -514,13 +536,13 @@ func get_dodge_speed_modifier() -> float:
 func is_dead() -> bool:
 	if blood_volume <= _get_blood_loss_death_threshold():
 		return true
-	for part in _get_vital_parts():
-		if _is_part_destroyed(part):
-			return true
-		var cur_cut: float = body_cutting.get(part, 0.0)
-		var cur_blunt: float = body_blunt.get(part, 0.0)
-		if cur_cut <= 0.0 and cur_blunt <= 0.0:
-			return true
+	# Grace period: vital destruction is not instantly fatal. The countdown is initialized in
+	# EntityDamage when a vital part is destroyed and decremented each combat tick in
+	# process_blood_loss. Death is registered only once the grace elapses (models the real-world
+	# delay between organ destruction and circulatory collapse). During the grace the entity is
+	# incapacitated (consciousness capped) but not yet dead.
+	if is_vital_part_destroyed():
+		return _vital_grace_remaining <= 0.0
 	return false
 
 
@@ -548,6 +570,34 @@ func is_vital_part_critically_damaged() -> bool:
 				continue
 		var total: float = float(body_cutting.get(part, 0.0) + body_blunt.get(part, 0.0))
 		if total < max_val * 2.0 * CRITICAL_TISSUE_FRACTION:
+			return true
+	return false
+
+
+## Single source of truth for "is this vital part destroyed" — a vital is destroyed when it is
+## severed/crushed (a tissue pool AND bone at zero) OR both tissue pools are at zero. Any two of
+## the three pools (cutting, blunt, bone) at zero counts. Used by is_dead() (grace countdown),
+## is_vital_part_destroyed() (consciousness cap), and the EntityDamage grace initializer so the
+## death path, incapacitation cap, and grace trigger can never drift apart.
+func _is_vital_part_destroyed(part: String) -> bool:
+	if part not in _get_vital_parts():
+		return false
+	return _is_part_destroyed(part) or (body_cutting.get(part, 0.0) <= 0.0 and body_blunt.get(part, 0.0) <= 0.0)
+
+
+## True when a vital part is destroyed AND the grace countdown has run down to exactly 0.0.
+## Unlike the `<= 0.0` test used by is_dead() (which is also true when no grace is armed, i.e.
+## -1.0, e.g. test-manipulated vital destruction), this is only true when a grace period actually
+## elapsed. Consumed by the per-tick death handler for the VITAL_GRACE_EXPIRED trace line.
+func vital_grace_has_elapsed() -> bool:
+	return is_vital_part_destroyed() and _vital_grace_remaining == 0.0
+
+
+## True when any vital part (head/chest) is destroyed. Distinct from
+## is_vital_part_critically_damaged() which triggers at <30% tissue.
+func is_vital_part_destroyed() -> bool:
+	for part in _get_vital_parts():
+		if _is_vital_part_destroyed(part):
 			return true
 	return false
 
@@ -627,6 +677,12 @@ func process_bleeding(delta: float) -> void:
 
 
 func process_blood_loss(delta: float) -> void:
+	# Advance the vital-destruction grace countdown each combat tick. This runs in both
+	# real-time and batch/fast-forward mode (both call process_blood_loss with the tick
+	# delta), so the grace elapses on combat time rather than wall-clock. Once it reaches
+	# 0, is_dead() flips to true and the per-tick death check registers the kill.
+	if _vital_grace_remaining > 0.0:
+		_vital_grace_remaining = maxf(0.0, _vital_grace_remaining - delta)
 	EntityWounds.process_blood_loss(self, delta)
 
 
@@ -918,6 +974,7 @@ func apply_species():
 
 func _apply_species():
 	_death_notified = false
+	_vital_grace_remaining = -1.0
 	if has_meta("_fp_death_notified"):
 		remove_meta("_fp_death_notified")
 	body_cutting.clear()

@@ -8,6 +8,12 @@ const PARRY_ALIGNMENT_FLOOR := 0.0
 const GEOMETRIC_LEAK_MAX := 0.25
 ## Non-linear geometric leak: alignment loss follows a square curve so high-alignment parries (HEMA "on the blade") are clean, while oblique angles produce proportionally more leak than linear scaling would suggest. Formula: pow(1-align, 2) * GEOMETRIC_LEAK_MAX.
 const PARRY_GEOMETRY_VARIANCE_BASE := 0.08
+## Fatigue-driven aim drift: the intended-part boost is multiplied by lerp(this, 1.0, stamina_ratio).
+## A fresh attacker (stamina 1.0) aims precisely (boost x1.0); an exhausted one (stamina 0.0)
+## aims at half precision (boost x0.5), so the landing part drifts off the aimed part more often.
+## Couples the diagnostic aim_drift to a real mechanic (stamina) instead of leaving it a pure
+## small-sample artifact. 0.5 keeps the aimed part the modal outcome even when exhausted.
+const AIM_DRIFT_FATIGUE_FLOOR := 0.5
 
 const PARRY_OPPOSITE_DEFLECT_SEVERITY_CUT := 0.65
 const PARRY_OPPOSITE_DEFLECT_SEVERITY_THRUST := 0.5

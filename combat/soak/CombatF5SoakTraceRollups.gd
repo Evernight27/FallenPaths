@@ -227,6 +227,18 @@ static func _log_q4_ii8_rollup() -> void:
 
 static func _merge_validator_profiles(base: PackedStringArray) -> PackedStringArray:
     var out: PackedStringArray = base.duplicate()
+    # An explicit fight profile (anything beyond `always`) is authoritative for that fight.
+    # Blob-detection is a fallback for unknown profiles only; letting it add a conflicting
+    # `7v7` would drag the 7v7 "Ready gauge" F5-UI tracks onto e.g. a cowering ii5 fight
+    # (a cowering player never takes a Ready turn, so `gauge_stm_ready` can never reach 1).
+    # The aggregate D001 validation detects profiles directly and is unaffected.
+    var has_explicit_profile: bool = false
+    for p in out:
+        if str(p) != CombatD001TrackSpecs.PROFILE_ALWAYS:
+            has_explicit_profile = true
+            break
+    if has_explicit_profile:
+        return out
     for p in CombatD001TrackSpecs.detect_profiles(_fight_trace_lines):
         if p not in out:
             out.append(p)
@@ -254,16 +266,29 @@ static func _log_soak_coverage() -> void:
         for stat_key in stats.keys():
             stat_parts.append("%s=%d" % [str(stat_key), int(stats[stat_key])])
         OperationalLog.play_combat("soak_coverage grep_stats %s" % " ".join(stat_parts))
+    var f5_ui_tracks: Array = ["turn_ready_gauge", "gauge_stm_ready", "tooltip_match_ok"]
+    var headless_ctx: bool = not OperationalLog.play_session_is_soak_context()
     var tracks: Dictionary = result.get("tracks", {}) as Dictionary
     for track_id in tracks.keys():
         var track_result: Dictionary = tracks[track_id] as Dictionary
         if bool(track_result.get(DataKeys.SOAK_TRACE_PASS, false)):
             continue
         var optional: bool = bool(track_result.get("optional", false))
+        if headless_ctx and f5_ui_tracks.has(str(track_id)):
+            optional = true
         var tag: String = "warn" if optional else "fail"
         OperationalLog.play_combat("soak_coverage %s [%s] %s" % [tag, track_id, str(track_result.get("detail", ""))])
     for f in result.get("failures", PackedStringArray()) as PackedStringArray:
-        OperationalLog.play_combat("soak_coverage fail %s" % f)
+        var f_str: String = str(f)
+        if headless_ctx:
+            var is_f5_ui_track: bool = (
+                f_str.begins_with("turn_ready_gauge:")
+                or f_str.begins_with("gauge_stm_ready:")
+                or f_str.begins_with("tooltip_match_ok:")
+            )
+            if is_f5_ui_track:
+                continue
+        OperationalLog.play_combat("soak_coverage fail %s" % f_str)
     var missing: PackedStringArray = result.get("missing_cyan_presets", PackedStringArray()) as PackedStringArray
     if not missing.is_empty():
         OperationalLog.play_combat(

@@ -549,8 +549,17 @@ static func update_consciousness(entity: Node) -> void:
 	var base_consciousness: float = 100.0
 	if head_max_total > 0.0:
 		base_consciousness = 100.0 * (head_total / head_max_total)
-	if entity.has_method("is_vital_part_critically_damaged") and entity.is_vital_part_critically_damaged():
+	# Vital-part consciousness cap — two tiers:
+	#   Destroyed (tissue=0): cap at 4.0 (below incapacitation floor of 5.0). The fighter collapses
+	#   immediately; death follows after VITAL_DESTRUCTION_GRACE_PERIOD_S via is_dead().
+	#   Critically damaged (tissue<30%): cap at 12.0. Severely impaired but still conscious — the
+	#   fighter struggles to act (12% base performance) rather than instantly dropping. Matches
+	#   clinical data where penetrating chest/abdominal trauma causes rapid deterioration but not
+	#   instantaneous LOC unless brain perfusion is directly compromised.
+	if entity.has_method("is_vital_part_destroyed") and entity.is_vital_part_destroyed():
 		base_consciousness = minf(base_consciousness, 4.0)
+	elif entity.has_method("is_vital_part_critically_damaged") and entity.is_vital_part_critically_damaged():
+		base_consciousness = minf(base_consciousness, 12.0)
 	var blood_mod: float = get_blood_consciousness_modifier(entity)
 	var true_consciousness: float = base_consciousness * blood_mod
 	# Adrenaline pain suppression — catecholamine surge reduces pain perception by ~50% during sustained dump.
