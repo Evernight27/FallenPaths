@@ -275,6 +275,9 @@ static func _serialize_entity(entity: Node) -> Dictionary:
         # XCamp-4: proficiency data.
         "proficiency_bonus":
         _deep_dup(entity.get("_proficiency_bonus")) if entity.get("_proficiency_bonus") is Dictionary else {},
+        "weapon_proficiency": _deep_dup(entity.get("_weapon_proficiency")) if entity.get("_weapon_proficiency") is Dictionary else {},
+        "form_proficiency": _deep_dup(entity.get("_form_proficiency")) if entity.get("_form_proficiency") is Dictionary else {},
+        "combat_skill_trained": bool(entity.get("_combat_skill_trained")) if "_combat_skill_trained" in entity else false,
         "training_pending": _deep_dup(entity.training_pending) if "training_pending" in entity else {},
         "last_fought_day": int(entity.last_fought_day) if "last_fought_day" in entity else 0,
         "last_fought_in_combat": bool(entity.last_fought_in_combat) if "last_fought_in_combat" in entity else false,
@@ -382,6 +385,24 @@ static func _apply_entity(entity: Node, data: Dictionary) -> void:
             var prof_keys := ["strength", "agility", "intelligence", "endurance", "perception"]
             for key in prof_keys:
                 prof_dict[key] = float(saved_prof.get(key, 0.0))
+    if data.has("weapon_proficiency"):
+        var saved_wp: Dictionary = data.get("weapon_proficiency", {})
+        var wp_raw: Variant = entity.get("_weapon_proficiency")
+        if wp_raw is Dictionary:
+            var wp_dict: Dictionary = wp_raw as Dictionary
+            wp_dict.clear()
+            for key in saved_wp:
+                wp_dict[key] = float(saved_wp[key])
+    if data.has("form_proficiency"):
+        var saved_fp: Dictionary = data.get("form_proficiency", {})
+        var fp_raw: Variant = entity.get("_form_proficiency")
+        if fp_raw is Dictionary:
+            var fp_dict: Dictionary = fp_raw as Dictionary
+            fp_dict.clear()
+            for key in saved_fp:
+                fp_dict[key] = float(saved_fp[key])
+    if data.has("combat_skill_trained") and "_combat_skill_trained" in entity:
+        entity._combat_skill_trained = bool(data.get("combat_skill_trained", false))
     if data.has("training_pending"):
         var saved_train: Dictionary = data.get("training_pending", {})
         var train_raw: Variant = entity.get("training_pending")

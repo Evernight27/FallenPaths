@@ -549,17 +549,26 @@ static func parry_control_for_bind_deflect(
     # Readiness contributes additively to the margin factor (capacity bonus), not multiplicatively.
     # This prevents readiness from acting as a "brake" — instead it helps achieve bind when
     # alignment is decent but capacity is marginal.
+    var ct: String = contact_type.to_lower().strip_edges()
     var effective_margin: float
 
     if margin_ratio >= 1.0:
         # Deflect or better: margin_factor scales with actual capacity surplus.
-        effective_margin = clampf(margin_ratio, 0.5, 2.0) + parry_readiness * 0.4
+        # Floored at the partial-parry contact floor at unity so control is monotone across the
+        # full-stop threshold — a clean deflect never binds worse than the near-miss that just fell short.
+        effective_margin = maxf(minf(margin_ratio, 2.0), _partial_parry_contact_floor(1.0)) + parry_readiness * 0.4
     else:
         # Partial parry regime (below deflect threshold):
         # HEMA realism — even overwhelmed defenders create blade friction and structural disruption.
         # A parry absorbing 80% of momentum should grant ~2x the control of one absorbing 40%.
         # The contact floor ensures ANY blade contact produces non-zero control (HEMA: Waffenfühlen).
-        var contact_floor: float = margin_ratio * 0.7 + 0.42  # [0.42, 1.12] when margin_ratio in [0, 1]; gives partial parry meaningful bind potential (HEMA: any sustained blade contact creates leverage)
+        var contact_floor: float = _partial_parry_contact_floor(margin_ratio)
+        # Thrusts produce no glancing outcomes — a driven-through thrust carries the attacker's residual
+        # momentum forward instead of converting to a clean bind, so below-deflect thrust parries grant
+        # the defender LESS blade control. Mirrors DefenseResolutionHandler's damage-side reduction via
+        # parry_thrust_commitment_penalty: both sides agree a partial thrust parry keeps momentum high.
+        if ct == "stab":
+            contact_floor -= PARRY_THRUST_LINEAR_COMMITMENT_PENALTY * (1.0 - margin_ratio)
         effective_margin = contact_floor + parry_readiness * 0.5
 
     var p: float = alignment_weight * (effective_margin / 2.0)
@@ -569,24 +578,21 @@ static func parry_control_for_bind_deflect(
     if parry_off_balance:
         p *= PARRY_OFF_BALANCE_CONTROL_FACTOR
 
-    var ct: String = contact_type.to_lower().strip_edges()
     if ct == "stab":
         p *= PARRY_THRUST_CONTROL_MULT
-
-    # Thrusts produce no glancing outcomes — partial thrust parries transfer more residual momentum.
-    # This is reflected in the margin ratio calculation for thrusts: below-deflect thrust parries
-    # still carry significant attacker force forward (no "slide off" like cutting edge).
-    if ct == "stab" and margin_ratio < 1.0:
-        # Thrust partial: reduce the contact_floor so residual momentum is higher
-        # (attacker drives through rather than glancing off)
-        var thrust_penetration_bonus: float = PARRY_THRUST_LINEAR_COMMITMENT_PENALTY * (1.0 - margin_ratio)
-        effective_margin += thrust_penetration_bonus
 
     # Blade-width friction (HEMA waffenfühlen): a wider parrying blade grips the bind better. Applied
     # before the clamp so a narrow blade can slip below the bind threshold (ctrl < 0.48).
     p *= bind_friction_mult
 
     return clampf(p, 0.0, 1.0)
+
+
+## Partial-parry contact floor: any blade contact creates non-zero bind potential (HEMA: Waffenfühlen).
+## At unity margin the floor is 0.7*1 + 0.42 = 1.12 — the deflect branch must never start below this
+## so control stays monotone across the full-stop threshold.
+static func _partial_parry_contact_floor(margin_ratio: float) -> float:
+    return margin_ratio * 0.7 + 0.42
 
 
 ## Classify parry timing based on proportion of wind-up elapsed at the moment of defender's response.

@@ -722,6 +722,40 @@ static func _run_parry_control_bind_deflect_formula(failures: PackedStringArray)
     ):
         _fail(failures, "parry_margin_ratio: helper should match explicit formula")
 
+    # Boundary monotonicity (physics pass): control must not drop when a parry crosses from partial
+    # (just below deflect threshold) to a clean full stop. Previously the deflect branch clamped at
+    # 1.0 so a marginal stop (margin 1.0) could bind WORSE than the 99% partial (floor ~1.12).
+    var almost_stop: float = CombatConstants.parry_control_for_bind_deflect(
+        pa_m * CombatConstants.PARRY_DEFLECT_THRESHOLD * 0.995, pa_m, 0.9, 0.0, false, false, "cut"
+    )
+    var marginal_stop: float = CombatConstants.parry_control_for_bind_deflect(
+        pa_m * CombatConstants.PARRY_DEFLECT_THRESHOLD * 1.005, pa_m, 0.9, 0.0, false, false, "cut"
+    )
+    if marginal_stop < almost_stop - 0.001:
+        _fail(
+            failures,
+            "parry_ctrl_boundary: marginal full stop must not bind worse than near-miss partial (almost=%.4f stop=%.4f)"
+            % [almost_stop, marginal_stop]
+        )
+
+    # Thrust partial sign (physics pass): a driven-through thrust grants the defender LESS control.
+    # margin 0.5 partial: floor=0.77 - 0.18*0.5 = 0.68, +readiness*0.5 = 1.18 -> align_w(0.9)*0.59*0.85 = 0.4419.
+    # Pre-fix the penetration term was dead code (applied after p) leaving only the 0.85 mult (0.4756),
+    # and the old `+=` intent inflated it further. This pin fails unless the term feeds p AND is a penalty.
+    var st_lo: float = pa_m * CombatConstants.PARRY_DEFLECT_THRESHOLD * 0.5
+    var stab_partial: float = CombatConstants.parry_control_for_bind_deflect(st_lo, pa_m, 0.9, 1.0, false, false, "stab")
+    if absf(stab_partial - 0.4419) > 0.004:
+        _fail(
+            failures,
+            "parry_ctrl_thrust_partial: thrust penetration penalty must feed p (want ~0.442 got %.4f)" % stab_partial
+        )
+    if stab_partial >= CombatConstants.PARRY_BIND_CONTROL_THRESHOLD:
+        _fail(
+            failures,
+            "parry_ctrl_thrust_partial: partial thrust parry must not bind (ctrl=%.4f >= %.3f)"
+            % [stab_partial, CombatConstants.PARRY_BIND_CONTROL_THRESHOLD]
+        )
+
 
 ## Bind friction (HEMA waffenfühlen): a wider parrying blade grips the bind better. The 7-arg baseline
 ## (default friction 1.0) is unchanged; a narrower blade reduces control; a real SWORD (2.0cm) yields

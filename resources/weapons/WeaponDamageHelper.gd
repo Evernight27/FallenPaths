@@ -162,6 +162,15 @@ static func _attack_float_or_default(attack_instance: RefCounted, prop: String, 
 ## When weapon has no explicit striking-part mass data, use the weapon's own mass fraction at the striking point.
 ## The velocity bands encode tip-speed kinematics; the effective mass is the part mass, not a bare-hand value.
 static func strike_mass_kg(weapon: RefCounted, attack_instance: RefCounted) -> float:
+    ## Swing-mechanics strike-mass coupling (TOPIC 8b): green fighters convert body weight into the hit less
+    ## efficiently. `strike_mass_mult` is set on the AttackInstance by the resolver (defaults to 1.0, so bare
+    ## fixtures and untracked fighters are unchanged).
+    var base_mass: float = _base_strike_mass_kg(weapon, attack_instance)
+    var mass_mult: float = _attack_float_or_default(attack_instance, "strike_mass_mult", 1.0)
+    return base_mass * maxf(0.5, mass_mult)
+
+
+static func _base_strike_mass_kg(weapon: RefCounted, attack_instance: RefCounted) -> float:
     ## Move-level override takes priority (e.g. spear shaft_thrust needs higher blunt strike mass).
     var move_id: String = move_id_from_attack_instance(attack_instance)
     if weapon == null:

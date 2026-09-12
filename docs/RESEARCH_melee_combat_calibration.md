@@ -671,3 +671,120 @@ For a combatant with `con` stat (constitution/endurance):
 ```
 
 Blood loss counter: `blood_percent = blood_volume_remaining / total_blood_volume x 100`. Starting at 100%, fighter dies when reaching ~45-50% (having lost 50-55%). At 65% remaining (35% loss): severe impairment, not death -- con penalty of 50-60%, speed penalty of 40-50%.
+
+---
+
+## TOPIC 7: SKILL, REACTION TIME, AND STRIKING FORCE SOURCING (2026-09)
+
+Sourcing for the proficiency / melee-skill / untrained-penalty layer and its connection audit against combat systems.
+
+### 7a) Reaction Time - Choosing the Dodge Baseline
+
+**Borysiuk & Waskiewicz (2008, fencing/combat EMG studies):** simple reactions in combat athletes run **~180-220 ms**; choice reactions **~380-410 ms** (choice is ~2x simple). Choice RT tracks the number of response alternatives (Keel; Klapp & Erwin ~600 ms ceiling).
+
+- Game constant `DODGE_MIN_REACTION_TIME_S = 0.37` (`core/EntityPainConsciousness.gd:17`) is a **choice-context baseline** (37 s / 370 ms lands inside the sourced 380-410 ms choice bracket, and above the 180-220 ms simple floor). A pure-reactive parry/dodge should be ~180-260 ms; anything faster than ~150 ms of stimulus-to-action is anticipation, not reaction — consistent with the existing "anticipation bonus" design comment (Topic 4c).
+- `DODGE_AGI_PERCEPTION_SENSITIVITY = 0.4` capping at **-30%** effective MRT (`EntityPainConsciousness.gd:993-994`) matches **Milic et al. (2019)**: beginners showed **25.5-34.8% slower RT** than experienced fencers across simple/2-choice/4-choice situations, with the slope vs alternatives 35-55% steeper. The -30% agility+perception-driven band is therefore a **trained-vs-untrained reaction gap**, not a physical limit override: best-case ~260 ms stays above the ~180 ms simple floor and inside the fencer choice-reaction range sourced by Akpinar & Beyaz (2018) (fencers 273 ms vs non-fencers 327 ms, p=.001).
+- Dodge chance sigmoid tail: `DODGE_MIN_REACTION_TIME_S` is the perceive-decide phase, distinct from the movement-execute phase (see `EntityPainConsciousness.gd:20-31` evasion ceilings 25-35%) — those match instrumented HEMA evasion/parry rates (Topic 4) and the elite-vs-novice response accuracy gap below.
+
+### 7b) Response Accuracy - Expertise Multiplier for Hit Chance
+
+**PMC9650920 systematic review + meta-analysis (27 studies, 233 datasets, combat sports anticipatory response):** experts vs non-experts **response accuracy 83.3% vs 68.5%** (pooled, large effect d ~1.2-1.5), RT shorter by a large effect.
+
+Connection audit:
+- `MISS_CHANCE_BASE` works against a `perf_mod x perception_factor x melee_skill_factor` product (`combat/strike/AttackResolver.gd:714`). The new `melee_skill_value` (`core/EntityProficiency.gd`, wired via `combat/access/CombatantEntityAccess.gd:704`) is clamped to factor **[0.5, 1.3]** (`MELEE_SKILL_HIT_FACTOR_MIN/MAX`). The 0.5 floor is a game-abstraction of the expert-or-novice accuracy ratio (~0.82 measured) plus the compounding effect of untrained bind failure — direction correct, magnitude conservative-to-generous for absolute experts. Sensitivity is in the right band; no retune recommended without playtest data.
+- Binds (`combat/strike/CombatBindPressure.gd:251,344,430,510`) consume the same sourced skill, so skill compounds hits + blade engagement instead of double-counting a single dodge stat.
+
+### 7c) Striking Force - Strength vs Skill (Effective Mass)
+
+**Dunn et al. (2022 JSCR) / Lenetsky et al. (2018 PhD thesis, AUT):** peak punch force 1543 N (low) / 1864 N (medium) / 2305 N (high) groups. Lower-body strength (IMTP) explains **~46% of punch-force variance (r = .68)**; CMJ r = .68; isometric squat r = .73-.79 (Loturco et al.). Upper-body maximal strength is **not** related; relations disappear when normalized to body mass (body mass is a confounder). **Neto et al. (2012) / Lenetsky (2018): effective mass** discriminated trained vs untrained **more than peak force** — technique-absorbed body mass is the biggest trained-vs-untrained striking difference.
+
+Connection audit:
+- Strength->damage is currently **linear `str/100`** (`WeaponDamageHelper.compute_pre_armor_cut`) — a coarse but defensible abstraction of the linear-ish strength-to-force relation (r ~ 0.68-0.79). Body-mass coupling is out of scope for current stats.
+- **Gap: `melee_skill_value` feeds hit chance + binds but NOT the damage/force chain.** The effective-mass literature says the trained-vs-untrained striking delta shows up most strongly at impact — NOT only at land rate. Recommended (feature ask, not bundled here): let `melee_skill_value/100` (or a softer exponent) scale delivered damage/force alongside hit chance, so rookies hit less often AND land weaker blows when they connect.
+
+### 7d) Proficiency Gain / Decay Shape
+
+Practice laws: Newell & Rosenbloom (1981) power law of practice; Heathcote et al. (2000) and Evans et al. (2018) show exponential/single-scale fits often better; both agree on rapid early improvement with diminishing returns and later stabilization.
+
+- `core/EntityProficiency.gd` `GAIN_*` per-action gain + multiplicative `GAIN_OCCURRENCE_MULT_MAX 1.35` and `GAIN_DIFFICULTY_STR_*` give the diminishing-returns acquisition (power/exponential family) — consistent with the practice laws.
+- `DECAY_RATE_*` (per-tier negative rates, `DECAY_MULT_*` stats, thresholds at 15/20/25) model skill leveling off dramatically at higher tiers — matches the "consolidation/plateau" shape of both laws and the flatter ceiling of expertise. Decay when not training is a game-side retention model; the slowed decay-at-novice/low-tier (no −) and steeper effective decay floor avoids the unrealistic "permanent amnesia" of brittleness — an acceptable abstraction.
+
+---
+
+*Topic 7 sources: Borysiuk & Waskiewicz (2008); Milic, Nedeljkovic, Cuk, Mudric & Garcia-Ramos (2019, EJSS 10.1080/17461391.2019.1671498); Akpinar & Beyaz (2018, SMJ 10.26773/smj.181001); Lee & colleagues combat-sports anticipation meta-analysis (PMC9650920); Dunn, Humberstone, Franchini, Iredale & Blazevich (2022, JSCR 36(4):1019-25); Lenetsky (2018, AUT PhD); Neto, Magini & Saba (2007); Loturco et al. (2014-15); Newell & Rosenbloom (1981); Heathcote, Brown & Mewhort (2000); Evans, Brown, Mewhort & Heathcote (2018, Psych. Review).*
+
+---
+
+## TOPIC 8: SWING MECHANICS — HOW TRAINING CHANGES THE BLOW (2026-09)
+
+Design (not yet implemented) for threading proficiency/stat into the **strike physics already modeled** instead of a flat % damage multiplier. The 7c gap audit ("skill does not feed damage") is answered here mechanistically: training changes *how the body produces the swing* — kinetic-chain velocity transfer, impulsively-coupled striking mass, metabolic economy per swing, and technique stability under fatigue. Outcome: a rookie lands a genuinely weaker and more wasteful blow that degrades *around* fatigue; a trained soldier delivers a faster blade with more committed mass, spends less stamina per swing, and holds output late in a fight. All four effects read a **single number** (weapon/form familiarity tier), all are **1.0 at baseline** (enemies / untracked / flag-off unchanged), all pass through **existing** physics functions so calibration anchors on pure helpers stay pinned.
+
+### 8a) Kinetic-Chain Transfer = Effective Blade Speed (velocity economy)
+
+- **Evidence.** Elite vs junior boxers (PMC9798280): peak punch velocity 7.16 vs 6.32 m/s (~13% higher); **contact** velocity 5.56 vs 4.87 m/s (**elite/junior ratio ~0.877**); force +45%, impulse +46%, RFD +46%. Distal-segment maximization (proximal-to-distal sequencing) is the mechanism — juniors showed *arm-dominant* compensation (PMC7739747; Chen-Tai-Chi 2022: masters sequence hand→elbow→shoulder, beginners shoulder→elbow→hand and slow a hip rotation 370 vs 210°/s). Neto et al. (2013, EJSS): training positively correlates with pre-impact peak hand acceleration (r²=.456) **and** accuracy together; Kung-Fu (Neto 2008 PMS 106:188): experienced higher mean impact force *and* striking efficiency; muscle⇄impact power ρ=.98 experienced vs ρ=.46 novice (broken force transfer).
+- **Implementation.** In `AttackResolver.compute_and_apply_damage`, right after `v_base` is derived (before closing/fatigue mults), multiply the instance velocity by `swing_velocity_economy(tier)`:
+
+  ```
+  swing_velocity_economy(tier) = lerp(SWING_VELOCITY_ECONOMY_FLOOR, 1.0, tier)
+  SWING_VELOCITY_ECONOMY_FLOOR ≃ 0.88   # ~junior/elite contact-velocity ratio
+  ```
+
+  Velocity flows through the *existing* chain: KE ∝ v² → cut damage ∝ sqrt(KE) (so a 0.88 blade ≈ 0.88 cut dmg, line-consistent), blunt ∝ momentum (0.88), penetration & impact-time degrade with the same v. This is not a damage %: force is lower because the blade is measurably slower at impact. **Both strength AND skill matter orthogonally**: strength decides the *intensity band* available; skill decides how much of that intent is actually delivered to the edge.
+
+### 8b) Impulsively-Coupled Striking Mass (effective mass / force transfer)
+
+- **Evidence.** Effective mass = peak force ÷ impact acceleration — the body mass that stays rigidly coupled through contact. Straight punches carry the highest effective mass (cross 31.2 kg / jab 30.4 kg; Kacprzak 2025, Appl Sci 15:4008); training tenure correlates with effective mass (10.6 vs 5.1 yr between Q4/Q1; Appl Sci 14:7785, 2024); **wrist flexion before impact reduces effective-mass transfer** (Walilko 2005); the arm-torso-lower-limb "rigid connecting structure" at the strike moment adds mass (Lenetsky 2013); novices transfer impulse poorly (Neto ρ=.46). Flawless transfer is *joint stiffness at the moment of impact*, learned — not raw size (body-mass correlation weak at fixed acceleration).
+- **Implementation.** `strike_mass_kg(weapon, attack_instance)` (`resources/weapons/WeaponDamageHelper.gd:164`) already varies by striking part / move override. Add an optional fighter-coupling read:
+
+  ```
+  mutate: strike_mass_kg reads attack_instance["strike_mass_mult"] (default 1.0)
+  AttackResolver sets attack_instance.strike_mass_mult = strike_mass_coupling(tier)
+  strike_mass_coupling(tier) = lerp(STRIKE_MASS_COUPLING_FLOOR, 1.0, tier)
+  STRIKE_MASS_COUPLING_FLOOR ≃ 0.90
+  ```
+
+  Because the attack_instance carries the per-fighter value and bare helper-built instances default to 1.0, the pinned `compute_kinetic_energy_j` / `compute_pre_armor_cut` regression fixtures are untouched. Mass enters KE (cut) and momentum (blunt/pressure) directly — the same physical quantity the 7c sources name as the biggest trained-vs-untrained difference.
+
+### 8c) Metabolic Economy — Stamina Cost per Swing (energy-waste from co-contraction)
+
+- **Evidence.** Motor learning lowers net metabolic power ~20% (arm reaching: Huang, Kram & Ahmed 2012, J Neurosci 32:2182; split-belt walking: Finley 2013, 3.78→3.05 W/kg, PMC3591716); co-activation/"wasted energy" falls as an internal model forms (Thoroughman & Shadmehr 1999); Sparrow's economy-of-skill (Sparrow 1983; Sparrow & Irizarry-Lopez 1987, +13.7% mechanical efficiency with practice); novices co-contract more (Sci Rep 2018), the mechanism behind the higher fuel cost.
+- **Implementation.** In `AttackResultApplier._stamina_attack_cost_for_attacker` (`combat/strike/AttackResultApplier.gd:123-134`), multiply the strike cost by `swing_stamina_economy(tier)`:
+
+  ```
+  swing_stamina_economy(tier) = lerp(SWING_STAMINA_WASTE_MAX, 1.0, tier)
+  SWING_STAMINA_WASTE_MAX ≃ 1.22   # ~max novice thermal overhead vs learned economy
+  ```
+
+  Stamina is keyed to *nominal* intensity (the intent), so a rookie spends the full price but delivers only ~88-100% of it to the blade (8a) — the wasted-energy gap is real and felt. Combined with 8d this produces the *temporal* picture: green fighters gas several swings early, then their already-thinner output collapses further.
+
+### 8d) Technique Stability Under Fatigue (velocity/force resilience)
+
+- **Evidence.** Häkkinen boxing work (already cited in `CombatConstantsStamina.gd:188-205`): punch velocity drops 8-12% after sustained work while peak power only 3-5% — fast-twitch/ATP-PCr/RFD first. Dunn et al. (2021 EJSS 22:964): fatiguing lower-body work cut punch force *in all types* + RFD delays, worst in rotational punches. Stewart et al. (2025, Bioengineering 12:1355): fatigue reduced force ~4.3% overall but **weakest punches -9.8% vs strongest -4.6%**; Penna et al. (2026, Sci): elite hold mechanical intensity better in later rounds. → the *less-robust* technique collapses earliest.
+- **Implementation.** Extend `fatigue_velocity_mult(stamina_ratio, exhaustion, skill_hold := 0.0)` (`combat/constants/CombatConstantsStamina.gd:211`) with a small floor offset; callers default 0.0 → **identical to today** for enemies/tests:
+
+  ```
+  zero-stamina floor : 0.80 + skill_hold * 0.10   (rookie 0.75 → veteran 0.85)
+  exhaustion floor    : 0.80 + skill_hold * 0.10
+  skill_hold          = lerp(-0.5, 0.5, tier)
+  ```
+
+  Tired rookies drop to ~75% blade speed at near-zero stamina (KE ≈ 56% of full); tired veterans hold ~85% (KE ≈ 72%) — matching "weakest punches, most fatigue loss," not a flat damage cut.
+
+### 8e) One Knob, Scoped Delivery
+
+- Single input: `swing_proficiency_tier(entity, weapon_id, form)` — `1.0` for untracked/enemy (no `_combat_skill_trained`) and when `read_stub_proficiency_enabled()` is off; else `EntityProficiency.combined_aim_prof_tier(entity, weapon_id, form)` (0..1). Exposed as four bounded helpers on `core/EntityProficiency.gd` (velocity economy, mass coupling, stamina economy, skill_hold).
+- Order of application matters (in-fight, green vs veteran):
+  1. Fresh & clean hit: ~12% softer blade speed (8a) × ~10% less coupled mass (8b) → ~20% softer clean blow;
+  2. Each swing costs ~0-22% more stamina (8c) → the low-intellect/untrained fighter gasses in ~80% of the time;
+  3. Once gassed, an additional ~10-13% velocity collapse (8d) on top → output degrades *over the fight*, not as a flat %.
+- Do **not** also add a linear damage×skill multiplier — that would double-stack with hit chance and erase the "first clean blow lands honestly" realism (a fresh, terrified rookie *can* put force into one swing; what they can't do is do it repeatedly or on demand).
+- Hits, binds, dodge MRT, and the stat system keep their existing skill reads; this layer only adds *how the swing is produced*.
+
+### 8f) Coupling Research Update (why the tier is per-weapon/per-form, and how it acquires)
+
+Coupled the swing layer to the **combined weapon+form tier** from motor-skill *transfer* research, not guesswork:
+- **Transfer is subject- and task-specific.** Positive transfer occurs to tasks that *share dynamics/affordances* (implement-experienced groups transfer; novices do not) — PubMed 33957573 (Komar et al. 2021) shows positive multidimensional transfer between implement-striking skills whose dynamics overlap, with both specific and general components contingent on task similarity. Consequence: a statistician's raw athleticism (strength/intensity, condition) **carries across weapons**, but blade-specifics (velocity chain, mass coupling, economical swing timing) transfer **near-specifically** — a swordmaster picking up a dagger swings at the dagger's green tier (low weapon + low form tier), exactly what `combined_aim_prof_tier` computes.
+- **Acquisition is power-law, not linear** — Ericsson 1993 (~10 years / thousands of deliberate-practice hours to expert; elite fencers ≈10 yr, ~9 h/wk with automatic basal-ganglia execution rather than cerebellar online control, PMC9248301) matches the repo's existing fast-early GAIN multipliers which decay 1.0→0.7→0.4→0.2→0.1 across proficiency bands. So a **linear** tier→economy mapping is correct: the growth curve is already baked into how fast tier rises.
+- **The four levers compound through the existing metabolism loop** rather than stacking as separate multipliers: 8c raises the stamina cost, which also increases *exhaustion accrual* (`apply_exertion_from_stamina_spend` feeds on stamina spent) — so a green fighter double-suffers (faster fatigue) and then loses 8d blade speed on top, plus existing RT/parry timing degradation. Output collapses *over* the fight; one fresh swing stays honest.
+
+*Topic 8 sources: PMC9798280 (elite vs junior lead straight, 2022); PMC7739747 (cross/hook/uppercut elite vs junior, 2021); Chen-Style Tai Chi punch kinematics (IJERPH 19:5915, 2022); Neto et al. (2013 EJSS 10.1080/17461391.2013.775350); Neto et al. (2008 PMS 106:188-196); Kacprzak et al. (2025 Appl Sci 15:4008); Appl Sci 14:7785 (2024); Walilko et al. (2005); Lenetsky (2013); Huang, Kram & Ahmed (2012 J Neurosci 10.1523/jneurosci.4003-11.2012); Finley et al. (2013, PMC3591716); Sparrow & Irizarry-Lopez (1987); Dunn et al. (2021 EJSS 10.1080/17461391.2021.1916085); Stewart et al. (2025 Bioengineering 12:1355); Penna et al. (2026, Sci 10.3390/sci8060141); PubMed 33957573 (Komar et al., skill transfer, 2021); Ericsson et al. (1993, deliberate practice ~10 yr); PMC9248301 (fencing expertise fMRI, 2022); *transfer sources retrieved 2026-09 via PubMed summary.**

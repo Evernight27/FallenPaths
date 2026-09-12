@@ -43,6 +43,18 @@ const PROF_AIM_MULT_MAX: float = 1.15
 const PROF_INTENDED_PART_BOOST_MIN: float = 2.0
 const PROF_INTENDED_PART_BOOST_MAX: float = 3.0
 
+# --- Combat skill curve (untrained -> veteran) ---
+## Derived melee_skill baseline for a standard trained soldier (enemy / untracked fighters).
+const MELEE_SKILL_BASELINE: float = 100.0
+## Skills below MELEE_SKILL_BASELINE clamp hit chance toward MELEE_SKILL_HIT_FACTOR_MIN (0.5).
+const MELEE_SKILL_UNSKILLED: float = 50.0
+## Skills above baseline reach MELEE_SKILL_HIT_FACTOR_MAX (1.3) at veteran familiarity.
+const MELEE_SKILL_VETERAN_MAX: float = 130.0
+## Effective-stat untrained holdback: below this per-stat bonus, tracked fighters fight "green".
+const UNSKILLED_BONUS_THRESHOLD: float = 5.0
+## Flat per-stat effective-value deduction at zero experience (fades to 0 at threshold).
+const UNSKILLED_STAT_PENALTY_MAX: float = 5.0
+
 # --- Base gain amounts per combat event (raw proficiency points) ---
 const GAIN_MELEE_HIT_BASE: float = 0.3
 const GAIN_MELEE_HIT_MAX_DMG_CONTRIB: float = 2.0
@@ -245,6 +257,85 @@ static func form_proficiency_tier(entity: CoreEntity, form: String) -> float:
 
 static func combined_aim_prof_tier(entity: CoreEntity, weapon_id: String, form: String) -> float:
     return clampf((weapon_proficiency_tier(entity, weapon_id) + form_proficiency_tier(entity, form)) * 0.5, 0.0, 1.0)
+
+
+## Derived combat skill from accumulated weapon/form experience. Untracked fighters (enemies, test
+## entities) stay at MELEE_SKILL_BASELINE (professional-soldier norm); proficiency-tracked fighters
+## span MELEE_SKILL_UNSKILLED (0 experience) up to MELEE_SKILL_VETERAN_MAX at tier-1 familiarity.
+static func melee_skill_for(entity: Node, weapon_id: String, form: String) -> float:
+    var ce := entity as CoreEntity
+    if ce == null or not "_combat_skill_trained" in entity or not bool(entity.get("_combat_skill_trained")):
+        return MELEE_SKILL_BASELINE
+    var tier: float = combined_aim_prof_tier(ce, weapon_id, form)
+    return lerpf(MELEE_SKILL_UNSKILLED, MELEE_SKILL_VETERAN_MAX, tier)
+
+
+## Effective-stat untrained holdback: tracks the gap between current per-stat proficiency bonus and
+## UNSKILLED_BONUS_THRESHOLD (fades to 0 at threshold). Only proficiency-tracked fighters are held
+## back — raw strength/agility stay intact, but technique-dependent output is reduced while green.
+static func untrained_stat_penalty(entity: Node, stat_name: String) -> float:
+    if not _get_company_state().read_stub_proficiency_enabled():
+        return 0.0
+    if entity == null or not "_combat_skill_trained" in entity or not bool(entity.get("_combat_skill_trained")):
+        return 0.0
+    if not "_proficiency_bonus" in entity:
+        return 0.0
+    var bonus: float = float(entity._proficiency_bonus.get(stat_name, 0.0))
+    if bonus >= UNSKILLED_BONUS_THRESHOLD:
+        return 0.0
+    var lack: float = 1.0 - bonus / UNSKILLED_BONUS_THRESHOLD
+    return maxf(0.0, lack * UNSKILLED_STAT_PENALTY_MAX)
+
+
+# --- Swing mechanics proficiency coupling (RESEARCH TOPIC 8) ---
+## Training changes HOW a fighter produces a blow, not just whether it lands. Coupled to the same
+## per-weapon/per-form combined tier as aim, so transfer is near-specific (sword skill carries partially
+## to similar implements, poorly to unfamiliar ones) while raw stats carry over. Untracked fighters
+## (enemies, test entities) and flag-off runs return tier 1.0 -> economy 1.0 -> no gameplay delta.
+## 8a velocity economy floor: elite/junior contact-velocity ratio 5.557/4.874 m/s ~= 0.877 (PMC9798280).
+const SWING_VELOCITY_ECONOMY_FLOOR: float = 0.88
+## 8b strike-mass coupling floor: impulsively-coupled effective mass improves with training tenure
+## (Kacprzak 2025 Appl Sci; Walilko 2005), separate from strength/effort.
+const STRIKE_MASS_COUPLING_FLOOR: float = 0.90
+## 8c stamina waste max: motor learning cuts net metabolic power ~20% (Huang 2012; Finley 2013), so a
+## green fighter spends more energy (and accrues more exhaustion) per nominal-intensity swing.
+const SWING_STAMINA_WASTE_MAX: float = 1.22
+
+
+## Single knob for the swing-mechanics economy: 1.0 = untracked / sim-off, else combined weapon+form tier.
+static func is_swing_proficiency_tracked(entity: CoreEntity) -> bool:
+    if not _get_company_state().read_stub_proficiency_enabled():
+        return false
+    if entity == null or not "_combat_skill_trained" in entity or not bool(entity.get("_combat_skill_trained")):
+        return false
+    return true
+
+
+static func swing_proficiency_tier(entity: CoreEntity, weapon_id: String, form: String) -> float:
+    if not is_swing_proficiency_tracked(entity):
+        return 1.0
+    return combined_aim_prof_tier(entity, weapon_id, form)
+
+
+## Blade transfer economy: how much nominal swing velocity becomes contact velocity (multiplies v_base).
+static func swing_velocity_economy(tier: float) -> float:
+    return lerpf(SWING_VELOCITY_ECONOMY_FLOOR, 1.0, clampf(tier, 0.0, 1.0))
+
+
+## Impulsive strike-mass coupling: effective mass multiplier at contact (>= 0.90 for tracked fighters).
+static func strike_mass_coupling(tier: float) -> float:
+    return lerpf(STRIKE_MASS_COUPLING_FLOOR, 1.0, clampf(tier, 0.0, 1.0))
+
+
+## Metabolic economy: >1.0 multiplier on stamina attack cost (waste); 1.0 at veteran tier.
+static func swing_stamina_economy(tier: float) -> float:
+    return lerpf(SWING_STAMINA_WASTE_MAX, 1.0, clampf(tier, 0.0, 1.0))
+
+
+## Fatigue resilience hold in [-0.5, +0.5]: veteran holds mechanical intensity later into effort, green
+## loses more blade speed at the same stamina/exhaustion (scaled by FATIGUE_SKILL_HOLD_FLOOR_SPAN).
+static func swing_skill_hold(tier: float) -> float:
+    return lerpf(-0.5, 0.5, clampf(tier, 0.0, 1.0))
 
 
 static func proficiency_occurrence_mult(entity: CoreEntity, weapon_id: String, form: String, move_id: String) -> float:

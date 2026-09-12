@@ -667,4 +667,102 @@ static func _run_targeting_proficiency_channels(failures: PackedStringArray) -> 
     HarnessFixtures._free_harness_node(ent)
     HarnessFixtures._free_harness_node(ent_nov)
 
+
+## Swing-mechanics economy bounds (TOPIC 8a/8b/8c/8d pure functions). Stub-independent.
+static func _run_swing_economy_bounds(failures: PackedStringArray) -> void:
+    if absf(EntityProficiency.swing_velocity_economy(0.0) - 0.88) > 0.0001:
+        _fail(failures, "swing_econ: tier0 velocity economy want 0.88 got %.4f" % EntityProficiency.swing_velocity_economy(0.0))
+    if absf(EntityProficiency.swing_velocity_economy(1.0) - 1.0) > 0.0001:
+        _fail(failures, "swing_econ: tier1 velocity economy want 1.0 got %.4f" % EntityProficiency.swing_velocity_economy(1.0))
+    if absf(EntityProficiency.strike_mass_coupling(0.0) - 0.90) > 0.0001:
+        _fail(failures, "swing_econ: tier0 mass coupling want 0.90 got %.4f" % EntityProficiency.strike_mass_coupling(0.0))
+    if absf(EntityProficiency.strike_mass_coupling(1.0) - 1.0) > 0.0001:
+        _fail(failures, "swing_econ: tier1 mass coupling want 1.0 got %.4f" % EntityProficiency.strike_mass_coupling(1.0))
+    if absf(EntityProficiency.swing_stamina_economy(0.0) - 1.22) > 0.0001:
+        _fail(failures, "swing_econ: tier0 stamina waste want 1.22 got %.4f" % EntityProficiency.swing_stamina_economy(0.0))
+    if absf(EntityProficiency.swing_stamina_economy(1.0) - 1.0) > 0.0001:
+        _fail(failures, "swing_econ: tier1 stamina economy want 1.0 got %.4f" % EntityProficiency.swing_stamina_economy(1.0))
+    if absf(EntityProficiency.swing_skill_hold(0.0) + 0.5) > 0.0001:
+        _fail(failures, "swing_econ: tier0 skill hold want -0.5 got %.4f" % EntityProficiency.swing_skill_hold(0.0))
+    if absf(EntityProficiency.swing_skill_hold(1.0) - 0.5) > 0.0001:
+        _fail(failures, "swing_econ: tier1 skill hold want 0.5 got %.4f" % EntityProficiency.swing_skill_hold(1.0))
+
+
+## Swing-proficiency tier gating (TOPIC 8e): 1.0 for stub-off / null / untracked; combined tier otherwise.
+static func _run_swing_tier_gating(failures: PackedStringArray) -> void:
+    var old_stub: bool = CompanyState.read_stub_proficiency_enabled()
+    var ent: CoreEntity = _new_entity("SWORD")
+    ent._combat_skill_trained = true
+    ent._weapon_proficiency = {"SWORD": 10.0}
+    ent._form_proficiency = {CombatWeaponForm.FORM_BALANCED: 10.0}
+
+    CompanyState.proficiency_enabled = false
+    if not is_equal_approx(EntityProficiency.swing_proficiency_tier(ent, "SWORD", CombatWeaponForm.FORM_BALANCED), 1.0):
+        _fail(failures, "swing_tier: stub-off should be 1.0")
+    if not is_equal_approx(EntityProficiency.swing_proficiency_tier(null, "SWORD", CombatWeaponForm.FORM_BALANCED), 1.0):
+        _fail(failures, "swing_tier: null entity should be 1.0")
+    if EntityProficiency.is_swing_proficiency_tracked(ent):
+        _fail(failures, "swing_tier: tracked ent must not be tracked while stub-off")
+
+    CompanyState.proficiency_enabled = true
+    if not is_equal_approx(EntityProficiency.swing_proficiency_tier(null, "SWORD", CombatWeaponForm.FORM_BALANCED), 1.0):
+        _fail(failures, "swing_tier: null entity stub-on should be 1.0")
+    if EntityProficiency.is_swing_proficiency_tracked(null):
+        _fail(failures, "swing_tier: null entity must not be tracked stub-on")
+    var rookie: CoreEntity = _new_entity("SWORD")
+    rookie._combat_skill_trained = false
+    if not is_equal_approx(EntityProficiency.swing_proficiency_tier(rookie, "SWORD", CombatWeaponForm.FORM_BALANCED), 1.0):
+        _fail(failures, "swing_tier: untracked should be 1.0")
+    if EntityProficiency.is_swing_proficiency_tracked(rookie):
+        _fail(failures, "swing_tier: untracked entity must not be tracked")
+    if not EntityProficiency.is_swing_proficiency_tracked(ent):
+        _fail(failures, "swing_tier: trained ent should be tracked stub-on")
+    var tier: float = EntityProficiency.swing_proficiency_tier(ent, "SWORD", CombatWeaponForm.FORM_BALANCED)
+    if absf(tier - 0.5) > 0.0001:
+        _fail(failures, "swing_tier: 10+10 combined want 0.5 got %.4f" % tier)
+
+    CompanyState.proficiency_enabled = old_stub
+    HarnessFixtures._free_harness_node(ent)
+    HarnessFixtures._free_harness_node(rookie)
+
+
+## Fatigue velocity skill hold (TOPIC 8d): green loses more blade speed at the same effort, veteran holds.
+static func _run_fatigue_velocity_skill_hold(failures: PackedStringArray) -> void:
+    if absf(CombatConstantsStamina.fatigue_velocity_mult(1.0, 0.0, -0.5) - 1.0) > 0.0001:
+        _fail(failures, "fat_hold: full stamina green should be 1.0")
+    var green: float = CombatConstantsStamina.fatigue_velocity_mult(0.0, 0.0, -0.5)
+    var neutral: float = CombatConstantsStamina.fatigue_velocity_mult(0.0, 0.0, 0.0)
+    var veteran: float = CombatConstantsStamina.fatigue_velocity_mult(0.0, 0.0, 0.5)
+    if absf(green - 0.75) > 0.0001:
+        _fail(failures, "fat_hold: green zero-stamina want 0.75 got %.4f" % green)
+    if absf(neutral - 0.80) > 0.0001:
+        _fail(failures, "fat_hold: neutral zero-stamina want 0.80 got %.4f" % neutral)
+    if absf(veteran - 0.85) > 0.0001:
+        _fail(failures, "fat_hold: veteran zero-stamina want 0.85 got %.4f" % veteran)
+    if not (green < neutral and neutral < veteran):
+        _fail(failures, "fat_hold: ordering violated green<neutral<veteran")
+    var exh_green: float = CombatConstantsStamina.fatigue_velocity_mult(1.0, 1.0, -0.5)
+    var exh_veteran: float = CombatConstantsStamina.fatigue_velocity_mult(1.0, 1.0, 0.5)
+    if absf(exh_green - 0.75) > 0.0001 or absf(exh_veteran - 0.85) > 0.0001:
+        _fail(failures, "fat_hold: exhaustion floors wrong green=%.4f veteran=%.4f" % [exh_green, exh_veteran])
+
+
+## Strike-mass coupling (TOPIC 8b): strike_mass_kg scales a fixture by strike_mass_mult; default stays 1.0.
+static func _run_strike_mass_coupling(failures: PackedStringArray) -> void:
+    var w: RefCounted = HarnessFixtures.get_cached_weapon("SWORD")
+    if w == null:
+        _fail(failures, "swing_mass: cached SWORD weapon missing")
+        return
+    var ai1 := AttackInstance.new("oberhau", 0.6)
+    var ai2 := AttackInstance.new("oberhau", 0.6)
+    ai2.strike_mass_mult = 0.9
+    var m1: float = WeaponDamageHelper.strike_mass_kg(w, ai1)
+    var m2: float = WeaponDamageHelper.strike_mass_kg(w, ai2)
+    if m1 <= 0.0:
+        _fail(failures, "swing_mass: base mass should be positive (got %.4f)" % m1)
+    if absf(m1 * 0.9 - m2) > 0.001:
+        _fail(failures, "swing_mass: 0.9 coupling should scale mass want %.4f got %.4f" % [m1 * 0.9, m2])
+    if absf(WeaponDamageHelper.strike_mass_kg(w, AttackInstance.new("oberhau", 0.6)) - m1) > 0.0001:
+        _fail(failures, "swing_mass: default mult should preserve base mass")
+
 ## Run all proficiency harness tests.

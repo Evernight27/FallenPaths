@@ -35,6 +35,7 @@ static func setup_hired_companion(companion: Node, rng: RandomNumberGenerator, s
         companion.set_process_input(false)
     _setup_character(companion, rng, true, slot_index)
     # XCamp-4: rookies start with zero proficiency  -  no combat experience yet.
+    _mark_combat_skill_trained(companion)
 
 
 static func setup_player_and_companion(
@@ -45,6 +46,7 @@ static func setup_player_and_companion(
         return
     player.is_party_leader = true
     _setup_character(player, rng, randomize_equipment)
+    _mark_combat_skill_trained(player)
     _setup_rookie_proficiency_for_world(world, player)
 
     for i in range(1, CombatConstants.FORMATION_UNIT_COUNT_HARD_CAP):
@@ -56,6 +58,7 @@ static func setup_player_and_companion(
             companion.is_party_leader = false
             companion.set_process_input(false)
             _setup_character(companion, rng, randomize_equipment, i - 1)
+            _mark_combat_skill_trained(companion)
             _setup_rookie_proficiency_for_world(world, companion)
 
 
@@ -106,3 +109,13 @@ static func _setup_rookie_proficiency_for_world(world: Node2D, character: Node) 
     for stat in ["strength", "agility", "intelligence", "endurance", "perception"]:
         var bonus: float = minf(maxf(renown * ROOKIE_PROFICIENCY_PER_RENOWN, 0.0), ROOKIE_PROFICIENCY_CAP)
         entity._proficiency_bonus[stat] = bonus
+
+
+## Marks a party fighter as proficiency-tracked so the combat skill curve (melee_skill from weapon/form
+## experience) and the untrained holdback apply. Enemy / non-party entities stay untracked (baseline 100).
+static func _mark_combat_skill_trained(character: Node) -> void:
+    if character == null:
+        return
+    var entity: Node = CampaignEncounterBridge.health_entity_from_character(character)
+    if entity != null and "_combat_skill_trained" in entity:
+        entity._combat_skill_trained = true

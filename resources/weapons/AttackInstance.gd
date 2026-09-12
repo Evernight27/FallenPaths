@@ -16,6 +16,9 @@ var archetype: Dictionary = {}  # Set by CombatManager from weapon + attack_type
 ## StrikeRealismProfile: scales KE (v2 - -  coupling) and momentum (v - -  coupling) vs baseline band speed.
 var strike_energy_mult: float = 1.0
 var strike_momentum_mult: float = 1.0
+## Swing-mechanics strike-mass coupling (TOPIC 8b): body-to-blade effective-mass transfer. 1.0 default keeps
+## bare fixtures and untracked fighters unchanged; resolver sets 0.90-1.0 from combined weapon+form tier.
+var strike_mass_mult: float = 1.0
 ## Weapon extension at impact (0 - 1). When >= 0, scales effective intensity for KE/cut (not blunt slip).
 var delivery_commit_fraction: float = -1.0
 

@@ -86,6 +86,20 @@ static func compute_and_apply_damage(
 		attack_instance.archetype = archetype
 		attack_instance.delivery_commit_fraction = commit_frac
 		attack_instance.strike_momentum_mult = sm.get(DataKeys.ATK_STRIKE_MOMENTUM_MULT, 1.0)
+		# Swing mechanics (TOPIC 8): training changes HOW the blow is produced. Same combined weapon+form tier
+		# as aim -> near-specific transfer; velocity economy + strike-mass coupling + fatigue resilience below.
+		# Untracked fighters (flag-off / enemies) resolve neutral: economy 1.0, fatigue hold 0.0.
+		var atk_ent: CoreEntity = CombatantEntityAccess.scene_entity(atk)
+		var swing_tier: float = EntityProficiency.swing_proficiency_tier(
+			atk_ent, CombatantEntityAccess.weapon_type_id(atk), CombatantEntityAccess.form_str(atk)
+		)
+		var swing_econ: float = EntityProficiency.swing_velocity_economy(swing_tier)
+		var swing_hold: float = (
+			EntityProficiency.swing_skill_hold(swing_tier)
+			if EntityProficiency.is_swing_proficiency_tracked(atk_ent)
+			else 0.0
+		)
+		attack_instance.strike_mass_mult = EntityProficiency.strike_mass_coupling(swing_tier)
 		var v_base: float = (
 			velocity_override
 			if velocity_override >= 0.0
@@ -94,11 +108,14 @@ static func compute_and_apply_damage(
 		attack_instance.velocity_m_s = v_base
 		var closing_speed_mult: float = StrikePhysics.closing_speed_multiplier(manager, atk, tgt, strike_physics_ctx)
 		attack_instance.velocity_m_s *= closing_speed_mult
+		# Blade-velocity transfer economy: green fighters lose nominal intensity to bad body mechanics before
+		# the blade starts. Flows into v² KE, momentum/penetration, and blunt impact like a real slow strike.
+		attack_instance.velocity_m_s *= swing_econ
 		var atk_st_ratio_w: float = CombatantEntityAccess.stamina_ratio(atk)
 		# Muscle fatigue → strike velocity degradation (HIGH #10 biomechanics audit).
 		# ATP-PCr depletion reduces rate of force development before max strength fails.
 		var exhaustion_s: float = atk.get(CombatConstantsStamina.COMBATANT_KEY_EXHAUSTION, 0.0) if CombatConstantsStamina.COMBATANT_KEY_EXHAUSTION in atk else 0.0
-		var fatigue_vel: float = CombatConstantsStamina.fatigue_velocity_mult(atk_st_ratio_w, exhaustion_s)
+		var fatigue_vel: float = CombatConstantsStamina.fatigue_velocity_mult(atk_st_ratio_w, exhaustion_s, swing_hold)
 		var power_m: float = CombatExhaustion.power_mult_for_combatant(atk)
 		attack_instance.velocity_m_s *= fatigue_vel * power_m
 		if afterblow_damage_mult < 1.0:
@@ -168,6 +185,7 @@ static func compute_and_apply_damage(
 			"eng": engagement_dmg_mult,
 			"stm": atk_st_ratio_w,
 			"exh": exhaustion_s,
+			"swing": swing_econ,
 			"intensity": intensity,
 			"ke_j": strike_ke_j,
 			"v_final": attack_instance.velocity_m_s,
@@ -203,6 +221,13 @@ static func compute_and_apply_damage(
 		pre_armor = WeaponDamageHelper.unarmed_base_pre_armor(
 			float(atk_stats.get(DataKeys.ENTITY_STRENGTH, CombatConstants.DEFAULT_STAT_VALUE)), mod
 		)
+		# Swing mechanics (TOPIC 8) also apply to unarmed blows: green fighters throw less efficient strikes.
+		# No strike-mass coupling here — fist mass is a constant inside the pinned unarmed_base_pre_armor.
+		var atk_ent_u: CoreEntity = CombatantEntityAccess.scene_entity(atk)
+		var swing_tier_u: float = EntityProficiency.swing_proficiency_tier(
+			atk_ent_u, CombatantEntityAccess.weapon_type_id(atk), CombatantEntityAccess.form_str(atk)
+		)
+		pre_armor *= EntityProficiency.swing_velocity_economy(swing_tier_u)
 		if parry_remaining_ratio < 1.0:
 			var ctrl_mapped := 1.0 - parry_remaining_ratio
 			var damage_reduction_factor := ctrl_mapped * CombatConstantsParry.PARRY_UNARMED_MAX_DAMAGE_REDUCTION
@@ -211,7 +236,13 @@ static func compute_and_apply_damage(
 		var unarmed_wuf: float = CombatTiming.wind_up_factor(unarmed_wind_up_dur) if unarmed_wind_up_dur > 0.0 else 1.0
 		var atk_st_ratio_u: float = CombatantEntityAccess.stamina_ratio(atk)
 		var exh_s_u: float = atk.get(CombatConstantsStamina.COMBATANT_KEY_EXHAUSTION, 0.0) if CombatConstantsStamina.COMBATANT_KEY_EXHAUSTION in atk else 0.0
-		var fatigue_vel_u: float = CombatConstantsStamina.fatigue_velocity_mult(atk_st_ratio_u, exh_s_u)
+		var fatigue_vel_u: float = CombatConstantsStamina.fatigue_velocity_mult(
+			atk_st_ratio_u,
+			exh_s_u,
+			EntityProficiency.swing_skill_hold(swing_tier_u)
+			if EntityProficiency.is_swing_proficiency_tracked(atk_ent_u)
+			else 0.0
+		)
 		var power_m: float = CombatExhaustion.power_mult_for_combatant(atk)
 		var afterblow_u: float = sqrt(maxf(0.04, afterblow_damage_mult))
 		var closing_u: float = StrikePhysics.closing_speed_multiplier(manager, atk, tgt, strike_physics_ctx)
@@ -665,7 +696,7 @@ static func resolve_attack(manager: Node, attacker_id: int) -> Dictionary:
 		CombatConstants.HIT_CHANCE_PERCEPTION_MAX
 	)
 	var melee_skill_factor: float = clampf(
-		float(atk_stats.get(DataKeys.ENTITY_MELEE_SKILL, CombatConstants.DEFAULT_STAT_VALUE)) / 100.0,
+		CombatantEntityAccess.melee_skill_value(atk) / 100.0,
 		CombatConstants.MELEE_SKILL_HIT_FACTOR_MIN,
 		CombatConstants.MELEE_SKILL_HIT_FACTOR_MAX
 	)

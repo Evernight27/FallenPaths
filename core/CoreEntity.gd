@@ -138,6 +138,9 @@ var _proficiency_bonus: Dictionary = {
 ## Per-weapon / per-form fight familiarity (XCamp-4 targeting extension). Not decayed yet.
 var _weapon_proficiency: Dictionary = {}
 var _form_proficiency: Dictionary = {}
+## Proficiency-tracked fighter (campaign party onboarding). Enables the combat skill curve
+## (melee_skill from weapon/form experience, below-baseline reads as "untrained").
+var _combat_skill_trained: bool = false
 var _game_time_seconds: float = 0.0
 var _pain_shock_until_time: float = -1.0  # Time.get_ticks_msec()/1000.0 when shock ends; -1 = not in shock
 # Total damage of last hit (for pain-shock duration scaling); set on weapon hit, consumed when shock is entered

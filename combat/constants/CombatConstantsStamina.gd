@@ -204,18 +204,28 @@ const FATIGUE_VELOCITY_POWER_EXPONENT: float = 0.7   # power < 1.0 means degrada
 # combined stamina×exhaustion floor stays above ~0.64 velocity → KE ≥ ~40% of full, consistent with sustained-effort data.
 const FATIGUE_VELOCITY_EXHAUSTION_FLOOR: float = 0.80
 
+# Skill-dependent fatigue resilience (TOPIC 8d): trained fighters hold mechanical intensity later into effort.
+# A skill_hold of -0.5 (green) shifts both floors down by the span, +0.5 (veteran) shifts up; ±0.05 at span 0.10
+# keeps the rookie/veteran band near the research range (weakest punches lose ~2x the strongest's velocity,
+# Stewart 2025; fatigue delays RFD most in rotational strikes, Dunn 2021). Default 0.0 preserves prior behavior.
+const FATIGUE_SKILL_HOLD_FLOOR_SPAN: float = 0.10
+
 ## Compute the combined stamina + exhaustion → strike velocity degradation factor (1.0 = full speed, lower = slower).
 ## This is applied multiplicatively to base weapon velocity before KE/damage calculation.
 ## `stamina_ratio`: current stamina / max stamina (0-1).
 ## `exhaustion`: accumulated exhaustion as a 0-1 depletion fraction (0 = fresh, 1 = fully exhausted).
-static func fatigue_velocity_mult(stamina_ratio: float, exhaustion: float = 0.0) -> float:
+## `skill_hold`: optional swing-mechanics hold in [-0.5, +0.5] (EntityProficiency.swing_skill_hold); 0.0 = neutral.
+static func fatigue_velocity_mult(stamina_ratio: float, exhaustion: float = 0.0, skill_hold: float = 0.0) -> float:
+    var hold: float = clampf(skill_hold, -0.5, 0.5)
     var st_factor: float = pow(clampf(stamina_ratio, 0.0, 1.0), FATIGUE_VELOCITY_POWER_EXPONENT)
-    var vel_from_stamina: float = lerpf(FATIGUE_VELOCITY_FLOOR_AT_ZERO_STAMINA, 1.0, st_factor)
+    var zero_stamina_floor: float = clampf(FATIGUE_VELOCITY_FLOOR_AT_ZERO_STAMINA + hold * FATIGUE_SKILL_HOLD_FLOOR_SPAN, 0.55, 1.0)
+    var vel_from_stamina: float = lerpf(zero_stamina_floor, 1.0, st_factor)
 
     # Exhaustion adds medium-term degradation — models glycogen depletion. The exhaustion value is already a
     # 0-1 depletion fraction that accumulates gradually with sustained exertion, so map it directly onto the floor.
     var exh_frac: float = clampf(exhaustion, 0.0, 1.0)
-    var vel_from_exhaustion: float = lerpf(1.0, FATIGUE_VELOCITY_EXHAUSTION_FLOOR, exh_frac)
+    var exhaustion_floor: float = clampf(FATIGUE_VELOCITY_EXHAUSTION_FLOOR + hold * FATIGUE_SKILL_HOLD_FLOOR_SPAN, 0.55, 1.0)
+    var vel_from_exhaustion: float = lerpf(1.0, exhaustion_floor, exh_frac)
 
     return vel_from_stamina * vel_from_exhaustion
 

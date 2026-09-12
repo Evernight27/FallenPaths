@@ -131,6 +131,14 @@ static func _stamina_attack_cost_for_attacker(manager: Node, atk: Dictionary, ta
 		cost *= CombatFlurryBind.stamina_attack_cost_mult(atk, target_id, clk)
 	cost *= _consecutive_action_stamina_mult_for_combatant(atk)
 	cost *= _form_stamina_cost_mult(atk)
+	# Technique economy (TOPIC 8c): a green fighter spends more metabolic energy (and accrues more exhaustion)
+	# per nominal-intensity swing than a veteran would. Untracked fighters / sim-off return economy 1.0.
+	var swing_tier: float = EntityProficiency.swing_proficiency_tier(
+		CombatantEntityAccess.scene_entity(atk),
+		CombatantEntityAccess.weapon_type_id(atk),
+		CombatantEntityAccess.form_str(atk)
+	)
+	cost *= EntityProficiency.swing_stamina_economy(swing_tier)
 	return cost
 
 

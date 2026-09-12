@@ -12,6 +12,7 @@
 | Hygiene | [`agent_hygiene.md`](agent_hygiene.md) | no production `.gd` |
 | Audit | [`agent_audit.md`](agent_audit.md) | Phase 0 + company |
 | Medical | [`agent_medical.md`](agent_medical.md) | `PHASE0: PASS` |
+| Soak repair | [`agent_soak_stale.md`](agent_soak_stale.md) | regression `FP_HARNESS_OK` + `PHASE0: PASS` |
 
 **Read first (once):** [`AGENTS_ENTRY#what-to-do-next`](../../../docs/AGENTS_ENTRY.md#what-to-do-next) · [`PLANNING#work-streams`](../../../docs/PLANNING.md#work-streams) · APIs on demand: [`AGENTS_API`](../../../docs/AGENTS_API.md). Harness: `harness/`. Expand rows: [`EXPANSION_PLAN`](../../../docs/EXPANSION_PLAN.md) · [`LIVE_PATHS` section-only](../../../docs/LIVE_PATHS.md).
 

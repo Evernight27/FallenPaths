@@ -699,6 +699,15 @@ static func scene_entity(combatant: Dictionary) -> CoreEntity:
 	return _get_medical().scene_entity(combatant)
 
 
+## Derived combat skill for hit chance / bind contests. Untracked fighters (enemies, test entities)
+## return MELEE_SKILL_BASELINE (100); proficiency-tracked party fighters span untrained → veteran.
+static func melee_skill_value(combatant: Dictionary) -> float:
+	var ent: CoreEntity = scene_entity(combatant)
+	if ent == null:
+		return float(CombatConstants.DEFAULT_STAT_VALUE)
+	return EntityProficiency.melee_skill_for(ent, weapon_type_id(combatant), form_str(combatant))
+
+
 static func get_health_entity_from_node(manager: Node, node: Node) -> Node:
 	return _get_medical().get_health_entity_from_node(manager, node)
 

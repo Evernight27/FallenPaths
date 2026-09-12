@@ -85,3 +85,9 @@ static func run(failures: PackedStringArray) -> void:
 
     # Batch resolve medical proficiency gains.
     ProficiencyDecayMergeTests._run_batch_resolve_awards_medical_gains(failures)
+
+    # Swing-mechanics coupling (TOPIC 8): economy bounds, tier gating, fatigue skill hold, strike mass.
+    ProficiencyDecayMergeTests._run_swing_economy_bounds(failures)
+    ProficiencyDecayMergeTests._run_swing_tier_gating(failures)
+    ProficiencyDecayMergeTests._run_fatigue_velocity_skill_hold(failures)
+    ProficiencyDecayMergeTests._run_strike_mass_coupling(failures)

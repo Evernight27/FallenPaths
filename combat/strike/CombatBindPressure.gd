@@ -248,9 +248,9 @@ static func resolve_bind_press(manager: Node, attacker_id: int, target_id: int) 
         return
     var atk_stats := CombatantEntityAccess.stats_dict(atk)
     var tgt_stats := CombatantEntityAccess.stats_dict(tgt)
-    var atk_skill: float = float(atk_stats.get(DataKeys.ENTITY_MELEE_SKILL, CombatConstants.DEFAULT_STAT_VALUE))
+    var atk_skill: float = CombatantEntityAccess.melee_skill_value(atk)
     var atk_str: float = float(atk_stats.get(DataKeys.ENTITY_STRENGTH, CombatConstants.DEFAULT_STAT_VALUE))
-    var tgt_skill: float = float(tgt_stats.get(DataKeys.ENTITY_MELEE_SKILL, CombatConstants.DEFAULT_STAT_VALUE))
+    var tgt_skill: float = CombatantEntityAccess.melee_skill_value(tgt)
     var tgt_str: float = float(tgt_stats.get(DataKeys.ENTITY_STRENGTH, CombatConstants.DEFAULT_STAT_VALUE))
     var atk_power: float = atk_skill * 2.0 + atk_str
     var tgt_power: float = tgt_skill * 2.0 + tgt_str
@@ -341,7 +341,7 @@ static func resolve_bind_void(manager: Node, attacker_id: int, target_id: int) -
     var atk_stats := CombatantEntityAccess.stats_dict(atk)
     var tgt_stats := CombatantEntityAccess.stats_dict(tgt)
     var atk_agi: float = float(atk_stats.get(DataKeys.ENTITY_AGILITY, CombatConstants.DEFAULT_STAT_VALUE))
-    var tgt_skill: float = float(tgt_stats.get(DataKeys.ENTITY_MELEE_SKILL, CombatConstants.DEFAULT_STAT_VALUE))
+    var tgt_skill: float = CombatantEntityAccess.melee_skill_value(tgt)
     var void_power: float = atk_agi * 2.0 + float(atk_stats.get(DataKeys.ENTITY_STRENGTH, CombatConstants.DEFAULT_STAT_VALUE))
     var hold_power: float = tgt_skill * 2.0 + float(tgt_stats.get(DataKeys.ENTITY_STRENGTH, CombatConstants.DEFAULT_STAT_VALUE))
     # V5 HEMA realism: Perception scales blade feel (Waffenfühlen) in bind contests.
@@ -427,8 +427,8 @@ static func resolve_bind_wind(manager: Node, attacker_id: int, target_id: int) -
         return
     var atk_stats := CombatantEntityAccess.stats_dict(atk)
     var tgt_stats := CombatantEntityAccess.stats_dict(tgt)
-    var atk_skill: float = float(atk_stats.get(DataKeys.ENTITY_MELEE_SKILL, CombatConstants.DEFAULT_STAT_VALUE))
-    var tgt_skill: float = float(tgt_stats.get(DataKeys.ENTITY_MELEE_SKILL, CombatConstants.DEFAULT_STAT_VALUE))
+    var atk_skill: float = CombatantEntityAccess.melee_skill_value(atk)
+    var tgt_skill: float = CombatantEntityAccess.melee_skill_value(tgt)
     var wind_power: float = atk_skill * 3.0 + float(atk_stats.get(DataKeys.ENTITY_AGILITY, CombatConstants.DEFAULT_STAT_VALUE))
     var hold_power: float = tgt_skill * 3.0 + float(tgt_stats.get(DataKeys.ENTITY_STRENGTH, CombatConstants.DEFAULT_STAT_VALUE))
     # V5 HEMA realism: Perception scales blade feel (Waffenfühlen) in bind contests.
@@ -507,9 +507,9 @@ static func resolve_bind_wrestle(manager: Node, attacker_id: int, target_id: int
         return
     var atk_stats := CombatantEntityAccess.stats_dict(atk)
     var tgt_stats := CombatantEntityAccess.stats_dict(tgt)
-    var atk_skill: float = float(atk_stats.get(DataKeys.ENTITY_MELEE_SKILL, CombatConstants.DEFAULT_STAT_VALUE))
+    var atk_skill: float = CombatantEntityAccess.melee_skill_value(atk)
     var atk_str: float = float(atk_stats.get(DataKeys.ENTITY_STRENGTH, CombatConstants.DEFAULT_STAT_VALUE))
-    var tgt_skill: float = float(tgt_stats.get(DataKeys.ENTITY_MELEE_SKILL, CombatConstants.DEFAULT_STAT_VALUE))
+    var tgt_skill: float = CombatantEntityAccess.melee_skill_value(tgt)
     var tgt_str: float = float(tgt_stats.get(DataKeys.ENTITY_STRENGTH, CombatConstants.DEFAULT_STAT_VALUE))
     # Contested grab: the binder's strength + skill vs the target's skill + strength.
     # Sustained pressure gives the binder a leverage edge (they've been working the bind).

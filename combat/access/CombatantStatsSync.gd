@@ -60,7 +60,8 @@ static func _apply_prof_bonus(entity: Node, stat_key: String, base_value: Varian
     if not "_proficiency_bonus" in entity:
         return int(base_value)
     var bonus: int = entity._proficiency_bonus.get(stat_key, 0)
-    return int(base_value) + bonus
+    var penalty: int = int(EntityProficiency.untrained_stat_penalty(entity, stat_key))
+    return maxi(0, int(base_value) + bonus - penalty)
 
 
 ## Syncs entity state into stats dict (mutates stats in place).
