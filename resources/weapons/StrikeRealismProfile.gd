@@ -97,7 +97,7 @@ static func _blunt_pressure_mult(weapon: RefCounted, phys: Dictionary) -> float:
         float(weapon.head_diameter) if (weapon.head_diameter is float or weapon.head_diameter is int) else 4.0
     )
     var ref: float = phys.get("blunt_head_ref_cm", 6.0)
-    return base * clampf(ref / maxf(hd, 0.4), 0.82, 1.22)
+    return base * clampf(ref / maxf(hd, 0.4), 1.0, 1.22)
 
 
 static func _obliquity_factor(hit_alignment: float, parry_remaining_ratio: float) -> float:

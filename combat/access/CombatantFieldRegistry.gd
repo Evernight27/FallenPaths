@@ -57,15 +57,4 @@ const FIELDS: Dictionary = {
 }
 
 
-static func owner_for(key: String) -> String:
-    var row: Variant = FIELDS.get(key, {})
-    if row is Dictionary:
-        return str(row.get("owner", ""))
-    return ""
 
-
-static func writers_for(key: String) -> String:
-    var row: Variant = FIELDS.get(key, {})
-    if row is Dictionary:
-        return str(row.get("writers", ""))
-    return ""

@@ -57,10 +57,6 @@ static func get_active_windup_treatment_by_other(
     return {}
 
 
-static func is_part_under_treatment_by_other(manager: Node, performer_id: int, target_id: int, part: String) -> bool:
-    return not get_active_windup_treatment_by_other(manager, performer_id, target_id, part).is_empty()
-
-
 static func part_has_compression_on(manager: Node, target: Dictionary, part: String) -> bool:
     if target.is_empty() or part.is_empty():
         return false

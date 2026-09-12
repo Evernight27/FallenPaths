@@ -41,12 +41,24 @@ const WIND_UP_DURATION_MAX_S: float = 0.8
 ## Set at 0.5s so that most attacks naturally fall below the energy cap; power swings get a modest bonus but
 ## cannot exceed the hard cap of WIND_UP_DURATION_MAX_S.
 const WIND_UP_SOFT_CAP_S: float = 0.5
-## Hit recovery penalty: successful hits delay recovery by this factor (momentum continues through target tissue).
-## Models biomechanical reality — penetrating strikes carry momentum into the target, delaying blade repositioning.
-const RECOVERY_HIT_PENALTY_MULT: float = 1.20
+## Diminishing-returns ratio past the soft cap: each second beyond WIND_UP_SOFT_CAP_S adds only this
+## fraction of a second to the real wind-up (the swing is already at full extension; extra input just
+## makes it more telegraphed, not stronger).
+const WIND_UP_SOFT_CAP_EXCESS_RATIO: float = 0.5
 ## Maximum total recovery time for any single strike outcome (seconds). Prevents compound scaling from producing
 ## extreme values like 7+ second whiff penalties — trained combatants can retract a missed strike within ~3s.
 const RECOVERY_MAX_S: float = 4.0
+## Minimum effective wind-up multiplier: form or state modifiers can shorten wind-up but never below 50% of the
+## base duration. A rushed attack still needs a minimum biomechanical preparation time.
+const WIND_UP_MULTIPLIER_MIN: float = 0.5
+## Commitment scaling for guard-line transition recovery cost. The longer the fighter has been committed to a
+## non-default guard line (commitment 0.0-1.0), the more time it takes to transition back. At full commitment
+## the cost is 1.5× the base transition cost (1.0 + 0.5 * 1.0).
+const GUARD_TRANSITION_COMMITMENT_SCALE: float = 0.5
+## Tactical breathing recovery floor: even with maximum breathing offset the recovery never drops below 55%
+## of the base recovery time. Models the biomechanical limit that pausing to breathe recovers a fighter faster
+## than unassisted, but not to instant re-readiness.
+const TACTICAL_BREATHING_RECOVERY_FLOOR_RATIO: float = 0.55
 
 const WINDUP_LEG_MIN: float = 0.2
 ## Floor for leg functionality when scaling formation-move (footwork) duration. A fractured/crippled

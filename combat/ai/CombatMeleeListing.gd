@@ -199,6 +199,10 @@ static func append_melee_vs_enemy_line_rank(
                 for move_id in move_ids:
                     if WeaponConstants.is_parry_move(move_id):
                         continue
+                    if (move_id == CombatConstants.MOVE_ID_BIND_PRESS or move_id == CombatConstants.MOVE_ID_BIND_VOID or move_id == CombatConstants.MOVE_ID_BIND_WIND) and not CombatBindPressure.is_in_bind(c, CombatantEntityAccess.combat_clock_float(manager)):
+                        continue
+                    if move_id == CombatConstants.MOVE_ID_BIND_WRESTLE and (not CombatBindPressure.is_in_bind(c, CombatantEntityAccess.combat_clock_float(manager)) or not CombatBindPressure.has_wrestling_available(c)):
+                        continue
                     actions.append({"target_id": CombatantEntityAccess.id_int(opp), "move_id": move_id})
             elif attempt_close_listed_for_pair(manager, c, CombatantEntityAccess.id_int(opp), dist):
                 _append_attempt_close_action(actions, opp)

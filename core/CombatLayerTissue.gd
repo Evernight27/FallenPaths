@@ -93,7 +93,6 @@ static func seed_layer_state_for_part(part: String) -> Array:
                 {
                     "name": def.get("name", ""),
                     "state": "intact",
-                    "accumulated_pen_mm": 0.0,
                 }
             )
         )
@@ -196,7 +195,7 @@ static func penetration_through_layers(
         var row: Dictionary = (
             layer_state[i]
             if i < layer_state.size() and layer_state[i] is Dictionary
-            else {"name": def.get("name", ""), "state": "intact", "accumulated_pen_mm": 0.0}
+            else {"name": def.get("name", ""), "state": "intact"}
         )
         var prev_state: String = str(row.get("state", "intact"))
         if remaining <= 0.0:
@@ -207,7 +206,6 @@ static func penetration_through_layers(
                     {
                         "name": def.get("name", ""),
                         "state": prev_state,
-                        "accumulated_pen_mm": row.get("accumulated_pen_mm", 0.0),
                     }
                 )
             )
@@ -224,7 +222,6 @@ static func penetration_through_layers(
                 {
                     "name": def.get("name", ""),
                     "state": new_state,
-                    "accumulated_pen_mm": absorbed,
                 }
             )
         )

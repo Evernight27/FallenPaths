@@ -198,6 +198,32 @@ static func apply_formation_exertion(c: Dictionary, move_id: String) -> void:
     apply_exertion_after_breath_spend(null, c, proxy_breath, move_id, EXERTION_KIND_FORMATION)
 
 
+## Isometric fatigue from holding an elevated guard line during WAITING.
+## Cost ∝ cos(guard_line_angle): HIGH (0°) = 1.0, HIGH_RIGHT/LEFT (±45°) ≈ 0.71,
+## RIGHT/LEFT (±90°) = 0, LOW lines = 0. Only lines above the horizontal plane incur cost.
+static func apply_guard_hold_exertion(manager: Node, c: Dictionary, delta: float) -> void:
+    if not enabled() or c.is_empty() or delta <= 0.0:
+        return
+    if not CombatantEntityAccess.has_weapon(c):
+        return
+    var guard_line: String = str(c.get(DataKeys.ATTACK_GUARD_LINE, ""))
+    if guard_line.is_empty():
+        return
+    var angle: float = CombatGuardLines.line_to_angle(guard_line)
+    var elevation: float = clampf(cos(deg_to_rad(angle)), 0.0, 1.0)
+    if elevation <= 0.0:
+        return
+    var gain: float = CombatConstants.GUARD_HOLD_FATIGUE_RATE_PER_SEC * elevation * delta
+    seed_combatant_if_enabled(c)
+    var pools: Variant = c.get(COMBATANT_KEY_MUSCLE_FATIGUE)
+    if pools is not Dictionary:
+        return
+    var dominant: String = dominant_strike_limb(c, manager)
+    var cur: float = clampf(float((pools as Dictionary).get(dominant, 0.0)), 0.0, 1.0)
+    (pools as Dictionary)[dominant] = clampf(cur + gain, 0.0, 1.0)
+    c[COMBATANT_KEY_MUSCLE_FATIGUE] = pools
+
+
 static func process_waiting_recovery(c: Dictionary, delta: float) -> void:
     _process_limb_recovery(c, delta, 1.0)
 

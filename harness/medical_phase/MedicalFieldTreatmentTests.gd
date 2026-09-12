@@ -446,8 +446,8 @@ static func _run_research_anchor_reference_bleed_derivation_parity(failures: Pac
     if not bool(deriv.get("ml_ttd_parity_ok", false)):
         _fail(failures, "ref_bleed: percent and mL TTD bridge should match")
     var ttd: float = float(deriv.get("clinical_ttd_s", 0.0))
-    if ttd < 30.0 or ttd > 120.0:
-        _fail(failures, "ref_bleed: clinical TTD %.1fs outside 30-120s band" % ttd)
+    if ttd < 120.0 or ttd > 300.0:
+        _fail(failures, "ref_bleed: clinical TTD %.1fs outside 120-300s band" % ttd)
 
 
 ## Reference uncontrolled bleed: danger/peril gates + PartyRowFormatter danger ETA match BleedingConstants TTD math.
@@ -457,8 +457,8 @@ static func _run_research_anchor_reference_bleed_derivation_parity(failures: Pac
 static func _run_medical_triage_reference_bleed_peril_parity(failures: PackedStringArray) -> void:
     var ref_rate: float = BleedingConstants.REFERENCE_UNCONTROLLED_BLEED_RATE
     var ref_ttd: float = CombatResearchAnchors.clinical_ttd_seconds(1.0)
-    if ref_ttd < 30.0 or ref_ttd > 120.0:
-        _fail(failures, "triage_ref: reference TTD %.1fs outside 30-120s band" % ref_ttd)
+    if ref_ttd < 120.0 or ref_ttd > 300.0:
+        _fail(failures, "triage_ref: reference TTD %.1fs outside 120-300s band" % ref_ttd)
     var ent: Node = _new_entity("SWORD")
     ent.blood_volume = BleedingConstants.MAX_BLOOD_VOLUME
     ent.wounds["head"] = [

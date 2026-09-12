@@ -96,7 +96,7 @@ static func _process_healing(entity: Node, seconds: float) -> void:
         if tissue_duration <= 0.0:
             tissue_duration = HealingConstants.SECONDS_PER_DAY * 4.0
         # Tissue: exponential healing (deficit *= exp(-t/tau)); rate ~ current deficit. See
-        # RESEARCH_BASED_APPROXIMATIONS.md.
+        # HealingConstants.gd (exponential decay model, BMC Dermatol 9:2).
         var cur_cut: float = entity.body_cutting.get(part, 0.0)
         var cur_blunt: float = entity.body_blunt.get(part, 0.0)
         var remain_cut: float = float(max_tissue) - cur_cut

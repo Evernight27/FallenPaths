@@ -144,6 +144,10 @@ static func choose_defense(
 		dodge_chance *= CombatConstants.DEFENSE_FOOTWORK_WAITING_DODGE_MULT
 	elif CombatantEntityAccess.state_str(tgt) == CombatConstants.STATE_FORM_SWITCH:
 		dodge_chance *= CombatFormSwitch.dodge_penalty_during_switch(CombatFormSwitch.transition_progress(tgt))
+	# HEMA: an off-balance defender can't step away as effectively — compromised center of gravity
+	# impairs the evasive step. Symmetric with the parry-capacity penalty applied elsewhere.
+	if PassiveParryContext.is_off_balance(tgt):
+		dodge_chance *= CombatConstants.OFF_BALANCE_DODGE_CHANCE_MULT
 	result.dodge_chance = dodge_chance
 
 	var already_used_defense: bool = pa.get(CombatConstants.PA_KEY_PASSIVE_PARRY_ATTEMPTED, false)
@@ -234,6 +238,17 @@ static func choose_defense(
 				parry_off_balance = PassiveParryContext.is_off_balance(tgt)
 				var v_par_diff_mult: float = _parry_velocity_difficulty_mult(v_intent if v_intent > 0 else WeaponConstants.VELOCITY_MAX_M_S * 0.7, pa)
 				parry_c_d *= parry_capacity_mult * pr_base * v_par_diff_mult
+				# Positional feint open-line: a defender who just failed to parry a feint on a specific
+				# line is still displaced on that line — the next attack on the same line finds reduced
+				# parry capacity (they are re-committing their guard, not fully re-established).
+				var incoming_line: String = str(pa.get(CombatConstants.PA_KEY_EFFECTIVE_ATTACK_LINE, ""))
+				parry_c_d *= _feint_open_line_parry_mult(tgt, incoming_line)
+				# Limb crippling (structural arm damage) degrades weapon handling / parry absorption.
+				# Distinct from arm PAIN (already in get_parry_capacity_modifier) and consciousness
+				# (already in get_performance_modifier applied via _compute_parry_c_d).
+				var node_p: Node = CombatantEntityAccess.scene_node(tgt)
+				if node_p != null and node_p.has_method("_get_vital_parts"):
+					parry_c_d *= EntityPainConsciousness.get_limb_impairment_multiplier(node_p).get("parry_mult", 1.0)
 				if parry_off_balance:
 					parry_c_d *= CombatConstants.OFF_BALANCE_PARRY_CAPACITY_MULT
 				parry_c_d *= _parry_bonus_if_active(tgt)
@@ -360,6 +375,12 @@ static func choose_defense(
 				parry_c_d = _compute_parry_c_d(def_weapon, tgt, contact_type_late)
 				c_d_raw = parry_c_d
 				parry_c_d *= CombatConstants.PARRY_LATE_CAPACITY_FLOOR
+				# Limb crippling (structural arm damage) degrades parry absorption — mirrors the on-time
+				# path. Distinct from arm PAIN (already in get_parry_capacity_modifier) and consciousness
+				# (already in get_performance_modifier applied via _compute_parry_c_d).
+				var node_l: Node = CombatantEntityAccess.scene_node(tgt)
+				if node_l != null and node_l.has_method("_get_vital_parts"):
+					parry_c_d *= EntityPainConsciousness.get_limb_impairment_multiplier(node_l).get("parry_mult", 1.0)
 				# HEMA: a mid-swing defender's blade is locked in their own attack arc — they cannot reposition it
 				# to meet the incoming strike, so their reflexive parry has reduced blade control. Applied on top of
 				# the timing-based late floor so a committed weapon is strictly weaker than a waiting defender's
@@ -402,6 +423,11 @@ static func choose_defense(
 				if parry_off_balance:
 					parry_c_d *= CombatConstants.OFF_BALANCE_PARRY_CAPACITY_MULT
 				parry_c_d *= _parry_bonus_if_active(tgt)
+				# Positional feint open-line (late parry path): same grounded effect as the on-time path —
+				# a defender still displaced on the feint line has reduced reflexive parry capacity too.
+				parry_c_d *= _feint_open_line_parry_mult(
+					tgt, str(pa.get(CombatConstants.PA_KEY_EFFECTIVE_ATTACK_LINE, ""))
+				)
 				# HEMA bind pressure: opponent pressing the bind reduces defender's parry capacity.
 				if manager != null:
 					parry_c_d *= CombatBindPressure.defender_parry_cap_mult(
@@ -742,7 +768,7 @@ static func choose_defense(
 			parry_remaining_est = clampf(
 				maxf(0.0, result.parry_p_a - result.parry_c_d * redirect_mult) / result.parry_p_a, 0.0, 1.0
 			)
-		var glancing_exp: float = parry_cfg.get("glancing_exponent", 0.5)
+		var glancing_exp: float = parry_cfg.get("glancing_exponent", CombatConstants.PARRY_GLANCING_EXPONENT)
 		var energy_parry: float = (
 			0.0 if (parry_full or parry_edge) else CombatConstants.glancing_factor(parry_remaining_est, glancing_exp)
 		)
@@ -876,10 +902,9 @@ static func _compute_parry_c_d(def_weapon, tgt: Dictionary, contact_type: String
 		m_d * PassiveParryContext.get_parry_speed_m_s(def_weapon) * (s_d / CombatConstants.PARRY_STRENGTH_NORM)
 	)
 	var agi_d: float = float(tgt_stats.get(DataKeys.ENTITY_AGILITY, CombatConstants.DEFAULT_STAT_VALUE))
-	c_d_full *= clampf(agi_d / 100.0, 0.7, 1.3)
-	# Full parry capacity modifier: pain in arms + concussion balance impairment + cumulative limb crippling.
-	var def_perf: float = CombatantEntityAccess.get_performance_modifier(tgt)
-	c_d_full *= maxf(CombatConstants.PERF_MOD_MIN, def_perf)
+	c_d_full *= clampf(agi_d / 100.0, CombatConstants.RECOVERY_AGILITY_MIN, CombatConstants.RECOVERY_AGILITY_MAX)
+	# Full parry capacity modifier: includes pain, consciousness, blood, concussion, and limb crippling
+	# (get_parry_capacity_modifier already incorporates get_performance_modifier internally).
 	var def_parry_mod: float = EntityPainConsciousness.get_parry_capacity_modifier(
 		CombatantEntityAccess.scene_node(tgt)
 	) if CombatantEntityAccess.scene_node(tgt) != null and \
@@ -1335,3 +1360,22 @@ static func _reach_parry_readiness_bonus(def_weapon: Variant, atk_weapon: Varian
 		-CombatConstants.REACH_READINESS_CAP,
 		CombatConstants.REACH_READINESS_CAP
 	)
+
+
+## Positional feint: returns the open-line parry penalty when the defender's guard is still
+## displaced on the given line from a feint that just landed, else 1.0. A circumscription (verwunden)
+## carries a stronger stored mult (far side of the committed blade is more exposed than a same-line
+## follow-up); plain feints fall back to the default FEINT_OPEN_LINE_PARRY_MULT.
+static func _feint_open_line_parry_mult(tgt: Dictionary, incoming_line: String) -> float:
+	var until: float = tgt.get(DataKeys.PA_FEINT_OPEN_LINE_UNTIL, -1.0)
+	if until <= 0.0 or CombatTiming.now_seconds() >= until:
+		return 1.0
+	var open_line: String = str(tgt.get(DataKeys.PA_FEINT_OPEN_LINE, ""))
+	if open_line.is_empty() or incoming_line.is_empty():
+		return 1.0
+	if CombatGuardLines.normalize_line(open_line) == CombatGuardLines.normalize_line(incoming_line):
+		var stored_mult: Variant = tgt.get(DataKeys.PA_FEINT_OPEN_LINE_PARRY_MULT, null)
+		if stored_mult != null:
+			return float(stored_mult)
+		return CombatConstants.FEINT_OPEN_LINE_PARRY_MULT
+	return 1.0

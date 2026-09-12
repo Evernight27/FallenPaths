@@ -10,15 +10,7 @@ const FORM_BALANCED := "balanced"
 
 const FORM_AXE_DEMI := "demi_hache"
 const FORM_AXE_BEC := "bec_point"
-const FORM_AXE_QUEUE := "queue_bind"
-const FORM_MACE_CROWN := "crown_guard"
-const FORM_MACE_FLANK := "flank_guard"
 const FORM_DAGGER_HIGH := "high_hut"
-const FORM_DAGGER_LOW := "low_bind"
-const FORM_DAGGER_REVERSE := "reverse_seize"
-const FORM_SPEAR_IRON := "iron_gate"
-const FORM_SPEAR_CROSS := "true_cross"
-const FORM_SPEAR_PORT := "high_port"
 
 ## Per-fighter weapon form defs: temperament mods, move-family weights, pressure class, home guard, auto-switch.
 ## Read order: FORM_DEFS ÃƒÂ¢Ã¢Â€Â ' normalize ÃƒÂ¢Ã¢Â€Â ' seed ÃƒÂ¢Ã¢Â€Â ' mod/action_weight_mult ÃƒÂ¢Ã¢Â€Â ' pressure
@@ -887,7 +879,7 @@ static func evaluate_automatic_form(manager: Node, c: Dictionary) -> bool:
 			var can_offense: bool = not (not def_form.is_empty() and cur == def_form and ratio < min_r_effective + offense_pad)
 			if can_offense:
 				var counter: String = _duel_counter_form_vs_inferred(weapon, inferred)
-				if _try_assign_auto_switch(manager, c, counter, "counter_read", clk):
+				if _counter_read_confidence_ok(manager, c, duel_id, counter, weapon) and _try_assign_auto_switch(manager, c, counter, "counter_read", clk):
 					return true
 			var duel_next: String = _duel_form_from_yomi_and_stamina(cur, inferred, ratio, min_r, weapon)
 			if _try_assign_auto_switch(manager, c, duel_next, "duel_read", clk):
@@ -898,7 +890,7 @@ static func evaluate_automatic_form(manager: Node, c: Dictionary) -> bool:
 		if not (not def_form.is_empty() and cur == def_form and ratio < min_r_effective + offense_pad_fb):
 			var inferred_opp: String = _inferred_opponent_form(manager, c, threat_id)
 			var counter: String = _counter_form_vs_inferred(weapon, inferred_opp)
-			if _try_assign_auto_switch(manager, c, counter, "counter_read", clk):
+			if _counter_read_confidence_ok(manager, c, threat_id, counter, weapon) and _try_assign_auto_switch(manager, c, counter, "counter_read", clk):
 				return true
 	return false
 
@@ -937,13 +929,66 @@ static func record_counter_read_outcome(atk: Dictionary, target_id: int, success
 
 
 ## WF-2b: form-inference confidence (0..1) based on observed attack count toward observer from target.
+## Tiered model: 0 obs → 0; < LOW → LOW_CONF; < MED → MED_CONF; ≥ MED → HIGH_CONF.
 static func get_form_inference_confidence(observer: Dictionary, target_id: int) -> float:
 	var entry: Dictionary = CombatAttention._yomi_entry(observer, target_id)
 	var counts: Dictionary = entry.get(DataKeys.ATTENTION_LINE_COUNTS, {}) as Dictionary
 	var total: int = 0
 	for line in counts:
 		total += int(counts[line])
-	return clampf(float(total) / 10.0, 0.0, 1.0)
+	if total == 0:
+		return 0.0
+	if total >= CombatConstantsEncounter.WF_YOMI_OBS_MED_THRESHOLD:
+		return CombatConstantsEncounter.WF_YOMI_OBS_HIGH_CONFIDENCE
+	if total >= CombatConstantsEncounter.WF_YOMI_OBS_LOW_THRESHOLD:
+		return CombatConstantsEncounter.WF_YOMI_OBS_MED_CONFIDENCE
+	return CombatConstantsEncounter.WF_YOMI_OBS_LOW_CONFIDENCE
+
+
+## Phase 2: minimum inference confidence required to justify a counter-read form switch
+## from one pressure class to another. Unknown or same-class transitions fall back to
+## COUNTER_READ_MIN_CONFIDENCE_NO_OBSERVATIONS (the lowest bar).
+static func _counter_read_min_confidence(from_pressure: String, to_pressure: String) -> float:
+	var key: String = from_pressure.to_lower() + "_to_" + to_pressure.to_lower()
+	var table: Dictionary = {
+		"neutral_to_aggressive": CombatConstantsEncounter.COUNTER_READ_NEUTRAL_TO_AGGRESSIVE_MIN_CONFIDENCE,
+		"aggressive_to_defensive": CombatConstantsEncounter.COUNTER_READ_AGGRESSIVE_TO_DEFENSIVE_MIN_CONFIDENCE,
+		"neutral_to_controlling": CombatConstantsEncounter.COUNTER_READ_NEUTRAL_TO_CONTROLLING_MIN_CONFIDENCE,
+		"neutral_to_defensive": CombatConstantsEncounter.COUNTER_READ_NEUTRAL_TO_DEFENSIVE_MIN_CONFIDENCE,
+		"aggressive_to_controlling": CombatConstantsEncounter.COUNTER_READ_AGGRESSIVE_TO_CONTROLLING_MIN_CONFIDENCE,
+		"controlling_to_aggressive": CombatConstantsEncounter.COUNTER_READ_CONTROLLING_TO_AGGRESSIVE_MIN_CONFIDENCE,
+		"controlling_to_defensive": CombatConstantsEncounter.COUNTER_READ_CONTROLLING_TO_DEFENSIVE_MIN_CONFIDENCE,
+		"controlling_to_neutral": CombatConstantsEncounter.COUNTER_READ_CONTROLLING_TO_NEUTRAL_MIN_CONFIDENCE,
+		"aggressive_to_neutral": CombatConstantsEncounter.COUNTER_READ_AGGRESSIVE_TO_NEUTRAL_MIN_CONFIDENCE,
+		"defensive_to_aggressive": CombatConstantsEncounter.COUNTER_READ_DEFENSIVE_TO_AGGRESSIVE_MIN_CONFIDENCE,
+		"defensive_to_controlling": CombatConstantsEncounter.COUNTER_READ_DEFENSIVE_TO_CONTROLLING_MIN_CONFIDENCE,
+		"defensive_to_neutral": CombatConstantsEncounter.COUNTER_READ_DEFENSIVE_TO_NEUTRAL_MIN_CONFIDENCE,
+	}
+	if table.has(key):
+		return float(table[key])
+	return CombatConstantsEncounter.COUNTER_READ_MIN_CONFIDENCE_NO_OBSERVATIONS
+
+
+## Phase 2: gate for counter-read form switches. Returns true when inference confidence
+## is sufficient to justify committing to the target form based on the opponent's read.
+## Guards against thrashing on low-observation inferences, stale reads, and bait setups.
+static func _counter_read_confidence_ok(manager: Node, c: Dictionary, target_id: int, target_form: String, weapon: Variant) -> bool:
+	if target_form.is_empty() or target_form == CombatantEntityAccess.form_str(c):
+		return false
+	if _is_form_stale_for_opponent(manager, c, target_id):
+		return false
+	var yomi_entry: Dictionary = CombatAttention._yomi_entry(c, target_id)
+	if _is_entry_mixed_stale(yomi_entry, manager):
+		return false
+	if _should_bait_counter_read(manager, c, target_id):
+		return false
+	var conf: float = get_form_inference_confidence(c, target_id)
+	var from_pressure: String = pressure_class(CombatantEntityAccess.form_str(c), weapon)
+	var to_pressure: String = pressure_class(target_form, weapon)
+	if from_pressure == to_pressure:
+		conf *= CombatConstantsEncounter.COUNTER_READ_SAME_PRESSURE_BONUS
+	var min_conf: float = _counter_read_min_confidence(from_pressure, to_pressure)
+	return conf >= min_conf
 
 
 ## Phase 5: return true when the opponent's deception state suggests they are baiting a counter-read.
@@ -989,9 +1034,10 @@ static func _is_entry_mixed_stale(entry: Dictionary, manager: Node) -> bool:
 	var stale_count: int = 0
 	var fresh_count: int = 0
 	var window: int = CombatConstants.WF_YOMI_STALENESS_RECENT_WINDOW
+	var att := _get_attention()
 	var line_ticks: Dictionary = entry.get(DataKeys.ATTENTION_LINE_OBS_TICKS, {}) as Dictionary
 	for line_key in line_ticks:
-		var lt: int = int(line_ticks[line_key])
+		var lt: int = att.yomi_last_observed_line(entry, line_key)
 		if lt < 0:
 			continue
 		if current_tick - lt >= window:
@@ -1000,14 +1046,14 @@ static func _is_entry_mixed_stale(entry: Dictionary, manager: Node) -> bool:
 			fresh_count += 1
 	var move_ticks: Dictionary = entry.get(DataKeys.ATTENTION_MOVE_OBS_TICKS, {}) as Dictionary
 	for move_key in move_ticks:
-		var lt: int = int(move_ticks[move_key])
+		var lt: int = att.yomi_last_observed_move(entry, move_key)
 		if lt < 0:
 			continue
 		if current_tick - lt >= window:
 			stale_count += 1
 		else:
 			fresh_count += 1
-	var total_obs_for_entry: int = _get_attention().yomi_observation_total(entry)
+	var total_obs_for_entry: int = att.yomi_observation_total(entry)
 	return stale_count > 0 and fresh_count > 0 and fresh_count * 2 < total_obs_for_entry
 
 

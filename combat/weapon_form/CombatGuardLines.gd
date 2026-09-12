@@ -204,16 +204,6 @@ static func display_long_for_line(line: String) -> String:
     return str(LINE_DISPLAY_LONG.get(normalize_line(line), "High"))
 
 
-static func build_line_angle_deg_matrix(floor_align: float) -> Dictionary:
-    var out: Dictionary = {}
-    for g in ALL_LINES:
-        var row: Dictionary = {}
-        for a in ALL_LINES:
-            row[a] = int(round(rad_to_deg(acos(alignment_from_lines(a, g, floor_align)))))
-        out[g] = row
-    return out
-
-
 ## IV-5 BP6: attack-side arm that can cross to meet a flank blow when guard line is misaligned.
 static func interpose_arm_for_misaligned_guard(attack_line: String, guard_line: String) -> String:
     var atk_norm: String = normalize_line(attack_line)

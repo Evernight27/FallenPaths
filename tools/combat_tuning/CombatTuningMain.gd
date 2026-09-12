@@ -43,7 +43,6 @@ static func _get_combat_ai_picker() -> GDScript:
 	return _CombatAIPicker
 
 
-const _EventDispatch := preload("res://combat/flow/CombatEventDispatch.gd")
 const _ProcessTick := preload("res://combat/flow/CombatProcessTick.gd")
 const _EventScheduler := preload("res://combat/flow/CombatEventScheduler.gd")
 
@@ -393,6 +392,10 @@ func _on_action_resolved(attacker_id_sig: int, target_id_sig: int, result: Dicti
 		else:
 			_cycle_defender_dmg_dealt += dmg
 
+	# Batch/auto fast-forward: skip the per-strike UI rewrite (outcomes + damage were already
+	# recorded above); the sim state is unaffected. Manual tuning still refreshes every strike.
+	if _batch_running or _auto_enabled:
+		return
 	_refresh_display()
 
 
@@ -415,6 +418,12 @@ func _on_combat_ended(winner_side: String, _defeated_node: Node) -> void:
 
 
 func _on_combatant_health_changed(_cid: int) -> void:
+	# Batch/auto fast-forward runs headless-style: no one reads the meter UI, and this fires on
+	# every damage application (potentially every tick). Skipping the UI rewrite is a pure
+	# presentation skip — the sim keeps consciousness/health current on its own (ensure_* is a
+	# lazy getter), so fidelity is unchanged.
+	if _batch_running or _auto_enabled:
+		return
 	_refresh_meter_display()
 
 
@@ -815,6 +824,13 @@ func _spawn_combatants() -> void:
 		_WeaponForm.assign_form(manager, def_c, defender_config.form, "harness_baseline")
 		def_c["guard_line"] = defender_config.guard_line
 
+	# Tag manager so per-tick UI-only work (idle offset scrub, UI hint formatting) can be skipped
+	# in batch runs — saves significant time when the batch pump ticks thousands of times.
+	if _batch_running:
+		manager.set_meta("_batch_skip_ui_tick", true)
+	else:
+		manager.remove_meta("_batch_skip_ui_tick")
+
 	_auto_waiting_for_death = false
 	_auto_respawn_delay = 0.0
 	_reset_cycle_exchange_stats()
@@ -968,25 +984,25 @@ func _infer_end_cause(winner_side: String) -> String:
 	if incapacitated_entity != null and is_instance_valid(incapacitated_entity):
 		incapacitated_entity.ensure_consciousness_current()
 		var cons: float = incapacitated_entity.consciousness
-		# blood_volume is a PROPERTY on CoreEntity (not a method), so has_method() is always false and
-		# blood_pct silently defaulted to 100.0 — which made the "blood loss" cause below never fire.
-		# Use a property check so the real remaining-blood percentage is read.
-		var blood_pct: float = float(incapacitated_entity.blood_volume) if "blood_volume" in incapacitated_entity else 100.0
 
 		# Unconscious (blood/head trauma dropped true consciousness): the cause is a
 		# consciousness-drop mechanism. Conscious cowering (destroyed limbs) is mechanical.
 		if cons <= PainConsciousnessConstants.INCAPACITATION_CONSCIOUSNESS_THRESHOLD:
-			# Check head trauma first — head tissue destruction directly causes unconsciousness.
-			# body_cutting/body_blunt are REMAINING pools (init to body_max, damage subtracts), so
-			# destruction >= 85% means remaining <= 15% of the 2x max pool.
-			# Require minimum blunt trauma energy (~50J) for realistic cranial injury classification —
-			# sub-threshold blunt strikes that exhaust head tissue via repeated hits are bleed_out, not TBI.
+			# Head channel check — head tissue destruction directly causes unconsciousness.
+			# body_cutting/body_blunt are REMAINING pools (init to body_max, damage subtracts).
+			# Per-channel min handles single-channel weapons (sword: cut-only, mace: blunt-only),
+			# whose combined fraction (cut+blunt)/(2*max) bottoms out at 0.50 and could never reach
+			# the 15% threshold — single-channel head kills were all mislabeled as hemorrhagic syncope.
 			var head_cut: float = incapacitated_entity.body_cutting.get(BodyPartConstants.PART_HEAD, 0.0)
 			var head_blunt: float = incapacitated_entity.body_blunt.get(BodyPartConstants.PART_HEAD, 0.0)
 			var head_max: int = incapacitated_entity.body_max.get(BodyPartConstants.PART_HEAD, 1)
-			var head_remaining_frac: float = float(head_cut + head_blunt) / float(head_max * 2) if head_max > 0 else 1.0
-			if head_remaining_frac <= 0.15:
-				# Check whether the last damage event involved sufficient blunt energy for realistic cranium injury.
+			var head_channel_frac: float = (
+				minf(head_cut, head_blunt) / float(head_max) if head_max > 0 else 1.0
+			)
+			if head_channel_frac <= 0.15:
+				# Head channel destroyed. Distinguish acute TBI (last strike >= 90 J) from
+				# gradual channel exhaustion by repeated sub-threshold hits. Both are head-caused;
+				# the KE gate only differentiates the label, not the outcome.
 				var last_strike_ke: float = 0.0
 				if incapacitated_entity.has_meta("_last_hit_blunt_ke_j"):
 					last_strike_ke = float(incapacitated_entity.get_meta("_last_hit_blunt_ke_j"))
@@ -995,37 +1011,37 @@ func _infer_end_cause(winner_side: String) -> String:
 				) if last_strike_ke > 0 else false
 				if has_realistic_head_trauma_ke:
 					return "head trauma"
+				return "head destruction"
 
-			# Check hemorrhage — Class III/IV blood loss causes unconsciousness (hypovolemic
-			# syncope). The fighter is ALIVE (blood still above the death threshold), so this is
-			# distinct from a genuine bleed-out death. atls_hemorrhage_class_from_remaining_pct
-			# expects a percentage (0-100), so pass blood_pct directly.
-			var atls_class: int = BleedingConstants.atls_hemorrhage_class_from_remaining_pct(blood_pct)
-			if atls_class >= 3 and blood_pct < 70.0:
+			# Head intact — check whether blood loss is the cause of unconsciousness. Mirrors the
+			# consciousness model's rate/endurance-adjusted computation so the label fires when
+			# blood-driven unconsciousness is actually the cause, not just raw volume in Class III/IV.
+			var blood_mod: float = EntityPainConsciousness.get_blood_consciousness_modifier(incapacitated_entity)
+			if blood_mod * 100.0 <= PainConsciousnessConstants.INCAPACITATION_CONSCIOUSNESS_THRESHOLD:
 				return "hemorrhagic syncope"
 
-			# Unconscious without head trauma or severe hemorrhage — surface the consciousness value.
+			# Unconscious without head damage or blood-driven unconsciousness — surface the value.
 			return "unconscious (consc=%.0f)" % cons
 
-		# Conscious but incapacitated — cowering from destroyed limbs.
-		var right_leg_bone: float = incapacitated_entity.bone_health.get(BodyPartConstants.PART_RIGHT_LEG, 8.0)
-		var left_leg_bone: float = incapacitated_entity.bone_health.get(BodyPartConstants.PART_LEFT_LEG, 8.0)
-		if right_leg_bone <= 0.0 and left_leg_bone <= 0.0:
-			return "leg breaks"
-
-		# Single-leg destruction — leg is non-operable but bone check alone won't catch it.
-		var right_leg_op: bool = BodyPartQuery.is_part_physically_operable(incapacitated_entity, BodyPartConstants.PART_RIGHT_LEG)
-		var left_leg_op: bool = BodyPartQuery.is_part_physically_operable(incapacitated_entity, BodyPartConstants.PART_LEFT_LEG)
-		if not right_leg_op or not left_leg_op:
+		# Conscious but incapacitated — cowering from destroyed/degraded limbs.
+		# Use the entity's own cowering cause so the label always matches the actual
+		# trigger (both arms below the grip threshold, or legs below the cower
+		# threshold). Previously only single fully-severed limbs matched, so a
+		# fighter cowering from degraded limbs fell through to the generic label.
+		var cower_reason: String = (
+			incapacitated_entity.get_cowering_reason()
+			if incapacitated_entity.has_method("get_cowering_reason")
+			else ""
+		)
+		if cower_reason == "arms":
+			return "arm destruction"
+		if cower_reason == "legs":
+			# Both legs' bone at zero reads as "leg breaks" rather than generic cower.
+			var right_leg_bone: float = incapacitated_entity.bone_health.get(BodyPartConstants.PART_RIGHT_LEG, 8.0)
+			var left_leg_bone: float = incapacitated_entity.bone_health.get(BodyPartConstants.PART_LEFT_LEG, 8.0)
+			if right_leg_bone <= 0.0 and left_leg_bone <= 0.0:
+				return "leg breaks"
 			return "leg destruction"
-
-		# Check arm functionality — destroyed attacking arm triggers cowering.
-		var right_arm_severed: bool = incapacitated_entity.body_cutting.get(BodyPartConstants.PART_RIGHT_ARM, 10.0) <= 0.0 and incapacitated_entity.bone_health.get(BodyPartConstants.PART_RIGHT_ARM, 8.0) <= 0.0
-		var left_arm_severed: bool = incapacitated_entity.body_cutting.get(BodyPartConstants.PART_LEFT_ARM, 10.0) <= 0.0 and incapacitated_entity.bone_health.get(BodyPartConstants.PART_LEFT_ARM, 8.0) <= 0.0
-		if right_arm_severed or left_arm_severed:
-			var attacking_arm = incapacitated_entity.get_attacking_arm() if incapacitated_entity.has_method("get_attacking_arm") else "right"
-			if not attacking_arm.is_empty():
-				return "arm destruction"
 
 		# Default incapacitation without body-part specificity — name the incapacitated side.
 		return "incapacitated (%s)" % incapacitated_side
@@ -1147,23 +1163,29 @@ func _batch_run_cycle_to_completion():
 	var max_cycles: int = 5000
 	var logical_seconds: float = 0.0
 	var tick_delta: float = 0.1
-	var events_per_burst: int = 20
-	# Stalemate detection uses two independent counters matching realistic duel timelines
-	# (bleed-decided fights: 30-300s sim before one fighter drops).
-	# Strike stall  — no strikes land for N bursts. Two thresholds: short (quiet fight, ~90s)
-	# and long (grind timeout, ~600s). Both resolve by remaining HP + blood volume tiebreaker.
-	# Health drift — strikes land but combined HP hasn't dropped significantly, meaning wounds
-	# are trivial/clotting. Separate counter so minor exchange noise doesn't mask a true deadlock.
-	var stalemate_sim_time: float = 0.0   # independent accumulator (logical_seconds resets every 2s)
+	# Larger burst = fewer frame-yield pauses (each await costs ~16 ms at 60 fps).
+	# 100 ticks × 0.1 s = 10 s sim per burst; stalemate is time-based so burst
+	# size only affects yield cadence, not correctness.
+	var events_per_burst: int = 100
+	# Stalemate detection — time-based thresholds (independent of burst size).
+	# Strike stall: no strikes land for STALEMATE_QUIET_SECS sim time.
+	# Grind timeout: total fight exceeds STALEMATE_GRIND_SECS.
+	# Health drift: combined HP hasn't dropped by STALEMATE_HP_THRESHOLD in STALEMATE_DRIFT_SECS.
+	# All resolve by remaining HP + blood volume tiebreaker.
+	# Yield cadence: pause the frame loop every YIELD_EVERY_SIM_SECS of sim time (not every
+	# burst) so the pump advances many logical seconds per yield. Cancel stays responsive —
+	# it is checked between bursts, so worst-case cancel latency is one burst of sim time.
+	const YIELD_EVERY_SIM_SECS := 30.0
+	var stalemate_sim_time: float = 0.0   # independent accumulator (logical_seconds resets every yield)
 	var stalemate_strike_checkpoint: int = -1
-	var stalemate_struck_bursts: int = 0
-	const STALEMATE_QUIET_BURSTS := 60      # ~120s sim, no strikes (quiet fight)
-	const STALEMATE_GRIND_BURSTS := 350     # ~700s sim, grind timeout (long duel)
+	var stalemate_last_strike_sim: float = 0.0
+	const STALEMATE_QUIET_SECS := 120.0      # no strikes for 120s sim → stalemate
+	const STALEMATE_GRIND_SECS := 700.0      # total fight > 700s sim → grind timeout (long duel)
 	const STALEMATE_QUIET_GRACE_SECS := 60.0
 	var stalemate_health_checkpoint: float = -1.0
-	var stalemate_drift_bursts: int = 0
-	const STALEMATE_HP_THRESHOLD := 12.0     # combined HP must drop this much to reset drift
-	const STALEMATE_DRIFT_BURSTS := 350     # same as grind — if both conditions true, either fires
+	var stalemate_last_damage_sim: float = 0.0
+	const STALEMATE_HP_THRESHOLD := 12.0      # combined HP must drop this much to reset drift
+	const STALEMATE_DRIFT_SECS := 700.0     # HP not dropping for 700s sim → drift timeout
 
 	for _cycle in range(max_cycles):
 		if manager == null or not is_instance_valid(manager):
@@ -1176,44 +1198,44 @@ func _batch_run_cycle_to_completion():
 		# `stop()` clears the event queue, so no in-flight strikes remain after phase end.
 		if manager != null and is_instance_valid(manager) and manager.combat_resolution_closed:
 			break
+		# Cancel button: exit between bursts (bursts are large now, so this keeps cancel responsive).
+		if _batch_abort:
+			break
 
 		if atk_c.is_empty() or def_c.is_empty():
 			break
 		if not eac.alive_bool(atk_c) or not eac.alive_bool(def_c):
 			break
 
-		# --- Strike-stall counter (tracks no-new-strikes periods) ---
+		# --- Strike-stall tracking (time since last strike landed) ---
 		var current_strikes: int = _strike_count
 		var atk_hp := _get_total_remaining_hp(atk_c)
 		var def_hp := _get_total_remaining_hp(def_c)
 		var combined_hp := atk_hp + def_hp
 		if stalemate_strike_checkpoint < 0:
 			stalemate_strike_checkpoint = current_strikes
-			stalemate_struck_bursts = 0
-		elif current_strikes == stalemate_strike_checkpoint:
-			stalemate_struck_bursts += 1
-		else:
+			stalemate_last_strike_sim = stalemate_sim_time
+		elif current_strikes != stalemate_strike_checkpoint:
 			stalemate_strike_checkpoint = current_strikes
-			stalemate_struck_bursts = 0
+			stalemate_last_strike_sim = stalemate_sim_time
 
-		# --- Health-drift counter (tracks trivial-damage periods) ---
+		# --- Health-drift tracking (time since last meaningful damage) ---
 		if stalemate_health_checkpoint < 0.0:
 			stalemate_health_checkpoint = combined_hp
-			stalemate_drift_bursts = 0
+			stalemate_last_damage_sim = stalemate_sim_time
 		else:
 			var hp_lost := stalemate_health_checkpoint - combined_hp
 			if hp_lost >= STALEMATE_HP_THRESHOLD:
-				# Meaningful damage occurred — reset drift clock
 				stalemate_health_checkpoint = combined_hp
-				stalemate_drift_bursts = 0
-			else:
-				stalemate_drift_bursts += 1
+				stalemate_last_damage_sim = stalemate_sim_time
 
-		# --- Resolve grind timeout (long duel — strikes or HP stalled for N bursts) ---
-		if stalemate_struck_bursts >= STALEMATE_GRIND_BURSTS or stalemate_drift_bursts >= STALEMATE_DRIFT_BURSTS:
-			var reason := "no strikes"
-			if stalemate_drift_bursts >= STALEMATE_DRIFT_BURSTS and stalemate_struck_bursts <= STALEMATE_GRIND_BURSTS:
-				reason = "trivial damage (%.1f HP dropped, threshold %.0f over %d bursts)" % [stalemate_health_checkpoint - combined_hp, STALEMATE_HP_THRESHOLD, STALEMATE_DRIFT_BURSTS]
+		# --- Resolve grind timeout (total fight time exceeded) ---
+		if stalemate_sim_time >= STALEMATE_GRIND_SECS:
+			var reason := "total time %.0fs" % stalemate_sim_time
+			if stalemate_sim_time - stalemate_last_damage_sim >= STALEMATE_DRIFT_SECS:
+				reason = "trivial damage (%.1f HP dropped, threshold %.0f over %ds)" % [stalemate_health_checkpoint - combined_hp, STALEMATE_HP_THRESHOLD, int(stalemate_sim_time - stalemate_last_damage_sim)]
+			elif stalemate_sim_time - stalemate_last_strike_sim >= STALEMATE_QUIET_SECS:
+				reason = "no strikes for %ds" % int(stalemate_sim_time - stalemate_last_strike_sim)
 			_log_line(
 				"[Batch] grind timeout (%s, %.1fs sim), resolving by remaining health." % [reason, stalemate_sim_time]
 			)
@@ -1232,10 +1254,11 @@ func _batch_run_cycle_to_completion():
 			_end_combat_phase_with(batch_winner)
 			break
 
-		# Short quiet-fight abort (only after grace period)
-		if stalemate_struck_bursts >= STALEMATE_QUIET_BURSTS and stalemate_sim_time > STALEMATE_QUIET_GRACE_SECS:
+		# Short quiet-fight abort (no strikes for N seconds, only after grace period)
+		var quiet_elapsed: float = stalemate_sim_time - stalemate_last_strike_sim
+		if quiet_elapsed >= STALEMATE_QUIET_SECS and stalemate_sim_time > STALEMATE_QUIET_GRACE_SECS:
 			_log_line(
-				"[Batch] stalemate detected (%.1fs sim, no strikes for %d bursts), resolving by remaining health." % [stalemate_sim_time, STALEMATE_QUIET_BURSTS]
+				"[Batch] stalemate detected (%.1fs sim, no strikes for %ds), resolving by remaining health." % [stalemate_sim_time, int(quiet_elapsed)]
 			)
 			var batch_winner: String = "player"
 			if atk_hp > def_hp:
@@ -1255,24 +1278,20 @@ func _batch_run_cycle_to_completion():
 		for _b in range(events_per_burst):
 			if manager == null or not is_instance_valid(manager):
 				return
-			_EventDispatch.process_event_queue(manager)
+			# The tick drains the event queue internally (CombatProcessTick.tick line 9).
+			# Do NOT drain it again here — the prior explicit drain duplicated that pass
+			# every tick, adding ~20% wall-clock for no effect (the tick's drain runs at
+			# the same clock time and fires the same events in the same order).
 			_ProcessTick.tick(manager, tick_delta)
 			logical_seconds += tick_delta
 			stalemate_sim_time += tick_delta
 
+			# combat_resolution_closed is set by _end_combat_phase inside the tick
+			# (which already runs 3 winner checks per tick). No need for a 4th check here.
 			if manager != null and is_instance_valid(manager) and manager.combat_resolution_closed:
 				break
-			if not manager.medical_phase:
-				var early_victor := ""
-				if manager.has_method("_check_for_winner"):
-					early_victor = manager._check_for_winner()
-				if not early_victor.is_empty():
-					var _MedicalPhase = preload("res://combat/medical/MedicalPhaseController.gd")
-					if _MedicalPhase.should_apply_phase_end(manager, early_victor):
-						manager._end_combat_phase(early_victor, null)
-						break
 
-		if logical_seconds >= 2.0:
+		if logical_seconds >= YIELD_EVERY_SIM_SECS:
 			await get_tree().process_frame
 			logical_seconds = 0.0
 
@@ -2565,11 +2584,12 @@ func _run_batch(
 		# headless (where result_label is null); the result_label render is the only conditional part.
 		var w_name: String = cycle_atk_cfg.display_name if cycle_winner == "attacker" else (cycle_def_cfg.display_name if cycle_winner == "defender" else "draw")
 		var l_name: String = cycle_def_cfg.display_name if cycle_winner == "attacker" else (cycle_atk_cfg.display_name if cycle_winner == "defender" else "")
+		var strikes_noun: String = "strike" if strikes_this == 1 else "strikes"
 		var fight_line: String
 		if not l_name.is_empty():
-			fight_line = "Cycle %d/%d: %s beat %s — %d strikes (%s)" % [cycle + 1, num_cycles, w_name, l_name, strikes_this, cycle_end_cause]
+			fight_line = "Cycle %d/%d: %s beat %s — %d %s (%s)" % [cycle + 1, num_cycles, w_name, l_name, strikes_this, strikes_noun, cycle_end_cause]
 		else:
-			fight_line = "Cycle %d/%d: draw — %d strikes (%s)" % [cycle + 1, num_cycles, strikes_this, cycle_end_cause]
+			fight_line = "Cycle %d/%d: draw — %d %s (%s)" % [cycle + 1, num_cycles, strikes_this, strikes_noun, cycle_end_cause]
 		fight_line += " | atk dmg: %.1f, def dmg: %.1f" % [cycle_atk_dmg, cycle_def_dmg]
 		# Tagged vitals (blood/ATLS/consc) for both sides so the agent-reachable report is
 		# self-contained: blood-vs-damage reconciliation and collapse-vs-winner pairing are checkable

@@ -7,7 +7,6 @@ extends RefCounted
 static var _company_state_cache: Variant = null
 static var _company_economy_cache: Variant = null
 static var _party_setup_cache: Variant = null
-static var _company_camp_cache: Variant = null
 
 
 static func _get_state() -> GDScript:
@@ -26,12 +25,6 @@ static func _get_party_setup() -> GDScript:
     if _party_setup_cache == null:
         _party_setup_cache = load("res://world/PartySetup.gd")
     return _party_setup_cache
-
-
-static func _get_company_camp() -> GDScript:
-    if _company_camp_cache == null:
-        _company_camp_cache = load("res://world/CompanyCamp.gd")
-    return _company_camp_cache
 
 
 static func roster_has_hire_room(world: Node) -> bool:

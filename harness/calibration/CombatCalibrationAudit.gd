@@ -9,7 +9,6 @@ const _CombatRegressionHarness := preload("res://harness/regression/CombatRegres
 
 const REPORT_FILENAME := ".calibration_audit.txt"
 const BIND_THRESHOLD := CombatConstants.PARRY_BIND_CONTROL_THRESHOLD
-const DEFLECT_THRESHOLD := CombatConstants.PARRY_DEFLECT_THRESHOLD
 ## Soak lines tag `parry_deflect` for full-stop outcomes; `parry_bind` only when `parry_was_bind`  -  allow ctrl at
 ## threshold on deflect rows.
 const BIND_CTRL_AUDIT_EPS := 0.001

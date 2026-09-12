@@ -28,10 +28,6 @@ func side() -> String:
     return str(_c.get("side", ""))
 
 
-func is_alive() -> bool:
-    return CombatantEntityAccess.is_alive_in_combat(_c)
-
-
 func state() -> String:
     return str(_c.get("state", CombatConstants.STATE_WAITING))
 

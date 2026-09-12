@@ -8,10 +8,6 @@ static func _get_counter_tempo() -> GDScript:
     return CounterTempo
 
 
-static func _get_event_scheduler() -> GDScript:
-    return CombatEventScheduler
-
-
 static func _get_state_handlers() -> GDScript:
     return CombatStateHandlers
 

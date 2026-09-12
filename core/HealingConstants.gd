@@ -6,7 +6,7 @@ extends RefCounted
 # Medically realistic healing: duration-based (days/weeks) for tissue, bone, and blood volume.
 # Bleeding continues outside combat; time advance runs bleeding, blood loss, then healing.
 # Healing uses EXPONENTIAL decay of deficit (rate ~ current deficit): 72% of wounds fit exponential; 35% vs 21% closure
-# (BMC Dermatol 9:2). See RESEARCH_BASED_APPROXIMATIONS.md.
+# (BMC Dermatol 9:2). Exponential decay model defined in this file.
 # Body parts: head, chest, right_arm, left_arm, right_leg, left_leg (match CoreEntity).
 # References: wound healing phases (inflammatory 2 - 5 days, proliferation ~3 weeks); fracture 6 - 8 weeks.
 

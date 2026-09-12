@@ -28,6 +28,9 @@ var id_to_controls := {}  # map combatant id -> {row, name, body_bars, body_labe
 var combat_log: RichTextLabel = null
 var combat_log_scroll: ScrollContainer = null
 var end_battle_button: Button = null
+## Pace control: pause toggle + 1x/2x/4x speed buttons (gladiator spectate mode).
+var _pace_pause_button: Button = null
+var _pace_speed_buttons: Array = []
 
 # UI nodes
 var canvas_layer: CanvasLayer
@@ -150,6 +153,7 @@ func start(
 		manager.encounter = encounter_src
 	# Start manager (builds formations, assigns rank/file; merges encounter defaults)
 	manager.start(_player_preset, _enemy_preset)
+	_create_pace_controls()
 	if CombatConstants.DEBUG_BACK_RANK_DEPTH_POLEARM_LOADOUT:
 		_apply_debug_depth_polearm_loadout(manager)
 	# Creature stats: fixed registration order (rows stay in list order; no reparent on formation change).
@@ -245,6 +249,73 @@ func _create_ui() -> void:
 	combat_log = layout.combat_log
 	combat_log_scroll = layout.combat_log_scroll
 	formation_diagram_hbox = layout.get("formation_diagram_hbox", null)
+
+
+## Builds the pace-control row (Pause + 1x/2x/4x) pinned to the top of the battle UI.
+## Purely a spectate convenience: it scales the sim tick via the manager; combat still
+## resolves on the unit AI either way.
+func _create_pace_controls() -> void:
+	if canvas_layer == null:
+		return
+	var content_vbox := get_node_or_null("CombatCanvasLayer/UIRoot/ContentVBox") as Container
+	if content_vbox == null:
+		return
+	var row := HBoxContainer.new()
+	row.name = "PaceControls"
+	row.add_theme_constant_override("separation", 6)
+	var spacer := Label.new()
+	spacer.text = "Pace:"
+	spacer.add_theme_font_size_override("font_size", 12)
+	spacer.add_theme_color_override("font_color", Color(0.7, 0.78, 0.88))
+	row.add_child(spacer)
+	_pace_pause_button = Button.new()
+	_pace_pause_button.name = "PacePause"
+	_pace_pause_button.text = "Pause"
+	_pace_pause_button.custom_minimum_size = Vector2(64, 28)
+	_pace_pause_button.pressed.connect(_on_pace_pause_pressed)
+	row.add_child(_pace_pause_button)
+	for mult in [1, 2, 4]:
+		var b := Button.new()
+		b.name = "PaceSpeed%d" % mult
+		b.text = "%dx" % mult
+		b.custom_minimum_size = Vector2(40, 28)
+		b.pressed.connect(_on_pace_speed_pressed.bind(int(mult)))
+		row.add_child(b)
+		_pace_speed_buttons.append({"button": b, "mult": int(mult)})
+	_refresh_pace_controls()
+	content_vbox.add_child(row)
+	content_vbox.set_index(row, 0)
+
+
+func _refresh_pace_controls() -> void:
+	if manager == null or not is_instance_valid(manager):
+		return
+	if _pace_pause_button != null:
+		_pace_pause_button.text = "Resume" if manager.is_combat_paused() else "Pause"
+	for entry in _pace_speed_buttons:
+		var active: bool = int(entry.mult) == int(manager.get_combat_speed())
+		entry.button.add_theme_color_override(
+			"font_color", Color(0.4, 0.9, 1.0) if active else Color(0.85, 0.88, 0.95)
+		)
+
+
+func _on_pace_pause_pressed() -> void:
+	if manager == null or not is_instance_valid(manager):
+		return
+	var paused: bool = not manager.is_combat_paused()
+	manager.set_combat_paused(paused)
+	_refresh_pace_controls()
+	if OperationalLog.is_play_session_active():
+		OperationalLog.play_world("pace pause=%s speed=%d" % [str(paused).to_lower(), int(manager.get_combat_speed())])
+
+
+func _on_pace_speed_pressed(mult: int) -> void:
+	if manager == null or not is_instance_valid(manager):
+		return
+	manager.set_combat_speed(float(mult))
+	_refresh_pace_controls()
+	if OperationalLog.is_play_session_active():
+		OperationalLog.play_world("pace speed=%d" % mult)
 
 
 func _scroll_combat_log_to_bottom() -> void:
@@ -761,6 +832,8 @@ func _destroy_battle_ui() -> void:
 	combat_log = null
 	combat_log_scroll = null
 	end_battle_button = null
+	_pace_pause_button = null
+	_pace_speed_buttons.clear()
 	formation_diagram_hbox = null
 	formation_diagram_player = null
 	formation_diagram_enemy = null

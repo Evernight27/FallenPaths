@@ -16,11 +16,12 @@ const UNARMED_VELOCITY_MAX_M_S := 10.0
 
 const _REFERENCE_STRIKE_RADIUS_M := 0.52
 
-## Mass scaling for band max: tip speed for a given muscular torque scales as sqrt(tau*r/I), so a weapon
-## heavier than the reference achieves lower peak tip speed and a lighter one higher. The default bands are
-## calibrated at SWORD (1.30 kg); scale band MAX by sqrt(m_ref/m) clamped to [0.7, 1.4] so standard weapons
-## stay near their HEMA-calibrated values while custom/light/heavy templates move physically. Band MIN is
-## reaction-limited (draw-back time), not inertia-limited, so it is left unscaled.
+## Mass scaling for band max: for a fixed muscular work over the wind-up, tip speed v = r*sqrt(2E/I).
+## For similar weapon geometry I ~ m*L^2 and r ~ L, so v ~ 1/sqrt(m): a weapon heavier than the reference
+## achieves lower peak tip speed and a lighter one higher. The default bands are calibrated at SWORD
+## (1.30 kg); scale band MAX by sqrt(m_ref/m) clamped to [0.7, 1.4] so standard weapons stay near their
+## HEMA-calibrated values while custom/light/heavy templates move physically. Band MIN is reaction-limited
+## (draw-back time), not inertia-limited, so it is left unscaled.
 const MASS_SCALING_REFERENCE_KG := 1.30
 const MASS_SCALING_MIN_FACTOR := 0.70
 const MASS_SCALING_MAX_FACTOR := 1.40

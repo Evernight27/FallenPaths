@@ -204,7 +204,7 @@ static func _resolve_partial_parry_follow_through(
 			pa[DataKeys.ATTACK_PARRY_REMAINING_RATIO] = combined_ratio
 			var v_current: float = pa.get("velocity_m_s", velocity_override)
 			if v_current >= 0.0:
-				var glancing_factor: float = CombatConstants.glancing_factor(twist_remaining_ratio, 0.5)
+				var glancing_factor: float = CombatConstants.glancing_factor(twist_remaining_ratio, CombatConstants.DODGE_GLANCING_EXPONENT)
 				pa[DataKeys.PA_VELOCITY_M_S] = v_current * glancing_factor
 			CombatDebug.log("twist_partial %s->%s combined=%.2f" % [atk_name, tgt_name, combined_ratio])
 		else:
@@ -271,7 +271,7 @@ static func _resolve_dodge(
 				var dodge_wuf: float = CombatTiming.wind_up_factor(dodge_wind_up_dur) if dodge_wind_up_dur > 0.0 else 1.0
 				if dodge_wuf < 1.0:
 					v_intent *= dodge_wuf
-				var glancing_factor: float = CombatConstants.glancing_factor(dodge_remaining_ratio, 0.5)
+				var glancing_factor: float = CombatConstants.glancing_factor(dodge_remaining_ratio, CombatConstants.DODGE_GLANCING_EXPONENT)
 				pa[DataKeys.PA_VELOCITY_M_S] = v_intent * glancing_factor
 			else:
 				pa[DataKeys.PA_VELOCITY_M_S] = -1.0
@@ -344,12 +344,12 @@ static func _resolve_parry(
 			tgt_stats.get(DataKeys.ENTITY_AGILITY, CombatConstants.DEFAULT_STAT_VALUE)
 		)
 		var variance_scale: float = clampf(
-			1.0 - 0.5 * (agi_var - 100.0) / 100.0,
+			1.0 - CombatConstants.PARRY_VARIANCE_AGILITY_SCALE * (agi_var - 100.0) / 100.0,
 			CombatConstants.STAMINA_MULT_FLOOR,
 			CombatConstants.STAMINA_MULT_CEILING
 		)
 		var variance_eff: float = CombatConstants.PARRY_TECHNIQUE_VARIANCE * variance_scale
-		var geom_scale: float = clampf(1.0 / maxf(0.2, alignment), 1.0, 2.5)
+		var geom_scale: float = clampf(1.0 / maxf(CombatConstants.PARRY_VARIANCE_GEOM_MIN, alignment), 1.0, CombatConstants.PARRY_VARIANCE_GEOM_MAX)
 		variance_eff *= geom_scale
 		c_d_final *= randf_range(1.0 - variance_eff, 1.0 + variance_eff)
 	var effective_alignment: float = alignment
@@ -365,7 +365,7 @@ static func _resolve_parry(
 			]
 		)
 	var pcfg: Dictionary = PassiveParryContext.get_parry_config()
-	var glancing_exp: float = pcfg.get("glancing_exponent", 0.5)
+	var glancing_exp: float = pcfg.get("glancing_exponent", CombatConstants.PARRY_GLANCING_EXPONENT)
 	var def_name: String = CombatantEntityAccess.get_display_name(tgt, target_id)
 	CombatDebug.log(
 		(
@@ -374,7 +374,7 @@ static func _resolve_parry(
 		)
 	)
 	if CombatConstants.COMBAT_DEBUG_CALIBRATION:
-		var geom_scale: float = clampf(1.0 / maxf(0.2, alignment), 1.0, 2.5)
+		var geom_scale: float = clampf(1.0 / maxf(CombatConstants.PARRY_VARIANCE_GEOM_MIN, alignment), 1.0, CombatConstants.PARRY_VARIANCE_GEOM_MAX)
 		var angle_suffix: String = ""
 		if pa.get(DataKeys.ATTACK_ATTACK_ANGLE_DEG, -999.0) >= 0.0:
 			var wobble_cal: Dictionary = CombatantEntityAccess.parry_wobble_context_for_combatant(tgt, parry_readiness)

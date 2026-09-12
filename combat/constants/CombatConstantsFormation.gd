@@ -41,6 +41,27 @@ const FORMATION_LEAVE_MIN_FRONT_FILL_RATIO := 0.45
 
 const FORMATION_MAX_FRONT_FILES_DEFAULT := 5
 
+## Fill-ratio clamp bounds for the engagement line: the fraction of the front line that remains filled
+## after casualties. `l_in` (our side) and `l_out` (opposing side) are each clamped to their own range so a
+## partially-broken line still presents a coherent front.
+const FORMATION_FILL_IN_MIN := 0.40
+
+const FORMATION_FILL_IN_MAX := 0.92
+
+const FORMATION_FILL_OUT_MIN := 0.28
+
+const FORMATION_FILL_OUT_MAX := 0.88
+
+## Margin used when forcing `l_out` below `l_in`: if our fill is within this of the opposing fill, the
+## opposing line is pulled back further to preserve a visible engagement gap.
+const FORMATION_FILL_MARGIN := 0.03
+
+## Floor for the opposing fill when it must be kept below our fill.
+const FORMATION_FILL_OUT_FLOOR := 0.25
+
+## Gap applied to the opposing fill when it must be kept below our fill.
+const FORMATION_FILL_GAP := 0.05
+
 const FORMATION_MIN_FRONT_FIGHTERS_PER_SIDE := 2
 
 const FORMATION_MIN_FRONT_FILL_RATIO := 0.67
@@ -118,6 +139,12 @@ const SPEAR_LANE_PROFILE_AUTO := ""
 const SPEAR_LANE_PROFILE_OPEN := "open"
 
 const SPEAR_LANE_PROFILE_RESTRICTED := "restricted"
+
+## Lunge reach extension (m) applied to stab-contact moves: a committed thrust is paired with a forward
+## step (Schieben) that extends effective reach. 0.15 m ≈ half a pace — enough to bring a sword from
+## out-of-measure (ratio < 1.0) back into measure at typical close spacing.
+## Cuts and blunts are rotational and do not step forward; they get no extension.
+const LUNGE_REACH_EXTENSION_STAB_M := 0.15
 
 const STRIKE_MEASURE_EFF_DIST_FLOOR := 0.2
 

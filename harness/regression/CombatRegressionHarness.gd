@@ -349,11 +349,72 @@ static func run_all() -> Dictionary:
     CombatConstants.reset_harness_feature_load_overrides()
     CombatConstants.set_feature_position_angle_footwork_load(true)
 
-    ## Run all test functions sequentially in a single Godot process.
-    for tf in get_test_functions():
+    var all: Array = get_test_functions()
+    var patterns: PackedStringArray = _resolve_test_filter_patterns()
+    var selected: Array = all
+    if not patterns.is_empty():
+        selected = []
+        for tf in all:
+            if tf is Callable and _matches_filter(tf as Callable, patterns):
+                selected.append(tf)
+        if selected.is_empty():
+            return {
+                "ok": false,
+                "failures": PackedStringArray(
+                    [
+                        "FP_HARNESS_TESTS=\"%s\" matched 0 of %d tests; none ran (check the patterns)"
+                        % [", ".join(patterns), all.size()]
+                    ]
+                ),
+            }
+        print("=== CombatRegressionHarness: FP_HARNESS_TESTS=\"%s\" selected %d/%d ===" % [", ".join(patterns), selected.size(), all.size()])
+
+    ## Run selected test functions sequentially in a single Godot process.
+    ## FP_HARNESS_TESTS (unset = all) narrows the run to matching class/method names.
+    for tf in selected:
         if tf is Callable:
             tf.call(failures)
         seed(_HARNESS_RESTORE_GLOBAL_SEED)
 
     flush_harness_live_nodes()
     return {"ok": failures.is_empty(), "failures": failures}
+
+
+## All registered regression test labels (ClassName.method, lowercased).
+## FP_HARNESS_LIST prints these so a targeted FP_HARNESS_TESTS run can be chosen without grepping source.
+static func list_test_labels() -> PackedStringArray:
+    var out: PackedStringArray = PackedStringArray()
+    for tf in get_test_functions():
+        if tf is Callable:
+            out.append(_callable_label(tf as Callable))
+    return out
+
+
+## FP_HARNESS_TESTS is a comma-separated list of case-insensitive substrings; a test runs if any
+## pattern is a substring of its ClassName.method label. Empty (env unset) = run every test.
+static func _resolve_test_filter_patterns() -> PackedStringArray:
+    var raw: String = OS.get_environment("FP_HARNESS_TESTS").strip_edges()
+    var out: PackedStringArray = PackedStringArray()
+    if raw.is_empty():
+        return out
+    for part in raw.split(","):
+        var p: String = part.strip_edges().to_lower()
+        if not p.is_empty():
+            out.append(p)
+    return out
+
+
+static func _matches_filter(tf: Callable, patterns: PackedStringArray) -> bool:
+    var label: String = _callable_label(tf)
+    for p in patterns:
+        if label.contains(p):
+            return true
+    return false
+
+
+static func _callable_label(tf: Callable) -> String:
+    var owner: String = ""
+    var obj: Variant = tf.get_object()
+    if obj is GDScript:
+        owner = str((obj as GDScript).get_global_name())
+    return (owner + "." + tf.get_method()).to_lower()

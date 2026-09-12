@@ -9,13 +9,6 @@ const MIN_LEVER_M := 0.12
 const MIN_INERTIA_KG_M2 := 0.001
 
 
-## Maximum distance from grip to the weapon tip (m). Currently unused in KE formula — `_ke_swing_rotational` uses `strike_lever_arm_m` instead; kept for debugging and potential future use.
-static func tip_radius_m(weapon: Object) -> float:
-    if weapon == null or not weapon.has_method("has_parts") or not weapon.has_parts():
-        return MIN_LEVER_M
-    return com_distance_from_grip_m(weapon.parts, 0)
-
-
 static func _total_length_m_from_parts(parts: Array) -> float:
     var s: float = 0.0
     for p in parts:
@@ -141,11 +134,5 @@ static func inertia_from_parts_kg_m2(parts: Array, total_mass: float) -> float:
 ## Rotational kinetic energy at angular velocity Ï (rad/s).
 static func rotational_ke_j(inertia_kg_m2: float, omega_rad_s: float) -> float:
     return 0.5 * maxf(MIN_INERTIA_KG_M2, inertia_kg_m2) * omega_rad_s * omega_rad_s
-
-
-## Ï from tip speed v (m/s) and lever r (m).
-static func omega_from_tip_speed(v_m_s: float, lever_m: float) -> float:
-    var r: float = maxf(MIN_LEVER_M, lever_m)
-    return v_m_s / r
 
 

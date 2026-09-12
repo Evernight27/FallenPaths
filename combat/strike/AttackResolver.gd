@@ -54,7 +54,8 @@ static func compute_and_apply_damage(
 	alignment: float = 1.0,
 	strike_mods: Dictionary = {},
 	strike_physics_ctx: Dictionary = {},
-	wind_up_factor_override: float = -1.0
+	wind_up_factor_override: float = -1.0,
+	measure_ratio: float = 1.0
 ) -> Dictionary:
 	var sm: Dictionary = strike_mods
 	var pa: Dictionary = CombatantEntityAccess.nested_dictionary_read(atk, "pending_attack")
@@ -228,6 +229,80 @@ static func compute_and_apply_damage(
 	)
 	pre_cut *= stance_dmg_mult
 	pre_blunt *= stance_dmg_mult
+	# HEMA commitment quality: a compromised attacker (off-balance, out of measure, an over-extended
+	# cut, or inside a longer-armed defender's reach) lands the blow with less force. These sub-1.0
+	# penalties are accumulated into a shared + cut-only product and floored below, so a fully-
+	# compromised strike never degenerates to a trivial chip — symmetric with HIT_CHANCE_MIN_CAP on
+	# the accuracy side. Positional bonuses (angular, bind follow-through, form-switch) stay unclamped.
+	var commit_quality_shared: float = 1.0
+	var commit_quality_cut: float = 1.0
+	# HEMA: an off-balance attacker strikes from a compromised center — weight transfer through the
+	# weapon is reduced. Symmetric with the defensive parry-capacity penalty.
+	if PassiveParryContext.is_off_balance(atk):
+		commit_quality_shared *= CombatConstants.OFF_BALANCE_ATTACK_DMG_MULT
+	# HEMA B3: voiding outside an opponent's strong side leaves their bracing misaligned to the line
+	# you take — the voider's strike against the voided target lands with a modest positional bonus.
+	# Scoped to the specific voided opponent (a third combatant on the other side is not affected).
+	var ang_clock: float = CombatantEntityAccess.combat_clock_float(manager)
+	if CombatBindPressure.has_angular_advantage_over(atk, CombatantEntityAccess.id_int(tgt), ang_clock):
+		var ang_mult: float = CombatConstants.ANGULAR_ADVANTAGE_DMG_MULT
+		pre_cut *= ang_mult
+		pre_blunt *= ang_mult
+	# HEMA: holding an active bind means you control the opponent's line and contact — a trapped
+	# blade and braced give you a small edge on the follow-through strike while the bind is live.
+	if CombatBindPressure.is_in_bind(atk, ang_clock) and CombatantEntityAccess.id_int(tgt) == CombatBindPressure.get_bind_partner_id(atk):
+		var bind_follow_mult: float = CombatBindPressure.follow_through_dmg_mult(atk, ang_clock)
+		if bind_follow_mult > 1.0:
+			pre_cut *= bind_follow_mult
+			pre_blunt *= bind_follow_mult
+	# HEMA: a target mid-guard-change has a blade in transit — the counter into the transition
+	# lands on an unguarded line. The defender's parry/dodge are already penalised by the transition;
+	# this is the corresponding attack-side payoff.
+	if CombatantEntityAccess.state_str(tgt) == CombatConstants.STATE_FORM_SWITCH:
+		var fsw_vuln_mult: float = CombatConstantsEncounter.FORM_SWITCH_VULNERABILITY_DMG_MULT
+		pre_cut *= fsw_vuln_mult
+		pre_blunt *= fsw_vuln_mult
+	# HEMA: distance governs delivered force, not just accuracy. A strike out of measure (over-extended
+	# or short of reach) arrives with less body mass and follow-through behind it. Complements the
+	# measure-ratio hit-chance penalty in resolve_attack: distance governs both whether a blow lands AND
+	# how hard it lands. Milder floor (0.80) than the over-reach hit-chance floor (0.55): even an
+	# over-extended blade still cuts if it connects, it just lacks full commitment.
+	if CombatConstants.is_feature_measure_damage_commit_enabled() and measure_ratio != 1.0:
+		var measure_dmg_mult: float = 1.0
+		if measure_ratio > 1.0 and CombatantEntityAccess.has_weapon(tgt):
+			measure_dmg_mult = lerp(1.0, CombatConstants.MEASURE_DMG_OVER_REACH_FLOOR, clampf((measure_ratio - 1.0) * CombatConstants.MEASURE_PENALTY_RAMP_PER_UNIT, 0.0, 1.0))
+		elif measure_ratio < 1.0:
+			var under_t: float = clampf((1.0 - measure_ratio) / maxf(0.001, 1.0 - CombatConstants.STRIKE_MEASURE_RATIO_MIN), 0.0, 1.0)
+			measure_dmg_mult = lerp(1.0, CombatConstants.MEASURE_DMG_UNDER_REACH_FLOOR, under_t)
+		commit_quality_shared *= measure_dmg_mult
+		# HEMA: a cut needs an arc; past the limit of measure the arc is truncated and the
+		# blade can't run through the target, so an over-extended cut lands softer than an
+		# over-extended thrust (a point weapon keeps its edge out to full measure). Applies
+		# on top of the contact-type-agnostic measure_dmg_mult, to pre_cut only.
+		if measure_ratio > 1.0 and WeaponConstants.contact_type_for_move_id(attack_type) == WeaponConstants.ATTACK_TYPE_CUT:
+			var cut_or_t: float = clampf((measure_ratio - 1.0) * CombatConstants.MEASURE_PENALTY_RAMP_PER_UNIT, 0.0, 1.0)
+			commit_quality_cut *= lerp(1.0, CombatConstants.MEASURE_DMG_CUT_OVER_REACH_FLOOR, cut_or_t)
+	# HEMA reach priority: if the defender's weapon reaches further relative to the pair distance than the
+	# attacker's, the attacker is inside the defender's natural measure — they must get through a longer,
+	# braced blade to land, so the blow arrives with less clean commit. This is a RELATIONAL penalty
+	# (defender ratio vs attacker ratio), independent of the attacker's own self-measure, so it fires even
+	# at measure_ratio == 1.0. Close-range same-weapon fights (both ratios ~equal) get no penalty: only a
+	# genuine reach gap is punished. Milder floor (0.88) than the self-measure floors.
+	if CombatConstants.is_feature_measure_damage_commit_enabled() and CombatantEntityAccess.has_weapon(tgt):
+		var eff_dist_m: float = pa.get(DataKeys.PA_EFFECTIVE_PAIR_EFF_DIST, 0.0)
+		if eff_dist_m >= 0.01:
+			var def_weapon: Variant = CombatantEntityAccess.get_weapon(tgt)
+			var def_ratio: float = CombatStrikeStamping.strike_measure_ratio_for_weapon_eff_dist(def_weapon, eff_dist_m)
+			var reach_gap: float = def_ratio - measure_ratio
+			if reach_gap > 0.0:
+				var reach_dmg_mult: float = lerp(1.0, CombatConstants.MEASURE_DMG_DEFENDER_REACH_FLOOR, clampf(reach_gap * CombatConstants.MEASURE_PENALTY_RAMP_PER_UNIT, 0.0, 1.0))
+				commit_quality_shared *= reach_dmg_mult
+	# Apply the committed-attack quality floor so a fully-compromised strike never collapses to a
+	# trivial chip (symmetric with HIT_CHANCE_MIN_CAP on the accuracy side). Bonuses stay unclamped.
+	var commit_total_cut: float = maxf(commit_quality_shared * commit_quality_cut, CombatConstants.ATTACK_COMMIT_QUALITY_FLOOR)
+	var commit_total_blunt: float = maxf(commit_quality_shared, CombatConstants.ATTACK_COMMIT_QUALITY_FLOOR)
+	pre_cut *= commit_total_cut
+	pre_blunt *= commit_total_blunt
 	pre_armor = pre_cut + pre_blunt
 
 	var health_before_cut: float = tgt_n.body_cutting.get(part, 0.0)
@@ -271,7 +346,7 @@ static func compute_and_apply_damage(
 			glancing_severity = clampf(tissue_dmg / maxf(ratio_denom, 0.001), 0.0, 1.0)
 
 	# Minimum physical damage floor for contact hits: prevents rounding to zero.
-	var _floor_threshold: float = PHYSICAL_DAMAGE_MIN_FLOOR if outcome == "hit" else PHYSICAL_DAMAGE_MIN_FLOOR * 0.5
+	var _floor_threshold: float = PHYSICAL_DAMAGE_MIN_FLOOR if outcome == "hit" else PHYSICAL_DAMAGE_MIN_FLOOR * CombatConstants.GLANCING_DAMAGE_FLOOR_RATIO
 	if total_physical < _floor_threshold and outcome in ["hit", "glancing"]:
 		total_physical = _floor_threshold
 		actual_dmg = int(roundf(total_physical))
@@ -583,7 +658,7 @@ static func resolve_attack(manager: Node, attacker_id: int) -> Dictionary:
 		if node != null and node.has_method("_get_vital_parts"):
 			var pain_deg: float = EntityPainConsciousness.get_cumulative_pain_degradation(node)
 			# Cumulative pain degrades hit chance by up to 15% at maximum sustained pain.
-			perf_mod *= maxf(CombatConstants.PERF_MOD_MIN, 1.0 - pain_deg * 0.15)
+			perf_mod *= maxf(CombatConstants.PERF_MOD_MIN, 1.0 - pain_deg * CombatConstants.PAIN_HIT_CHANCE_DEGRADATION_MAX)
 	var perception_factor: float = clampf(
 		float(atk_stats.get(DataKeys.ENTITY_PERCEPTION, CombatConstants.DEFAULT_STAT_VALUE)) / 100.0,
 		CombatConstants.HIT_CHANCE_PERCEPTION_MIN,
@@ -591,16 +666,22 @@ static func resolve_attack(manager: Node, attacker_id: int) -> Dictionary:
 	)
 	var melee_skill_factor: float = clampf(
 		float(atk_stats.get(DataKeys.ENTITY_MELEE_SKILL, CombatConstants.DEFAULT_STAT_VALUE)) / 100.0,
-		0.5,
-		1.3
+		CombatConstants.MELEE_SKILL_HIT_FACTOR_MIN,
+		CombatConstants.MELEE_SKILL_HIT_FACTOR_MAX
 	)
 	var measure_ratio: float = pa.get(DataKeys.PA_STRIKE_MEASURE_RATIO, 1.0)
-	# Only penalize when attacker is overextended (ratio > 1.0). Reach advantage (ratio < 1.0) gives no bonus —
-	# the baseline hit chance already accounts for optimal range; only exceeding it degrades accuracy.
-	# No penalty against unarmed defenders: reach advantage vs unopposed space should not hurt accuracy.
+	# Over-extension (ratio > 1.0): attacker's weapon is longer than the gap — over-committed, poor
+	# follow-through angle. No penalty against unarmed defenders: reach vs unopposed space should not hurt.
 	var measure_hit_mult: float = 1.0
 	if measure_ratio > 1.0 and CombatantEntityAccess.has_weapon(tgt):
-		measure_hit_mult = lerp(1.0, CombatConstants.MEASURE_HIT_CHANCE_FLOOR, clampf((measure_ratio - 1.0) * 5.0, 0.0, 1.0))
+		measure_hit_mult = lerp(1.0, CombatConstants.MEASURE_HIT_CHANCE_FLOOR, clampf((measure_ratio - 1.0) * CombatConstants.MEASURE_PENALTY_RAMP_PER_UNIT, 0.0, 1.0))
+	elif measure_ratio < 1.0:
+		# Under-reach (out of measure): target lies beyond the attacker's natural reach — a "half-step"
+		# strike that cannot generate full speed or clean angle. Milder than over-extension (0.80 vs 0.55
+		# floor) because under-reach is recoverable by committing harder. No weapon gate: this is the
+		# attacker's own reach vs distance, independent of target armament.
+		var under_t: float = clampf((1.0 - measure_ratio) / maxf(0.001, 1.0 - CombatConstants.STRIKE_MEASURE_RATIO_MIN), 0.0, 1.0)
+		measure_hit_mult = lerp(1.0, CombatConstants.MEASURE_UNDER_REACH_HIT_CHANCE_FLOOR, under_t)
 	var move_def_atk: Dictionary = WeaponConstants.get_move(attack_type)
 	# G2: resolve the final effective attack line BEFORE the miss roll so the shared guard alignment
 	# source uses the same line that DefenseChoiceResolver parry will use. Diagonal C rolls a line
@@ -627,9 +708,9 @@ static func resolve_attack(manager: Node, attacker_id: int) -> Dictionary:
 	var distance_band: String = CombatantEntityAccess.distance_to_opponent_band(atk, target_id)
 	var dist_hit_mult: float = 1.0
 	if distance_band == "close":
-		dist_hit_mult = 1.35
+		dist_hit_mult = CombatConstants.CLOSE_RANGE_HIT_MULT
 	elif distance_band == "mid":
-		dist_hit_mult = 1.10
+		dist_hit_mult = CombatConstants.MID_RANGE_HIT_MULT
 	var effective_hit_chance: float = (1.0 - CombatConstants.MISS_CHANCE_BASE) * perf_mod * perception_factor * melee_skill_factor * measure_hit_mult * dist_hit_mult
 	effective_hit_chance = maxf(effective_hit_chance, CombatConstants.HIT_CHANCE_MIN_CAP)
 	var miss_chance: float = 1.0 - effective_hit_chance
@@ -741,6 +822,7 @@ static func resolve_attack(manager: Node, attacker_id: int) -> Dictionary:
 	var hit_alignment: float = CombatConstants.get_line_alignment_with_deflect(atk_line, tgt, align_ctx, wobble_hit)
 	var part: String = pa.get(DataKeys.ATTACK_PARTIAL_DODGE_PART, "")
 	var intended_part: String = pa.get(DataKeys.ATTACK_TARGET_PART, "")
+	var aim_reachable: bool = false
 	if part.is_empty():
 		# Path + guard intercept; defender_ctx and intended_part refine hit distribution. Angle-based trajectory.
 		var defender_ctx: Dictionary = {
@@ -758,8 +840,32 @@ static func resolve_attack(manager: Node, attacker_id: int) -> Dictionary:
 			align_ctx,
 			atk,
 			move_def,
-			pa.get(DataKeys.PA_DEPTH_POLEARM_ALLOWS_LOW, true)
+			pa.get(DataKeys.PA_DEPTH_POLEARM_ALLOWS_LOW, true),
+			attack_type
 		)
+		# Diagnostic flag: whether the aimed part sat inside the intercept segment at
+		# resolve time. When false, the defender's guard/first-contact parts stood in the
+		# blade path before the aim — a physical block, not a targeting error. Reuses the
+		# same alignment + targetable the resolver used so the flag matches reality.
+		if not intended_part.is_empty():
+			var aim_alignment: float = CombatConstants.get_line_alignment_with_deflect(
+				atk_line, tgt, align_ctx
+			)
+			var aim_segment: Array = AttackPathResolver.path_segment_for_strike(
+				atk_line, guard_line, targetable, aim_alignment, align_ctx
+			)
+			aim_reachable = aim_segment.has(intended_part)
+			if aim_reachable:
+				# An interposing guard arm earlier in the path means the blade meets the
+				# guard first — a physical block, not a targeting error. The segment
+				# preserves path order, so a lower index for the arm is "before the aim".
+				var interpose: Dictionary = CombatGuardLines.arm_interpose_eval(
+					atk_line, guard_line, aim_alignment, targetable
+				)
+				var interpose_arm: String = str(interpose.get(DataKeys.INTERPOSE_ARM, ""))
+				if interpose_arm != "" and aim_segment.has(interpose_arm):
+					if aim_segment.find(interpose_arm) < aim_segment.find(intended_part):
+						aim_reachable = false
 		if part.is_empty():
 			part = BodyPartConstants.get_weighted_random_part(targetable)
 	atk[DataKeys.ATTACK_LAST_MOVE_ID] = pa.get(CombatConstants.PA_KEY_ATTACK_TYPE, "")
@@ -815,10 +921,14 @@ static func resolve_attack(manager: Node, attacker_id: int) -> Dictionary:
 		hit_alignment,
 		strike_mods,
 		strike_phys_ctx,
-		wind_up_factor_resolve
+		wind_up_factor_resolve,
+		measure_ratio
 	)
 	var rd_out: Dictionary = res.result_dict
 	rd_out[DataKeys.RESULT_TARGET_PART] = intended_part
+	if not intended_part.is_empty():
+		rd_out[DataKeys.RESULT_AIM_REACHABLE] = aim_reachable
+		rd_out[DataKeys.RESULT_HIT_ALIGNMENT] = hit_alignment
 	rd_out[DataKeys.RESULT_MOVE_ID] = attack_type
 	rd_out[DataKeys.RESULT_ATTACK_TYPE] = attack_type
 	if str(rd_out.get(DataKeys.WD_KINEMATIC_DELIVERY, "")).is_empty() and not archetype.is_empty():

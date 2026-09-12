@@ -8,7 +8,6 @@ const _CoreEntity := preload("res://core/CoreEntity.gd")
 const _Weapon := preload("res://resources/weapons/Weapon.gd")
 const _WeaponForm := preload("res://combat/weapon_form/CombatWeaponForm.gd")
 const _CombatConstants := preload("res://combat/CombatConstants.gd")
-const _ConfigData := preload("res://tools/combat_tuning/TuningConfigData.gd")
 const _ArmorPiece := preload("res://resources/armor/ArmorPiece.gd")
 static var _entity_access_cache: Variant = null
 static var log_sink: Callable = Callable()
@@ -79,32 +78,3 @@ static func _create_entity(cfg: Variant) -> Node:
 		print(entity_line)
 
 	return e
-
-## Restores entity to full health across all body parts.
-static func _heal_entity(e: Node) -> void:
-	if e == null or not is_instance_valid(e):
-		return
-	for part in _ConfigData.BODY_PARTS:
-		if part in e.body_max:
-			e.body_cutting[part] = e.body_max[part]
-		if part in e.body_blunt:
-			e.body_blunt[part] = e.body_max[part]
-		if part in e.bone_max:
-			e.bone_health[part] = e.bone_max[part]
-	e.blood_volume = 100.0
-	e.consciousness = 100.0
-	e.effective_consciousness = 100.0
-	# Clear wounds
-	e.wounds = {}
-	# Reset tissue energy pools to match restored display values (prevents J/display mismatch after healing).
-	if "tissue_energy_remaining_j" in e and "tissue_energy_capacity_j" in e:
-		for part in _ConfigData.BODY_PARTS:
-			if part in e.tissue_energy_capacity_j:
-				var cap: float = e.tissue_energy_capacity_j[part]
-				e.tissue_energy_remaining_j[part] = cap
-	# Reset pain/shock
-	e._pain_shock_until_time = -1.0
-	e._last_hit_impact = 0.0
-	e._ambient_pain_shock_accum = 0.0
-	e._consciousness_dirty = true
-	e.ensure_consciousness_current()

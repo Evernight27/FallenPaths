@@ -255,13 +255,13 @@ Literal mL · layer tissue · material curves · ATLS consciousness · absolute 
 
 <a id="1-hemorrhage-and-atls-blood-volume-ttd"></a>
 
-**ATLS (remaining blood %):** I ≥85 · II ≥70 · III ≥60 · IV death at **30%** remaining.
+**ATLS (remaining blood %):** I ≥85 · II ≥70 · III ≥60 · IV death at **50%** remaining (~45–50% loss, fatal untreated).
 
-**Reference uncontrolled bleed:** `BLEEDING_RATES[cut][critical] × head × arterial` = **23.625 HP/s** (4.5 × 1.5 × 3.5).
+**Reference uncontrolled bleed:** `BLEEDING_RATES[cut][critical] × head × arterial` = **23.625 HP/s** (4.5 × 1.5 × 3.5) — clean calibration anchor (no ×1.4 vessel-damage amplifier). **Live worst-case** (with `get_bleeding_rate`'s ×1.4 critical amplifier): **33.075 HP/s** → TTD **~128 s** (within clinical 120–300 s band, realistic for major arterial bleed).
 
-**TTD:** `(blood_volume − threshold) / (rate × BLOOD_LOSS_RATE_MULTIPLIER × loss_mult)` → default **~48 s**; tune mult for **30–120 s** band. **Sustained direct pressure** uses TCCC retained-flow fractions (**venous ~10%**, **arterial ~50%** of intrinsic wound rate for blood-loss integration) plus faster local clotting k (`CLOTTING_RATE_UNDER_DIRECT_PRESSURE`); constant-rate halving anchor (`clinical_ttd_seconds(0.5)`) ≈ **2×** TTD is the research gate only — live sim includes clotting `exp(-k×Δt)`.
+**TTD:** `(blood_volume − threshold) / (rate × BLOOD_LOSS_RATE_MULTIPLIER × loss_mult)` → default **~180 s** (clinical 120–300 s band; derived from `LITERATURE_TTD_TARGET_S`). **Sustained direct pressure** uses TCCC retained-flow fractions (**venous ~10%**, **arterial ~50%** of intrinsic wound rate for blood-loss integration) plus faster local clotting k (`CLOTTING_RATE_UNDER_DIRECT_PRESSURE`); constant-rate halving anchor (`clinical_ttd_seconds(0.5)`) ≈ **2×** TTD is the research gate only — live sim includes clotting `exp(-k×Δt)`.
 
-**Bleed rate cap:** `MAX_TOTAL_BLOOD_LOSS_RATE` = **3.5 %/s** hard ceiling on the summed rate after all multipliers (arterial + decompensation + exertion). Prevents stacked wounds from pushing exsanguination below ~20 s.
+**Bleed rate cap:** `MAX_TOTAL_BLOOD_LOSS_RATE` = **3.5 %/s** hard ceiling on the summed rate after all multipliers (injury type, body part, head, arterial, exertion). Prevents stacked wounds from pushing exsanguination below ~20 s.
 
 **Vital-destruction grace:** a destroyed head/chest part does not register death immediately. `CoreEntity._vital_grace_remaining` (per-part: head **1.5 s**, chest **3.0 s**, fallback **2.5 s**) decrements each `process_blood_loss` tick; `is_dead()` returns true only when the countdown reaches 0. During the grace the fighter is incapacitated (consciousness capped at **4.0** for destroyed / **12.0** for critically-damaged vitals). `VITAL_GRACE` / `VITAL_GRACE_EXPIRED` lines appear in `FP_COMBAT` output.
 
@@ -273,7 +273,7 @@ Literal mL · layer tissue · material curves · ATLS consciousness · absolute 
 
 <a id="6-gaps-and-recommended-follow-ups"></a>
 
-**Arterial chance (cut):** critical **0.26** → severe **0.14** → moderate **0.06** → minor **0.01**; crush ×0.35. Triage **90 s** / **45 s** vs ref TTD **~48 s**.
+**Arterial chance (cut):** critical **0.26** → severe **0.14** → moderate **0.06** → minor **0.01**; crush ×0.35. Triage **225 s** / **112.5 s** vs ref TTD **~180 s**.
 
 <a id="10-blunt-fracture-j-vs-nm-biomechanics-note"></a>
 
@@ -299,13 +299,13 @@ Literal mL · layer tissue · material curves · ATLS consciousness · absolute 
 
 ## Composure (shipped)
 
-`gauge` 0–100 (`DataKeys.COMBATANT_GAUGE`) — **event-driven**: no fill during WAITING/RECOVERING. `CombatEventDispatch.handle_action_ready` sets **100**; wind-up / recovery / medical / form-switch set **0**. Cowering idle fills **0.5/s** (`CombatStateHandlers.process_cowering_idle`). Counter-tempo ready ≥ `COUNTER_TEMPO_GAUGE_THRESHOLD` (**50**) · AI/action-list gated `< GAUGE_FULL_THRESHOLD` (**99**). **No** wind-up cost deduction, **no** quality/parry scaling. Persists between fights via `CampaignComposureSync`. APIs: [`AGENTS_API`](AGENTS_API.md) · [`COMPOSURE_PLAN`](COMPOSURE_PLAN.md).
+`gauge` 0–100 (`DataKeys.COMBATANT_GAUGE`) — **event-driven**: no fill during WAITING/RECOVERING. `CombatEventDispatch.handle_action_ready` sets **100**; wind-up / recovery / medical / form-switch set **0**. Cowering idle fills **0.5/s** (`CombatStateHandlers.process_cowering_idle`). Counter-tempo ready ≥ `COUNTER_TEMPO_GAUGE_THRESHOLD` (**50**) · AI/action-list gated `< GAUGE_FULL_THRESHOLD` (**99**). **No** wind-up cost deduction, **no** quality/parry scaling. Gauge is session-local — **not** persisted between fights. APIs: [`AGENTS_API`](AGENTS_API.md) · [`COMPOSURE_PLAN`](COMPOSURE_PLAN.md).
 
 <a id="muscle-fatigue-phase-2"></a>
 
 ## Muscle fatigue (shipped)
 
-Per-limb exertion pools — **not** composure, **not** whole-body breath. Owner: `combat/flow/CombatMuscleFatigue.gd` · flag `FEATURE_MUSCLE_GROUP_FATIGUE` · harness `harness/CombatRegressionHarnessMuscleFatigueTail.gd`.
+Per-limb exertion pools — **not** composure, **not** whole-body breath. Owner: `combat/flow/CombatMuscleFatigue.gd` · flag `FEATURE_MUSCLE_GROUP_FATIGUE` · harness `harness/CombatRegressionHarnessMuscleFatigueTail.gd`. Cleared at camp rest via `CoreEntity._restore_muscle_fatigue_at_camp` (wired in `CompanyCamp._restore_roster_muscle_fatigue`).
 
 <a id="battle-ui"></a>
 
@@ -441,6 +441,7 @@ Mapped opposition · Skirmish compact/rotate · L4+close · mop-up **3e**. Track
 | Tier 4.4 PA | ☑ octant pilot |
 | Doc-10 Issue 2 arm-grip | ☑ `FEATURE_ARM_WOUND_DEGRADATION` — sub-region/severity → weapon-function grip mult |
 | Doc-9 parry counterstrike | ☑ `FEATURE_PARRY_COUNTERSTRIKE_WINDOW` — partial-parry bind grants riposte-chain window |
+| HEMA measure-damage | ☑ `FEATURE_MEASURE_DAMAGE_COMMIT` — out-of-measure strike (over/under reach) deals reduced damage |
 
 Open queue: [`EXPANSION_PLAN`](EXPANSION_PLAN.md). Policy: [`SHIP_PLAN` §9c](SHIP_PLAN.md#combat-expand-registry).
 

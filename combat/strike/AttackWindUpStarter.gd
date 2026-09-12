@@ -109,6 +109,18 @@ static func start(
 					non_parry.append(mid)
 			if non_parry.is_empty():
 				non_parry = types_arr
+			# HEMA nach: a riposte aims at the opening the parry created — bias toward moves on the
+			# attacker's committed line (their blade was displaced off it). Soft bias: fall back to the
+			# full candidate set when no move matches the target line.
+			var nach_line: String = CounterTempo.riposte_target_line(manager, atk_d, target_id)
+			if not nach_line.is_empty():
+				var line_match: Array = []
+				for mid in non_parry:
+					var md: Dictionary = WeaponConstants.get_move(mid)
+					if md.get(DataKeys.PA_ATTACK_LINE, "") == nach_line:
+						line_match.append(mid)
+				if not line_match.is_empty():
+					non_parry = line_match
 			if not non_parry.is_empty():
 				attack_type = non_parry[randi() % non_parry.size()]
 		archetype = CombatantEntityAccess.weapon_archetype_for_move(weapon, attack_type)
@@ -161,7 +173,7 @@ static func start(
 	var atk_agi: float = float(
 		CombatantEntityAccess.stats_dict(atk_d).get(DataKeys.ENTITY_AGILITY, CombatConstants.DEFAULT_STAT_VALUE)
 	)
-	wind_up_s /= clampf(atk_agi / 100.0, 0.7, 1.3)
+	wind_up_s /= clampf(atk_agi / 100.0, CombatConstants.RECOVERY_AGILITY_MIN, CombatConstants.RECOVERY_AGILITY_MAX)
 	var feint_windup_mult: float = 1.0
 	if move_def.get(CombatConstants.MOVE_DEF_KEY_IS_FEINT, false):
 		feint_windup_mult = move_def.get(DataKeys.WEAPON_FEINT_WINDUP_DURATION_MULT, 1.0)
@@ -175,6 +187,11 @@ static func start(
 	var riposte_m: float = CounterTempo.riposte_chain_windup_mult(manager, atk_d, target_id)
 	if riposte_m < 1.0:
 		wind_up_s *= riposte_m
+	# HEMA nach/Vorschlag: after a landed hit the attacker re-commits faster against the off-balance
+	# victim. Weaker than the parry-riposte chain (completed strike = controlled commitment).
+	var hit_cont_m: float = CounterTempo.hit_continuation_windup_mult(manager, atk_d, target_id)
+	if hit_cont_m < 1.0:
+		wind_up_s *= hit_cont_m
 	var clk: float = CombatantEntityAccess.combat_clock_float(manager)
 	var flurry_m: float = CombatFlurryBind.wind_up_mult(atk_d, target_id, clk)
 	if flurry_m < 1.0:
@@ -182,6 +199,12 @@ static func start(
 		CombatFlurryBind.consume_exchange_on_wind_up_start(atk_d)
 	wind_up_s = CombatExhaustion.apply_attacker_wind_up_exhaustion_mult(wind_up_s, atk_d)
 	wind_up_s = CombatMuscleFatigue.apply_attacker_wind_up_mult(wind_up_s, atk_d, attack_type, manager)
+	# Knockback / re-stabilizing: a fighter still off-balance (from a hit taken, a whiffed over-extended
+	# swing, or a parry-deflect) is slow to re-commit to a new strike. Distinct from the action-ready
+	# surcharge (decision delay) and parry-capacity reduction (reactive ability): this is the commitment
+	# cost of re-establishing footing before the next swing.
+	if PassiveParryContext.is_off_balance(atk_d):
+		wind_up_s /= CombatConstants.OFF_BALANCE_WINDUP_SLOW_MULT
 	# Concussion extends attacker windup — motor planning and initiation are impaired per research.
 	wind_up_s = EntityPainConsciousness.apply_attacker_windup_concussion_mult(manager, atk_d, wind_up_s)
 	# Wind-up energy cap: beyond T_optimal (0.4s), the quadratic factor approaches 1.0 and no additional
@@ -190,7 +213,7 @@ static func start(
 	var wind_up_s_base: float = wind_up_s
 	if wind_up_s > CombatConstantsTiming.WIND_UP_SOFT_CAP_S:
 		var excess: float = wind_up_s - CombatConstantsTiming.WIND_UP_SOFT_CAP_S
-		wind_up_s = CombatConstantsTiming.WIND_UP_SOFT_CAP_S + excess * 0.5
+		wind_up_s = CombatConstantsTiming.WIND_UP_SOFT_CAP_S + excess * CombatConstantsTiming.WIND_UP_SOFT_CAP_EXCESS_RATIO
 	wind_up_s = minf(wind_up_s, CombatConstantsTiming.WIND_UP_DURATION_MAX_S)
 	var gauge_atk_pre: float = float(atk_d.get(DataKeys.COMBATANT_GAUGE, 0.0))
 	var gauge_def_pre: float = float(tgt_d.get(DataKeys.COMBATANT_GAUGE, 0.0))

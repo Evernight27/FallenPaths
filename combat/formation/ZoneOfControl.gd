@@ -17,7 +17,6 @@ extends RefCounted
 ## - Per-pass cache: **`zone_geometry_line_context_by_combatant_id`**
 ## - Pair: **`zone_geometry_for_pair`** + **`zone_geometry_*_from_pair_pack`**
 ## - Snapshot/UI row: **`zone_geometry_fid_from_row`**
-## Aliases: **`formation_id_for_zone_geometry`**, **`formation_dict_for_zone_geometry`**.
 
 const ZONE_FRONT := "front"
 const ZONE_LEFT_FLANK := "left_flank"
@@ -51,19 +50,6 @@ static func is_zoc_flanking_enabled(manager: Node) -> bool:
 
 static func _resolve_zone_geometry_fid(_manager: Node, c: Dictionary) -> String:
     return CombatantEntityAccess.formation_id_str(c)
-
-
-static func formation_id_for_zone_geometry(manager: Node, c: Dictionary) -> String:
-    return _resolve_zone_geometry_fid(manager, c)
-
-
-## Read-only: **`manager.formations[fid]`** for zone geometry on **`combatant`**. `{}` if missing.
-## When **`zone_geometry_fid`** is non-empty, it must match **`_resolve_zone_geometry_fid`** (skips a second
-## resolution).
-static func formation_dict_for_zone_geometry(
-    manager: Node, combatant: Dictionary, zone_geometry_fid: String = ""
-) -> Dictionary:
-    return zone_geometry_formation_from_pack(zone_geometry_for_combatant(manager, combatant, zone_geometry_fid))
 
 
 ## Resolved host-line **`fid`** + formation record for one combatant (**`zone_geometry_fid`** optional cache).
@@ -100,10 +86,6 @@ static func zone_geometry_for_pair(
 ## Read **`zone_geometry_for_pair`** packs (no re-resolve).
 static func zone_geometry_fid_a_from_pair_pack(zg: Dictionary) -> String:
     return zg.get(DataKeys.ZONE_FID_A, "")
-
-
-static func zone_geometry_fid_b_from_pair_pack(zg: Dictionary) -> String:
-    return zg.get(DataKeys.ZONE_FID_B, "")
 
 
 static func zone_geometry_formation_a_from_pair_pack(zg: Dictionary) -> Dictionary:

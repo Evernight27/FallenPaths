@@ -133,12 +133,14 @@ static func _run_thrust_internal_bleed(failures: PackedStringArray) -> void:
 		_fail(failures, "ib_live_fire: 0/200 internal bleeds through real apply_damage_split path -> feature is dead")
 
 
-## Head-KO skull gate (CoreEntity.is_vital_part_critically_damaged): a head blow KOs only when the
-## skull is actually fractured (brain trauma). A scalp laceration that depletes the small head tissue
-## pool but leaves the skull >=50% intact must NOT trip the critical-damage cap (which forces
-## consciousness to 4, below the incapacitation floor) — matching mTBI data where LOC occurs in only
-## ~10% of concussions and is brief. A fractured skull (<50%) with depleted tissue still KOs, and the
-## chest (no skull equivalent) keeps its tissue-destruction cap unchanged.
+## Head-KO skull gate (CoreEntity.is_vital_part_critically_damaged + _is_vital_part_destroyed):
+## a head blow KOs only when the skull is actually fractured (brain trauma). A scalp laceration that
+## depletes the small head tissue pool but leaves the skull >=50% intact must NOT trip the
+## critical-damage cap nor the destruction path — matching mTBI data where LOC occurs in only
+## ~10% of concussions and is brief. A fractured skull (<50%) with depleted tissue still triggers
+## both paths. The chest (no skull equivalent) keeps its tissue-destruction cap unchanged.
+## Also asserts the destroyed-path gate: intact-skull drained head is NOT destroyed;
+## fractured-skull drained head IS destroyed; drained chest IS destroyed.
 static func _run_head_skull_ko_gate(failures: PackedStringArray) -> void:
 	var head_max: float = float(_new_entity("SWORD").body_max.get(BodyPartConstants.PART_HEAD, 10.0))
 	var skull_max: float = float(_new_entity("SWORD").bone_max.get(BodyPartConstants.PART_HEAD, 8.0))
@@ -166,6 +168,28 @@ static func _run_head_skull_ko_gate(failures: PackedStringArray) -> void:
 	# Control: a pristine head is never critically damaged.
 	if _new_entity("SWORD").is_vital_part_critically_damaged():
 		_fail(failures, "skull_gate_healthy: pristine head must NOT be critically damaged")
+
+	# --- Destroyed-path skull gate (mirrors the critical gate) ---
+	# Intact skull + drained tissue -> NOT destroyed (skull gate blocks the destruction path).
+	var intact_dest: CoreEntity = _new_entity("SWORD")
+	intact_dest.body_cutting[BodyPartConstants.PART_HEAD] = 0.0
+	intact_dest.body_blunt[BodyPartConstants.PART_HEAD] = 0.0
+	intact_dest.bone_health[BodyPartConstants.PART_HEAD] = skull_max * 0.9
+	if intact_dest.is_vital_part_destroyed():
+		_fail(failures, "skull_gate_dest_intact: intact-skull drained head must NOT be destroyed")
+	# Fractured skull + drained tissue -> IS destroyed (skull below 50% lets the destruction path through).
+	var fractured_dest: CoreEntity = _new_entity("SWORD")
+	fractured_dest.body_cutting[BodyPartConstants.PART_HEAD] = 0.0
+	fractured_dest.body_blunt[BodyPartConstants.PART_HEAD] = 0.0
+	fractured_dest.bone_health[BodyPartConstants.PART_HEAD] = skull_max * 0.3
+	if not fractured_dest.is_vital_part_destroyed():
+		_fail(failures, "skull_gate_dest_fractured: fractured-skull drained head MUST be destroyed")
+	# Chest has no skull gate: drained chest tissue is destroyed regardless.
+	var chest_dest: CoreEntity = _new_entity("SWORD")
+	chest_dest.body_cutting[BodyPartConstants.PART_CHEST] = 0.0
+	chest_dest.body_blunt[BodyPartConstants.PART_CHEST] = 0.0
+	if not chest_dest.is_vital_part_destroyed():
+		_fail(failures, "skull_gate_dest_chest: drained chest MUST be destroyed (no skull gate)")
 
 
 ## Vital-destruction grace period (CoreEntity._vital_grace_remaining): a destroyed vital part

@@ -213,10 +213,6 @@ static func pincer_flank_wing_should_close_at_long(manager: Node, c: Dictionary)
     return pincer_role_for_combatant(manager, c) == PINCER_ROLE_FLANK_WING
 
 
-static func pincer_center_should_pin(manager: Node, c: Dictionary) -> bool:
-    return pincer_role_for_combatant(manager, c) == PINCER_ROLE_CENTER
-
-
 ## Living rank-0 enemy id on the outer flank file matching this wing (left wing |' min enemy file, right |' max).
 static func preferred_pincer_flank_enemy_id(manager: Node, wing: Dictionary) -> int:
     if manager == null or wing.is_empty():

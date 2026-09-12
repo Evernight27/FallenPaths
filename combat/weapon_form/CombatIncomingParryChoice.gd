@@ -244,10 +244,6 @@ static func _incoming_parry_estimate(manager: Node, tgt: Dictionary, attacker_id
     return out
 
 
-static func _parry_viable_for_incoming_attack(manager: Node, tgt: Dictionary, attacker_id: int) -> bool:
-    return _incoming_parry_estimate(manager, tgt, attacker_id).get(DataKeys.PA_VIABLE, false)
-
-
 ## Stamps **`pa`** when this resolve is not the committed parry target among overlapping wind-ups.
 static func stamp_parry_choice_on_pa(
     manager: Node, pa: Dictionary, defender_id: int, attacker_id: int, anchor_time: float = -1.0

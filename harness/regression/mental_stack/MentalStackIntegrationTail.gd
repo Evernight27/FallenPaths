@@ -37,15 +37,10 @@ static func _make_four_combatant_manager() -> Node:
 static func _set_immediate_peril(ent: Node) -> void:
     if ent == null:
         return
-    ent.blood_volume = 46.0
+    ent.blood_volume = 52.0
     EntityWounds.add_wound(
         ent, "chest", BleedingConstants.INJURY_TYPE_CUT, 9.0, "thoracic", BleedingConstants.SEVERITY_MODERATE
     )
-
-
-## Helper: set exhaustion level on a combatant dict and enable the feature.
-static func _set_exhaustion(c: Dictionary, level: float) -> void:
-    c[CombatConstants.COMBATANT_KEY_EXHAUSTION] = level
 
 
 ## 1. Exhausted + surrounded: Phase 5 (exhaustion) fires before Phase 6 (positional).
@@ -500,7 +495,7 @@ static func _run_mental_stack_integration_positional_vs_rout_priority(failures: 
     # abandonment_warranted -> rout_cognition_pressure -> MS-L6 rout pick.
     var fighter_ent: Node = CombatantEntityAccess.get_entity_from_manager(mgr, fighter)
     if fighter_ent != null:
-        fighter_ent.blood_volume = CombatConstants.FORMATION_FLEE_BLOOD_VOLUME_MAX - 5.0
+        fighter_ent.blood_volume = CombatConstants.FORMATION_FLEE_BLOOD_VOLUME_MAX - 3.0
         # Add a chest wound so is_in_immediate_peril also fires (blood + bleed rate).
         EntityWounds.add_wound(
             fighter_ent,

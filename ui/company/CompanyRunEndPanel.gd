@@ -140,10 +140,6 @@ static func _footnote_for_reason(reason: String) -> String:
             return ""
 
 
-static func _body_for_reason(reason: String) -> String:
-    return format_run_end_body(reason)
-
-
 static func _button_label_for_reason(reason: String) -> String:
     match reason:
         "tutorial_failed", "soft_defeat_resume":

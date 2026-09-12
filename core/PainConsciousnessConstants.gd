@@ -50,10 +50,10 @@ const PAIN_SHOCK_SUSCEPTIBILITY_MULT_HIGH: float = 1.2  # at/above NRS_SEVERE
 ## Studies (Meeuwisse et al. 1991; Bruhn et al. 2001): moderate pain reduces grip strength ~15-30% but targeting accuracy drops ~25-40%.
 ## Cognitive effects scale more steeply at lower pain levels because attentional capture is non-linear (any significant pain draws focus).
 const PAIN_PERFORMANCE_NONE: float = 0.0
-const PAIN_PERFORMANCE_MINOR: float = 0.08  # -8% (NRS 4 - 6: first functional impairment; lit. -10 to -18%)
+const PAIN_PERFORMANCE_MINOR: float = 0.10  # -10% (NRS 4 - 6: first functional impairment; lit. -10 to -18%)
 const PAIN_PERFORMANCE_MODERATE: float = 0.32  # -32% (NRS 6 - 8: moderate impairment; updated from 0.28 per meta-analyses showing -20 to -45% functional loss)
 const PAIN_PERFORMANCE_SEVERE: float = 0.50  # -50% (NRS 8 - 10: severe impairment; lit. -40 to -70%)
-const PAIN_PERFORMANCE_EXTREME: float = 0.65  # -65% (NRS 10+: extreme impairment; literature ~70%)
+const PAIN_PERFORMANCE_EXTREME: float = 0.70  # -70% (NRS 10+: extreme impairment; literature ~70%)
 
 # --- Separate cognitive vs motor pain modifiers ---
 ## Cognitive modifier affects: hit chance, parry timing, decision-making quality, perception-based rolls.
@@ -73,18 +73,26 @@ const MOBILITY_FLEE_THRESHOLD: float = 0.2
 
 # --- Blood -> consciousness (ATLS-aligned: effect starts at Class II, max at death threshold). ---
 # Below START: consciousness modifier ramps down; at FLOOR (death threshold) modifier = 1.0 - REDUCTION_MAX.
-# See BLOOD_LOSS_CONSCIOUSNESS_RESEARCH.md.
+# See RESEARCH_pain_cognition_performance.md (blood consciousness ATLS section).
 const BLOOD_CONSCIOUSNESS_START_THRESHOLD: float = 85.0  # No effect above this (Class I: <15% lost)
-# Max reduction at/below this (align with BLOOD_LOSS_DEATH_THRESHOLD)
-const BLOOD_CONSCIOUSNESS_FLOOR_THRESHOLD: float = 35.0
+# Max reduction at/below this (align with BLOOD_LOSS_DEATH_THRESHOLD, ~50; floor sits 3% above
+# death so the fighter is unconscious well before the agonal window closes).
+const BLOOD_CONSCIOUSNESS_FLOOR_THRESHOLD: float = 53.0
 const BLOOD_CONSCIOUSNESS_REDUCTION_MAX: float = 0.96  # At floor: modifier = 0.04 (Class IV ATLS: obtunded/unresponsive; hypovolemic syncope — blood loss alone drives unconsciousness)
+# --- Hypovolemia -> parry reaction time. Cerebral hypoperfusion slows neuromuscular
+# response as blood volume drops (ATLS Class I-IV). Ramps from no penalty at the 85%
+# threshold to this multiplier at near-total loss. Same 85% threshold + ramp shape as
+# the hypovolemic cognitive mod in get_performance_modifier, applied to reaction time.
+const HYPOVOLUME_REACTION_TIME_SLOW_MULT: float = 1.35  # At full hypovolemia: ~35% slower parry reaction
 
 # --- Pain shock (temporary; reduces effective consciousness for combat, not incapacitation). ---
 # Research: Lighter impacts cause brief grogginess; more severe single impacts cause longer confusion/disorientation
 # (Frontiers Neurology 2020, concussion/TBI). Acute stress reaction and traumatic shock duration scale with severity of
 # the triggering insult (ATLS, StatPearls). Duration therefore scales with both cumulative pain and the impact of the
 # move that triggered the shock.
-const PAIN_SHOCK_DURATION_BASE: float = 5.0  # base duration seconds; scaled by pain level and impact
+const PAIN_SHOCK_DURATION_BASE: float = 8.0  # base duration seconds; scaled by pain level and impact
+# Clinical: acute stress reaction "daze" lasts minutes; 8s base + impact scaling → 8-30s range
+# (compressed for combat pacing but closer to clinical ASR than the old 5s base).
 # -50% effective consciousness while in shock (acute stress impairs but does not obliterate function; combined with
 # blood loss/head trauma can approach ~70-80% total reduction)
 const PAIN_SHOCK_CONSCIOUSNESS_REDUCTION: float = 50.0
@@ -94,21 +102,29 @@ const PAIN_SHOCK_AMBIENT_COOLDOWN_S: float = 15.0
 # 1.0x impact factor; bigger hits multiply duration up to IMPACT_MAX_MULTIPLIER.
 # damage of triggering hit vs this (e.g. 10 -> 1.0x, 20 -> 2.0x until cap)
 const PAIN_SHOCK_DURATION_IMPACT_REFERENCE: float = 10.0
-# max duration multiplier from impact (e.g. 2.0 = double duration for a heavy blow)
-const PAIN_SHOCK_DURATION_IMPACT_MAX_MULTIPLIER: float = 2.0
+# max duration multiplier from impact (e.g. 2.5 = 2.5× duration for a heavy blow)
+const PAIN_SHOCK_DURATION_IMPACT_MAX_MULTIPLIER: float = 2.5
 
 # --- Performance floor (action bar and hit chance never below this). ---
 ## Floor at 15% — a severely injured, near-unconscious fighter still moves but cannot fight effectively (~crippled gait).
 const MIN_PERFORMANCE_MODIFIER: float = 0.15
 
-# --- Per-injury pain: damage - -  severity_mult - -  body_part_mult - -  injury_type_mult - -  (1 - healing). ---
-const SEVERITY_PAIN_MULTIPLIERS: Dictionary = {"minor": 0.5, "moderate": 1.0, "severe": 1.5, "critical": 2.0}
+# --- Per-injury pain: damage × severity_mult × body_part_mult × injury_type_mult × (1 - healing). ---
+## Stevens' power law for pain (ψ = kI^n, n ≈ 0.6-1.0): pain perception is compressive —
+## the jump from minor→moderate is proportionally larger than moderate→severe.
+## Derived from clinical NRS data: minor (NRS 2-3) ≈ 0.4× moderate (NRS 4-6),
+## severe (NRS 7-8) ≈ 1.4× moderate, critical (NRS 9-10) ≈ 1.7× moderate.
+const SEVERITY_PAIN_MULTIPLIERS: Dictionary = {"minor": 0.4, "moderate": 1.0, "severe": 1.4, "critical": 1.7}
 
 # --- Body part pain multipliers (cortical representation + clinical pain salience). ---
-# Head/face/chest more salient; hands high; limbs baseline; feet lower. Research: somatosensory homunculus, wound pain.
+## Research (RESEARCH_pain_cognition_performance.md §3a): head 1.2-1.5, neck 1.3-1.6, torso 1.4-1.8.
+## Torso/chest at upper range — impairs breathing, vital organ proximity, higher nociceptive density.
+## Head at research max (1.5) — cortical homunculus representation is large but chest pain is more
+## functionally debilitating (respiratory splinting, cardiac referred pain). Sub-region multipliers
+## (face/neck/sternum) layer on top for localized pain salience.
 const BODY_PART_PAIN_MULTIPLIERS: Dictionary = {
-    BodyPartConstants.PART_HEAD: 1.8,
-    BodyPartConstants.PART_CHEST: 1.25,
+    BodyPartConstants.PART_HEAD: 1.5,
+    BodyPartConstants.PART_CHEST: 1.6,
     BodyPartConstants.PART_RIGHT_ARM: 1.0,
     BodyPartConstants.PART_LEFT_ARM: 1.0,
     BodyPartConstants.PART_RIGHT_LEG: 0.95,
@@ -121,8 +137,8 @@ const SUB_REGION_PAIN_MULTIPLIERS: Dictionary = {
     BodyPartConstants.PART_CHEST: {"thoracic": 1.2, "abdominal": 1.15, "sternum": 1.6},
     BodyPartConstants.PART_RIGHT_ARM: {"upper_arm": 0.95, "elbow": 1.1, "forearm": 1.05, "hand": 1.35, "armpit": 1.45, "axillary": 1.45},
     BodyPartConstants.PART_LEFT_ARM: {"upper_arm": 0.95, "elbow": 1.1, "forearm": 1.05, "hand": 1.35, "armpit": 1.45, "axillary": 1.45},
-    BodyPartConstants.PART_RIGHT_LEG: {"thigh": 0.95, "knee": 1.1, "calf": 1.0, "foot": 0.9, "inner_thigh": 1.3},
-    BodyPartConstants.PART_LEFT_LEG: {"thigh": 0.95, "knee": 1.1, "calf": 1.0, "foot": 0.9, "inner_thigh": 1.3}
+    BodyPartConstants.PART_RIGHT_LEG: {"thigh": 0.95, "knee": 1.1, "calf": 1.0, "foot": 0.75, "inner_thigh": 1.3},
+    BodyPartConstants.PART_LEFT_LEG: {"thigh": 0.95, "knee": 1.1, "calf": 1.0, "foot": 0.75, "inner_thigh": 1.3}
 }
 
 # --- Injury type pain multipliers (fracture/crush often more debilitating than cut). ---
@@ -267,18 +283,25 @@ const CONCUSSION_PHASE_WEIGHT_CRITICAL: float = 0.15
 const CONCUSSION_PHASE_WEIGHT_ACUTE: float = 0.40
 const CONCUSSION_PHASE_WEIGHT_SUBACUTE: float = 0.35
 
-# --- TBI / concussion wound-healing impairment (Issue 8). ---
-## Clinical evidence: traumatic brain injury impairs inflammatory cascade, fibroblast migration, and collagen synthesis.
-## Concussed entities heal ~15-25% slower depending on phase severity. Multiplicative with endurance healing speed.
-const CONCUSSION_HEALING_CRITICAL_MULT: float = 0.75   # -25% healing in critical phase
-const CONCUSSION_HEALING_ACUTE_MULT: float = 0.80      # -20% healing in acute phase
-const CONCUSSION_HEALING_SUBACUTE_MULT: float = 0.90   # -10% healing in subacute phase
-const CONCUSSION_HEALING_RECOVERY_MULT: float = 0.95   # -5% healing in recovery phase
+# --- TBI / concussion wound-healing effect (Issue 8). ---
+## Clinical reversal: Aghapour et al. (Wound Repair Regen, 2025) showed mild TBI ACCELERATES
+## peripheral wound healing via systemic IGF-1/CCL22 elevation — faster immune cell recruitment,
+## earlier re-epithelialization. Only severe TBI with CNS involvement or spinal cord injury
+## impairs peripheral healing. Game concussions are mild-to-moderate (90s duration), so the
+## clinically accurate behavior is NO IMPAIRMENT (set to 1.0). Kept as named constants for
+## future use if severe-TBI healing impairment is added.
+const CONCUSSION_HEALING_CRITICAL_MULT: float = 1.0    # no impairment (mild TBI accelerates healing)
+const CONCUSSION_HEALING_ACUTE_MULT: float = 1.0       # no impairment
+const CONCUSSION_HEALING_SUBACUTE_MULT: float = 1.0    # no impairment
+const CONCUSSION_HEALING_RECOVERY_MULT: float = 1.0    # no impairment
 
 # --- Blunt head trauma energy threshold (Issue: dagger HEAD_TRAUMA at 17J) ---
 ## Minimum single-strike blunt KE to classify a death/incapacitation as "head trauma" (TBI/cranial fracture).
-## Clinical basis: skull fracture requires ~47-130J (depending on impact area and angle); diffuse axonal injury
-## typically requires 50-80J+. Strikes below this threshold that destroy head tissue are bleed_out from
+## Clinical: skull fracture onset 47-130J (temporal bone cadaver studies, thinnest at ~47J), but
+## clinically significant TBI (diffuse axonal injury, contusion) requires higher energy transfer.
+## Gadd (1966): ~158J frontal; Nahum & Smith (1976): 135-203J frontal; Brandenburg et al. (1979): ~80-120J onset.
+## 90J = onset of clinically significant TBI (contusion/concussion with functional impairment),
+## not just hairline fracture. Strikes below this threshold that destroy head tissue are bleed_out from
 ## accumulated wounds, not acute traumatic brain injury.
-const BLUNT_HEAD_TRAUMA_MIN_KE_J: float = 50.0
+const BLUNT_HEAD_TRAUMA_MIN_KE_J: float = 90.0
 

@@ -4,6 +4,9 @@ extends SceneTree
 ## `sanity` . `calibration` . `medical` . `f5_validate` . `f5_validate_camp_smokes` . `q_track`).
 ## Phase 0: **`run_all_combat_checks.ps1`** / **`.sh`**. Q track: mode **`q_track`**. F5 validate: **`f5_validate`** (+
 ## optional path after **`--`**). Camp smokes batch: **`f5_validate_camp_smokes`**.
+## **`FP_HARNESS_LIST`** (any value) lists every regression test label and exits without running any test.
+## **`FP_HARNESS_TESTS`** (comma-separated case-insensitive substrings) narrows a regression run; unset = all.
+## Fails loudly if a set pattern matches zero tests, so it can never silently skip everything.
 
 const HARNESS_NAME := "AllCombatChecks"
 const MEDICAL_FAST_NAME := "MedicalPhaseHarness"
@@ -34,11 +37,14 @@ const _MedicalPhaseTail := preload("res://harness/medical_phase/MedicalPhaseTail
 const _F5Validator := preload("res://harness/CombatF5SoakLogValidator.gd")
 const _QTrackAudits := preload("res://harness/CombatQTrackAudits.gd")
 const _RegHarness := preload("res://harness/regression/CombatRegressionHarness.gd")
-const _HarnessFixtures := preload("res://harness/HarnessFixtures.gd")
 const _SoakPresets := preload("res://world/SoakEncounterPresets.gd")
+
 
 func _init() -> void:
     _CC.set_headless_harness_quiet(true)
+    if not OS.get_environment("FP_HARNESS_LIST").strip_edges().is_empty():
+        _run_mode_list()
+        return
     var mode: String = OS.get_environment("FP_HARNESS_MODE").strip_edges().to_lower()
     if mode.is_empty():
         mode = "all"
@@ -313,6 +319,16 @@ func _run_mode_q_track() -> void:
     var code: int = _QTrackAudits.run_headless()
     _RegHarness.flush_harness_live_nodes()
     quit(code)
+
+
+func _run_mode_list() -> void:
+    var labels: PackedStringArray = _RegHarness.list_test_labels()
+    print("=== FP_HARNESS_LIST: %d regression tests ===" % labels.size())
+    for lbl in labels:
+        print("  " + lbl)
+    print("Run a subset with FP_HARNESS_TESTS=<pattern> (comma-separated, case-insensitive substring).")
+    _RegHarness.flush_harness_live_nodes()
+    quit(0)
 
 
 static func _write_text_file(path: String, body: String) -> void:

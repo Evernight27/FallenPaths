@@ -430,6 +430,44 @@ static func try_camp_heal(world: Node2D, from_party_menu: bool = false) -> bool:
 	return CompanyCamp.try_camp_heal(world, from_party_menu)
 
 
+static func can_train_stat(world: Node2D, node_ref: Node, stat: String) -> bool:
+	return CompanyCamp.can_train_stat(world, node_ref, stat)
+
+
+static func train_stat(world: Node2D, node_ref: Node, stat: String) -> bool:
+	return CompanyCamp.train_stat(world, node_ref, stat)
+
+
+## Gladiator duel: true when the party is ready to enter the 1v1 ii2b sword duel.
+static func can_start_duel(world: Node2D) -> bool:
+	return CampaignEncounterBridge.can_enter_combat(world).get("ok", false)
+
+
+## Starts a 1v1 ii2b sword duel (leader-only, forced SWORD). The party fights on the
+## unit AI; rewards/casualties settle the same as a contract (no active contract => no pay).
+static func start_duel(world: Node2D) -> bool:
+	return CombatFlow.start_duel(world)
+
+
+## === Gladiator gear (delegated to CompanyGear) ===
+
+
+static func can_buy_weapon(world: Node2D, node_ref: Node, weapon_id: String) -> bool:
+	return CompanyGear.can_buy_weapon(world, node_ref, weapon_id)
+
+
+static func buy_weapon(world: Node2D, node_ref: Node, weapon_id: String) -> bool:
+	return CompanyGear.buy_weapon(world, node_ref, weapon_id)
+
+
+static func can_buy_armor(world: Node2D, node_ref: Node, part: String) -> bool:
+	return CompanyGear.can_buy_armor(world, node_ref, part)
+
+
+static func buy_armor(world: Node2D, node_ref: Node, part: String) -> bool:
+	return CompanyGear.buy_armor(world, node_ref, part)
+
+
 ## === Tool repair (delegated to CompanyCamp) ===
 
 

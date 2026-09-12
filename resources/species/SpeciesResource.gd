@@ -220,7 +220,7 @@ func get_bone_max(part: String) -> int:
 ## Typical pain from one moderate hit for this species. Used for normalized pain (Method B).
 ## Auto-computed from body_max sum when pain_reference_scale < 0. Human (sum 96) â ~3.
 ## Divisor 32: ~2 moderate hits to NRS 4 (first effect). Research: Krebs 4-6 band, acute trauma 57% NRS 5-10.
-## See PAIN_MEDICAL_RESEARCH_SYNTHESIS.md.
+## See RESEARCH_pain_cognition_performance.md (NRS bands).
 func get_pain_reference(body_max_dict: Dictionary) -> float:
     var total: int = 0
     for p in BODY_PARTS:

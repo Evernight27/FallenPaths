@@ -15,7 +15,6 @@ const SoakEncounterPresets := preload("res://world/SoakEncounterPresets.gd")
 const _D001RunnerHelpers := preload("res://harness/d001/D001RunnerHelpers.gd")
 const _D001Ii5Ii6Tests := preload("res://harness/d001/D001Ii5Ii6RunnerTests.gd")
 const _D001TrackSpecs := preload("res://harness/d001/CombatD001TrackSpecs.gd")
-const _F5SoakTrace := preload("res://combat/soak/CombatF5SoakTrace.gd")
 
 
 static func _preset_seed(preset_id: String) -> int:

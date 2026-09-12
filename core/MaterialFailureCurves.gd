@@ -31,9 +31,10 @@ static func penetration_depth_mult(penetration_to_tissue_mm: float) -> float:
 
 
 ## Piecewise cut tissue damage from post-armor penetration (mm). `scale` tunes harness/audit rows.
-## Curve shape: 0→yield = 12% of ultimate (graze zone); yield→ultimate = linear ramp to 100%.
-## 0.12 graze multiplier models that a blade barely breaking skin does ~12% the damage of full penetration.
-## 0.18 start-of-ramp factor ensures smooth transition from graze zone into meaningful tissue damage.
+## Curve shape: 0→yield = graze zone (linear 0→18% of ultimate); yield→ultimate = linear ramp to 100%.
+## 0.18 graze-top multiplier: a blade that has broken skin but not yet reached the yield point (0.5 mm)
+## does 0–18% of a full-penetration cut, scaling linearly with depth across the yield band.
+## The same 0.18 value is the ramp's starting point, so graze→ramp is continuous at the yield boundary.
 static func cut_tissue_damage_from_pen(pen_mm: float, part: String, scale: float = 1.0) -> float:
     if pen_mm <= 0.0:
         return 0.0

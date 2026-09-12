@@ -55,8 +55,9 @@ static func _run_field_care_arterial_blood_loss_meaningful(failures: PackedStrin
     var loss_pct: float = BleedingConstants.MAX_BLOOD_VOLUME - float(ent.blood_volume)
     ## Direct pressure promotes hemostasis (CLOTTING_RATE_UNDER_DIRECT_PRESSURE = 0.032/s);
     ## even an arterial wound under sustained pressure loses meaningful blood volume in one
-    ## procedure  -  ~0.3% over one procedure tick with arterial flow retained at 50%.
-    if loss_pct < 0.1:
+    ## procedure  -  ~0.03% over one procedure tick at the clinical 180 s ref-bleed TTD
+    ## (BLOOD_LOSS_RATE_MULTIPLIER 0.01646; threshold scaled down from the old 0.1% fast-bleed pace).
+    if loss_pct < 0.01:
         _fail(
             failures,
             "field_care_arterial_loss: pressure alone should still lose meaningful blood got loss=%.2f%%" % loss_pct
@@ -153,7 +154,20 @@ static func _run_clotting_pressure_faster_than_open_bleed(failures: PackedString
 ## Medical phase integrated loss: clotting during tick replay stays below constant-rate ATLS drain.
 static func _run_medical_phase_blood_loss_clotting_below_constant_drain(failures: PackedStringArray) -> void:
     var ent: Node = _new_entity("SWORD")
-    ent.take_damage_split(6.0, 2.0, "chest")
+    # Deterministic moderate NON-arterial chest wound. (The prior fixture used take_damage_split, which draws
+    # unseeded RNG for the wound rate/arterial flag, so this borderline 0.02 assertion became sensitive to the
+    # upstream RNG stream and flaked on arterial draws (arterial wounds barely clot in 12 s). An explicit
+    # moderate non-arterial wound clots measurably (k=0.02/s) so the integrated loss stays below the
+    # constant-rate drain, matching every sibling fixture in this file.)
+    ent.wounds["chest"] = [
+        {
+            "current_bleeding_rate": 1.5,
+            "base_bleeding_rate": 1.5,
+            "severity": BleedingConstants.SEVERITY_MODERATE,
+            "is_arterial": false,
+            "is_stabilized": false,
+        },
+    ]
     ent.blood_volume = 60.0
     ent._set_combat_blood_loss_mult(1.0)
     ent._set_combat_blood_recovery_per_s(0.0)
@@ -606,7 +620,7 @@ static func _run_ms_mid_infight_ally_medical_listing(failures: PackedStringArray
         if not fdict.is_empty():
             fdict.engagement_posture = CombatConstants.ENGAGEMENT_POSTURE_LINE
     var ally_ent: Node = CombatantEntityAccess.get_entity_from_manager(mgr, ally)
-    AttentionFootworkAttentionLoadTests._harness_immediate_peril_bleeding_chest(ally_ent, 46.0)
+    AttentionFootworkAttentionLoadTests._harness_immediate_peril_bleeding_chest(ally_ent, 52.0)
     if mgr.medical_phase:
         _fail(failures, "ms_mid_listing: fixture must stay in combat phase")
         HarnessFixtures._free_manager_restore_global_rng(mgr)

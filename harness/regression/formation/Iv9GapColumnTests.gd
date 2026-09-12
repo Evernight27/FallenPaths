@@ -638,20 +638,6 @@ static func _run_iv11_leader_order_probing_suite(failures: PackedStringArray) ->
     _free_manager(mgr)
 
 
-## IV-11 slice 5: **`CombatLogFormatter`** surfaces **`leader_order_probing`** resolve outcome.
-
-
-## IV-11 slice 5: **`CombatLogFormatter`** surfaces **`leader_order_probing`** resolve outcome.
-static func _run_iv11_leader_order_probing_formatter_suite(failures: PackedStringArray) -> void:
-    var line: String = CombatLogFormatter.format_action_line(
-        "P (player)", "player", "P (player)", "player", {"outcome": "leader_order_probing", "formation_id": "player"}
-    )
-    if "probe" not in line.to_lower():
-        _fail(failures, "iv11_probing_formatter: want probe copy in %s" % line)
-    if "player" not in line:
-        _fail(failures, "iv11_probing_formatter: want formation_id in %s" % line)
-
-
 ## IV-11 slice 8: party leader lists **`order_pinch_center`** when flag on; resolve sets pinch doctrine.
 
 

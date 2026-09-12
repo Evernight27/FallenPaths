@@ -800,14 +800,6 @@ static func _reset_tier_failures(c: Dictionary) -> void:
     state[CombatConstantsMentalStack._TIER_CONSECUTIVE_FAILURES] = 0
 
 
-## Phase 3: record the combat clock as the tier entry time.
-static func _record_tier_entry(c: Dictionary, clk: float) -> void:
-    if not c.has(CombatConstantsMentalStack.COMBATANT_KEY_TIER_STATE):
-        return
-    var state: Dictionary = c[CombatConstantsMentalStack.COMBATANT_KEY_TIER_STATE] as Dictionary
-    state[CombatConstantsMentalStack._TIER_ENTERED_AT] = clk
-
-
 ## Phase 3: increment guard break count for L6 rout trigger.
 static func _record_guard_break(c: Dictionary) -> void:
     var current: int = int(c.get(CombatConstantsMentalStack.COMBATANT_KEY_GUARD_BREAK_COUNT, 0))

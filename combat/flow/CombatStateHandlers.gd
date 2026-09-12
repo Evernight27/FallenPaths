@@ -7,7 +7,7 @@ extends RefCounted
 ## paths '. **`return_to_waiting`** / **`return_to_cowering`** on state transitions. LIVE_PATHS **`#wf-guard-writers`**
 ## '. **`#wf-tier-44-pa`**.
 ## Each handler mutates combatant (c) and may call manager methods.
-## Manager must have: get_available_actions, resolve_action, emit_signal, _get_by_id, _find_first_opponent,
+## Manager must have: get_available_actions, resolve_action, emit_signal, _get_by_id,
 ## _execute_attack.
 
 # Runtime preload ' circular dependency (CombatMobilityRetreat preloads CombatStateHandlers).
@@ -285,6 +285,7 @@ static func process_waiting(_manager: Node, c: Dictionary, delta: float) -> void
     # Standing-ready is a partial rest (limbs holding a guard, not fully at rest), so local limb fatigue
     # recovers at the partial rate — matching the "recovers while waiting" tooltip. Cowering (limbs fully
     # down) recovers at the full rate via process_cowering_idle.
+    _get_muscle_fatigue().apply_guard_hold_exertion(_manager, c, delta)
     _get_muscle_fatigue().process_recovering_recovery(c, delta)
     # Out of the exchange a fighter regains composure — morale slowly recovers toward full.
     CombatMoraleCohesion.recover_morale_if_safe(c, delta)
@@ -293,8 +294,12 @@ static func process_waiting(_manager: Node, c: Dictionary, delta: float) -> void
     # HEMA: sustained bind pressure fatigues the holding muscles — pressure decays over time (progressive
     # leverage degradation after the grace period). Previously dead code; now ticked each waiting frame.
     CombatBindPressure.apply_decay(c, _manager, delta)
-    CombatFootwork.reconcile_idle_offset(c)
-    CombatUiHints.refresh_waiting_tick_stamps(_manager, c)
+    # In batch/harness mode the idle offset keys and UI attention hints are never rendered — skip
+    # the reconciliation + formatting to save significant per-tick time across thousands of ticks.
+    var skip_ui: bool = _manager != null and _manager.has_meta("_batch_skip_ui_tick") and bool(_manager.get_meta("_batch_skip_ui_tick"))
+    if not skip_ui:
+        CombatFootwork.reconcile_idle_offset(c)
+        CombatUiHints.refresh_waiting_tick_stamps(_manager, c)
 
 
 static func process_wind_up(manager: Node, c: Dictionary, delta: float) -> void:

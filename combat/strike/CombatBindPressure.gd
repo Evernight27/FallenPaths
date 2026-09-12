@@ -8,15 +8,15 @@ extends RefCounted
 ## V5 HEMA realism: blade feel (Waffenfühlen) — Perception and Intelligence scale bind contest power.
 
 static func blade_feel_atk_mult_full(perc: float, int_val: float) -> float:
-    return 1.0 + 0.3 * ((perc / 100.0) + 0.5 * (int_val / 100.0))
+    return 1.0 + CombatConstants.BLADE_FEEL_PERC_SCALE * ((perc / 100.0) + CombatConstants.BLADE_FEEL_INT_SCALE * (int_val / 100.0))
 
 
 static func blade_feel_atk_mult(perc: float) -> float:
-    return 1.0 + 0.3 * (perc / 100.0)
+    return 1.0 + CombatConstants.BLADE_FEEL_PERC_SCALE * (perc / 100.0)
 
 
 static func blade_feel_resist_mult(perc: float) -> float:
-    return 1.0 + 0.25 * (perc / 100.0)
+    return 1.0 + CombatConstants.BLADE_FEEL_RESIST_PERC_SCALE * (perc / 100.0)
 
 
 ## Derive bind state name from pressure value.
@@ -48,6 +48,21 @@ static func get_pressure_level(c: Dictionary, clock: float) -> int:
     return 0
 
 
+## HEMA: the stronger the live bind, the more the binder controls the follow-through strike.
+## Consumes get_pressure_level so a hard bind pays out a bigger edge than a light one.
+## Returns 1.0 when there is no active bind; otherwise interpolates between
+## BIND_FOLLOW_THROUGH_DMG_MIN_MULT (light) and BIND_FOLLOW_THROUGH_DMG_MULT (hard).
+static func follow_through_dmg_mult(c: Dictionary, clock: float) -> float:
+    var level: int = get_pressure_level(c, clock)
+    if level <= 0:
+        return 1.0
+    return lerpf(
+        CombatConstants.BIND_FOLLOW_THROUGH_DMG_MIN_MULT,
+        CombatConstants.BIND_FOLLOW_THROUGH_DMG_MULT,
+        (level - 1) / CombatConstants.BIND_FOLLOW_THROUGH_LEVEL_SPAN
+    )
+
+
 ## Get current bind state string for a combatant.
 static func get_bind_state(c: Dictionary, clock: float) -> String:
     if c.is_empty():
@@ -73,6 +88,15 @@ static func get_bind_partner_id(c: Dictionary) -> int:
     return int(c.get(DataKeys.BIND_PARTNER_ID, -1))
 
 
+## HEMA: true if a bind-to-wrestle transition is currently available — sustained hard bind pressure
+## has fatigued the opponent's blade control enough that a body grab can land. Set/cleared in
+## apply_decay; consumed by resolve_bind_wrestle.
+static func has_wrestling_available(c: Dictionary) -> bool:
+    if c.is_empty():
+        return false
+    return c.has(DataKeys.BIND_WRESTLING_AVAILABLE)
+
+
 ## Set pressure after a parry-to-bind (passive path from AttackResultApplier).
 ## control is the clash control value 0..1.
 static func set_after_parry_bind(target: Dictionary, manager: Node, attacker_id: int, control: float) -> void:
@@ -92,26 +116,6 @@ static func set_after_parry_bind(target: Dictionary, manager: Node, attacker_id:
             target[DataKeys.BIND_CONTROL_SIDE] = DataKeys.BIND_SIDE_RIGHT
         _:
             target[DataKeys.BIND_CONTROL_SIDE] = DataKeys.BIND_SIDE_CENTRE
-
-
-## Set pressure after a manual bind contest (from CombatEngagementResolver).
-## power_ratio is the winner's contest probability 0..1.
-static func set_after_manual_bind(winner: Dictionary, manager: Node, opp_id: int, power_ratio: float) -> void:
-    if winner.is_empty() or manager == null:
-        return
-    var pressure: float = clampf(power_ratio, 0.3, 0.9)
-    var clock: float = CombatantEntityAccess.combat_clock_float(manager)
-    winner[DataKeys.BIND_PRESSURE_VALUE] = pressure
-    winner[DataKeys.BIND_PRESSURE_UNTIL] = clock + CombatConstants.BIND_PRESSURE_DURATION_S
-    winner[DataKeys.BIND_PARTNER_ID] = opp_id
-    ## A1: control side — derived from lane offset relative to opponent.
-    var w_loa: float = float(winner.get(DataKeys.BIND_LANE_OFFSET, 0.0))
-    if w_loa > 0.15:
-        winner[DataKeys.BIND_CONTROL_SIDE] = DataKeys.BIND_SIDE_RIGHT
-    elif w_loa < -0.15:
-        winner[DataKeys.BIND_CONTROL_SIDE] = DataKeys.BIND_SIDE_LEFT
-    else:
-        winner[DataKeys.BIND_CONTROL_SIDE] = DataKeys.BIND_SIDE_CENTRE
 
 
 ## Apply decay during waiting state processing. Reduces pressure over time.
@@ -360,7 +364,7 @@ static func resolve_bind_void(manager: Node, attacker_id: int, target_id: int) -
         atk[DataKeys.BIND_LANE_OFFSET] = clampf(loa, -CombatConstants.LANE_OFFSET_ABS_MAX, CombatConstants.LANE_OFFSET_ABS_MAX)
         ## B3: angular advantage from void — stepping outside closes opponent's strong side.
         atk[DataKeys.BIND_ANGULAR_ADVANTAGE_UNTIL] = clock + CombatConstants.ANGULAR_ADVANTAGE_DURATION_S
-        atk[DataKeys.BIND_ANGULAR_ADVANTAGE_SIDE] = side
+        atk[DataKeys.BIND_ANGULAR_ADVANTAGE_TARGET_ID] = target_id
         manager.emit_signal(
             "action_resolved", attacker_id, target_id, {"outcome": "bind_void_success", "dmg": 0, "died": false}
         )
@@ -462,9 +466,95 @@ static func resolve_bind_wind(manager: Node, attacker_id: int, target_id: int) -
     _schedule_ready(manager, attacker_id)
 
 
-## Public alias for external callers (CombatEngagementResolver).
-static func clear_bind_state_for(c: Dictionary) -> void:
-    _clear_bind_state(c)
+## Resolve bind_wrestle: the bind-to-wrestling transition. Only available when sustained hard bind
+## pressure has fatigued the opponent's blade control (BIND_WRESTLING_AVAILABLE). Contested grab:
+## on success the target is unbalanced (strong off-balance window) and the binder's bind ends
+## (control achieved); on failure the binder loses pressure and the bind may break.
+static func resolve_bind_wrestle(manager: Node, attacker_id: int, target_id: int) -> void:
+    if manager == null:
+        return
+    if MedicalPhaseController.combat_resolution_blocked(manager):
+        manager.emit_signal(
+            "action_resolved", attacker_id, target_id,
+            {"outcome": "bind_wrestle_failed", "dmg": 0, "died": false, "reason": "medical_blocked"}
+        )
+        _schedule_ready(manager, attacker_id)
+        return
+    var atk: Dictionary = CombatantEntityAccess.manager_get_combatant(manager, attacker_id)
+    var tgt: Dictionary = CombatantEntityAccess.manager_get_combatant(manager, target_id)
+    if atk.is_empty() or tgt.is_empty() or not CombatantEntityAccess.are_alive_opponents(atk, tgt):
+        manager.emit_signal(
+            "action_resolved", attacker_id, target_id,
+            {"outcome": "bind_wrestle_failed", "dmg": 0, "died": false, "reason": "target_invalid"}
+        )
+        _schedule_ready(manager, attacker_id)
+        return
+    var band: String = CombatantEntityAccess.distance_to_opponent_band(atk, target_id)
+    if band != CombatConstants.DISTANCE_CLOSE:
+        manager.emit_signal(
+            "action_resolved", attacker_id, target_id,
+            {"outcome": "bind_wrestle_failed", "dmg": 0, "died": false, "reason": "not_close"}
+        )
+        _schedule_ready(manager, attacker_id)
+        return
+    var clock: float = CombatantEntityAccess.combat_clock_float(manager)
+    if not is_in_bind(atk, clock) or not has_wrestling_available(atk):
+        manager.emit_signal(
+            "action_resolved", attacker_id, target_id,
+            {"outcome": "bind_wrestle_failed", "dmg": 0, "died": false, "reason": "no_wrestling_available"}
+        )
+        _schedule_ready(manager, attacker_id)
+        return
+    var atk_stats := CombatantEntityAccess.stats_dict(atk)
+    var tgt_stats := CombatantEntityAccess.stats_dict(tgt)
+    var atk_skill: float = float(atk_stats.get(DataKeys.ENTITY_MELEE_SKILL, CombatConstants.DEFAULT_STAT_VALUE))
+    var atk_str: float = float(atk_stats.get(DataKeys.ENTITY_STRENGTH, CombatConstants.DEFAULT_STAT_VALUE))
+    var tgt_skill: float = float(tgt_stats.get(DataKeys.ENTITY_MELEE_SKILL, CombatConstants.DEFAULT_STAT_VALUE))
+    var tgt_str: float = float(tgt_stats.get(DataKeys.ENTITY_STRENGTH, CombatConstants.DEFAULT_STAT_VALUE))
+    # Contested grab: the binder's strength + skill vs the target's skill + strength.
+    # Sustained pressure gives the binder a leverage edge (they've been working the bind).
+    var atk_power: float = atk_skill * 2.0 + atk_str
+    var tgt_power: float = tgt_skill * 2.0 + tgt_str
+    atk_power *= contest_power_mult(atk, clock)
+    var grab_chance: float = atk_power / maxf(1.0, atk_power + tgt_power)
+    var breath: float = CombatantEntityAccess.breath_float(atk)
+    atk[DataKeys.COMBATANT_BREATH] = maxf(0.0, breath - CombatConstants.BREATH_BIND_PRESS_COST)
+    atk[DataKeys.COMBATANT_STAMINA] = atk[DataKeys.COMBATANT_BREATH]
+    if randf() < grab_chance:
+        # Success: the grab lands. The target is unbalanced (strong off-balance window) and the
+        # binder's bind ends — control has been achieved, the blade bind is over.
+        tgt[DataKeys.PA_OFF_BALANCE_UNTIL] = clock + CombatConstants.BIND_WRESTLE_TARGET_OFF_BALANCE_S
+        _clear_bind_state(atk)
+        manager.emit_signal(
+            "action_resolved", attacker_id, target_id,
+            {"outcome": "bind_wrestle_success", "dmg": 0, "died": false, "off_balance_s": CombatConstants.BIND_WRESTLE_TARGET_OFF_BALANCE_S}
+        )
+    else:
+        # Failure: the grab slips. The binder loses pressure and the bind may break.
+        var val: float = clampf(float(atk.get(DataKeys.BIND_PRESSURE_VALUE, 0.3)) - 0.2, 0.0, 1.0)
+        atk[DataKeys.BIND_PRESSURE_VALUE] = val
+        if val < CombatConstants.BIND_STATE_LIGHT_THRESHOLD:
+            _clear_bind_state(atk)
+        manager.emit_signal(
+            "action_resolved", attacker_id, target_id,
+            {"outcome": "bind_wrestle_failed", "dmg": 0, "died": false, "pressure": val}
+        )
+    atk[DataKeys.BIND_ACTION_COOLDOWN_UNTIL] = clock + CombatConstants.BIND_ACTION_COOLDOWN_S
+    atk[DataKeys.ACTION_COOLDOWN_UNTIL] = clock + CombatConstants.READY_DELAY_CLOSE_ATTEMPT_S
+    _schedule_ready(manager, attacker_id)
+
+
+## HEMA B3: true if the voider still holds an active angular advantage over a specific target.
+## The advantage is only valid against the opponent they voided from — voiding outside the right
+## shoulder does not give the same positional bonus against a third combatant on the other side.
+static func has_angular_advantage_over(c: Dictionary, target_id: int, clock: float) -> bool:
+    if c.is_empty() or target_id < 0:
+        return false
+    var until: float = float(c.get(DataKeys.BIND_ANGULAR_ADVANTAGE_UNTIL, -1.0))
+    if until < 0.0 or clock >= until:
+        return false
+    var tid: int = int(c.get(DataKeys.BIND_ANGULAR_ADVANTAGE_TARGET_ID, -1))
+    return tid == target_id
 
 
 static func _clear_bind_state(c: Dictionary) -> void:

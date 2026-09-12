@@ -38,6 +38,8 @@ const TACTICAL_MODE_CODE_KEY: String = "mode_code"
 
 # --- Resolve output keys (new additions) ---
 const RESULT_TARGET_PART: String = "target_part"
+const RESULT_AIM_REACHABLE: String = "aim_reachable"
+const RESULT_HIT_ALIGNMENT: String = "hit_alignment"
 const AIM_PROT_TIER: String = "aim_prof_tier"
 const PROF_OCC_MULT: String = "occ_mult"
 
@@ -84,14 +86,6 @@ const BIND_WRESTLING_AVAILABLE: String = "bind_wrestling_available"
 # --- Entity state (body stats, wounds, blood) ---
 const BLOOD_VOLUME: String = "blood_volume"
 const BONE_HEALTH: String = "bone_health"
-const BONE_MAX: String = "bone_max"
-const BODY_CUTTING: String = "body_cutting"
-const BODY_BLUNT: String = "body_blunt"
-const BODY_MAX: String = "body_max"
-const WOUNDS: String = "wounds"
-const BANDAGED_PARTS: String = "bandaged_parts"
-const PACKED_PARTS: String = "packed_parts"
-const TOURNIQUET_APPLIED: String = "tourniquet_applied"
 
 # --- Armor layer properties (layer dicts in armor data) ---
 
@@ -109,6 +103,8 @@ const ATTACK_FOLLOW_THROUGH: String = "follow_through"
 const ATTACK_PARRY_REMAINING_RATIO: String = "parry_remaining_ratio"
 const ATTACK_AFTERBLOW_DAMAGE_MULT: String = "afterblow_damage_mult"
 const ATTACK_EFFECTIVE_ATTACK_LINE: String = "effective_attack_line"
+const ATTACK_LINE_FAIL_MEMORY: String = "line_fail_memory"
+const ATTACK_LINE_PARRY_MEMORY: String = "line_parry_memory"
 const ATTACK_ATTACK_ANGLE_DEG: String = "attack_angle_deg"
 const ATTACK_ARC_START_DEG: String = "arc_start_deg"
 const ATTACK_RECOVERY_CAUSE: String = "recovery_cause"
@@ -140,6 +136,9 @@ const ATTACK_LAST_MOVE_ID: String = "attack_last_move_id"
 const PA_PARRY_AGAINST_ID: String = "parry_against_id"
 const PA_PARRY_WAS_BIND: String = "parry_was_bind"
 const PA_OFF_BALANCE_UNTIL: String = "off_balance_until"
+const PA_FEINT_OPEN_LINE: String = "feint_open_line"
+const PA_FEINT_OPEN_LINE_UNTIL: String = "feint_open_line_until"
+const PA_FEINT_OPEN_LINE_PARRY_MULT: String = "feint_open_line_parry_mult"
 const PA_PENDING_MEDICAL: String = "pending_medical"
 const PA_RECEIVING_MEDICAL_COUNT: String = "receiving_medical_count"
 const PA_RECEIVING_CARE_COOLDOWN: String = "receiving_care_action_cooldown"
@@ -204,7 +203,6 @@ const RESULT_TRANSMITTED_KE_FRACTION: String = "transmitted_ke_fraction"
 # --- Armor result dict keys (armor apply_damage return) ---
 
 # --- Attack archetype/strike modifier dict keys (sm.get() in AttackResolver) ---
-const ATK_MOD_STRIKE_ENERGY_MULT: String = "strike_energy_mult"
 const ATK_MOD_CUT_DAMAGE_MULT: String = "cut_damage_mult"
 const ATK_MOD_SHARP_PENETRATION_MULT: String = "sharp_penetration_mult"
 const ATK_MOD_RECOVERY_MULTIPLIER: String = "recovery_multiplier"
@@ -233,7 +231,6 @@ const ALIGNMENT_GUARD_ANGLE_DEG: String = "guard_angle_deg"
 const PA_GUARD_ALIGNMENT: String = "pa_guard_alignment"
 
 # --- Weapon template data keys (def.get() in Weapon.from_dict) ---
-const WEAPON_NAME: String = "name"
 const WEAPON_MASS: String = "mass"
 
 # --- UI/snapshot row dict keys (PartyMemberSnapshot, PartyRowFormatter, BattleUIUpdater) ---
@@ -247,30 +244,15 @@ const FORMATION_DENSITY: String = "density"
 const FORMATION_FILES: String = "files"
 const FORMATION_RANKS: String = "ranks"
 
-# --- Contract/encounter keys ---
-const CONTRACT_TYPE: String = "contract_type"
-
-# --- Company state keys (CompanyState internal dicts) ---
-const COMPANY_MOOD: String = "company_mood"
-const STANCE_PREFERENCE: String = "stance_preference"
-
 # --- Persistence/save dict keys ---
 const SAVE_VERSION: String = "version"
 
-# --- Contract/encounter dict keys ---
-const CONTRACT_TITLE: String = "contract_title"
-
-# --- Battle end/death dict keys ---
-const DEATH_CAUSE: String = "cause"
-
 # --- Zone geometry dict keys ---
 const ZONE_FID_A: String = "fid_a"
-const ZONE_FID_B: String = "fid_b"
 const ZONE_FORMATION_A: String = "formation_a"
 const ZONE_FORMATION_B: String = "formation_b"
 const ZONE_FORMATION: String = "formation"
 const ZONE_FID: String = "fid"
-const ZONE_GEOMETRY_FID: String = "zone_geometry_fid"
 
 # --- Doctrine/commitment dict keys ---
 const DOCTRINE_TARGET_COMMIT_ID: String = "doctrine_target_commit_id"
@@ -283,7 +265,6 @@ const DOCTRINE_COMMIT_UNTIL: String = "doctrine_commit_until"
 # --- Telemetry/mode dict keys ---
 
 # --- Weapon template data keys (def.get() in Weapon.from_dict) ---
-const WEAPON_TYPE: String = "weapon_type"
 const WEAPON_CONTACT_TYPE: String = "contact_type"
 const WEAPON_WINDUP_MULTIPLIER: String = "windup_multiplier"
 const WEAPON_FEINT_WINDUP_DURATION_MULT: String = "feint_windup_duration_mult"
@@ -295,7 +276,6 @@ const ENTITY_AGILITY: String = "agility"
 const ENTITY_INTELLIGENCE: String = "intelligence"
 const ENTITY_ENDURANCE: String = "endurance"
 const ENTITY_PERCEPTION: String = "perception"
-const ENTITY_BLOOD_LOSS_DEATH_THRESHOLD: String = "blood_loss_death_threshold"
 
 # --- Member snapshot stat keys ---
 
@@ -335,11 +315,6 @@ const SURROUND_THREAT_COUNT: String = "surround_threat_count"
 const SURROUND_THREAT_WEIGHT_SUM: String = "surround_threat_weight_sum"
 
 # --- Entity damage extras/force dict keys ---
-
-# --- Direct pressure dict keys (entity meta-props) ---
-const DIRECT_PRESSURE_ASSIST_HELD_BY: String = "direct_pressure_assist_held_by"
-const DIRECT_PRESSURE_ON_ALLY: String = "direct_pressure_on_ally"
-const DIRECT_PRESSURE_PART: String = "direct_pressure_part"
 
 # --- Medical phase dict keys (windup/action) ---
 const MEDICAL_ID: String = "medical_id"
@@ -394,6 +369,8 @@ const ATTENTION_MOVE_OBS_TICKS: String = "move_obs_ticks"
 const DECEPTION_PHASE: String = "phase"
 const DECEPTION_RESISTANCE: String = "resistance"
 const DECEPTION_EXPLOIT_COUNTER: String = "exploit_counter"
+const DECEPTION_ESTABLISH_SUCCESS_COUNT: String = "establish_success_count"
+const DECEPTION_ESTABLISHED: String = "established"
 
 # --- Entity node property keys (entity.get() on CoreEntity/Node) ---
 
@@ -479,7 +456,7 @@ const MEDICAL_OUTCOME: String = "outcome"
 const PA_AFTERBLOW_DAMAGE_MULT: String = "afterblow_damage_mult"
 const BIND_LANE_OFFSET: String = "lane_offset"
 const BIND_ANGULAR_ADVANTAGE_UNTIL: String = "angular_advantage_until"
-const BIND_ANGULAR_ADVANTAGE_SIDE: String = "angular_advantage_side"
+const BIND_ANGULAR_ADVANTAGE_TARGET_ID: String = "angular_advantage_target_id"
 
 # --- Formation engine keys (new additions) ---
 const FM_ROTATE_FILE_COOLDOWN_UNTIL: String = "formation_rotate_file_cooldown_until"
@@ -510,9 +487,6 @@ const DURATION_VALUE_S: String = "duration_s"
 
 # --- Formation move hint keys (new additions) ---
 const FORMATION_MOVE_DURATION_HINT: String = "formation_move_duration_hint"
-
-# --- Form switch keys (new additions) ---
-const FORM_SWITCH_COOLDOWN_UNTIL: String = "form_switch_cooldown_until"
 
 # --- Close contest / resolve keys (new additions) ---
 const CLOSE_CONTEST_NOTE: String = "close_contest_note"

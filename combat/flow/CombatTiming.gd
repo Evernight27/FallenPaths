@@ -12,7 +12,7 @@ static func armor_mass_duration_multiplier_for_node(node: Node) -> float:
         return 1.0
     var m: float = CombatantEntityAccess.get_total_armor_mass_kg_from_node(node)
     var ref: float = CombatConstants.FORMATION_ARMOR_MASS_REF_KG
-    var t: float = clampf(m / ref, 0.0, 1.5)
+    var t: float = clampf(m / ref, 0.0, CombatConstants.FORMATION_ARMOR_MASS_RATIO_MAX)
     return lerpf(1.0, CombatConstants.FORMATION_ARMOR_MAX_SLOW_MULT, t)
 
 
@@ -32,11 +32,11 @@ static func intensity_from_stats(c: Dictionary) -> float:
 
 
 static func wind_up_duration(intensity: float, windup_multiplier: float = 1.0) -> float:
-    return (CombatConstants.WIND_UP_BASE_S + CombatConstants.WIND_UP_SCALE_S * intensity) * maxf(0.5, windup_multiplier)
+    return (CombatConstants.WIND_UP_BASE_S + CombatConstants.WIND_UP_SCALE_S * intensity) * maxf(CombatConstants.WIND_UP_MULTIPLIER_MIN, windup_multiplier)
 
 
 static func wind_up_duration_with_form(intensity: float, windup_multiplier: float, form: String, weapon: Variant = null) -> float:
-    var base: float = (CombatConstants.WIND_UP_BASE_S + CombatConstants.WIND_UP_SCALE_S * intensity) * maxf(0.5, windup_multiplier)
+    var base: float = (CombatConstants.WIND_UP_BASE_S + CombatConstants.WIND_UP_SCALE_S * intensity) * maxf(CombatConstants.WIND_UP_MULTIPLIER_MIN, windup_multiplier)
     if form.is_empty():
         return base
     var mods: Dictionary = CombatWeaponForm.cooldown_modifiers(form, "", weapon)
@@ -67,13 +67,20 @@ static func velocity_curve_factor(progress: float) -> float:
 ## At t=0.40: factor = 1.0 (full energy — optimal timing)
 ## At t=0.60: factor = 2.25 -> capped at 1.0 (no extra benefit from longer wind-up)
 static func wind_up_factor(wind_up_s: float, t_optimal: float = WIND_UP_FACTOR_OPTIMAL_S) -> float:
-    var ratio: float = clampf(wind_up_s / maxf(0.001, t_optimal), 0.0, 3.0)
+    var ratio: float = clampf(wind_up_s / maxf(0.001, t_optimal), 0.0, WIND_UP_RATIO_MAX)
     return minf(ratio * ratio, 1.0)
 
 
-## Optimal wind-up time (seconds) for a standard two-handed cut. At this duration the fighter
-## achieves maximum practical energy delivery — the balance point of Hill's force-velocity curve.
+## Optimal wind-up time (seconds) for a standard two-handed cut — a tuned approximation of the time a
+## committed cut needs to reach peak blade force. Reflects the force-velocity trade-off: a swing cannot
+## be arbitrarily fast while still generating full force, so there is a sweet spot where delivered energy
+## peaks. ~0.4s is a reasonable order of magnitude for the acceleration-to-impact phase of a two-handed
+## cut (high-speed analysis of sword cuts places the strike phase at roughly 0.3-0.5s).
 const WIND_UP_FACTOR_OPTIMAL_S: float = 0.40
+## Maximum wind_up/t_optimal ratio fed into the quadratic energy factor. Beyond 3× optimal the curve is
+## already saturated (minf(…, 1.0) clamps it); the 3.0 cap just bounds the input before squaring so a
+## pathological wind-up duration cannot produce an intermediate overflow-prone value.
+const WIND_UP_RATIO_MAX: float = 3.0
 
 # --- Tactical breathing / recovery offset (Issue #8) ---
 ## When a fighter deliberately extends wind-up beyond optimal, they can "recover" during the
@@ -141,7 +148,7 @@ static func recovery_duration(
     # require additional time to reposition the weapon back to a defensive stance. This models the spatial
     # displacement penalty — blades don't snap back instantly after being pushed far from their rest position.
     if guard_transition_cost > 0.0:
-        base += guard_transition_cost * (1.0 + 0.5 * commitment)
+        base += guard_transition_cost * (1.0 + CombatConstants.GUARD_TRANSITION_COMMITMENT_SCALE * commitment)
     # Hard cap: prevents compound scaling (wounded + low agility + full-stop whiff) from producing 7+ second
     # recovery penalties that the RECOVERY_MAX_S guard is documented to prevent.
     return minf(base, CombatConstantsTiming.RECOVERY_MAX_S)
@@ -267,4 +274,4 @@ static func apply_tactical_breathing_offset(
     recovery_s: float
 ) -> float:
     var offset: float = tactical_breathing_recovery_offset(wind_up_s, recovery_s)
-    return maxf(recovery_s - offset, recovery_s * 0.55)  # floor at 55% of base (never faster than rushed recovery)
+    return maxf(recovery_s - offset, recovery_s * CombatConstants.TACTICAL_BREATHING_RECOVERY_FLOOR_RATIO)

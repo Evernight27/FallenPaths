@@ -8,7 +8,7 @@ extends RefCounted
 ## Unconditional `[Combat]` lines stay for phase boundaries, deaths, and UI-adjacent events (see grep print("[Combat")).
 ## Play session (editor F5): **`combat_session`** / **`world_session`** --'' ' `FP_COMBAT` / `FP_WORLD` on stdout (copy
 ## Godot Output).
-## Invariant / logic faults: **`operational_error`** / **`operational_warn`** (`FP_ERROR` / `FP_WARN`; always on).
+## Invariant / logic faults: **`operational_warn`** (`FP_WARN`; always on).
 ## Conditional combat logging. Only logs when CombatConstants.COMBAT_DEBUG is true.
 ## calibration_log: logs when COMBAT_DEBUG_CALIBRATION is true (alignment, parry_c_d, variance, etc.).
 ## flow_log: verbose pipeline; use `dedupe_key` on poll-heavy paths (see `COMBAT_FLOW_LOG_SUPPRESS_REPEATED`).
@@ -19,11 +19,6 @@ static var _flow_log_last_by_key: Dictionary = {}
 static var _flow_log_event_last_by_key: Dictionary = {}
 static var _last_medical_session_line: String = ""
 static var _last_combat_session_line: String = ""
-
-
-## Always emitted (grep `FP_ERROR`). Use for should-never-happen combat invariants.
-static func operational_error(msg: String) -> void:
-    OperationalLog.error(msg)
 
 
 ## Always emitted (grep `FP_WARN`). Use for suspicious but non-fatal state.
@@ -414,9 +409,4 @@ static func _format_depth_polearm_melee_context_debug(
     )
 
 
-## Harness diagnostic: log every resolve() call with its outcome.
-static func harness_resolve_result(manager: Node, attacker_id: int, move_id: String, committed: bool) -> void:
-    if not (manager != null and manager.has_meta("_fp_harness_diag") and bool(manager.get_meta("_fp_harness_diag"))):
-        return
-    var atk_name: String = CombatantEntityAccess.get_display_name(CombatantEntityAccess.manager_get_combatant(manager, attacker_id), attacker_id)
-    harness_diag("ai_resolve id=%d name=%s move=%s committed=%s" % [attacker_id, atk_name, move_id, str(committed)])
+

@@ -116,10 +116,10 @@ static func _effective_posture_thresholds(
         var delta: float = k * (our_coh - opp_coh)
         l_in -= delta
         l_out += delta
-    l_in = clampf(l_in, 0.40, 0.92)
-    l_out = clampf(l_out, 0.28, 0.88)
-    if l_in <= l_out + 0.03:
-        l_out = maxf(0.25, l_in - 0.05)
+    l_in = clampf(l_in, CombatConstants.FORMATION_FILL_IN_MIN, CombatConstants.FORMATION_FILL_IN_MAX)
+    l_out = clampf(l_out, CombatConstants.FORMATION_FILL_OUT_MIN, CombatConstants.FORMATION_FILL_OUT_MAX)
+    if l_in <= l_out + CombatConstants.FORMATION_FILL_MARGIN:
+        l_out = maxf(CombatConstants.FORMATION_FILL_OUT_FLOOR, l_in - CombatConstants.FORMATION_FILL_GAP)
     return Vector2(l_in, l_out)
 
 

@@ -31,7 +31,10 @@ const MUSCLE_FATIGUE_STEP_SPEED_CURVE_POWER: float = 1.3
 const MUSCLE_FATIGUE_FORWARD_SPEED_FLOOR_AT_MAX: float = 0.10
 
 ## Retreat speed floor at max leg fatigue (fraction of base step speed retained).
-const MUSCLE_FATIGUE_RETREAT_SPEED_FLOOR_AT_MAX: float = 0.75
+## Research-grounded: retreat is ~15-18% slower than forward at all fatigue levels (Barton et al. 2017,
+## Heijnen & Hommel 2005) because backward motion requires greater proprioceptive awareness and balance.
+## Floor = ~82% of forward floor (0.10 × 0.82 ≈ 0.08).
+const MUSCLE_FATIGUE_RETREAT_SPEED_FLOOR_AT_MAX: float = 0.08
 
 ## Lateral movement speed penalty (fraction of forward base retained).
 const MUSCLE_FATIGUE_LATERAL_SPEED_PENALTY: float = 0.85
@@ -76,7 +79,16 @@ const MUSCLE_FATIGUE_EXERTION_PER_BREATH_POINT: float = 0.012
 const MUSCLE_FATIGUE_TWO_HANDED_OFF_ARM_SHARE: float = 0.3
 
 ## Recovery rate per second while waiting (base, before delta).
-const MUSCLE_FATIGUE_RECOVERY_RATE: float = 0.06
+## Clinical: acute muscle fatigue partial recovery 30-120s; full recovery minutes.
+## At 0.015/s full recovery from max takes ~67s (mid-range for fit fighter in sustained combat).
+const MUSCLE_FATIGUE_RECOVERY_RATE: float = 0.015
+
+## Isometric fatigue gain per second on the dominant arm while holding an elevated guard line.
+## Scaled by cos(angle) where HIGH=0° (cos=1, max cost) through RIGHT=90° (cos=0, no cost).
+## Net effect at HIGH = RATE - WAITING_RECOVERY (0.015*0.5=0.0075) = 0.0125/s → ~80s to full.
+## Grounded: the shoulder/trapezius must support weapon mass against gravity in proportion to
+## arm elevation. Holding a low or horizontal guard costs nothing extra (arm hangs or rests).
+const GUARD_HOLD_FATIGUE_RATE_PER_SEC: float = 0.02
 
 ## Multiplier for recovery rate while in recovering state (vs waiting).
 const MUSCLE_FATIGUE_RECOVERING_RATE_MULT: float = 0.5

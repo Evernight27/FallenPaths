@@ -254,7 +254,7 @@ static func schedule_action_ready(manager: Node, combatant_id: int, delay_s: flo
 	schedule_event(manager, ev)
 
 
-## `delay_s < 0` uses **`action_ready_cooldown(c)`** (same as **`CombatManager._action_ready_cooldown`**).
+## `delay_s < 0` uses **`action_ready_cooldown(c)`**.
 static func schedule_action_ready_for_combatant(manager: Node, c: Dictionary, delay_s: float = -1.0) -> void:
 	if manager == null or c.is_empty():
 		return

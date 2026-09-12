@@ -522,29 +522,8 @@ static func fast_forward_finalize(manager: Node, sim_state: Dictionary, break_re
     MedicalPhaseFastForward._log_instant_complete_result(manager, sim_state, break_reason)
 
 
-## 0..1: higher when more hurt (lower blood, shorter time to death). Includes randomness.
-static func get_medical_urgency(manager: Node, c: Dictionary) -> float:
-    var entity: Node = CombatantEntityAccess.get_entity_from_manager(manager, c)
-    if entity == null:
-        return 0.0
-    var comps: Vector2 = MedicalPhaseBatchResolve._medical_urgency_components(
-        CombatantEntityAccess.get_blood_volume_from_node(entity),
-        MedicalPhaseBatchResolve._blood_loss_death_threshold_for_entity(entity),
-        CombatantEntityAccess.get_total_bleeding_rate_from_node(entity)
-    )
-    var raw: float = maxf(comps.x, comps.y)
-    raw *= randf_range(
-        MedicalPhaseBatchResolve.MEDICAL_URGENCY_RANDOM_MIN, MedicalPhaseBatchResolve.MEDICAL_URGENCY_RANDOM_MAX
-    )
-    return clampf(raw, 0.0, 1.0)
-
-
-## Same blood/time urgency as `get_medical_urgency` but **no randomness** ->''--''''A!''--'''s''? used for medical
-## action weights so triage is stable.
-
-
-## Same blood/time urgency as `get_medical_urgency` but **no randomness** ->''--''''A!''--'''s''? used for medical
-## action weights so triage is stable.
+## 0..1: higher when more hurt (lower blood, shorter time to death). No randomness — a stable
+## urgency value used for medical action weights so triage is deterministic.
 static func get_medical_urgency_deterministic(manager: Node, c: Dictionary) -> float:
     var entity: Node = CombatantEntityAccess.get_entity_from_manager(manager, c)
     if entity == null:

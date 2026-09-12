@@ -719,11 +719,11 @@ static func _run_camp_2_bridge_spot_checks(failures: PackedStringArray) -> void:
         _fail(failures, "Camp-2.7: resuscitation should not be offered to a full-blood member")
     else:
         _pass()
-    # Decompensated (blood in the 30-50 window): offered, and one bolus lifts them out of the window.
-    resus_ent.blood_volume = 45.0
+    # Decompensated (blood in the 50-56 window): offered, and one bolus lifts them out of the window.
+    resus_ent.blood_volume = 52.0
     resus_ent.ensure_consciousness_current()
     if not MapFieldCare.can_offer_field_resuscitation(resus_world, resus_member):
-        _fail(failures, "Camp-2.7: resuscitation should be offered to a decompensated (blood<50) member")
+        _fail(failures, "Camp-2.7: resuscitation should be offered to a decompensated (blood<56) member")
     else:
         _pass()
     var resus_med_before: int = CompanyState.get_medical_supplies(resus_world)
@@ -747,11 +747,11 @@ static func _run_camp_2_bridge_spot_checks(failures: PackedStringArray) -> void:
     resus_ent.blood_volume = 25.0
     resus_ent.ensure_consciousness_current()
     if MapFieldCare.can_offer_field_resuscitation(resus_world, resus_member):
-        _fail(failures, "Camp-2.7: resuscitation should not be offered to a dead (blood<=30) member")
+        _fail(failures, "Camp-2.7: resuscitation should not be offered to a dead (blood<=50) member")
     else:
         _pass()
     # No medical supplies: not offered even when decompensated.
-    resus_ent.blood_volume = 45.0
+    resus_ent.blood_volume = 52.0
     CompanyState.set_medical_supplies(resus_world, 0)
     if MapFieldCare.can_offer_field_resuscitation(resus_world, resus_member):
         _fail(failures, "Camp-2.7: resuscitation should not be offered without medical supplies")

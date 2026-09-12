@@ -248,10 +248,6 @@ func apply_joule_durability_loss(layer: Dictionary, absorbed_j: float) -> void:
     )
 
 
-func protects_body_part(part: String) -> bool:
-    return body_part == part
-
-
 ## Shared sharp penetration math  -  used by both ArmorPiece and ArmorJouleBudget.
 ## Returns { damage, deflected }. Single source of truth for the penetration formula.
 ##
@@ -330,18 +326,4 @@ func get_outer_layer_sharp_resistance_rha_mm() -> float:
     return 0.0
 
 
-func get_durability_percent() -> float:
-    if layers.is_empty():
-        return 100.0
-    var total: float = 0.0
-    var current: float = 0.0
-    for layer in layers:
-        var max_d: float = layer.get("max_durability", 100.0)
-        var dur: float = layer.get(
-            ArmorConstants.ARMOR_LAYER_KEY_DURABILITY, ArmorConstants.DEFAULT_ARMOR_LAYER_DURABILITY
-        )
-        total += max_d
-        current += dur
-    if total <= 0.0:
-        return 100.0
-    return (current / total) * 100.0
+

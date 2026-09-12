@@ -267,20 +267,8 @@ func _is_part_severed(part: String) -> bool:
 	return BodyPartQuery.is_part_severed(self, part)
 
 
-func _is_part_crushed(part: String) -> bool:
-	return BodyPartQuery.is_part_crushed(self, part)
-
-
 func _is_part_destroyed(part: String) -> bool:
 	return BodyPartQuery.is_part_destroyed(self, part)
-
-
-func _is_bone_fractured(part: String) -> bool:
-	return bone_health.get(part, 0.0) <= 0.0
-
-
-func _is_bone_broken(part: String) -> bool:
-	return bone_health.get(part, 0.0) <= 0.0
 
 
 func _get_bone_functionality_factor(part: String) -> float:
@@ -293,14 +281,6 @@ func _get_offhand() -> String:
 		if dominant_hand == BodyPartConstants.PART_RIGHT_ARM
 		else BodyPartConstants.PART_RIGHT_ARM
 	)
-
-
-func _is_arm_destroyed(part: String) -> bool:
-	return BodyPartQuery.is_arm_destroyed(self, part)
-
-
-func _get_arm_functionality(part: String) -> float:
-	return BodyPartQuery.get_arm_functionality(self, part)
 
 
 func _get_leg_functionality() -> float:
@@ -361,21 +341,6 @@ func _get_blood_loss_death_threshold() -> float:
 	):
 		return species.blood_loss_death_threshold
 	return BleedingConstants.BLOOD_LOSS_DEATH_THRESHOLD
-
-
-func _get_blood_loss_critical_threshold() -> float:
-	if (
-		species != null
-		and species.get("blood_loss_critical_threshold") != null
-		and species.blood_loss_critical_threshold >= 0.0
-	):
-		return species.blood_loss_critical_threshold
-	return BleedingConstants.BLOOD_LOSS_CRITICAL_THRESHOLD
-
-
-## True when remaining blood is at or below this entity's critical threshold (for UI/effects).
-func _is_blood_critical() -> bool:
-	return blood_volume <= _get_blood_loss_critical_threshold()
 
 
 # --- Pain and consciousness (Combat Extended--"style) ---
@@ -582,6 +547,11 @@ func is_vital_part_critically_damaged() -> bool:
 func _is_vital_part_destroyed(part: String) -> bool:
 	if part not in _get_vital_parts():
 		return false
+	if part == BodyPartConstants.PART_HEAD:
+		var skull_max: float = float(bone_max.get(part, 0.0))
+		var skull_remaining: float = float(bone_health.get(part, 0.0))
+		if skull_max > 0.0 and skull_remaining >= skull_max * 0.5:
+			return false
 	return _is_part_destroyed(part) or (body_cutting.get(part, 0.0) <= 0.0 and body_blunt.get(part, 0.0) <= 0.0)
 
 
@@ -623,10 +593,6 @@ func _get_death_reason() -> String:
 	if blood_volume <= death_thresh:
 		return "blood_loss (volume=%.1f < threshold %.1f)" % [blood_volume, death_thresh]
 	return "unknown"
-
-
-func _get_severance_ease_factor(part: String) -> float:
-	return EntityDamage.get_severance_ease_factor(self, part)
 
 
 # Split damage: apply cut (SHARP) and blunt (BLUNT) streams; armor, bone/tissue split, wounds, pain shock in

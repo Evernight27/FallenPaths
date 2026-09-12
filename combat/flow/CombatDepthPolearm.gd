@@ -4,12 +4,6 @@ extends RefCounted
 ## Tier 1.9 (P10): depth-rank spear/polearm lanes, line threat, low-target filtering, attack `pa` lane flags.
 
 
-## Host-line formation id for melee column / lane checks (same contract as **`zone_geometry_fid_str`**).
-static func actor_host_fid_for_melee_targeting(actor: Dictionary, manager: Variant = null) -> String:
-    var mgr: Node = manager as Node if manager is Node else null
-    return ZoneOfControl.zone_geometry_fid_str(mgr, actor)
-
-
 ## Living same-file rank-0 ally on home formation (opens spear / polearm lane from depth).
 static func same_file_living_rank0_ally(manager: Node, c: Dictionary, zone_geometry_fid: String = "") -> Dictionary:
     if manager == null or c.is_empty():
@@ -198,68 +192,4 @@ static func depth_polearm_targetable_parts_filter(
     return out if not out.is_empty() else targetable
 
 
-## AI attack-weight multiplier for depth spear/polearm lane logic.
-## Delegates to the canonical implementation in **`CombatAIActionPicker._depth_polearm_action_weight_mult`**
-## so that **`CombatAttackWeighting`** can call it without a circular preload against `CombatAIActionPicker`.
-static func depth_polearm_action_weight_mult(
-    manager: Node, c: Dictionary, move_id: String, actor_zone_geometry_line_context: Dictionary = {}
-) -> float:
-    return _depth_polearm_action_weight_mult_internal(manager, c, move_id, actor_zone_geometry_line_context)
 
-
-## Core depth-polearm weight logic (private helper to avoid self-reference via class name).
-static func _depth_polearm_action_weight_mult_internal(
-    manager: Node, c: Dictionary, move_id: String, actor_zone_geometry_line_context: Dictionary = {}
-) -> float:
-    if manager == null or c.is_empty():
-        return 1.0
-    var fid_depth: String = (
-        ZoneOfControl.zone_geometry_fid_from_pack(actor_zone_geometry_line_context)
-        if not actor_zone_geometry_line_context.is_empty()
-        else ""
-    )
-    if fid_depth.is_empty():
-        fid_depth = ZoneOfControl.zone_geometry_fid_str(manager, c)
-    if not depth_polearm_lane_open(manager, c, fid_depth):
-        return 1.0
-    if not depth_polearm_has_valid_line_threat_to_any_rank0_hostile(manager, c, manager.combatants):
-        return 1.0
-    if move_id == CombatConstants.MOVE_ID_ATTEMPT_CLOSE:
-        return CombatConstants.DEPTH_POLEARM_AI_ATTEMPT_CLOSE_MULT
-    var ct: String = WeaponConstants.contact_type_for_move_id(move_id)
-    var fid: String = CombatantEntityAccess.formation_id_str(c)
-    if ct == WeaponConstants.ATTACK_TYPE_STAB:
-        var w: float = CombatConstants.DEPTH_POLEARM_AI_STAB_WEIGHT_MULT
-        var doc: String = CombatDoctrine.doctrine_for_fid(manager, fid)
-        match doc:
-            CombatConstants.DOCTRINE_PINCH_CENTER:
-                w *= manager.get_depth_polearm_ai_doctrine_mult(
-                    fid, CombatConstants.DEPTH_POLEARM_AI_MULT_KEY_PINCH_STAB
-                )
-            CombatConstants.DOCTRINE_HOLD_LANE:
-                w *= manager.get_depth_polearm_ai_doctrine_mult(
-                    fid, CombatConstants.DEPTH_POLEARM_AI_MULT_KEY_HOLD_STAB
-                )
-            CombatConstants.DOCTRINE_PROBING:
-                w *= manager.get_depth_polearm_ai_doctrine_mult(
-                    fid, CombatConstants.DEPTH_POLEARM_AI_MULT_KEY_PROBING_STAB
-                )
-        return w
-    if ct == WeaponConstants.ATTACK_TYPE_CUT or ct == WeaponConstants.ATTACK_TYPE_BLUNT:
-        var w2: float = CombatConstants.DEPTH_POLEARM_AI_NON_STAB_WEIGHT_MULT
-        var doc2: String = CombatDoctrine.doctrine_for_fid(manager, fid)
-        match doc2:
-            CombatConstants.DOCTRINE_HOLD_LANE:
-                w2 *= manager.get_depth_polearm_ai_doctrine_mult(
-                    fid, CombatConstants.DEPTH_POLEARM_AI_MULT_KEY_HOLD_NON_STAB
-                )
-            CombatConstants.DOCTRINE_PINCH_CENTER:
-                w2 *= manager.get_depth_polearm_ai_doctrine_mult(
-                    fid, CombatConstants.DEPTH_POLEARM_AI_MULT_KEY_PINCH_NON_STAB
-                )
-            CombatConstants.DOCTRINE_PROBING:
-                w2 *= manager.get_depth_polearm_ai_doctrine_mult(
-                    fid, CombatConstants.DEPTH_POLEARM_AI_MULT_KEY_PROBING_NON_STAB
-                )
-        return w2
-    return 1.0

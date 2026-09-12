@@ -12,7 +12,6 @@ const INSTANT_FAST_FORWARD_MAX_ITERATIONS: int = 100000
 const INSTANT_FAST_FORWARD_MIN_STEP_S: float = 0.001
 ## Idle tick when queue has no resolve_at but triage work remains (avoids sim_s=0 stall).
 const INSTANT_FAST_FORWARD_IDLE_STEP_S: float = 1.0
-const INSTANT_FAST_FORWARD_YIELD_EVERY_TICKS: int = 12
 ## Campaign contract early exit: best-effort dress passes (fighters ->'f??' ->->''''A!f??' -> -  wounds); not used for
 ## soak tick-replay.
 const CAMPAIGN_BATCH_DRESS_MAX_ROUNDS: int = 256
@@ -33,8 +32,6 @@ const MEDICAL_DANGER_SECONDS: float = BleedingConstants.MEDICAL_TRIAGE_DANGER_SE
 const IMMEDIATE_PERIL_BLOOD_THRESHOLD: float = BleedingConstants.MEDICAL_TRIAGE_PERIL_BLOOD_REMAINING
 const IMMEDIATE_PERIL_SECONDS: float = BleedingConstants.MEDICAL_TRIAGE_PERIL_SECONDS
 const MEDICAL_URGENCY_WEIGHT_MAX: float = 6.0
-const MEDICAL_URGENCY_RANDOM_MIN: float = 0.8
-const MEDICAL_URGENCY_RANDOM_MAX: float = 1.2
 # Medical AI (`CombatAIActionPicker`): deterministic triage + skill-shaped procedure choice.
 const MEDICAL_AI_PART_THREAT_MULT := 2.8
 const MEDICAL_AI_ADVANCED_SKILL_EXP := 1.7

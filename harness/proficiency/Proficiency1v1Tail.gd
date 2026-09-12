@@ -264,38 +264,6 @@ static func format_report(result: Dictionary) -> String:
     return "\n".join(lines)
 
 
-static func format_round_details(result: Dictionary) -> String:
-    var lines := PackedStringArray()
-    var rounds: Array = result.get("rounds", [])
-
-    if rounds.is_empty():
-        lines.append("(no rounds played)")
-        return "\n".join(lines)
-
-    for i in range(rounds.size()):
-        var r: Dictionary = rounds[i]
-        lines.append("--- Round %d —" % (i + 1))
-        lines.append("  Player action: %s" % r.get("player_result", {}).get("action", "unknown"))
-        lines.append("  Enemy action: %s" % r.get("enemy_result", {}).get("action", "unknown"))
-
-        var pg: Dictionary = r.get("player_gains", {})
-        var eg: Dictionary = r.get("enemy_gains", {})
-        lines.append(
-            (
-                "  Player gains: STR+%.3f AGI+%.3f END+%.3f"
-                % [pg.get("strength", 0.0), pg.get("agility", 0.0), pg.get("endurance", 0.0)]
-            )
-        )
-        lines.append(
-            (
-                "  Enemy gains: STR+%.3f AGI+%.3f END+%.3f"
-                % [eg.get("strength", 0.0), eg.get("agility", 0.0), eg.get("endurance", 0.0)]
-            )
-        )
-
-    return "\n".join(lines)
-
-
 # --- Tuning scenarios ---
 
 

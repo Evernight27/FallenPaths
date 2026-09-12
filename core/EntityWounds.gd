@@ -629,35 +629,17 @@ static func process_blood_loss(entity: Node, delta: float) -> void:
 	var exertion_active: bool = "exertion_active" in entity and entity.exertion_active
 	if exertion_active:
 		loss_mult *= 1.5
-	# Decompensation (ATLS Class III→IV): nonlinear collapse — lost compensatory vasoconstriction
-	# causes rebound vasodilation and microvascular leak. Accelerates both bleeding rate and blood
-	# volume drain once below decompensation threshold.
 	var blood_pct: float = 100.0
 	if "blood_volume" in entity:
 		blood_pct = clampf(float(entity.blood_volume), 0.0, 100.0)
-	var decomp_time_modifier: float = 1.0
-	if blood_pct < BleedingConstants.DECOMPENSATION_BLOOD_THRESHOLD:
-		# Volume-based decomp acceleration (existing logic preserved).
-		var decomp_factor: float = lerpf(1.0, 1.8, (BleedingConstants.DECOMPENSATION_BLOOD_THRESHOLD - blood_pct) / BleedingConstants.DECOMPENSATION_BLOOD_THRESHOLD)
-		loss_mult *= decomp_factor
-		# Severity-dependent compounding: check if any wound has been active long enough for
-		# severity-based decompensation to kick in (models time-to-decomp progression).
-		for part_wounds in entity.wounds.values():
-			for injury in part_wounds:
-				if injury.get("current_bleeding_rate", 0.0) > 0.1:
-					var sev: String = injury.get(DataKeys.INJURY_SEVERITY, BleedingConstants.SEVERITY_MODERATE)
-					var time_since_hit: float = entity._get_game_time_seconds() - injury.get("created_at_game_time", 99999.0)
-					var decomp_time_s: float = BleedingConstants.get_decomp_time_for_severity(sev)
-					if time_since_hit >= decomp_time_s:
-						# Severity-based decomp active — additional acceleration on top of volume-based.
-						decomp_time_modifier = maxf(decomp_time_modifier, BleedingConstants.get_decomp_modifier_since_hemorrhage(time_since_hit, sev))
 	if entity.has_method("_get_combat_blood_recovery_per_s"):
 		recovery_per_s = entity._get_combat_blood_recovery_per_s()
-	# Decompensated patients have near-zero endogenous recovery (perfusion failure, metabolic collapse).
+	# Decompensated patients (ATLS Class III→IV, below the threshold) have near-zero endogenous recovery —
+	# perfusion failure and metabolic collapse. A fixed wound's bleed rate is set by driving pressure (MAP),
+	# which FALLS as the patient decompensates, so decompensation does NOT accelerate the wound rate; the
+	# death spiral is carried by this recovery suppression + the blood→consciousness curve, not a rate boost.
 	if recovery_per_s > 0.0 and blood_pct < BleedingConstants.DECOMPENSATION_BLOOD_THRESHOLD:
 		recovery_per_s *= 0.05  # ~95% suppression — only trace replacement while decompensated
-	# Apply severity-dependent decompensation acceleration (wound-duration based compounding).
-	loss_mult *= decomp_time_modifier
 	if BloodVolumeMl.entity_uses_ml(entity):
 		BloodVolumeMl.process_blood_loss_tick(entity, total, delta, loss_mult, recovery_per_s)
 	elif total > 0.0:

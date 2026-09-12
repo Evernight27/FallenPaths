@@ -94,11 +94,6 @@ static func iv3_doc_sync_line() -> String:
     )
 
 
-## Alias for harness rows that reference the longer name.
-static func iv3_true_duel_doc_sync_line() -> String:
-    return iv3_doc_sync_line()
-
-
 static func snapshot(manager: Node) -> Dictionary:
     var p: int = count_front_rank_alive(manager, CombatConstants.SIDE_PLAYER)
     var e: int = count_front_rank_alive(manager, CombatConstants.SIDE_ENEMY)
@@ -218,24 +213,3 @@ static func allow_rotate_file_for_formation(manager: Node, formation_id: String)
     var opp_files: int = _front_files_for_side(manager, opp_fid)
     return our_files > opp_files + int(CombatConstants.SKIRMISH_ROTATE_OUTNUMBER_FILE_MARGIN)
 
-
-## Shared compact debug line for logs/UI/harness.
-static func mode_summary_line(manager: Node) -> String:
-    var snap: Dictionary = snapshot(manager)
-    var mode_now: String = engagement_mode(manager)
-    var mode_now_code: int = mode_code(mode_now)
-    return (
-        "mode=%s(%d) raw=%s(%d) active[player=%d enemy=%d] front[player=%d enemy=%d] fill[player=%.2f enemy=%.2f]"
-        % [
-            mode_now,
-            mode_now_code,
-            str(snap.get(DataKeys.SNAPSHOT_RAW_MODE, _MODE_SKIRMISH)),
-            snap.get(DataKeys.SNAPSHOT_RAW_MODE_CODE, mode_code(str(snap.get(DataKeys.SNAPSHOT_RAW_MODE, _MODE_SKIRMISH)))),
-            snap.get(DataKeys.SNAPSHOT_PLAYER_ACTIVE, 0),
-            snap.get(DataKeys.SNAPSHOT_ENEMY_ACTIVE, 0),
-            snap.get(DataKeys.SNAPSHOT_PLAYER_FRONT, 0),
-            snap.get(DataKeys.SNAPSHOT_ENEMY_FRONT, 0),
-            snap.get(DataKeys.SNAPSHOT_PLAYER_FRONT_FILL, 0.0),
-            snap.get(DataKeys.SNAPSHOT_ENEMY_FRONT_FILL, 0.0),
-        ]
-    )

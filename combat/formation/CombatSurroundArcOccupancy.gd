@@ -61,6 +61,4 @@ static func surround_load_from_threat_entries(entries: Array) -> Dictionary:
     return out
 
 
-## Back-compat: adjusted sector weight sum only.
-static func adjusted_weight_sum_from_threat_entries(entries: Array) -> float:
-    return surround_load_from_threat_entries(entries).get(DataKeys.ARC_OCCUPANCY_WEIGHT_SUM, 0.0)
+

@@ -90,6 +90,10 @@ static func _weapon_definitions_build() -> Dictionary:
                 {"id": "slash"},
                 {"id": "zwerchau"},
                 {"id": "bind_press"},
+                {"id": "bind_void"},
+                {"id": "bind_wind"},
+                {"id": "bind_wrestle"},
+                {"id": "verwunden"},
                 {"id": "low_thrust_sword"},
                 {"id": "pommel_strike"},
                 {"id": "parry_thrust"},
@@ -207,12 +211,13 @@ static func _weapon_definitions_build() -> Dictionary:
                 {"id": "shaft", "length_cm": 55, "mass_fraction": 0.3, "parry_eligible": true, "striking_for": ["blunt"]}
             ],
             "parry_part_id": "shaft",
-            # Committed-velocity band. Max raised 12.0 -> 14.0 m/s: the old 12.0 m/s cap (x mass
-            # scaling ~0.875) limited committed mace KE to ~69 J, just under the ~80 J skull
-            # fracture anchor, so a committed mace blow could never fracture the skull or trigger
-            # concussion (0/10 head KOs in the weapon sweep). 14.0 m/s -> ~90 J committed, which
-            # with the tissue-yield gate (CombatLayerTissue.blunt_ke_reaching_bone) transmits past
-            # the anchor. Min unchanged (glancing blows stay weak).
+            # Committed-velocity band. Max raised 12.0 -> 14.0 m/s so a committed mace clears the
+            # ~80 J skull fracture anchor: at 14.0 m/s the committed blunt KE is ~130 J (calibration
+            # audit, mace_direct i=1.0), well past the anchor, so a clean committed blow can fracture
+            # the skull or trigger concussion (the earlier 12.0 m/s cap undershot this: 0/10 head
+            # KOs in the weapon sweep). With the tissue-yield gate
+            # (CombatLayerTissue.blunt_ke_reaching_bone) it transmits past the anchor.
+            # Min unchanged (glancing blows stay weak).
             "impact_velocity_bands": {"blunt": {"min": 5.0, "max": 14.0}},
             "strike_physics":
             {
@@ -223,9 +228,9 @@ static func _weapon_definitions_build() -> Dictionary:
                 "coupling_stab": 0.95,
                 "coupling_cut": 0.92,
                 "coupling_blunt": 1.06,
-                "blunt_pressure": 1.14,
+                "blunt_pressure": 1.30,
                 "blunt_head_ref_cm": 6.0,
-                "inertia_scale": 0.80
+                "inertia_scale": 1.0
             },
             "moves":
             [

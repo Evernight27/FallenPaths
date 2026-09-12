@@ -362,13 +362,15 @@ static func apply_decay(entity: CoreEntity, current_day_index: int) -> void:
         var rate: float = _get_decay_rate_for_bonus(bonus)
         var daily_decay: float = rate * decay_mult
 
-        # Wounded mercenary protection: decay x0.5 if below 40% blood volume.
+        # Wounded mercenary protection: decay x0.5 if below 55% blood volume (Class IV / near-death
+        # zone — re-anchored up with BLOOD_LOSS_DEATH_THRESHOLD 30→50 so it stays reachable by a
+        # living fighter).
         var bv: float = 100.0
         if "blood_volume" in entity:
             bv = float(entity.blood_volume)
         elif entity.has_method("_get_blood_volume"):
             bv = float(entity._get_blood_volume())
-        if bv < 40.0:
+        if bv < 55.0:
             daily_decay *= 0.5
 
         var new_bonus: float = maxf(0.0, bonus + daily_decay * inactive_days)

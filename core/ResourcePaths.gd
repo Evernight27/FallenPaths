@@ -6,8 +6,6 @@ extends RefCounted
 
 # Scripts / scenes
 const COMBAT_MANAGER := "res://combat/CombatManager.gd"
-const BATTLE_SCENE := "res://ui/battle/BattleScene.gd"
-const BATTLE_SCENE_PACKED := "res://scenes/battle/battle.tscn"
 const PARTY_MANAGER := "res://world/PartyManager.gd"
 const PARTY_MENU := "res://ui/company/PartyMenu.gd"
 
@@ -18,8 +16,6 @@ const GOBLIN_SPECIES := "res://resources/species/goblin.tres"
 
 # Scenes
 const ENEMY_SCENE := "res://scenes/actors/enemy.tscn"
-const PLAYER_SCENE := "res://scenes/actors/player.tscn"
-const MAIN_SCENE := "res://scenes/campaign/main.tscn"
 
 # Assets
 const TILE_TEXTURE := "res://assets/tiles/tile_texture.png"

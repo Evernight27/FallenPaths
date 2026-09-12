@@ -87,13 +87,22 @@ static func _append_soak_parry_section(lines: PackedStringArray, failures: Packe
     if total_parry > 0:
         var partial_pct: float = 100.0 * float(partial_n) / float(total_parry)
         var bind_pct: float = 100.0 * float(bind_n) / float(max(clean, 1))
-        lines.append(
-            "brawl_parry_mix partial=%.0f%% of %d events (bind %.0f%% of clean)" % [partial_pct, total_parry, bind_pct]
-        )
+        const PARRY_MIX_MIN_SAMPLE := 10
+        if total_parry < PARRY_MIX_MIN_SAMPLE:
+            var msg: String = (
+                "brawl_parry_mix partial=%.0f%% of %d events (bind %.0f%% of clean) - n<%d: "
+                + "insufficient sample; matched/duel fights yield mostly clean deflects, NOT a partial-parry gap"
+            )
+            lines.append(msg % [partial_pct, total_parry, bind_pct, PARRY_MIX_MIN_SAMPLE])
+        else:
+            lines.append(
+                "brawl_parry_mix partial=%.0f%% of %d events (bind %.0f%% of clean)" % [partial_pct, total_parry, bind_pct]
+            )
         lines.append(
             (
-                "clinical_read=high partial pct expected in multi-threat (misaligned guard); duel sample too small for "
-                + "pct stats"
+                "clinical_read=partials dominate in multi-threat (misaligned guard); "
+                + "n=%d here is %s for pct stats"
+                % [total_parry, "insufficient" if total_parry < PARRY_MIX_MIN_SAMPLE else "sufficient"]
             )
         )
     if ctrl_mismatch > 0:

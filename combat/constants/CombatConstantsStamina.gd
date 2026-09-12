@@ -14,7 +14,6 @@ const STAMINA_REFILL_HALF_TIME_S := 30.0
 const STAMINA_REFILL_RATE := log(2.0) / STAMINA_REFILL_HALF_TIME_S  # ~0.0231 1/s first-order rate constant
 const STAMINA_ATTACK_COST_BASE := 8.0
 const STAMINA_ATTACK_COST_SCALE := 13.0
-const STAMINA_PARRY_COST := 12.0
 const STAMINA_PARRY_COST_BASE := 8.0
 const STAMINA_PARRY_COST_SCALE := 5.0
 ## A partial parry absorbs only a fraction of the incoming momentum (1 - remaining_ratio). A light
@@ -26,10 +25,13 @@ const PARTIAL_PARRY_STAMINA_FLOOR := 0.5
 ## exceeds this, the defender has rested enough that the fatigue resets — the streak counter returns to 1.
 ## Matches the typical recovery window (default 1.5s).
 const PARRY_FATIGUE_RESET_S := 1.5
-## Dodge stamina cost — footwork step + body reposition burns energy; ~60% of parry to reflect lower mechanical demand
-## but still meaningful (real fighters cannot evade indefinitely without fatigue).
-const STAMINA_DODGE_COST_BASE := 5.0
-const STAMINA_DODGE_COST_SCALE := 3.0
+## Dodge stamina cost — a full-body explosive step (footwork + body reposition) is the DOMINANT metabolic
+## cost in fencing/HEMA (LEG_FATIGUE_RESEARCH: leg fatigue from explosive lower-limb work is the primary
+## conditioning driver, and finicky footwork degrades first). A parry is a 30-80ms blade-contact deflection.
+## Hence dodge ≥ parry cost: base 8 (equal to parry) and scale 6 (slightly above parry's 5) so a dodge
+## always costs at least as much as a parry at equal intensity.
+const STAMINA_DODGE_COST_BASE := 8.0
+const STAMINA_DODGE_COST_SCALE := 6.0
 const STAMINA_ACTION_READY_DELAY_AT_ZERO_MULT := 1.35
 const PARRY_BIND_RIPOSTE_GAUGE_BONUS := 28.0
 const STAMINA_AT_ZERO_PARRY_MULT := 0.5
@@ -49,7 +51,12 @@ const COMBATANT_KEY_METABOLIC_STRESS := "_metabolic_stress"
 const EXHAUSTION_MAX := 1.0
 const EXHAUSTION_EXERTION_PER_STAMINA_POINT := 0.001
 const EXHAUSTION_ENDURANCE_MAX_RELIEF := 0.45
-const EXHAUSTION_RECOVERY_RATE := 0.015
+## Central fatigue recovery rate per second while in WAITING state. At 0.008/s, full recovery from
+## max exhaustion (1.0) takes ~125s (~2 min). Clinical: central fatigue from high-intensity exercise
+## takes 5-15 min for significant recovery; 125s is the fast end for a fit fighter in a short rest
+## (disengaged from combat). The sustained "gassed" feeling is carried by metabolic stress (slow decay),
+## not by this recovery rate.
+const EXHAUSTION_RECOVERY_RATE := 0.008
 const METABOLIC_STRESS_MAX := 1.0
 const METABOLIC_STRESS_GAIN_PER_STAMINA_POINT := 0.002
 const METABOLIC_STRESS_ENDURANCE_MAX_RELIEF := 0.35
@@ -164,8 +171,8 @@ static func consecutive_action_stamina_mult(consecutive: int) -> float:
 static func consecutive_parry_stamina_mult(consecutive: int) -> float:
     if consecutive <= 1:
         return 1.0
-    # Parry fatigue escalates faster than general actions — each successive parry is ~30% more expensive.
-    # By the 5th consecutive parry, cost is roughly 2x base (vs 2.5x for generic consecutive actions which
+    # Parry fatigue escalates faster than general actions — each successive parry is ~20-37% more expensive.
+    # By the 5th consecutive parry, cost is 2.5x base (vs 2.0x for generic consecutive actions, which
     # include low-cost actions like waiting). Parries are physically demanding defensive motions.
     var t: float = float(consecutive - 1)
     return lerpf(1.0, 2.5, clampf(t / 4.0, 0.0, 1.0))
@@ -196,8 +203,6 @@ const FATIGUE_VELOCITY_POWER_EXPONENT: float = 0.7   # power < 1.0 means degrada
 # At max exhaustion, this factor multiplies the already-reduced velocity further. Kept shallow (old 0.55) so the
 # combined stamina×exhaustion floor stays above ~0.64 velocity → KE ≥ ~40% of full, consistent with sustained-effort data.
 const FATIGUE_VELOCITY_EXHAUSTION_FLOOR: float = 0.80
-# Delay before exhaustion starts affecting velocity — short burst attacks aren't impacted by medium-term fatigue.
-const FATIGUE_VELOCITY_EXHAUSTION_DELAY_S: float = 3.0
 
 ## Compute the combined stamina + exhaustion → strike velocity degradation factor (1.0 = full speed, lower = slower).
 ## This is applied multiplicatively to base weapon velocity before KE/damage calculation.

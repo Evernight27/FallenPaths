@@ -248,33 +248,4 @@ static func filter_actions(actions: Array, keep_predicate: Callable) -> Array:
     return out
 
 
-## LONG band, close listed but no melee strikes — mapped rank-0 band-lag shuffle (not bind-close wings).
-static func long_close_only_offense_menu(manager: Node, c: Dictionary, combatant_id: int, all_actions: Array) -> bool:
-    if manager == null or c.is_empty() or combatant_id < 0 or all_actions.is_empty():
-        return false
-    if action_list_has_hostile_melee_strike(all_actions, combatant_id):
-        return false
-    if EngagementOpposition.rank0_needs_bind_close_at_long(manager, c):
-        return false
-    var fid: String = CombatantEntityAccess.formation_id_str(c)
-    if CombatDoctrine.envelop_mop_up_active(manager, fid):
-        return false
-    if CombatFormationFlow.skirmish_line_sparse_after_casualties(manager, fid):
-        return false
-    if EngagementOpposition.wing_lacks_mapped_opposition(manager, c):
-        return false
-    if not action_list_has_hostile_strike(all_actions, combatant_id):
-        return false
-    for raw in all_actions:
-        var a: Dictionary = _entry(raw)
-        if a.is_empty():
-            continue
-        if entry_move_id(a) != CombatConstants.MOVE_ID_ATTEMPT_CLOSE:
-            continue
-        var tid: int = entry_target_id(a, -1)
-        if tid < 0:
-            continue
-        if CombatantEntityAccess.distance_to_opponent_band(c, tid, "") != CombatConstants.DISTANCE_LONG:
-            continue
-        return true
-    return false
+

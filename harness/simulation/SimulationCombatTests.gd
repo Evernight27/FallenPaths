@@ -750,15 +750,15 @@ static func _run_sim_notify_died_emits_once(failures: PackedStringArray) -> void
     if EntityWounds.get_total_bleeding_rate(bleed_ent) <= 0.0:
         SimulationCombatTests._fail(failures, "notify_died: need bleed rate on wounded entity")
         return
-    bleed_ent.blood_volume = 50.0
+    bleed_ent.blood_volume = 55.0
     bleed_ent._set_combat_blood_loss_mult(1.0)
     bleed_ent._set_combat_blood_recovery_per_s(0.0)
     var bleed_fired: Array = [0]
     bleed_ent.died.connect(func() -> void: bleed_fired[0] = int(bleed_fired[0]) + 1)
-    # Ticks to exsanguination from current volume (blood 50 -> death 30) at the clinical TTD band; the loop window must
+    # Ticks to exsanguination from current volume (blood 55 -> death 50) at the clinical TTD band; the loop window must
     # span it regardless of BLOOD_LOSS_RATE_MULTIPLIER calibration.
     var ticks_to_die: int = int(ceil(BleedingConstants.seconds_to_exsanguination_at_death_threshold(
-        EntityWounds.get_total_bleeding_rate(bleed_ent), bleed_ent.blood_volume, 30.0, 1.0
+        EntityWounds.get_total_bleeding_rate(bleed_ent), bleed_ent.blood_volume, BleedingConstants.BLOOD_LOSS_DEATH_THRESHOLD, 1.0
     ))) + 5
     for _i in range(ticks_to_die):
         EntityWounds.process_blood_loss(bleed_ent, 1.0)
@@ -990,6 +990,56 @@ static func _run_sim_atls_consciousness_monotonic(failures: PackedStringArray) -
         prev = mod
 
 
+## S7: rate/endurance-aware syncope shift (Gap 3). The ATLS stepped curve now shifts
+## effective remaining % by bleeding rate (down) and endurance (up) before evaluating.
+## Reference conditions (rate=0, endurance=100) produce no shift (backward compatible).
+static func _run_sim_blood_consc_rate_endurance_aware(failures: PackedStringArray) -> void:
+    # --- Pure function: reference conditions = identity ---
+    var ref_adj: float = BleedingConstants.adjusted_remaining_for_consciousness(70.0, 0.0, 100.0)
+    if not is_equal_approx(ref_adj, 70.0):
+        SimulationCombatTests._fail(failures, "blood_consc_ref: reference (rate=0, end=100) want 70.0 got %.2f" % ref_adj)
+
+    # --- Pure function: high rate shifts effective remaining DOWN ---
+    var high_rate: float = BleedingConstants.adjusted_remaining_for_consciousness(70.0, 1.0, 100.0)
+    if not is_equal_approx(high_rate, 50.0):
+        SimulationCombatTests._fail(failures, "blood_consc_rate: rate=1.0%/s want 50.0 got %.2f" % high_rate)
+    if high_rate >= ref_adj:
+        SimulationCombatTests._fail(failures, "blood_consc_rate_mono: high rate should lower effective remaining")
+
+    # --- Pure function: partial rate produces partial shift ---
+    var low_rate: float = BleedingConstants.adjusted_remaining_for_consciousness(70.0, 0.25, 100.0)
+    if not is_equal_approx(low_rate, 65.0):
+        SimulationCombatTests._fail(failures, "blood_consc_rate_partial: rate=0.25%/s want 65.0 got %.2f" % low_rate)
+    if low_rate >= ref_adj or low_rate <= high_rate:
+        SimulationCombatTests._fail(failures, "blood_consc_rate_order: partial (65) must sit between ref (70) and full (50)")
+
+    # --- Pure function: high endurance shifts effective remaining UP ---
+    var high_end: float = BleedingConstants.adjusted_remaining_for_consciousness(70.0, 0.0, 140.0)
+    var expected_end: float = 70.0 + minf(40.0 * 0.18, 12.0)
+    if absf(high_end - expected_end) > 0.01:
+        SimulationCombatTests._fail(failures, "blood_consc_end_high: end=140 want %.1f got %.2f" % [expected_end, high_end])
+    if high_end <= ref_adj:
+        SimulationCombatTests._fail(failures, "blood_consc_end_mono: high endurance should raise effective remaining")
+
+    # --- Pure function: low endurance shifts effective remaining DOWN ---
+    var low_end: float = BleedingConstants.adjusted_remaining_for_consciousness(70.0, 0.0, 40.0)
+    var expected_end_low: float = 70.0 + clampf((40.0 - 100.0) * 0.18, -12.0, 12.0)
+    if absf(low_end - expected_end_low) > 0.01:
+        SimulationCombatTests._fail(failures, "blood_consc_end_low: end=40 want %.1f got %.2f" % [expected_end_low, low_end])
+
+    # --- Integration: bleeding rate reduces modifier vs no-bleed at same volume ---
+    var ent: CoreEntity = SimulationCombatTests._entity_for_species(HumanSpecies)
+    ent.blood_volume = 65.0
+    ent.endurance = 100
+    var mod_no_bleed: float = EntityPainConsciousness.get_blood_consciousness_modifier(ent)
+    ent.wounds[BodyPartConstants.PART_RIGHT_ARM] = [
+        {"injury_type": "cut", "severity": "severe", "current_bleeding_rate": 85.0}
+    ]
+    var mod_bleeding: float = EntityPainConsciousness.get_blood_consciousness_modifier(ent)
+    if mod_bleeding >= mod_no_bleed:
+        SimulationCombatTests._fail(failures, "blood_consc_integ: bleeding mod %.3f should be < no-bleed mod %.3f" % [mod_bleeding, mod_no_bleed])
+
+
 ## S9: overall damage ratio tracks real tissue loss (body_cutting/body_blunt store REMAINING health).
 ## Guards the concussion-severity path: a healthy entity must read ~0% damaged, a destroyed one ~100%.
 ## Regression: the old formula (max - remaining - remaining) inverted this, reporting healthy = 100% damaged.
@@ -1033,7 +1083,7 @@ static func _run_sim_concussion_severity_scales_with_damage(failures: PackedStri
     for part in damaged.body_max:
         damaged.body_cutting[part] = 0.0
         damaged.body_blunt[part] = 0.0
-    var bone_ratio: float = 2.5  # above CONCUSSION_BONE_THRESHOLD_MIN (1.2), below MAX (3.5)
+    var bone_ratio: float = 1.0  # within CONCUSSION_BONE_THRESHOLD range (MIN 0.75, MAX 1.5): transmitted-KE/fracture-anchor ratio
     EntityPainConsciousness.try_enter_concussion_from_head_bone_damage(healthy, bone_ratio)
     EntityPainConsciousness.try_enter_concussion_from_head_bone_damage(damaged, bone_ratio)
     var healthy_until: float = float(healthy.get_meta("_concussion_until_time", 0.0))
@@ -1055,13 +1105,15 @@ static func _run_sim_concussion_severity_scales_with_damage(failures: PackedStri
         )
 
 
-## S9b: concussion trigger is REACHABLE — a head blow delivering ~1.2x the skull's bone budget (a temple/jaw
-## strike) concusses, while a minor bump (~1.1x, below the threshold) does not. Guards against the regression
-## where the trigger used the clamped to_bone (ratio always <= 1.0) and the threshold was unreachable (dead code).
+## S9b: concussion trigger is REACHABLE — a transmitted-KE ratio just above CONCUSSION_BONE_THRESHOLD_MIN
+## (post-tissue-KE / sub-region fracture anchor) concusses, while a ratio just below it does not. Guards
+## against the regression where the trigger used the clamped to_bone (ratio always <= 1.0) and the threshold
+## was unreachable (dead code). Under the KE-ratio model the threshold sits BELOW 1.0 (concussion onset is
+## below fracture energy), so the reachability guard checks a valid 0 < threshold < MAX band.
 static func _run_sim_concussion_trigger_reachable_threshold(failures: PackedStringArray) -> void:
     var threshold: float = EntityPainConsciousness.CONCUSSION_BONE_THRESHOLD_MIN
-    if threshold < 1.0:
-        SimulationCombatTests._fail(failures, "sim_concussion_reach: threshold %.2f must be >= 1.0" % threshold)
+    if threshold <= 0.0 or threshold >= EntityPainConsciousness.CONCUSSION_BONE_THRESHOLD_MAX:
+        SimulationCombatTests._fail(failures, "sim_concussion_reach: threshold %.2f must be in (0, MAX %.2f)" % [threshold, EntityPainConsciousness.CONCUSSION_BONE_THRESHOLD_MAX])
         return
     var above: CoreEntity = SimulationCombatTests._entity_for_species(HumanSpecies)
     var below: CoreEntity = SimulationCombatTests._entity_for_species(HumanSpecies)
@@ -1083,5 +1135,77 @@ static func _run_sim_concussion_trigger_reachable_threshold(failures: PackedStri
             "sim_concussion_reach: ratio %.2f (below threshold %.2f) should NOT concuss (until=%.1f)"
             % [below_ratio, threshold, below_until]
         )
+
+
+## S9c: rotational (Rowson/Duma) mTBI channel — pins the fracture-anchored alpha mapping and its entry gate.
+## (a) alpha is monotonic in transmitted head KE; (b) fracture-anchored mild/severe thresholds are ordered
+## and align with the linear channel's 0.75x/1.5x band (mild = alpha(0.75*anchor)); (c) below the mild alpha
+## no concussion registers, above it one does, and a severe (>=1.5x anchor) blow recovers no faster than a
+## mid-severity one (severity scaling through the shared SIS/recovery path).
+static func _run_sim_concussion_rotational_mtbI(failures: PackedStringArray) -> void:
+    var anchor: float = CombatDamageMechanism.blunt_fracture_j_anchor(BodyPartConstants.PART_HEAD, "scalp")
+    if anchor <= 0.0:
+        SimulationCombatTests._fail(failures, "sim_concussion_rot: head fracture anchor must be > 0 (got %.1f)" % anchor)
+        return
+    # (a) monotonic alpha: higher transmitted head KE -> higher angular acceleration.
+    var a_low: float = EntityPainConsciousness.head_rotational_accel_rad_s2(2.0)
+    var a_mid: float = EntityPainConsciousness.head_rotational_accel_rad_s2(5.0)
+    var a_high: float = EntityPainConsciousness.head_rotational_accel_rad_s2(10.0)
+    if not (0.0 < a_low and a_low < a_mid and a_mid < a_high):
+        SimulationCombatTests._fail(
+            failures,
+            "sim_concussion_rot: alpha must increase with KE (low=%.1f mid=%.1f high=%.1f)"
+            % [a_low, a_mid, a_high]
+        )
+        return
+    # (b) fracture-anchored thresholds are ordered and mild == alpha at 0.75x anchor (band alignment).
+    var thr: Array = EntityPainConsciousness.rotational_alpha_thresholds_for_fracture_anchor(anchor)
+    var mild: float = float(thr[0])
+    var severe: float = float(thr[1])
+    if mild <= 0.0 or mild >= severe:
+        SimulationCombatTests._fail(
+            failures, "sim_concussion_rot: thresholds must be 0 < mild < severe (mild=%.1f severe=%.1f)" % [mild, severe]
+        )
+        return
+    var mild_expected: float = EntityPainConsciousness.head_rotational_accel_rad_s2(0.75 * anchor)
+    if not is_equal_approx(mild, mild_expected):
+        SimulationCombatTests._fail(
+            failures,
+            "sim_concussion_rot: mild threshold %.2f must equal alpha(0.75*anchor=%.2f)=%.2f (band alignment)"
+            % [mild, 0.75 * anchor, mild_expected]
+        )
+        return
+    # (c) entry gate: below mild alpha -> no concussion; above -> concussion; severe >= mid in recovery.
+    var e_low: CoreEntity = SimulationCombatTests._entity_for_species(HumanSpecies)
+    var e_mid: CoreEntity = SimulationCombatTests._entity_for_species(HumanSpecies)
+    var e_high: CoreEntity = SimulationCombatTests._entity_for_species(HumanSpecies)
+    var alpha_low: float = EntityPainConsciousness.head_rotational_accel_rad_s2(0.5 * anchor)  # < mild
+    var alpha_mid: float = EntityPainConsciousness.head_rotational_accel_rad_s2(1.0 * anchor)  # mild..severe
+    var alpha_high: float = EntityPainConsciousness.head_rotational_accel_rad_s2(2.0 * anchor)  # >= severe
+    EntityPainConsciousness.try_enter_concussion_from_rotation(e_low, alpha_low, mild, severe)
+    EntityPainConsciousness.try_enter_concussion_from_rotation(e_mid, alpha_mid, mild, severe)
+    EntityPainConsciousness.try_enter_concussion_from_rotation(e_high, alpha_high, mild, severe)
+    var low_until: float = float(e_low.get_meta("_concussion_until_time", 0.0))
+    var mid_until: float = float(e_mid.get_meta("_concussion_until_time", 0.0))
+    var high_until: float = float(e_high.get_meta("_concussion_until_time", 0.0))
+    if low_until > 0.0:
+        SimulationCombatTests._fail(
+            failures,
+            "sim_concussion_rot: alpha=%.1f below mild %.1f should NOT concuss (until=%.1f)"
+            % [alpha_low, mild, low_until]
+        )
+    if mid_until <= 0.0:
+        SimulationCombatTests._fail(
+            failures,
+            "sim_concussion_rot: alpha=%.1f between mild %.1f and severe %.1f should concuss (until=%.1f)"
+            % [alpha_mid, mild, severe, mid_until]
+        )
+    if high_until < mid_until - 0.5:
+        SimulationCombatTests._fail(
+            failures,
+            "sim_concussion_rot: severe alpha=%.1f recovery %.1fs should be >= mid alpha=%.1f recovery %.1fs"
+            % [alpha_high, high_until, alpha_mid, mid_until]
+        )
+
 
 ## S8: shallow post-armor penetration -> lower cut severity than deep track at same damage.

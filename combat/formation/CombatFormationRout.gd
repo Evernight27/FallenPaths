@@ -502,12 +502,4 @@ static func filter_rout_disengage_actions(manager: Node, c: Dictionary, combatan
     return out
 
 
-## MS-L6: true when rout cognition should run (not blocked, under pressure, rout moves listed).
-static func rout_layer_eligible(manager: Node, c: Dictionary, combatant_id: int, actions: Array) -> bool:
-    if not CombatConstants.is_feature_ms_l6_rout_enabled():
-        return false
-    if rout_layer_blocked(manager, c, actions, combatant_id):
-        return false
-    if not rout_cognition_pressure(manager, c):
-        return false
-    return not filter_rout_disengage_actions(manager, c, combatant_id, actions).is_empty()
+

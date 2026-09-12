@@ -30,7 +30,7 @@ const BODY_BAR_COLUMNS := [["head", "right_arm", "left_leg"], ["chest", "left_ar
 # Sub-regions: scalp thin over skull; face facial bones; neck less bone; thoracic ribs; abdominal soft;
 # humerus shaft/deep brachial; elbow; forearm radius/ulna (distal most common); hand; thigh femur; knee; calf tibia;
 # foot.
-# See RESEARCH_BASED_APPROXIMATIONS.md, BleedingConstants.SUB_REGIONS.
+# See RESEARCH_pain_cognition_performance.md §3a, BleedingConstants.SUB_REGIONS.
 const BONE_DAMAGE_MIN: int = 1
 
 const _PART_BONE_THRESHOLD: Dictionary = {

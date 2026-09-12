@@ -25,6 +25,20 @@ const INJURY_TYPE_COMPOUND_FRACTURE: String = "compound_fracture"
 const INJURY_TYPE_INTERNAL_BLEED: String = "internal_bleed"
 ## Chance a penetrating torso thrust opens an internal-organ bleed (plan_balance_tuning.md Change 2).
 const INTERNAL_BLEED_CHANCE_TORSO_THRUST: float = 0.15
+## Head intracranial hemorrhage (subdural/epidural hematoma): a head wound that breaches the skull
+## (fracture by blunt force, or a sharp wound penetrating past the inner table) opens an internal,
+## unclottable bleed that external pressure cannot stop — distinct from the external scalp laceration
+## it accompanies. Clinically such wounds are fatal hours-to-days later without surgical evacuation,
+## and field care (bandaging/packing) cannot reach the source. Triggers when the head's bone (skull)
+## channel is breached (to_bone > 0) or a sharp wound penetrates past the skull into the cranial cavity.
+const HEAD_INTRACRANIAL_BLEED_MAX_CHANCE: float = 0.65
+## Skull damage (to_bone, range 0..bone_max=8) at which intracranial-bleed chance reaches its max.
+## A chip (to_bone 1-2) bleeds rarely; a full fracture (to_bone 5+) bleeds often.
+const HEAD_INTRACRANIAL_BLEED_FULL_DMG: float = 5.0
+## Sharp-wound penetration depth (mm past the head soft-tissue stack, i.e. into the skull) at which a
+## head cut/thrust is considered to have breached the inner table into the cranial cavity. The adult
+## skull is ~6-8 mm thick; 6.0 triggers intracranial bleed for deep penetrating wounds.
+const HEAD_SKULL_BREACH_PEN_MM: float = 6.0
 
 # --- Severity levels (from damage vs part max; maps to wound depth/vessel involvement) ---
 const SEVERITY_MINOR: String = "minor"
@@ -35,7 +49,7 @@ const SEVERITY_CRITICAL: String = "critical"
 # --- Bleeding rates (abstract HP/s) by injury type and severity ---
 # Cut > crush (lacerations open vessels; blunt more capillary). Severe/critical = arterial-like.
 # Absolute HP/s values are gameplay units; lethality is calibrated via BLOOD_LOSS_RATE_MULTIPLIER
-# (derived in CombatResearchAnchors.derived_blood_loss_multiplier_for_ttd for 30 - 120 s TTD).
+# (derived in CombatResearchAnchors.derived_blood_loss_multiplier_for_ttd for 120 - 300 s TTD).
 # Relative scaling (cut>crush, head>limb, arterial mult) is medically ordered.
 const BLEEDING_RATES: Dictionary = {
     INJURY_TYPE_CUT: {SEVERITY_MINOR: 0.3, SEVERITY_MODERATE: 1.2, SEVERITY_SEVERE: 4.0, SEVERITY_CRITICAL: 4.5},
@@ -48,10 +62,13 @@ const BLEEDING_RATES: Dictionary = {
     ## Rates are ~1.5× cut at moderate+ severity (not higher than cut — clinical Gustilo-Anderson data shows
     ## compound fractures bleed more than closed but typically less than deep lacerations of major vessels).
     INJURY_TYPE_COMPOUND_FRACTURE: {SEVERITY_MINOR: 0.0, SEVERITY_MODERATE: 1.5, SEVERITY_SEVERE: 4.0, SEVERITY_CRITICAL: 5.0},
-    ## Internal-organ bleed: flat slow rate regardless of severity (a nicked organ oozes at a near-constant
-    ## rate until treated). Kept well below the cut/stab external rates — the lethality comes from it being
-    ## unclottable, not from a high instantaneous rate.
-    INJURY_TYPE_INTERNAL_BLEED: {SEVERITY_MINOR: 0.0, SEVERITY_MODERATE: 0.15, SEVERITY_SEVERE: 0.15, SEVERITY_CRITICAL: 0.15}
+    ## Internal-organ bleed: severity-scaled, unclottable (no clotting decay applies).
+    ## A ruptured solid organ or great vessel sustains a near-constant rate that direct pressure
+    ## cannot stop. Calibrated against BLOOD_LOSS_RATE_MULTIPLIER (0.01176) and chest sub-region
+    ## multipliers: critical (aortic) ≈ 7 min to 50% threshold; severe (liver/spleen) ≈ 20 min;
+    ## moderate (contusion) ≈ 90 min. Matches clinical 5-8 min major-vessel and 20-60 min
+    ## solid-organ timelines (RESEARCH_hypovolemic_shock.md §8b).
+    INJURY_TYPE_INTERNAL_BLEED: {SEVERITY_MINOR: 0.0, SEVERITY_MODERATE: 0.5, SEVERITY_SEVERE: 2.0, SEVERITY_CRITICAL: 5.0}
 }
 
 # --- Body part bleeding multipliers (scalp/face/trunk more vascular; StatPearls / clinical) ---
@@ -223,25 +240,31 @@ const PENETRATION_DEPTH_ARTERIAL_DEEP_MULT := 1.12
 
 const MAX_BLOOD_VOLUME: float = 100.0
 # Total bleeding rate — this = blood % lost per second (see docs/LIVE_PATHS.md#bleeding-physics).
-# Deliberately FASTER than clinical TTD (untreated critical arterial ~180-300s, TCCC/ATLS): the model targets a
-# 30-120s gameplay band so the medical system creates real urgency. Shipped 0.072 -> ref-bleed TTD ~41s
-# (70 / (23.62 * 0.072)); the clinical 180-300s is a relative-ordering reference only, NOT the calibration target.
-const BLOOD_LOSS_RATE_MULTIPLIER: float = 0.0720
-## Hard cap on total blood loss rate (% blood/s) after all multipliers (KE blend, arterial,
-## decompensation, exertion). A sane ceiling for stacked arterial bleeds: at 3.5%/s the worst case
-## (100%→30% death threshold) is ~20s exsanguination, i.e. ~2x the reference-bleed TTD (~41s,
-## BLOOD_LOSS_RATE_MULTIPLIER 0.072). Arterial is intentionally faster than the 30-120s reference
-## band (that speed is what makes it arterial); the cap only stops the absurd top end (e.g. 5-10s).
-## To clamp the worst case to the 30s band floor instead, set this to ~2.33 (70/30).
+# Derived from the clinical exsanguination target (LITERATURE_TTD_TARGET_S = 180 s, the median of the
+# 120-300 s untreated major-arterial range; Irandoust/Byard 2013, J Forensic Leg Med 20:944-946):
+#   buffer (100 - BLOOD_LOSS_DEATH_THRESHOLD)% / (REFERENCE_UNCONTROLLED_BLEED_RATE x 180 s)
+#   = 50 / (23.625 x 180) = 0.01176.
+# The reference (23.625) is the "clean" calibration anchor (critical × head × arterial, no vessel-damage
+# amplifier). The live worst-case (with get_bleeding_rate's ×1.4 critical amplifier) is 33.075 → TTD
+# ~128 s, still within the clinical 120–300 s band. The ×1.4 is the clinically-justified vessel-damage
+# amplifier (critical wounds have worse vessel damage and wound cavity formation), not a double-scaling
+# bug. The multiplier was calibrated against the clean anchor (23.625) to target 180 s, but the live
+# worst-case lands at the fast end of the band (~128 s), which is realistic for a major arterial bleed.
+# See CombatResearchDerivations.derived_blood_loss_multiplier_for_ttd() for the live derivation.
+const BLOOD_LOSS_RATE_MULTIPLIER: float = 0.01176
+## Hard cap on total blood loss rate (% blood/s) after all multipliers (injury type, body part,
+## head, arterial, exertion). A sane ceiling for stacked arterial bleeds: at 3.5%/s the worst case
+## (100%→50% death threshold) is ~14s exsanguination, i.e. ~13x faster than the reference-bleed TTD
+## (~180 s, BLOOD_LOSS_RATE_MULTIPLIER 0.01176). Arterial is intentionally much faster than the
+## 120-300 s clinical reference band (that speed is what makes it arterial); the cap only stops the
+## absurd top end (e.g. 5-10 s). To clamp the worst case to the 120 s band floor instead, set this
+## to ~0.42 (50/120).
 const MAX_TOTAL_BLOOD_LOSS_RATE: float = 3.5
-# Death when remaining blood_volume <= this. 30% remaining = 70% lost. Deliberately more lenient than clinical
-# exsanguination (~40-50% lost is fatal) so the medical system (tourniquet/bandage/pack) can still save a fighter;
-# the consciousness floor (BLOOD_CONSCIOUSNESS_FLOOR_THRESHOLD) carries the near-death weight — a fighter is
-# unconscious well before this threshold, so the extended survival window reads as an agonal phase, not "alert".
-const BLOOD_LOSS_DEATH_THRESHOLD: float = 30.0
-# Critical state (UI/effects) when remaining <= this. 35% remaining = 65% lost (deep Class IV, near death).
-# Aligned with BLOOD_CONSCIOUSNESS_FLOOR_THRESHOLD so the UI "critical" state coincides with the unconsciousness floor.
-const BLOOD_LOSS_CRITICAL_THRESHOLD: float = 35.0
+# Death when remaining blood_volume <= this. 50% remaining = 50% lost — ATLS Class IV, fatal
+# untreated (~45-50% loss). Anchored to the clinical death point so the sim mirrors real-world
+# exsanguination; the consciousness floor (BLOOD_CONSCIOUSNESS_FLOOR_THRESHOLD) carries the near-death
+# weight — a fighter is unconscious well before this threshold, so the final window reads as an agonal phase.
+const BLOOD_LOSS_DEATH_THRESHOLD: float = 50.0
 
 # --- ATLS hemorrhage class (remaining blood %). ATLS 10th ed. loss bands: I <15%, II 15 - 30%, III 31 - 40%, IV >40%.
 # ---
@@ -254,26 +277,43 @@ const FEATURE_ATLS_STEPPED_BLOOD_CONSCIOUSNESS: bool = true
 ## Class I top (>=85% remaining): fully oriented.
 const ATLS_CONSC_CLASS_I_TOP: float = 1.0
 ## Class II floor (70% remaining, 30% lost): anxious but oriented (ATLS Class II).
-const ATLS_CONSC_CLASS_II_FLOOR: float = 0.96
-## Class III floor / Class IV top (60% remaining, 40% lost): altered mentation (ATLS Class III/IV boundary).
-## Below this the curve drops steeply toward the floor (obtunded/unresponsive) as Class IV progresses to death.
-const ATLS_CONSC_CLASS_III_FLOOR: float = 0.70
+const ATLS_CONSC_CLASS_II_FLOOR: float = 0.80
+## Class III floor / Class IV top (60% remaining, 40% lost): confused/lethargic (ATLS 10th ed. Class III-IV).
+## A patient at this boundary has significant cognitive impairment — confused, lethargic, poor decision-making.
+## 0.30 maps to ~30% mentation; combined with pain the performance modifier reaches well below 0.5,
+## so the fighter is severely degraded. Below this the curve drops steeply to the
+## unconsciousness floor as Class IV progresses to exsanguination.
+const ATLS_CONSC_CLASS_III_FLOOR: float = 0.30
+
+# --- Rate/Endurance-aware syncope adjustment ---
+# Medically, consciousness loss from hypovolemia depends not just on *volume lost*, but on the
+# *rate* of loss and the patient's *compensatory endurance*. This adjusts the effective remaining %
+# fed into the ATLS curve before it is evaluated, keeping the volume-based curve itself unchanged.
+# Reference conditions: rate = 0%/s, endurance = 100 -> no shift (backward compatible).
+const BLOOD_CONSC_RATE_REF_PCT_PER_S: float = 1.0    # %/s at which compensation is fully overwhelmed
+const BLOOD_CONSC_RATE_SHIFT_MAX: float = 20.0       # Max effective-% reduction from rapid bleeding
+const BLOOD_CONSC_END_REF: float = 100.0             # Reference endurance stat (no shift)
+const BLOOD_CONSC_END_SHIFT_PER_POINT: float = 0.18  # Effective-% shift per endurance point above/below ref
+const BLOOD_CONSC_END_SHIFT_MAX: float = 12.0        # Cap on endurance-based shift (in either direction)
 
 # --- Medical triage bands (remaining % volume). Used by MedicalPhaseController AI/urgency. ---
-const MEDICAL_TRIAGE_DANGER_BLOOD_REMAINING: float = 55.0
-const MEDICAL_TRIAGE_PERIL_BLOOD_REMAINING: float = 47.0
-const MEDICAL_TRIAGE_DANGER_SECONDS: float = 60.0
-const MEDICAL_TRIAGE_PERIL_SECONDS: float = 30.0
+const MEDICAL_TRIAGE_DANGER_BLOOD_REMAINING: float = 58.0
+const MEDICAL_TRIAGE_PERIL_BLOOD_REMAINING: float = 55.0
+# Scaled to the clinical 180 s ref-bleed TTD (danger ~1.25x, peril ~0.625x — same ratios as the
+# old 60/30 s vs ~48 s TTD). These are the AI/urgency time windows, not gameplay pacing knobs.
+const MEDICAL_TRIAGE_DANGER_SECONDS: float = 225.0
+const MEDICAL_TRIAGE_PERIL_SECONDS: float = 112.5
 
  # --- Decompensation threshold: ATLS Class III→IV nonlinear collapse. ---
 ## When blood volume drops below this, compensatory mechanisms fail and the patient enters
 ## decompensated shock — a tipping point where deterioration accelerates non-linearly.
-## Clinically matches ATLS Class III (60% remaining) boundary where tachycardia + vasoconstriction
-## can no longer maintain perfusion; heart rate behavior changes toward bradycardia as pre-terminal sign.
-const DECOMPENSATION_BLOOD_THRESHOLD: float = 50.0  # blood volume % — below this, decompensation active
-## Decompensation accelerates bleeding: failed vasoconstriction causes rebound vasodilation and
-## increased capillary leak. Models the nonlinear collapse from compensatory to decompensated shock.
-const DECOMPENSATION_BLEED_ACCEL_MULT: float = 1.8  # +80% bleed rate when in decompensation
+## 56% remaining = 44% lost, past the ATLS Class III→IV boundary (Class IV >40% loss): the point where
+## tachycardia + vasoconstriction can no longer maintain perfusion; HR drifts toward bradycardia as a pre-terminal sign.
+## Below this the patient is decompensated (ATLS Class III→IV): endogenous blood recovery collapses
+## (see EntityWounds.process_blood_loss). The death spiral is carried by that recovery suppression + the
+## blood→consciousness curve — decompensation does NOT accelerate a wound's bleed rate (a fixed vessel bleeds
+## at a rate set by driving pressure, which falls as MAP drops).
+const DECOMPENSATION_BLOOD_THRESHOLD: float = 56.0  # blood volume % — below this, decompensation active
 ## Field fluid resuscitation / transfusion: fraction of the current blood deficit restored per
 ## application at full effectiveness (scaled by treatment effectiveness). Closes the one-way
 ## decompensation death spiral — a medic can pull a bleeding-out comrade back above the
@@ -281,44 +321,14 @@ const DECOMPENSATION_BLEED_ACCEL_MULT: float = 1.8  # +80% bleed rate when in de
 ## governs full recovery).
 const FLUID_RESUSCITATION_DEFICIT_RESTORE_FRACTION: float = 0.4
 
-# --- Severity-dependent time-to-decompensation (ATLS Class I-IV progression) ---
-## Clinically, the time from hemorrhage onset to compensatory collapse depends on bleeding rate and wound severity.
-## ATLS Class II (15-30% loss): patient maintains BP via vasoconstriction; decompensation delayed 60-180s if untreated.
-## ATLS Class III (30-40% loss): compensation failing; decompensation imminent within 30-90s without intervention.
-## ATLS Class IV (>40% loss): decompensated shock is immediate or near-immediate (<30s); requires rapid transfusion.
-## These multipliers scale time-to-decompensation based on wound severity at onset (not current blood volume).
-## Base = 120 seconds for moderate wounds; scaled by severity to reflect clinical progression speed.
-const DECOMP_TIME_MODERATE_WOUND_S: float = 180.0    # moderate wound → decomp in ~3 min (ATLS Class II→III)
-const DECOMP_TIME_SEVERE_WOUND_S: float = 90.0       # severe wound → decomp in ~1.5 min (ATLS Class III rapid)
-const DECOMP_TIME_CRITICAL_WOUND_S: float = 45.0     # critical arterial → decomp in <1 min (ATLS Class IV)
-
-## Time since first bleed at which decompensation effects BEGIN to ramp up (linear interpolation zone).
-## Before this time, compensation fully active; after, gradual transition to decompensated state.
-const DECOMP_RAMP_START_THRESHOLD_S: float = 30.0    # earliest decomp starts for critical wounds
-
-## Helper: get expected time-to-decompensation based on wound severity (seconds from hemorrhage onset).
-static func get_decomp_time_for_severity(severity: String) -> float:
-    match severity:
-        SEVERITY_CRITICAL: return DECOMP_TIME_CRITICAL_WOUND_S
-        SEVERITY_SEVERE: return DECOMP_TIME_SEVERE_WOUND_S
-        _: return DECOMP_TIME_MODERATE_WOUND_S  # minor/moderate use same baseline
-
-## Current decompensation modifier based on time since hemorrhage onset and wound severity.
-## Returns a multiplier for bleed rate that ramps from 1.0 (fully compensated) to DECOMP_BLEED_ACCEL_MULT.
-static func get_decomp_modifier_since_hemorrhage(seconds_since_bleed: float, severity: String) -> float:
-    var decomp_time: float = get_decomp_time_for_severity(severity)
-    if seconds_since_bleed < 0.0 or decomp_time <= 0.0:
-        return 1.0
-    ## If well beyond expected decomp time, fully active acceleration.
-    if seconds_since_bleed >= decomp_time:
-        return DECOMPENSATION_BLEED_ACCEL_MULT
-    ## Linear ramp from compensated to decompensated over [DECOMP_RAMP_START_THRESHOLD_S, decomp_time].
-    var ramp_end: float = decomp_time
-    var ramp_start: float = clampf(DECOMP_RAMP_START_THRESHOLD_S, 0.0, ramp_end)
-    if seconds_since_bleed <= ramp_start:
-        return 1.0
-    var t: float = (seconds_since_bleed - ramp_start) / (ramp_end - ramp_start)
-    return lerpf(1.0, DECOMPENSATION_BLEED_ACCEL_MULT, clampf(t, 0.0, 1.0))
+# --- Severity-dependent time-to-decompensation (ATLS Class I-IV progression) — clinical reference ---
+## Clinically, the time from hemorrhage onset to compensatory collapse depends on bleeding rate and
+## wound severity: Class II (15-30% loss) compensates 60-180 s, Class III (30-40% loss) ~30-90 s,
+## Class IV (>40% loss) near-immediate (<30 s). This is modeled as a recovery-suppression +
+## consciousness collapse (DECOMPENSATION_BLOOD_THRESHOLD), NOT as a bleed-rate acceleration: a
+## fixed vessel bleeds at a rate set by its driving pressure, which FALLS as MAP drops, so
+## decompensation does not speed the wound's flow. (Earlier versions drove a +80% bleed-rate
+## multiplier from this ladder; that was physically inverted and has been removed.)
 
 # --- Clotting: exponential decay of bleeding rate (rate *= exp(-k*delta)). First-order kinetics. ---
 # Per-severity clotting rate (k) per second. Half-life of rate = ln(2)/k (first-order clot decay).
@@ -356,7 +366,10 @@ const BLEEDING_RATE_EPSILON: float = 0.001
 # reduced (e.g. partial tourniquet). If perm_rate <= (blood_volume - death_threshold) * this /
 # BLOOD_LOSS_RATE_MULTIPLIER, integrated loss stays below remaining buffer so they survive. Conservative (between severe
 # and critical).
-const CLOTTING_SAFE_EFFECTIVE_RATE: float = 0.008
+# Re-anchored 0.008 -> 0.00183 (x4.37, matching the BLOOD_LOSS_RATE_MULTIPLIER 0.072 -> 0.01646 TTD re-anchor) so the
+# danger gate's max-safe rate preserves its original calibration (~7.8 game-rate units, ~33% of the reference arterial
+# rate): a major arterial bleed stays in danger, while clotting-manageable minor bleeds read as safe.
+const CLOTTING_SAFE_EFFECTIVE_RATE: float = 0.00183
 
 # --- Arterial bleeding chance (research-based) ---
 # Penetrating (cut) wounds: depth/severity correlates with vessel involvement. Soft signs: 1 sign ~10% vascular injury,
@@ -421,7 +434,7 @@ const BLEEDING_TYPE_CLOTTING_MULT: Dictionary = {
 # --- Bandaging ---
 # Research: arterial wounds need direct pressure / tourniquets; simple bandages less effective (pressure inhibits clot).
 # Option A: stronger reduction to compensate for slower clotting (2-5 min to hemostasis).
-const BANDAGE_IMMEDIATE_REDUCTION: float = 0.75  # 75% immediate reduction on success (venous/capillary)
+const BANDAGE_IMMEDIATE_REDUCTION: float = 0.70  # 70% immediate reduction on success (venous/capillary; TCCC ceiling)
 # bandage less effective on arterial (50% of reduction); arterial often needs more than a simple bandage
 const BANDAGE_ARTERIAL_EFFECTIVENESS_MULT: float = 0.5
 const BANDAGE_STABILIZATION_DURATION: float = 0.0  # 0 = no expiry; bandage stays effective until wound heals
@@ -506,13 +519,16 @@ const TOURNIQUET_BLEEDING_RATE_THRESHOLD: float = 2.0
 # ischemia risk for the limb. The game compresses field time, so 1 game-hour maps to the real-world ~2 h risk window:
 # a TQ applied in combat that is still on when campaign time advances past this window causes ischemic limb damage.
 const TOURNIQUET_MAX_DURATION_SECONDS: float = 3600.0
-# Fraction of the limb's tissue (per channel) lost when a tourniquet expires from ischemia. Models the soft-tissue
-# necrosis / compartment injury of a TQ left on too long. Applied to body_cutting + body_blunt (not bone).
-const TOURNIQUET_ISCHEMIA_TISSUE_FRACTION: float = 0.30
+# Fraction of the limb's tissue (per channel) lost when a tourniquet expires at the max-duration window
+# (~2 h real-world). 2 h is the ONSET of ischemic risk, not established necrosis: Kragh et al. (J Trauma
+# 2009 / Ann Surg 2010) report no TQ-related amputations up to ~6 h, and the 2 h mark is the reversible-injury
+# boundary. So this is a meaningful but recoverable soft-tissue compromise (early compartment / muscle injury),
+# not limb-destroying necrosis. Applied to body_cutting + body_blunt (not bone — ischemia damages soft tissue).
+const TOURNIQUET_ISCHEMIA_TISSUE_FRACTION: float = 0.10
 # Time (seconds) to apply a tourniquet (positioning, tightening); action system should delay effect until this duration
 # has passed.
 # 25s is a deliberate SUB-clinical pacing value: real CAT application is 45-90s under combat stress (Kragh et al.
-# Am J Surg 2011) and improvised ligatures 2-5 min, but the medical phase is compressed to a 30-120s game-time band.
+# Am J Surg 2011) and improvised ligatures 2-5 min, but the medical phase now runs at the clinical 120-300 s TTD band.
 const TOURNIQUET_APPLICATION_TIME_SECONDS: float = 25.0
 # Success rate: tourniquets can fail if not tight enough or poorly placed. Training/medical skill affects outcome.
 # Research: layperson first-attempt ~50% (CAT with video), some devices 17%; without formal training results poor (e.g.
@@ -604,8 +620,12 @@ const SEVERITY_ABSOLUTE_BONE_CRITICAL: float = 8.0
 const SEVERITY_ABSOLUTE_BONE_SEVERE: float = 3.0
 const SEVERITY_ABSOLUTE_BONE_MODERATE: float = 1.0
 
-## Documented worst-case single-channel bleed (critical arterial cut, head, no treatment). See
-## docs/LIVE_PATHS.md#bleeding-physics.
+## Calibration anchor for the blood-loss multiplier derivation — "clean" critical bleed (critical × head × arterial)
+## WITHOUT the ×1.4 vessel-damage amplifier applied by get_bleeding_rate(). The live worst-case bleed rate
+## (critical arterial cut, head, no treatment) is 1.4× higher (33.075) → TTD ~128 s (within clinical
+## 120–300 s band). This anchor is used by the multiplier derivation to target ~180 s for the reference
+## product; the live worst-case lands at the fast end of the band, realistic for a major arterial bleed.
+## See docs/LIVE_PATHS.md#bleeding-physics.
 const REFERENCE_UNCONTROLLED_BLEED_RATE: float = (
     BLEEDING_RATES[INJURY_TYPE_CUT][SEVERITY_CRITICAL]
     * BODY_PART_BLEEDING_MULTIPLIERS[BodyPartConstants.PART_HEAD]
@@ -665,6 +685,28 @@ static func internal_bleed_severity_for_penetration(penetration_to_tissue_mm: fl
     return SEVERITY_SEVERE if t >= 0.5 else SEVERITY_MODERATE
 
 
+## Chance of intracranial hemorrhage given skull damage (to_bone) from a head strike.
+## Scales linearly with skull damage: a minor chip (to_bone 1) bleeds at ~13% of max chance;
+## a full fracture (to_bone >= FULL_DMG) bleeds at max. No breach (to_bone <= 0) -> no bleed.
+static func internal_bleed_chance_head_skull_damage(skull_damage: float) -> float:
+    if skull_damage <= 0.0:
+        return 0.0
+    var t: float = clampf(skull_damage / HEAD_INTRACRANIAL_BLEED_FULL_DMG, 0.0, 1.0)
+    return HEAD_INTRACRANIAL_BLEED_MAX_CHANCE * t
+
+
+## Severity of an intracranial bleed from a head skull breach. A sharp wound that penetrates past
+## the skull (deep) or a heavy skull fracture -> SEVERE (subdural hematoma); a light breach ->
+## MODERATE (oozing meningeal vessels). Capped at SEVERE — intracranial bleeding is slow/progressive,
+## not a CRITICAL arterial exsanguination.
+static func internal_bleed_severity_head_skull_damage(
+    skull_damage: float, penetration_to_tissue_mm: float = -1.0
+) -> String:
+    if penetration_to_tissue_mm >= HEAD_SKULL_BREACH_PEN_MM:
+        return SEVERITY_SEVERE
+    return SEVERITY_SEVERE if skull_damage >= HEAD_INTRACRANIAL_BLEED_FULL_DMG else SEVERITY_MODERATE
+
+
 ## ATLS hemorrhage class 1 - 4 from remaining blood volume % (ATLS 10th ed. loss bands).
 static func atls_hemorrhage_class_from_remaining_pct(remaining_pct: float) -> int:
     var r: float = clampf(remaining_pct, 0.0, MAX_BLOOD_VOLUME)
@@ -714,6 +756,26 @@ static func blood_consciousness_modifier_from_remaining(
         ATLS_CONSC_CLASS_III_FLOOR,
         (remaining_pct - linear_floor) / (ATLS_CLASS_III_MIN_REMAINING - linear_floor)
     )
+
+
+## Shift effective remaining % by bleeding rate (downward) and endurance (upward), before
+## feeding into the ATLS stepped consciousness curve. Reference conditions (rate=0, endurance=100)
+## return the input unchanged. Rate is in %/s (use blood_volume_loss_per_second).
+static func adjusted_remaining_for_consciousness(
+    remaining_pct: float,
+    bleeding_rate_pct_per_s: float,
+    endurance: float
+) -> float:
+    var rate_shift: float = minf(
+        (bleeding_rate_pct_per_s / BLOOD_CONSC_RATE_REF_PCT_PER_S) * BLOOD_CONSC_RATE_SHIFT_MAX,
+        BLOOD_CONSC_RATE_SHIFT_MAX
+    )
+    var end_shift: float = clampf(
+        (endurance - BLOOD_CONSC_END_REF) * BLOOD_CONSC_END_SHIFT_PER_POINT,
+        -BLOOD_CONSC_END_SHIFT_MAX,
+        BLOOD_CONSC_END_SHIFT_MAX
+    )
+    return clampf(remaining_pct - rate_shift + end_shift, 0.0, 100.0)
 
 
 ## Blood volume % lost per second from summed wound bleed rates (game units).

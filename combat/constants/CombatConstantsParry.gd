@@ -19,16 +19,45 @@ const PARRY_MOVEMENT_MASS_STRENGTH_MAX := 2.0
 const PERF_MOD_MIN := 0.55
 const COMMITMENT_FRACTION := 0.2
 const COMMITMENT_FRACTION_FEINT := 0.35
-const RECOVERY_READINESS_EARLY := 0.5
-const RECOVERY_READINESS_LATE := 0.85
 const OFF_BALANCE_DURATION_S := 0.4
+## Off-balance after a missed attack scales with commitment: a light probe barely disturbs balance,
+## a heavy committed swing that overextends leaves the fighter extended and vulnerable.
+const MISS_OFF_BALANCE_INTENSITY_SCALE_S := 0.3
+## HEMA: a failed feint leaves the attacker more committed than a failed direct strike —
+## the deceptive path (extra wind-up, body rotation, blade on a different arc) makes recovery
+## slower. This extra time is added to the base off-balance when the missed/deflected move was a feint.
+const FEINT_COMMIT_OFF_BALANCE_EXTRA_S := 0.25
+## HEMA: a whiffed or parried thrust/lunge commits the body far forward — the center of gravity is
+## well past the feet, making recovery harder than for a cutting swing of the same intensity.
+## Additive on top of the base off-balance window.
+const THRUST_COMMIT_OFF_BALANCE_EXTRA_S := 0.20
+
+
 const OFF_BALANCE_DEFLECT_DURATION_S := 1.0          ## Base off-balance after parry deflect — extends beyond recovery so the action_ready surcharge fires.
 const OFF_BALANCE_PARRY_CAPACITY_MULT := 0.7
-const OFF_BALANCE_GAUGE_FILL_MULT := 0.5
+## HEMA: an off-balance defender's stepping ability is impaired — a compromised center of gravity
+## makes it harder to step away from an incoming strike. Symmetric with the parry-capacity penalty.
+const OFF_BALANCE_DODGE_CHANCE_MULT := 0.80
+## HEMA: an off-balance attacker's strike is weaker — compromised center of gravity reduces
+## transfer of body weight through the weapon. Symmetric with the defensive parry-capacity penalty.
+const OFF_BALANCE_ATTACK_DMG_MULT := 0.7
 ## Additive readiness surcharge (seconds) while off-balance, replacing the multiplicative x2 divisor.
 ## Regaining footing after a heavy exchange is a fixed bounded cost, not a penalty that stacks
 ## multiplicatively with stamina/armor/perf degradation (that stack created 13s+ readiness gaps).
 const OFF_BALANCE_ACTION_READY_EXTRA_S := 1.5
+## Wind-up slow multiplier while off-balance: a fighter who is re-stabilizing (from a hit taken,
+## a whiffed over-extended swing, or a parry-deflect) cannot commit to a new strike at full speed.
+## Wind-up duration is divided by this value (0.85 → ~18% slower). Distinct from the action-ready
+## surcharge (decision delay) and parry capacity reduction (reactive ability): this is the
+## *commitment* cost of re-establishing footing before the next swing.
+const OFF_BALANCE_WINDUP_SLOW_MULT := 0.85
+## Defender who takes a clean hit: impact disrupts bracing/proprioception. Base + intensity-scaled —
+## a heavier blow jolts the stance longer. Distinct from the attacker's off-balance (failed attack,
+## OFF_BALANCE_DURATION_S) and the parry-deflect window (attacker who got parried,
+## OFF_BALANCE_DEFLECT_DURATION_S). Feeds PA_OFF_BALANCE_UNTIL on the defender, which the existing
+## OFF_BALANCE_PARRY_CAPACITY_MULT / OFF_BALANCE_DODGE_CHANCE_MULT / OFF_BALANCE_ATTACK_DMG_MULT / angle-variance paths already read.
+const HIT_DEFENDER_OFF_BALANCE_BASE_S := 0.5
+const HIT_DEFENDER_OFF_BALANCE_INTENSITY_SCALE_S := 0.3
 const PARRY_BONUS_AFTER_DEFLECT_S := 2.0
 const PARRY_BONUS_MULT_MIN := 1.05              ## Marginal parry (low control): 5% capacity boost.
 const PARRY_BONUS_MULT_MAX := 1.15              ## Perfect parry (high control): 15% capacity boost.
@@ -42,14 +71,40 @@ const PARRY_REDIRECT_SKILL_SCALE := 0.35
 const PARRY_REDIRECT_ATTEMPT_RATIO := 3.5
 const PARRY_REDIRECT_ATTEMPT_AGILITY_SCALE := 0.6
 const PARRY_GLANCING_EXPONENT := 0.7
+## Exponent for the glancing-velocity factor on dodge/twist: a dodger avoids late in the attack arc and
+## retains less incoming velocity than a parry-redirect, so the decay curve is steeper (0.5 vs parry 0.7).
+## `glancing_factor(ratio, exp) = ratio^exp` — lower exp → more aggressive velocity loss at partial dodges.
+const DODGE_GLANCING_EXPONENT := 0.5
+## Agility scaling factor for parry-technique variance: a fighter with agility 130 gets 1.0 - 0.15 = 0.85×
+## the base variance range. Higher agility → tighter, more consistent parry timing → less random scatter.
+const PARRY_VARIANCE_AGILITY_SCALE := 0.5
+## Floor for the alignment used in the parry-variance geometry scale (1/alignment). Prevents division by
+## near-zero alignment when the defender's blade is almost perpendicular to the incoming line.
+const PARRY_VARIANCE_GEOM_MIN := 0.2
+## Ceiling for the parry-variance geometry scale (1/alignment). When alignment is very high (nearly face-on),
+## variance is capped so a perfect-angle parry does not produce absurd scatter.
+const PARRY_VARIANCE_GEOM_MAX := 2.5
 const PARRY_REDIRECT_THRUST_BONUS := 0.22
+## Below this fraction of remaining strike energy after a parry, no deflection damage is applied and the
+## defender's guard holds cleanly (a well-executed parry absorbs essentially all of the blow).
+const PARRY_REMAINING_DEFLECT_THRESHOLD := 0.1
+## Above this remaining-energy fraction the parried strike carries enough follow-through to continue as a
+## live strike (the parry did not fully neutralize the attack).
+const PARRY_FOLLOW_THROUGH_THRESHOLD := 0.3
+## Minimum deflection damage before it is applied as a blunt shock to the defender's arm. Suppresses the
+## sub-0.5 noise from light parries so that a clean, light parry is effectively free.
+const PARRY_DEFLECTION_MIN_DAMAGE := 0.5
+## Denominator/ceiling of the deflection-ratio curve: (remaining - PARRY_REMAINING_DEFLECT_THRESHOLD) is
+## clamped to [0, this] so that a full un-parried strike maps to a ratio of 1.0.
+const PARRY_DEFLECTION_RATIO_MAX := 0.9
 const PARRY_REDIRECT_BLUNT_PENALTY := 0.12
 const PARRY_CUT_TO_BLUNT_SHIFT := 0.28
 const PARRY_PENETRATION_ANGLE_MIN := 0.12
-## Minimum penetration angle factor for perfect parry (88% reduction). Scaled from 0.15 to align with clinical
-## data: a perfectly-timed parry blocks ~70-85% of strike force, leaving only glancing contact damage.
-## Legacy: replaced by cosine obliquity model (AttackResolver.penetration_oblique_angle_factor). Kept for harness
-## regression tests. Research confirms grazing angles (>60° from normal) produce near-total deflection.
+## Minimum penetration angle factor for perfect parry (88% reduction). Tuned so a perfectly-timed parry
+## neutralizes most of the incoming strike and leaves only glancing contact damage. Legacy: replaced by the
+## cosine obliquity model (AttackResolver.penetration_oblique_angle_factor), which models deflection as a
+## function of oblique angle — grazing (shallow) angles deflect far more than square-on hits. Kept here for
+## harness regression tests; the value is a design heuristic, not a measured constant.
 const PARRY_PENETRATION_ALIGNMENT_SCALE := 1.0
 ## Minimum alignment for "well-aligned" parry preference (cos(45°) ≈ 0.707). Below this, the guard is too misaligned
 ## to reliably intercept — blade geometry at >45 cannot redirect momentum in HEMA parrying. The decision logic
@@ -88,10 +143,8 @@ const BIND_PRESSURE_DEFENDER_PARRY_CAP_FLOOR: float = 0.70
 const PARRY_BIND_CONTROL_THRESHOLD := 0.48
 const PARRY_CONTROL_ALIGNMENT_FLOOR := 0.15
 ## Thrust-specific parry modifiers — HEMA thrusts are linear commitments with distinct geometry:
-## No-glance: thrust contact is point-based; a glancing blade-parry cannot "slide" off the point like it would a cutting edge.
 ## Linear-commitment penalty: failed thrust parries carry more momentum because the attacker's body is committed forward.
 ## Distinct recovery: deflecting a thrust requires redirecting linear force, which costs different timing than slashing deflection.
-const PARRY_THRUST_NO_GLANCE := false             ## Thrusts can glancing at high obliquity (>cos60) — point contact slides off blade edge.
 const PARRY_THRUST_LINEAR_COMMITMENT_PENALTY := 0.18   ## Extra momentum carry when thrust parry fails (attacker drives through).
 const PARRY_THRUST_RECOVERY_MULT := 1.25           ## Thrust deflections cost 25% more recovery — linear force requires full repositioning.
 const PARRY_DEFLECT_RECOVERY_MULT := 1.20          ## Deflected attacks cost 20% more recovery — blade knocked offline requires extra repositioning.
@@ -215,12 +268,6 @@ const PARRY_LEVERAGE_FLOOR: float = 0.72
 ## use a combination: fuller in distal third for weight reduction, flat or slightly convex proximal section for bind control.
 const BIND_BLADE_WIDTH_FRICTION_MULT: float = 0.12    # per cm of blade width; wider blade = more friction on bind
 const BIND_DEFAULT_BLADE_WIDTH_CM: float = 2.0         # baseline contact width for parry/bind (typical sword blade)
-const BIND_CROSS_SECTION_RIGIDITY_FLOOR: float = 0.70  # minimum control gain from rigid cross-section (flat > hollow ground)
-## Torsional rigidity bonus: fuller-less blades resist twisting during bind, giving better leverage for follow-through.
-## A fully-flat blade has max surface friction but lower torsional stiffness; a deeply-fullered blade has less contact
-## but resists deflection during bind — trade-off modeled via cross-section rigidty factor.
-const BIND_FULLER_RIGIDITY_BONUS: float = 0.15         # bonus control for high-rigidity (less fuller) blades
-
 ## Bind friction from the parrying weapon's blade width (HEMA waffenfühlen). A wider parrying blade has
 ## more contact surface -> more friction -> a better catch. Only blade-contact parries benefit; shaft/haft
 ## parries use leverage, not blade friction, so they return 1.0. The baseline (BIND_DEFAULT_BLADE_WIDTH_CM)
@@ -293,12 +340,6 @@ static func parry_edge_deflect_reached(c_d: float, parry_p_a: float, alignment: 
     return alignment >= PARRY_PARTIAL_GUARD_ALIGNMENT_THRESHOLD and c_d >= parry_p_a * PARRY_DEFLECT_THRESHOLD
 
 
-static func parry_thrust_linear_commitment_bonus(intensity: float) -> float:
-    ## Thrusts carry extra momentum when parried partially — attacker's body drives forward on linear commitment.
-    ## Models the biomechanical reality that a thrust commits weight behind the point; failed parries carry more force.
-    return 1.0 + PARRY_THRUST_LINEAR_COMMITMENT_PENALTY * intensity
-
-
 static func parry_thrust_recovery_mult(intensity: float) -> float:
     ## Thrust deflections cost more recovery time — redirecting linear body-weight momentum requires full blade repositioning.
     ## Scales slightly with intensity: heavier thrusts = more follow-through to absorb.
@@ -319,6 +360,22 @@ static func off_balance_deflect_duration(intensity: float) -> float:
     ## Low intensity: 0.5x base (0.5s). High intensity: 1.0x base (1.0s).
     ## Must exceed typical recovery duration (0.5-1.5s) for the action_ready surcharge to fire.
     return OFF_BALANCE_DEFLECT_DURATION_S * lerpf(0.5, 1.0, clampf(intensity, 0.0, 1.0))
+
+
+static func miss_off_balance_duration(intensity: float) -> float:
+    ## Attacker who whiffs a committed strike stays off-balance longer than a light probe.
+    ## Base is the historical OFF_BALANCE_DURATION_S (0.4s) at zero intensity; a full-committed
+    ## swing adds up to MISS_OFF_BALANCE_INTENSITY_SCALE_S of extra off-balance time.
+    return OFF_BALANCE_DURATION_S + MISS_OFF_BALANCE_INTENSITY_SCALE_S * clampf(intensity, 0.0, 1.0)
+
+
+static func hit_defender_off_balance_duration(intensity: float) -> float:
+    ## Defender who takes a clean hit: impact disrupts bracing/proprioception for a short window.
+    ## Base 0.5s + up to 0.3s scaled by blow intensity (0.5s light -> 0.8s heavy). Shorter than the
+    ## attacker's parry-deflect window (0.5-1.0s) — landing a hit is less disruptive to the *defender's*
+    ## next action than getting parried is to the attacker. Feeds PA_OFF_BALANCE_UNTIL; the existing
+    ## OFF_BALANCE_PARRY_CAPACITY_MULT / OFF_BALANCE_DODGE_CHANCE_MULT / OFF_BALANCE_ATTACK_DMG_MULT / angle-variance paths already read it.
+    return HIT_DEFENDER_OFF_BALANCE_BASE_S + HIT_DEFENDER_OFF_BALANCE_INTENSITY_SCALE_S * clampf(intensity, 0.0, 1.0)
 
 
 static func parry_bonus_mult(parry_control: float) -> float:

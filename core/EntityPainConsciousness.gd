@@ -18,14 +18,14 @@ const DODGE_MIN_REACTION_TIME_S: float = 0.37          # visual + motor response
 const DODGE_WINDUP_DIFF_SCALE: float = 0.08           # sigmoid steepness — wider = smoother transition
 const DODGE_AGI_PERCEPTION_SENSITIVITY: float = 0.4   # agility+perception reduce effective MRT (max -30%)
 
-# Physical step time constraint: human cannot dodge faster than stride/acceleration allows.
-## Even with instant reaction, minimum time to move clear of a strike path depends on:
-## - Stride length: ~0.8-1.2 m for trained fighter (HEMA footwork studies)
-## - Lateral acceleration: ~3-5 m/s² for side-step (biomechanics literature)
-## - Required displacement: ~0.3-0.5 m to clear a blade path (shoulder width / 2 + margin)
-## Pure biomechanics (sqrt(2d/a) with d=0.4 m, a=3-5 m/s²) gives ~0.40-0.52 s; the constant below is a deliberate
-## gameplay floor set lower so fast-attack dodges stay feasible (dodge is separately capped at DODGE_CHANCE_CEILING).
-const DODGE_MIN_STEP_TIME_S: float = 0.28              # trained fighter minimum physical step to clear path (gameplay floor)
+# Physical step time constraint: the movement-execution time to laterally clear a blade path.
+## This is distinct from the reaction time (DODGE_MIN_REACTION_TIME_S, the perceive-decide phase). A full dodge
+## needs both in series; the step term is the physical displacement floor. Biomechanics: t = sqrt(2d/a) with
+## d~0.4 m (clearance = shoulder half-width + blade margin) and a~4 m/s² sustained lateral accel (3-5 m/s² range
+## gives 0.40-0.52 s). Set at the trained-fighter midpoint. (An earlier value, 0.28 s, sat below BOTH the reaction
+## time and this physical floor — an unphysical "gameplay floor"; agency against fast attacks is instead carried by
+## the reaction stat (MRT reduction) and DODGE_CHANCE_CEILING, which is the realistic source of evasion skill.)
+const DODGE_MIN_STEP_TIME_S: float = 0.45              # trained-fighter lateral clear (sqrt(2*0.4/4) ~ 0.45 s)
 
 ## Dodge ceiling — caps the final dodge_chance to match historical HEMA data showing typical
 ## evasion rates of ~25-35% against trained opponents in close combat when windup exceeds MRT.
@@ -43,14 +43,33 @@ const ENCUMBRANCE_PER_KG_STEP_MULT: float = 0.04       # 4% slower per extra kg 
 ## Phase-based model per RESEARCH_concussion_mTBI_combat.md §6b. Phases use proportional weights
 ## from PainConsciousnessConstants.CONCUSSION_PHASE_WEIGHT_* of total capped duration.
 ## Modifiers interpolate continuously between phase boundaries (see get_concussion_phase_info).
-## Concussion trigger threshold: the KE-allocated bone trauma (allocated_bone / head_bone_max) that must be
-## delivered to the skull to trigger the concussion check. 1.2 = a head blow dealing ~20% more bone trauma than
-## the skull's budget (a temple/jaw strike) — above a minor bump (ratio ~1.0) but below a full fracture (3.5).
-## NOTE: this gate is only reachable because the trigger now uses allocated_bone (pre health-pool clamp); with the
-## old clamped to_bone the ratio was always <= 1.0 and this threshold was unreachable (dead code).
-const CONCUSSION_BONE_THRESHOLD_MIN: float = 1.2    # bone damage fraction to trigger concussion check — clinical mTBI requires sustained force well above minor bump, closer to temple/jaw strike threshold
-const CONCUSSION_BONE_THRESHOLD_MAX: float = 3.5    # full fracture => guaranteed (raised from 2.5)
+## Concussion trigger threshold: the transmitted-KE ratio (ke_reaching_skull / sub-region fracture anchor) that
+## must be reached to trigger the concussion check. The trigger passes ke_blunt_bone (post soft-tissue-budget KE
+## actually reaching the skull) over the sub-region fracture anchor (CombatDamageMechanism.blunt_fracture_j_anchor),
+## so ratio 1.0 == the energy needed to FRACTURE the skull at that sub-region. Concussion (mTBI) onset is
+## CLINICALLY BELOW skull fracture (diffuse axonal shearing precedes fracture), so MIN < 1.0: a strong blunt blow
+## that reaches ~75% of fracture energy concusses without necessarily fracturing. Committed mace (~90J impact ->
+## ~65J reaching a 80J scalp anchor = 0.81) and axe (~85J -> 0.75) clear it; sword cuts (~80J -> 0.69), dagger and
+## spear thrusts do not — preserving the KO-weapon identity of blunt arms.
+## NOTE: the old bone-pool ratio (allocated_bone / head_bone_max, threshold 1.2) was dead code — head bone
+## allocation is capped at bone_max (8) so the ratio never exceeded 1.0 and the gate could never fire in combat.
+const CONCUSSION_BONE_THRESHOLD_MIN: float = 0.75   # transmitted-KE ratio (reaching-KE / fracture anchor) to trigger concussion — mTBI onset sits below fracture energy
+const CONCUSSION_BONE_THRESHOLD_MAX: float = 1.5    # 1.5x fracture energy = clearly skull-damaging => near-guaranteed severe concussion; keeps the severity lerp meaningful for the realistic 0.75-1.5 band
 const CONCUSSION_DAMAGE_RATIO_FACTOR: float = 0.2    # damage ratio contribution weight (0-1)
+
+# --- Transient LOC from strong head impact (concussion knockout) ---
+## A head blow whose transmitted-KE ratio clears the mTBI-onset threshold can knock the fighter
+## out cold for a brief window, on top of the lingering cognitive impairment of the recovery
+## phases. Clinically ~10% of concussions cause LOC; here the probability scales with how far
+## past onset the ratio sits (a committed mace ~0.81 has a meaningful KO chance; a sword cut
+## ~0.69 does not), so the mace/axe keep their KO-weapon identity without every head tap K.O.
+const CONCUSSION_LOC_TRIGGER_RATIO: float = 0.75    # same as concussion onset — below this, no LOC possible
+const CONCUSSION_LOC_FULL_RATIO: float = 1.0        # at fracture energy the KO probability ramps to its cap region
+const CONCUSSION_LOC_MIN_PROB: float = 0.10         # ~10% of concussions cause LOC (matches clinical incidence)
+const CONCUSSION_LOC_MAX_PROB: float = 0.80         # cap for impacts well past fracture energy
+const CONCUSSION_LOC_DUR_MIN_S: float = 3.0         # brief blackout for a just-over-threshold hit
+const CONCUSSION_LOC_DUR_MAX_S: float = 18.0        # prolonged blackout for a maximal-severity hit
+const CONCUSSION_LOC_CONSCIOUSNESS_FLOOR: float = 2.0  # below INCAPACITATION_CONSCIOUSNESS_THRESHOLD (5.0) => down
 
 # Rotational acceleration concussion thresholds — Rowson/Duma Virginia Tech helmet tests (2011-2013).
 ## Linear acceleration alone is a poor TBI predictor; rotational acceleration causes diffuse axonal injury
@@ -59,17 +78,37 @@ const CONCUSSION_DAMAGE_RATIO_FACTOR: float = 0.2    # damage ratio contribution
 const CONCUSSION_ROTATIONAL_ACC_THRESHOLD_RAD_S2: float = 8.0    # mild TBI onset (VT 5-star scale)
 const CONCUSSION_ROTATIONAL_ACC_SEVERE_RAD_S2: float = 35.0      # severe TBI / guaranteed concussion
 
+# --- Head rotational-inertia mapping (transmitted head KE -> angular acceleration) ---
+## Rowson/Duma: rotational acceleration, not linear, is the dominant TBI / diffuse-axonal-injury
+## predictor. A weapon impact imparts angular velocity to the head; alpha = omega / dt. I_head and dt
+## are STANDARD biomechanical values (head I about a transverse axis through CG ~0.004-0.006 kg.m^2 in
+## finite-element head models; contact duration 0.005-0.02 s).
+##
+## NOTE: the in-game mild/severe onsets are NOT the raw VT rad/s^2 numbers above — those were never
+## calibrated to this mapping. Instead, try_enter_concussion_from_rotation() is called with mild/severe
+## alpha thresholds ANCHORED TO THE CALIBRATED FRACTURE-ENERGY REFERENCE
+## (rotational_alpha_thresholds_for_fracture_anchor), so I_head / dt / share cancel out of the gate and
+## the trigger reduces to "transmitted-head-KE >= 0.75x fracture energy", mirroring the linear channel's
+## 0.75-1.5 band. The constants below only set the physically-meaningful alpha VALUE logged/used for the
+## mTBI framing. See RESEARCH_concussion_mTBI_combat.md.
+const HEAD_MOMENT_OF_INERTIA_KG_M2: float = 0.005  # head I about transverse axis through CG (standard FE head models)
+const HEAD_IMPACT_DURATION_S: float = 0.01          # standard head-impact contact duration (0.005-0.02 s)
+## Off-center share of transmitted head KE that drives head rotation vs. pure translation. A central
+## strike is all translational; a temple/cheekbone strike is roughly 50/50. Used only for the logged
+## alpha value; it cancels out of the fracture-anchored gate.
+const HEAD_ROTATIONAL_KE_SHARE: float = 0.5
+
 # Clinical phase durations for SIS re-impact window check only (not used as game-time boundaries).
 ## Phase boundary weights are in PainConsciousnessConstants.CONCUSSION_PHASE_WEIGHT_*.
 const CONCUSSION_CRITICAL_DURATION_S: float = 90.0
 
 ## Max total concussion duration for gameplay pacing — caps the computed recovery time.
 ## Clinical data says most adults resolve within ~14 days, but that maps to unrealistic downtime in-game.
-## Capped at ~3 minutes so the full phase progression (critical→acute→subacute→recovery) completes within a single combat encounter.
+## Capped at ~90 s (1.5 min) so the full phase progression (critical→acute→subacute→recovery) completes within a single combat encounter.
 const CONCUSSION_MAX_TOTAL_DURATION_S: float = 90.0
 
 ## Severity-to-duration anchors: mild concussion gets shorter total recovery, severe gets up to MAX.
-const CONCUSSION_MIN_TOTAL_DURATION_S: float = 25.0   # mild (low severity) — ~1 minute
+const CONCUSSION_MIN_TOTAL_DURATION_S: float = 25.0   # mild (low severity) — ~25 s
 
 # --- Adrenaline dump timing (HIGH #5 from biomechanics audit) ---
 ## Simplified clinical model: adrenaline dump is a single sustained combat state (~60-120s), not phased.
@@ -92,8 +131,9 @@ const CONCUSSION_MIN_TOTAL_DURATION_S: float = 25.0   # mild (low severity) — 
 ## Per-entity jitter: each entity gets a unique threshold offset (-5% to +5%) via seeded random,
 ## so not all entities dump simultaneously when crossing the same blood-volume boundary.
 
-const ADRENALINE_DURATION_MIN_S: float = 60.0       # minimum sustained dump duration (acute stress response)
-const ADRENALINE_DURATION_MAX_S: float = 120.0      # max sustained dump before return to baseline
+const ADRENALINE_DURATION_MIN_S: float = 60.0       # minimum post-control decay duration (acute stress response)
+const ADRENALINE_DURATION_MAX_S: float = 120.0      # max post-control decay before return to baseline
+const ADRENALINE_SUSTAIN_ARM_S: float = 60.0        # re-arm window while bleeding keeps the surge sustained
 const ADRENALINE_FINE_MOTOR_PENALTY: float = 0.70   # -30% fine motor precision during surge (epinephrine effect)
 const ADRENALINE_PAIN_SUPPRESSION: float = 0.50     # -50% pain perception during surge
 
@@ -172,20 +212,30 @@ static func _set_adrenaline_cooldown(entity: Node, current_time: float) -> void:
 
 
 static func try_enter_adrenaline_dump(entity: Node, severity_factor: float = 1.0) -> void:
-	# Check cooldown — prevent repeated adrenaline dumps from trivial trauma (clinical refractory period).
-	if entity.has_method("_get_adrenaline_cooldown_until"):
-		var cooldown_until: float = entity._get_adrenaline_cooldown_until()
-		if cooldown_until > 0.0 and entity._get_game_time_seconds() < cooldown_until:
-			return  # Still in cooldown — no new dump allowed
-	# Check if already active
-	if entity.has_method("_get_adrenaline_dump_until_time") and entity._get_adrenaline_dump_until_time() >= entity._get_game_time_seconds():
+	var now: float = entity._get_game_time_seconds()
+	var bleeding: bool = _is_actively_bleeding(entity)
+	# Sustained sympathetic arousal under active hemorrhage. A bleeding fighter is under a PERSISTENT
+	# stressor, so an in-progress surge is EXTENDED rather than allowed to fade and re-trigger on a
+	# refractory cooldown ("on/off pulse" removed — see RESEARCH_adrenaline_hemorrhage.md §1b).
+	if entity.has_method("_get_adrenaline_dump_until_time") and entity._get_adrenaline_dump_until_time() >= now:
+		if bleeding:
+			entity._set_adrenaline_dump_until_time(now + _compute_adrenaline_dump_duration(severity_factor))
+			if entity.has_method("_get_adrenaline_phase") and entity._get_adrenaline_phase() != "surge":
+				entity._set_adrenaline_phase("surge")
 		return
+	# Cooldown is a true neuro-refractory period for a NEW dump, but must not create a physiologic gap
+	# while the fighter is still bleeding — an off-cycle under active hemorrhage is not clinically real.
+	if not bleeding and entity.has_method("_get_adrenaline_cooldown_until"):
+		var cooldown_until: float = entity._get_adrenaline_cooldown_until()
+		if cooldown_until > 0.0 and now < cooldown_until:
+			return  # Still in cooldown — no new dump allowed (only when not actively bleeding)
 	# Blood-volume gate with probabilistic trigger. Adrenaline is a catecholamine surge triggered by baroreceptor-mediated
 	# sympathetic activation during hemorrhage/acute stress (not deterministic at a single threshold). Clinical kinetics:
 	# Class I (<15% loss): minimal response — no dump expected.
 	# Class II (15-30% loss, 70-85% remaining): baroreceptor detection → epinephrine/norepinephrine release begins;
 	#   onset varies by individual training/stress tolerance. Modeled as probability ramp from ~75% down to ~60%.
-	# Class III (30-40% loss, 60-70% remaining): catecholamine surge peaks — deterministic trigger if cooldown allows.
+	# Class III (30-40% loss, 60-70% remaining): catecholamine surge peaks — deterministic trigger while bleeding;
+	#   while actively bleeding the surge sustains (no refractory off-cycle — see RESEARCH_adrenaline_hemorrhage.md §1b).
 	# Class IV (>40% loss, <60% remaining): decompensated shock — baroreceptor failure means sympathetic response collapses;
 	#   no new dumps below absolute floor (patient is in crisis mode).
 	var blood_pct: float = clampf(float(entity.blood_volume), 0.0, 100.0) if "blood_volume" in entity else 100.0
@@ -218,12 +268,12 @@ static func try_enter_adrenaline_dump(entity: Node, severity_factor: float = 1.0
 	# Probabilistic check — roll for adrenaline dump with computed probability.
 	if randf() >= trigger_prob:
 		return  # Roll failed — no dump this tick (will re-evaluate on next hit/tick)
-	# Single sustained duration — no surge/plateau/crash phases per clinical data.
-	var duration: float = randf_range(ADRENALINE_DURATION_MIN_S, ADRENALINE_DURATION_MAX_S) * severity_factor
-	duration = clampf(duration, ADRENALINE_DURATION_MIN_S * 0.5, ADRENALINE_DURATION_MAX_S * 1.5)
+	# Single sustained duration — no surge/plateau/crash phases per clinical data. This duration governs
+	# post-control decay to baseline; while bleeding, tick_adrenaline_dump keeps it armed (sustained).
+	var duration: float = _compute_adrenaline_dump_duration(severity_factor)
 	entity._set_adrenaline_dump_until_time(entity._get_game_time_seconds() + duration)
 	entity._set_adrenaline_phase("surge")  # Simplified: always "surge" — single sustained state
-	# Set cooldown to prevent re-triggering within 2 minutes
+	# Record the neuro-refractory cooldown for NEW dumps (only enforced when not actively bleeding).
 	_set_adrenaline_cooldown(entity, entity._get_game_time_seconds())
 	var effective_trigger_pct: float = ADRENALINE_TRIGGER_RAMP_MAX_REMAINING + threshold_jitter
 	var severity: float = severity_factor
@@ -237,15 +287,39 @@ static func tick_adrenaline_dump(entity: Node) -> void:
 	if entity.has_method("_get_adrenaline_dump_until_time") and entity._get_adrenaline_dump_until_time() <= 0.0:
 		return
 	var now: float = entity._get_game_time_seconds()
+	# Sustained sympathetic arousal: while the fighter is ACTIVELY bleeding, the hemorrhage is a persistent
+	# stressor — the surge does NOT return to baseline mid-bleed. Keep it armed until bleeding is controlled.
+	# (See RESEARCH_adrenaline_hemorrhage.md §1b.) Expiry only applies once the stressor (bleeding) resolves.
+	if _is_actively_bleeding(entity):
+		if entity.has_method("_get_adrenaline_dump_until_time") and now >= entity._get_adrenaline_dump_until_time():
+			entity._set_adrenaline_dump_until_time(now + ADRENALINE_SUSTAIN_ARM_S)
+		if entity.has_method("_get_adrenaline_phase") and entity._get_adrenaline_phase() != "surge":
+			entity._set_adrenaline_phase("surge")
+		return
+	# Not bleeding anymore: stressor resolved → surge decays to baseline on its timer (norepinephrine clearance).
 	if entity.has_method("_get_adrenaline_dump_until_time") and now >= entity._get_adrenaline_dump_until_time():
 		entity._set_adrenaline_dump_until_time(-1.0)
 		entity._set_adrenaline_phase("")
 		return
-	# Simplified: single sustained state — no phase transitions (surge→plateau→crash removed).
-	# Adrenaline dumps sustain for a single duration then return to baseline without crash penalty.
-	if entity.has_method("_get_adrenaline_dump_until_time") and now < entity._get_adrenaline_dump_until_time():
-		if entity.has_method("_get_adrenaline_phase") and entity._get_adrenaline_phase() != "surge":
-			entity._set_adrenaline_phase("surge")
+	if entity.has_method("_get_adrenaline_phase") and entity._get_adrenaline_phase() != "surge":
+		entity._set_adrenaline_phase("surge")
+
+
+## True while the entity is still losing blood — the persistent stressor that keeps sympathetic arousal up.
+static func _is_actively_bleeding(entity: Node) -> bool:
+	if entity.has_method("_get_total_bleeding_rate"):
+		return entity._get_total_bleeding_rate() > BleedingConstants.BLEEDING_RATE_EPSILON
+	if entity.has_method("get_total_bleeding_rate"):
+		return float(entity.call("get_total_bleeding_rate")) > BleedingConstants.BLEEDING_RATE_EPSILON
+	return false
+
+
+## Randomized surge duration (also used to re-arm the sustained dump while bleeding); clamp keeps a sane window.
+## Clinical: catecholamine surge sustains 60-90s before returning to baseline (RESEARCH_adrenaline_hemorrhage.md §2a).
+## Floor at MIN_S (60s) — a dump below the clinical surge window is physiologically inaccurate.
+static func _compute_adrenaline_dump_duration(severity_factor: float) -> float:
+	var duration: float = randf_range(ADRENALINE_DURATION_MIN_S, ADRENALINE_DURATION_MAX_S) * severity_factor
+	return clampf(duration, ADRENALINE_DURATION_MIN_S, ADRENALINE_DURATION_MAX_S * 1.5)
 
 
 # Phase-based perception/cognitive/balance/reaction/visual/spatial modifiers interpolate continuously in
@@ -269,13 +343,19 @@ const SIS_SEVERITY_MULTIPLIER_LATE: float = 1.75         # 15min - 2hr — per r
 const PAIN_CONCUSSION_SYNERGY_FACTOR: float = 0.30      # 30% additional impairment when both present (Gosselin et al.)
 
 # Cumulative concussion tracking — each successive concussion in a session has increasing severity and longer recovery.
-## Reflects cumulative brain injury from repeated head trauma (chronic traumatic encephalopathy precursor).
+## Clinical basis (Giza & Hovda, J Neurotrauma 2014;元في Union 2015): repeated concussions within hours
+## produce metabolically vulnerable brain tissue — energy crisis compounds with each hit. SIS research
+## (§6d) shows re-impact within the vulnerability window multiplies severity ×3-5x. These bonuses model
+## the sub-threshold cumulative effect: each prior concussion extends the metabolic vulnerability window
+## and amplifies the next hit's severity. The 15%/20% rates are calibrated to produce 3 cumulative hits
+## reaching ~SIS Early-tier severity (×2-3x), consistent with clinical observations that 3+ concussions
+## within 24 hours significantly worsen outcomes.
 const CONCUSSION_CUMULATIVE_SEVERITY_BONUS: float = 0.15 # +15% severity per prior concussion in same session
 const CONCUSSION_CUMULATIVE_DURATION_BONUS: float = 0.20 # +20% duration per prior concussion
 
 # Persistent concussion fatigue — cumulative brain impairment from repeated sub-threshold concussions.
 ## Each concussion adds a small persistent penalty (based on severity) that lingers after the phase-based effects resolve.
-## Cleared by rest/recuperation between sessions via clear_concussion_fatigue(). Cap at 0.45 to prevent total incapacitation.
+## Cap at 0.45 to prevent total incapacitation.
 const CONCUSSION_PERSISTENT_FATIGUE_PER_HIT: float = 0.12 # max fatigue contribution per concussion hit
 
 # --- Pain contribution (single wound; used for pain-shock from hit) ---
@@ -391,8 +471,16 @@ static func get_blood_consciousness_modifier(entity: Node) -> float:
 	var raw_bv: float = 100.0
 	if "blood_volume" in entity:
 		raw_bv = float(entity.blood_volume)
+	var effective_remaining: float = clampf(raw_bv, 0.0, 100.0)
+	if BleedingConstants.FEATURE_ATLS_STEPPED_BLOOD_CONSCIOUSNESS:
+		var rate_pct_per_s: float = BleedingConstants.blood_volume_loss_per_second(
+			EntityWounds.get_total_bleeding_rate(entity)
+		)
+		effective_remaining = BleedingConstants.adjusted_remaining_for_consciousness(
+			effective_remaining, rate_pct_per_s, _effective_endurance(entity)
+		)
 	return BleedingConstants.blood_consciousness_modifier_from_remaining(
-		clampf(raw_bv, 0.0, 100.0),
+		effective_remaining,
 		PainConsciousnessConstants.BLOOD_CONSCIOUSNESS_START_THRESHOLD,
 		PainConsciousnessConstants.BLOOD_CONSCIOUSNESS_FLOOR_THRESHOLD,
 		PainConsciousnessConstants.BLOOD_CONSCIOUSNESS_REDUCTION_MAX
@@ -562,11 +650,20 @@ static func update_consciousness(entity: Node) -> void:
 		base_consciousness = minf(base_consciousness, 12.0)
 	var blood_mod: float = get_blood_consciousness_modifier(entity)
 	var true_consciousness: float = base_consciousness * blood_mod
-	# Adrenaline pain suppression — catecholamine surge reduces pain perception by ~50% during sustained dump.
-	# At Class III+ hemorrhage, this effect is progressively negated (receptor desensitization).
+	# Pain-shock consciousness daze — acute pain crisis reduces effective consciousness by up to
+	# PAIN_SHOCK_CONSCIOUSNESS_REDUCTION (−50%). Without adrenaline the full daze applies; during a
+	# catecholamine surge the adrenaline's pain_suppression_mult dampens it (adrenaline masks pain).
+	# At Class III+ hemorrhage, receptor desensitization progressively negates the adrenaline masking.
 	var now_check: float = CombatTiming.now_seconds()
+	# Transient concussion LOC: a strong head impact (rolled in _maybe_apply_concussion_loc) drops the
+	# fighter to a consciousness floor below the incapacitation threshold for a brief window, so
+	# is_unconscious() returns true and the fighter is down; value reverts to base×blood when it expires.
+	if is_concussed(entity):
+		var loc_until: float = float(entity.get_meta("_concussion_loc_until_time", 0.0))
+		if now_check < loc_until:
+			true_consciousness = minf(true_consciousness, CONCUSSION_LOC_CONSCIOUSNESS_FLOOR)
 	var adrenaline_info: Dictionary = _get_adrenaline_phase_info(entity)
-	var ad_pain_suppression: float = ADRENALINE_PAIN_SUPPRESSION
+	var ad_pain_suppression: float = 1.0
 	if entity._pain_shock_until_time >= 0.0 and now_check < entity._pain_shock_until_time:
 		if adrenaline_info.get("phase", "none") != "none":
 			ad_pain_suppression = adrenaline_info.get("pain_suppression_mult", ADRENALINE_PAIN_SUPPRESSION)
@@ -668,9 +765,11 @@ static func get_performance_modifier(entity: Node) -> float:
 		var interaction: float = pain_shock_reduction * conc_reduction * PAIN_CONCUSSION_SYNERGY_FACTOR
 		synergy_mult = maxf(1.0 - interaction, 0.0)
 	base_mod *= synergy_mult
-	# Pain shock independently degrades performance (acute stress reaction impairs combat function).
-	if pain_shock_reduction > 0.0:
-		base_mod *= maxf(PainConsciousnessConstants.MIN_PERFORMANCE_MODIFIER, 1.0 - pain_shock_reduction)
+	# NOTE: the pain-shock performance cost is applied ONCE, through the effective_consciousness
+	# daze in _update_consciousness (which flows into get_combined_performance_modifier via `cons`).
+	# A second multiplicative `(1 - pain_shock_reduction)` here would double-count the same acute
+	# impairment. The synergy cross-term above is a DISTINCT pain+TBI interaction (Gosselin 2012),
+	# not a second copy of the pain-shock effect, so it is retained.
 	# Apply balance impairment (affects movement/dodge).
 	base_mod *= conc_balance_mult
 	# Apply visual tracking impairment (affects hit chance/parry timing).
@@ -682,7 +781,7 @@ static func get_performance_modifier(entity: Node) -> float:
 	if sis_ko_until > CombatTiming.now_seconds():
 		return PainConsciousnessConstants.MIN_PERFORMANCE_MODIFIER
 	# Apply spatial judgment impairment — misjudged distance/timing degrades combat accuracy.
-	# Baseline simple reaction ~150ms; +450ms spatial error = 3x degradation at critical phase.
+	# Baseline parry window ~240ms; onset 500ms spatial error ≈ 68% penalty at critical phase.
 	if is_concussed(entity):
 		var base_reaction_ms: float = PASSIVE_PARRY_BASE_REACTION_S * 1000.0 # ~240ms baseline parry window
 		var spatial_penalty: float = 1.0 - clampf(spatial_ms_add / (spatial_ms_add + base_reaction_ms), 0.0, 0.85)
@@ -866,6 +965,15 @@ static func get_passive_parry_reaction_time(entity: Node) -> float:
 		var concussion_info: Dictionary = get_concussion_phase_info(entity)
 		var reaction_ms_add: float = concussion_info.get("reaction_time_ms_add", 0.0)
 		base_reaction += reaction_ms_add / 1000.0
+	# Progressive hypovolemic reaction-time impairment: cerebral hypoperfusion slows neuromuscular
+	# response as blood volume drops (ATLS Class I-IV). Mirrors the hypovolemic cognitive mod in
+	# get_performance_modifier — same 85% threshold and ramp shape — applied to the parry window.
+	if "blood_volume" in entity:
+		var blood_pct: float = clampf(float(entity.blood_volume), 0.0, 100.0)
+		if blood_pct < 85.0:
+			var hypovolemia_severity: float = (85.0 - blood_pct) / 85.0
+			var reaction_slow: float = lerpf(1.0, PainConsciousnessConstants.HYPOVOLUME_REACTION_TIME_SLOW_MULT, clampf(hypovolemia_severity * 1.5, 0.0, 1.0))
+			base_reaction *= reaction_slow
 	return base_reaction
 
 
@@ -974,6 +1082,7 @@ static func try_enter_concussion_from_head_bone_damage(entity: Node, bone_damage
 			CombatDebug.combat_session(
 				"concussion_reimpact %s bone_damage=%.2f cumulative=%d total_recovery=%.1fs" % [who, bone_damage_ratio, cumulative_count + 1, float(entity.get_meta("_concussion_until_time", 0.0)) - current_time]
 			)
+		_maybe_apply_concussion_loc(entity, current_time, bone_damage_ratio, new_weighted_severity)
 		return
 	# Initial concussion — set phase-based recovery timeline.
 	## First impact uses no SIS multiplier (SIS only applies to re-impacts during healing).
@@ -996,12 +1105,78 @@ static func try_enter_concussion_from_head_bone_damage(entity: Node, bone_damage
 		CombatDebug.combat_session(
 			"concussion_entered %s bone_damage=%.2f cumulative=%d recovery=%.1fs" % [who, bone_damage_ratio, cumulative_count + 1, total_recovery_s]
 		)
+	_maybe_apply_concussion_loc(entity, current_time, bone_damage_ratio, final_weighted_severity)
+
+
+## Transient LOC (concussion knockout): a head blow whose transmitted-KE ratio clears the mTBI-onset
+## threshold may knock the fighter out cold for a brief window, layered on top of the lingering
+## recovery-phase impairment. Probability ramps with how far past onset the ratio sits (a committed
+## mace ~0.81 has a real KO chance; a sword cut ~0.69, below onset, never does). Duration scales with
+## the impact's severity. Uses a dedicated seeded RNG (like the torso internal-bleed roll) so the
+## outcome is deterministic per (entity, time) and does NOT consume the global RNG sequence.
+static func _maybe_apply_concussion_loc(entity: Node, current_time: float, transmitted_ratio: float, severity: float) -> void:
+	if transmitted_ratio < CONCUSSION_LOC_TRIGGER_RATIO:
+		return
+	var prob_t: float = clampf(
+		(transmitted_ratio - CONCUSSION_LOC_TRIGGER_RATIO) / maxf(CONCUSSION_LOC_FULL_RATIO - CONCUSSION_LOC_TRIGGER_RATIO, 0.001),
+		0.0, 1.0
+	)
+	var prob: float = lerpf(CONCUSSION_LOC_MIN_PROB, CONCUSSION_LOC_MAX_PROB, prob_t)
+	var loc_seed: int = hash("%s:concloc:%d" % [_session_entity_label(entity), int(current_time * 1000.0)])
+	var loc_rng := RandomNumberGenerator.new()
+	loc_rng.seed = loc_seed
+	if loc_rng.randf() >= prob:
+		return
+	var loc_dur: float = lerpf(CONCUSSION_LOC_DUR_MIN_S, CONCUSSION_LOC_DUR_MAX_S, clampf(severity, 0.0, 1.0))
+	entity.set_meta("_concussion_loc_until_time", current_time + loc_dur)
+	# Persistent flag so the weapon-sweep harness can count transient-KO events even after the
+	# LOC window expires and consciousness recovers.
+	entity.set_meta("_ever_concussion_loc", true)
+	CombatDebug.combat_session(
+		"concussion_loc %s ratio=%.2f prob=%.2f dur=%.1fs" % [_session_entity_label(entity), transmitted_ratio, prob, loc_dur]
+	)
+
+
+## Head angular acceleration (rad/s^2) imparted by a head impact carrying `ke_head_transmitted_j`
+## of post-armor KE, assuming `HEAD_ROTATIONAL_KE_SHARE` of it manifests as head rotation.
+## alpha = sqrt(2 * KE_rot / I_head) / dt. Monotonic in KE, so it is a valid proxy for "how hard the
+## head spun" even though the absolute rad/s^2 value depends on I_head / dt / share.
+static func head_rotational_accel_rad_s2(
+	ke_head_transmitted_j: float,
+	i_head_kg_m2: float = HEAD_MOMENT_OF_INERTIA_KG_M2,
+	impact_duration_s: float = HEAD_IMPACT_DURATION_S
+) -> float:
+	if ke_head_transmitted_j <= 0.0:
+		return 0.0
+	var ke_rot: float = ke_head_transmitted_j * HEAD_ROTATIONAL_KE_SHARE
+	var omega: float = sqrt(2.0 * ke_rot / maxf(i_head_kg_m2, 0.0001))
+	return omega / maxf(impact_duration_s, 0.0001)
+
+
+## Fracture-energy-anchored mild/severe alpha thresholds for the rotational channel. Mild onset at
+## 0.75x fracture energy (matches CONCUSSION_BONE_THRESHOLD_MIN); severe at 1.5x fracture energy
+## (matches CONCUSSION_BONE_THRESHOLD_MAX "clearly skull-damaging"). Because alpha is a monotonic
+## function of transmitted KE, computing the thresholds with the same head_rotational_accel_rad_s2()
+## mapping makes I_head / dt / share cancel out of the gate: the trigger reduces to
+## transmitted-head-KE in the 0.75-1.5x fracture-energy band, the same band the linear channel uses.
+static func rotational_alpha_thresholds_for_fracture_anchor(fracture_anchor_j: float) -> Array:
+	return [
+		head_rotational_accel_rad_s2(0.75 * fracture_anchor_j),
+		head_rotational_accel_rad_s2(1.5 * fracture_anchor_j),
+	]
 
 
 ## Rotational acceleration concussion check — Rowson/Duma VT helmet test scale.
 ## Called from strike resolution when angular velocity data is available (blunt impacts, weapon swings).
 ## Rotational forces cause diffuse axonal injury via white matter tract shearing; more damaging than linear alone.
-static func try_enter_concussion_from_rotation(entity: Node, rotational_accel_rad_s2: float) -> void:
+## `mild_alpha` / `severe_alpha` are the onset/severe thresholds in rad/s^2; defaults are the raw VT
+## numbers, but the damage pipeline passes fracture-anchored values (see above).
+static func try_enter_concussion_from_rotation(
+	entity: Node,
+	rotational_accel_rad_s2: float,
+	mild_alpha: float = CONCUSSION_ROTATIONAL_ACC_THRESHOLD_RAD_S2,
+	severe_alpha: float = CONCUSSION_ROTATIONAL_ACC_SEVERE_RAD_S2
+) -> void:
 	if not entity.has_method("_get_vital_parts"):
 		return
 	var vital_parts: Array = entity._get_vital_parts()
@@ -1012,15 +1187,15 @@ static func try_enter_concussion_from_rotation(entity: Node, rotational_accel_ra
 	var current_until: float = 0.0
 	if entity.has_meta("_concussion_until_time"):
 		current_until = float(entity.get_meta("_concussion_until_time", 0.0))
-	if rotational_accel_rad_s2 < CONCUSSION_ROTATIONAL_ACC_THRESHOLD_RAD_S2:
+	if rotational_accel_rad_s2 < mild_alpha:
 		return
-	## Severity based on VT scale: 8-35 rad/s² = mild, >35 = severe.
+	## Severity: lerp 0->1 between mild_alpha and severe_alpha, capped at 1.0 at/above severe.
 	var severity: float
-	if rotational_accel_rad_s2 >= CONCUSSION_ROTATIONAL_ACC_SEVERE_RAD_S2:
+	if rotational_accel_rad_s2 >= severe_alpha:
 		severity = 1.0
 	else:
-		severity = (rotational_accel_rad_s2 - CONCUSSION_ROTATIONAL_ACC_THRESHOLD_RAD_S2) / \
-			(CONCUSSION_ROTATIONAL_ACC_SEVERE_RAD_S2 - CONCUSSION_ROTATIONAL_ACC_THRESHOLD_RAD_S2)
+		severity = (rotational_accel_rad_s2 - mild_alpha) / \
+			(severe_alpha - mild_alpha)
 	severity = clampf(severity, 0.0, 1.0)
 	## SIS re-impact check (same logic as linear path).
 	var cumulative_count: int = 0
@@ -1040,6 +1215,10 @@ static func try_enter_concussion_from_rotation(entity: Node, rotational_accel_ra
 			entity.set_meta("_concussion_until_time", current_time + total_recover_s)
 		entity.set_meta("_cumulative_concussion_count", cumulative_count + 1)
 		entity.set_meta("_last_concussion_time", current_time)
+		CombatDebug.combat_session(
+			"concussion_rot_reimpact %s alpha=%.1f rad/s^2 sev=%.2f cumulative=%d"
+			% [_session_entity_label(entity), rotational_accel_rad_s2, new_severity, cumulative_count + 1]
+		)
 		if OperationalLog.play_session_is_editor_f5():
 			var who: String = _session_entity_label(entity)
 			CombatF5SoakTrace.note_concussion_entry(who, severity, float(entity.get_meta("_concussion_until_time", 0.0)) - current_time)
@@ -1054,6 +1233,10 @@ static func try_enter_concussion_from_rotation(entity: Node, rotational_accel_ra
 	entity.set_meta("_last_concussion_time", current_time)
 	var init_fatigue: float = minf(severity * CONCUSSION_PERSISTENT_FATIGUE_PER_HIT, 0.12)
 	entity.set_meta("_concussion_persistent_fatigue", clampf(init_fatigue, 0.0, 0.45))
+	CombatDebug.combat_session(
+		"concussion_rot_entered %s alpha=%.1f rad/s^2 sev=%.2f recovery=%.1fs"
+		% [_session_entity_label(entity), rotational_accel_rad_s2, final_severity, total_recovery_s]
+	)
 	if OperationalLog.play_session_is_editor_f5():
 		var who: String = _session_entity_label(entity)
 		CombatF5SoakTrace.note_concussion_entry(who, severity, total_recovery_s)
@@ -1116,10 +1299,10 @@ static func get_concussion_phase_info(entity: Node) -> Dictionary:
 		var frac: float = clampf((elapsed - 0.0) / phase_dur, 0.0, 1.0)
 		# Interpolate within critical phase (start=offset from prior phase or initial values, end=critical->acute boundary).
 		perception_mult = lerp(0.35, 0.42, frac) # clinical data: 0.25-0.40 at onset; slight improvement even within critical
-		reaction_time_ms_add = lerp(500.0, 460.0, frac)
+		reaction_time_ms_add = lerp(150.0, 100.0, frac) # research §6c: critical +100-150ms (complex reaction delay)
 		balance_mult = lerp(0.50, 0.53, frac)
 		visual_tracking_mult = lerp(0.30, 0.35, frac)
-		spatial_judgment_ms_add = lerp(480.0, 440.0, frac)
+		spatial_judgment_ms_add = lerp(500.0, 300.0, frac) # research §6c: critical +400-500ms (onset=top)
 		decision_quality_mult = lerp(0.30, 0.38, frac)
 		healing_mult = lerp(PainConsciousnessConstants.CONCUSSION_HEALING_CRITICAL_MULT, PainConsciousnessConstants.CONCUSSION_HEALING_CRITICAL_MULT, frac)
 	elif elapsed < acute_end:
@@ -1128,10 +1311,10 @@ static func get_concussion_phase_info(entity: Node) -> Dictionary:
 		var phase_dur: float = maxf(acute_end - critical_end, 0.01)
 		var frac: float = clampf((elapsed - critical_end) / phase_dur, 0.0, 1.0)
 		perception_mult = lerp(0.42, 0.60, frac) # recovers from critical boundary to acute-end value
-		reaction_time_ms_add = lerp(460.0, 300.0, frac)
+		reaction_time_ms_add = lerp(100.0, 40.0, frac) # research §6c: acute +60-100ms; continuity from critical-end (100)
 		balance_mult = lerp(0.53, 0.70, frac)
 		visual_tracking_mult = lerp(0.35, 0.55, frac)
-		spatial_judgment_ms_add = lerp(440.0, 240.0, frac)
+		spatial_judgment_ms_add = lerp(300.0, 100.0, frac) # research §6c: acute +200-300ms; continuity from critical-end (300)
 		decision_quality_mult = lerp(0.38, 0.60, frac)
 		healing_mult = lerp(PainConsciousnessConstants.CONCUSSION_HEALING_CRITICAL_MULT, PainConsciousnessConstants.CONCUSSION_HEALING_ACUTE_MULT, frac)
 	elif elapsed < subacute_end:
@@ -1140,10 +1323,10 @@ static func get_concussion_phase_info(entity: Node) -> Dictionary:
 		var phase_dur: float = maxf(subacute_end - acute_end, 0.01)
 		var frac: float = clampf((elapsed - acute_end) / phase_dur, 0.0, 1.0)
 		perception_mult = lerp(0.60, 0.85, frac) # continuity from acute-end value of 0.60
-		reaction_time_ms_add = lerp(300.0, 140.0, frac) # continuity from acute-end value of 300
+		reaction_time_ms_add = lerp(40.0, 15.0, frac) # research §6c: subacute +15-40ms; continuity from acute-end (40)
 		balance_mult = lerp(0.70, 0.88, frac) # continuity from acute-end value of 0.70
 		visual_tracking_mult = lerp(0.55, 0.80, frac) # continuity from acute-end value of 0.55
-		spatial_judgment_ms_add = lerp(240.0, 90.0, frac) # continuity from acute-end value of 240
+		spatial_judgment_ms_add = lerp(100.0, 30.0, frac) # research §6c: subacute +50-100ms; continuity from acute-end (100)
 		decision_quality_mult = lerp(0.60, 0.88, frac) # continuity from acute-end value of 0.60
 		healing_mult = lerp(PainConsciousnessConstants.CONCUSSION_HEALING_ACUTE_MULT, PainConsciousnessConstants.CONCUSSION_HEALING_SUBACUTE_MULT, frac)
 	else:
@@ -1152,10 +1335,10 @@ static func get_concussion_phase_info(entity: Node) -> Dictionary:
 		var phase_dur: float = maxf(total_duration - subacute_end, 0.01)
 		var frac: float = clampf((elapsed - subacute_end) / phase_dur, 0.0, 1.0)
 		perception_mult = lerp(0.85, 1.0, frac) # recovers to full baseline by end of recovery
-		reaction_time_ms_add = lerp(140.0, 0.0, frac)
+		reaction_time_ms_add = lerp(15.0, 0.0, frac) # research §6c: recovery +5-15ms; continuity from subacute-end (15)
 		balance_mult = lerp(0.88, 1.0, frac)
 		visual_tracking_mult = lerp(0.80, 1.0, frac)
-		spatial_judgment_ms_add = lerp(90.0, 0.0, frac)
+		spatial_judgment_ms_add = lerp(30.0, 0.0, frac) # research §6c: recovery +10-30ms; continuity from subacute-end (30)
 		decision_quality_mult = lerp(0.88, 1.0, frac)
 		healing_mult = lerp(PainConsciousnessConstants.CONCUSSION_HEALING_SUBACUTE_MULT, PainConsciousnessConstants.CONCUSSION_HEALING_RECOVERY_MULT, frac)
 
@@ -1307,12 +1490,6 @@ static func get_persistent_concussion_fatigue(entity: Node) -> float:
 	if entity.has_meta("_concussion_persistent_fatigue"):
 		return clampf(float(entity.get_meta("_concussion_persistent_fatigue", 0.0)), 0.0, 1.0)
 	return 0.0
-
-
-static func clear_concussion_fatigue(entity: Node) -> void:
-	"""Clear persistent concussion fatigue — call after extended rest or between campaign sessions."""
-	if entity.has_method("set_meta"):
-		entity.set_meta("_concussion_persistent_fatigue", 0.0)
 
 
 static func apply_attacker_windup_concussion_mult(_manager: Variant, attacker: Dictionary, wind_up_s: float) -> float:

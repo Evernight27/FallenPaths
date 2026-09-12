@@ -494,18 +494,6 @@ static func format_report(result: Dictionary) -> String:
     return "\n".join(lines)
 
 
-static func format_all_reports(reports: Dictionary) -> String:
-    var lines := PackedStringArray()
-    for name in reports:
-        lines.append("")
-        var sep := ""
-        for _i in 60:
-            sep += "="
-        lines.append(sep)
-        lines.append(format_report(reports[name]))
-    return "\n".join(lines)
-
-
 # --- Harness integration ---
 
 

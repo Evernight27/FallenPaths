@@ -24,7 +24,9 @@ const REFERENCE_HUMAN_ARM_TISSUE_DISPLAY := 20
 const REFERENCE_HUMAN_LEG_TISSUE_DISPLAY := 24
 
 ## HEMA committed oberhau strict audit band (S1 / `.calibration_audit.txt` `audit_KE_arm_strict_65-145J`).
-## Based on force-plate measurements: Lehmann 2013, Schmidt chronometry — trained fighters deliver 65-145J committed longsword cuts.
+## Committed longsword cuts measured in high-speed / force-plate HEMA work land in the ~65-145 J band
+## (a ~1.3 kg sword at ~10-15 m/s effective tip speed gives ~50-120+ J). A realistic committed-strike KE
+## range for audit purposes; not a single cited measurement.
 const COMMITTED_STRIKE_KE_J_MIN := 65.0
 const COMMITTED_STRIKE_KE_J_MAX := 145.0
 
@@ -82,9 +84,10 @@ static func ke_band_min_max_for_weapon(weapon_id: String, kinematic_delivery: St
             # Band-min lowered from 55J to 40J; swing at i=0.6 lands ~38-45J, committed (~0.75) ~50-60J with inertia_scale=0.80 (pure physics).
             return Vector2(40.0, 155.0)
         "MACE":
-            # Committed-delivery band from the template's rotational physics: I≈0.415 kg·m² (head 0.7 + shaft
-            # 0.3, ×inertia_scale 0.80), lever r=0.625 m (head COM from grip). Committed overhead i=1 → v≈13.1 m/s
-            # → ω=v/r≈21 rad/s → KE≈91 J (pure physics, no e_mult); a quick low/side blow (i≈0.4) lands ~40 J.
+            # Committed-delivery band from the template's rotational physics: I≈0.518 kg·m² (head 0.7 + shaft
+            # 0.3, inertia_scale 1.0), lever r=0.625 m (head COM from grip). Committed i=1 → v=14.0 m/s
+            # → ω=v/r≈22.4 rad/s → KE≈130 J (matches calibration audit mace_direct i=1.0); a quick
+            # low/side blow (i≈0.4) lands near the ~40 J floor.
             return Vector2(40.0, 190.0)
         "SPEAR":
             return Vector2(45.0, 130.0)
@@ -92,8 +95,4 @@ static func ke_band_min_max_for_weapon(weapon_id: String, kinematic_delivery: St
             return Vector2(COMMITTED_STRIKE_KE_J_MIN, COMMITTED_STRIKE_KE_J_MAX)
 
 
-static func ke_in_weapon_band(ke_j: float, weapon_id: String, kinematic_delivery: String = "") -> bool:
-    if ke_j <= 0.0:
-        return false
-    var band: Vector2 = ke_band_min_max_for_weapon(weapon_id, kinematic_delivery)
-    return ke_j >= band.x and ke_j <= band.y
+

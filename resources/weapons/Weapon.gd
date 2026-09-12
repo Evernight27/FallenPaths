@@ -161,13 +161,6 @@ func get_impact_velocity_band_m_s(contact_type: String) -> Vector2:
     return ImpactVelocityModel.resolve_band_m_s(self, contact_type)
 
 
-func get_cooldown(move_id: String) -> float:
-    if attack_types.has(move_id):
-        return attack_types[move_id].get("cooldown", WeaponConstants.DEFAULT_COOLDOWN)
-    var m = WeaponConstants.get_move(move_id)
-    return m.get("base_cooldown", WeaponConstants.DEFAULT_COOLDOWN)
-
-
 # Contact type for this move (stab/cut/blunt); canonical resolver (move id or bare contact).
 func get_contact_type(move_id: String) -> String:
     return WeaponConstants.contact_type_for_move_id(move_id)
@@ -262,12 +255,6 @@ func get_archetype_id(move_id: String) -> String:
             return aid
     var m = WeaponConstants.get_move(move_id)
     return str(m.get("archetype_id", WeaponConstants.ARCHETYPE_SLASH))
-
-
-# Display name for this move (e.g. "Oberhau", "Pommel strike").
-func get_move_name(move_id: String) -> String:
-    var m = WeaponConstants.get_move(move_id)
-    return str(m.get("name", move_id))
 
 
 # True if this move is an explicit parry attack (deflect then counter).

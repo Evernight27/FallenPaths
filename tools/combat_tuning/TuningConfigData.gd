@@ -111,39 +111,6 @@ class TuningCombatantConfig:
 		def.randomize_loadout()
 		return [atk, def]
 
-	func to_dict() -> Dictionary:
-		return {
-			"display_name": display_name,
-			"species_tres_path": species_tres_path,
-			"strength": strength,
-			"agility": agility,
-			"intelligence": intelligence,
-			"endurance": endurance,
-			"perception": perception,
-			"weapon_id": weapon_id,
-			"form": form,
-			"guard_line": guard_line,
-			"armor_overrides": armor_overrides.duplicate(),
-		}
-
-	static func from_dict(d: Dictionary) -> TuningCombatantConfig:
-		var c := TuningCombatantConfig.new(
-			d.get("display_name", "Fighter"),
-			d.get("weapon_id", "SWORD"),
-			d.get("form", "balanced"),
-			d.get("guard_line", "high"),
-			d.get("strength", 100),
-			d.get("agility", 100),
-			d.get("intelligence", 100),
-			d.get("endurance", 100),
-			d.get("perception", 100)
-		)
-		c.species_tres_path = d.get("species_tres_path", "res://resources/species/human.tres")
-		var ao: Variant = d.get("armor_overrides", {})
-		if ao is Dictionary:
-			c.armor_overrides = (ao as Dictionary).duplicate()
-		return c
-
 ## Default attacker: sword, balanced form, 110/100/105/105/95 stats.
 static func default_attacker_config() -> TuningCombatantConfig:
 	return TuningCombatantConfig.new(
@@ -301,19 +268,6 @@ static func sword_armor_tier_configs(tier: String) -> Array[TuningCombatantConfi
 		"heavy":
 			armor = armor_profile_heavy()
 	return mirror_duel_configs("SWORD", "res://resources/species/human.tres", HUMAN_BASELINE_STATS, armor)
-
-
-## Ordered preset keys for UI / batch (excludes Random).
-static func balance_scenario_keys() -> Array[String]:
-	var keys: Array[String] = []
-	for entry in scenario_menu_entries():
-		if entry.get("separator", false):
-			continue
-		var key: String = str(entry.get("key", ""))
-		if key.is_empty() or key == "Random":
-			continue
-		keys.append(key)
-	return keys
 
 
 const WEAPON_SWEEP_KEY_PREFIX := "Weapon Sweep "

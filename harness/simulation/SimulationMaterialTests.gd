@@ -888,8 +888,8 @@ static func _run_mat_production_ttd_and_oberhau_unchanged(failures: PackedString
     var ttd_s: float = BleedingConstants.seconds_to_exsanguination(
         BleedingConstants.REFERENCE_UNCONTROLLED_BLEED_RATE, BleedingConstants.MAX_BLOOD_VOLUME, 1.0
     )
-    if ttd_s < 30.0 or ttd_s > 120.0:
-        SimulationCombatTests._fail(failures, "mat_production: TTD %.1fs outside 30-120s" % ttd_s)
+    if ttd_s < 120.0 or ttd_s > 300.0:
+        SimulationCombatTests._fail(failures, "mat_production: TTD %.1fs outside 120-300s" % ttd_s)
     var sword: Weapon = HarnessFixtures.get_cached_weapon("SWORD")
     if sword == null:
         SimulationCombatTests._fail(failures, "mat_production: missing SWORD for KE anchor")

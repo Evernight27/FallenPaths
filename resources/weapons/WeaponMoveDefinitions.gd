@@ -480,6 +480,68 @@ static func _move_definitions_build() -> Dictionary:
             "impact_station_mean": 0.76,
             "impact_station_spread": 0.03
         },
+        "bind_void":
+        {
+            "name": "Slip offline (Void)",
+            "contact_type": ATTACK_TYPE_STAB,
+            "archetype_id": WeaponTemplateDefinitions.ARCHETYPE_STAB,
+            "base_cooldown": 2.3,
+            "attack_line": "high",
+            "preferred_parts": ["chest"],
+            "angle_variance_deg": 10,
+            "weapon_extension_commit_fraction": 0.45,
+            "impact_station_mean": 0.70,
+            "impact_station_spread": 0.05
+        },
+        "bind_wind":
+        {
+            "name": "Rotate the bind (Wind)",
+            "contact_type": ATTACK_TYPE_CUT,
+            "archetype_id": WeaponTemplateDefinitions.ARCHETYPE_SLASH,
+            "base_cooldown": 2.2,
+            "attack_line": "high_left",
+            "preferred_parts": ["chest"],
+            "angle_variance_deg": 9,
+            "weapon_extension_commit_fraction": 0.50,
+            "impact_station_mean": 0.72,
+            "impact_station_spread": 0.04
+        },
+        "bind_wrestle":
+        # HEMA bind-to-wrestling transition: from a sustained hard bind the binder closes to a body
+        # grab, unbalancing the fatigued opponent. Gated on BIND_WRESTLING_AVAILABLE.
+        {
+            "name": "Close the bind (Wrestle)",
+            "contact_type": ATTACK_TYPE_STAB,
+            "archetype_id": WeaponTemplateDefinitions.ARCHETYPE_STAB,
+            "base_cooldown": 2.5,
+            "attack_line": "high",
+            "preferred_parts": ["chest"],
+            "angle_variance_deg": 7,
+            "weapon_extension_commit_fraction": 0.40,
+            "impact_station_mean": 0.80,
+            "impact_station_spread": 0.03
+        },
+        "verwunden":
+        # HEMA circumscription: compound cut that draws the opponent's blade off one line (the
+        # feint) and strikes the far side of the committed guard. is_feint carries the around-motion
+        # wind-up cost + early reveal; circumscription marks the open-line payoff as the OPPOSITE line
+        # (the side the committed blade can no longer reach) rather than the strike line itself.
+        {
+            "name": "Circumference cut (Verwunden)",
+            "contact_type": ATTACK_TYPE_CUT,
+            "archetype_id": WeaponTemplateDefinitions.ARCHETYPE_SLASH,
+            "base_cooldown": 2.4,
+            "attack_line": "high",
+            "preferred_parts": ["head", "chest"],
+            "is_feint": true,
+            "circumscription": true,
+            "feint_windup_duration_mult": 1.15,
+            "feint_target_reveal_at_progress": 0.5,
+            "angle_variance_deg": 10,
+            "weapon_extension_commit_fraction": 0.60,
+            "impact_station_mean": 0.70,
+            "impact_station_spread": 0.05
+        },
         "low_thrust_sword":
         {
             "name": "Low thrust (Grifo)",

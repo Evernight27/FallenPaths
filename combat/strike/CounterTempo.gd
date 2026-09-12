@@ -213,8 +213,45 @@ static func on_attacker_wind_up_started(
 	try_schedule_counter_tempo_ready(manager, defender)
 
 
+## HEMA gegenschlag (counterblow): determines whether a counter strike should be a trade
+## (both strikes land) rather than a safe preemptive strike (opponent deferred).
+## Probability is based on timing: if our counter lands before the opponent's remaining wind-up,
+## the trade favors us (they are committed and less able to react); if they land first, the trade
+## favors them and we prefer the safe defer.
+## Pure probability in [0.0, 0.95] — no RNG. 0.0 means "no trade" (invalid args or no scheduled
+## incoming strike). Exposed for harness verification and tuning; the roll lives in should_gegenschlag_trade.
+static func gegenschlag_trade_probability(manager: Node, counter_id: int, incoming_attacker_id: int) -> float:
+	if manager == null or counter_id < 0 or incoming_attacker_id < 0:
+		return 0.0
+	var counter: Dictionary = CombatantEntityAccess.manager_get_combatant(manager, counter_id)
+	if counter.is_empty():
+		return 0.0
+	var clock: float = CombatantEntityAccess.combat_clock_float(manager)
+	var our_end: float = clock + counter.get(DataKeys.PA_STATE_DURATION, 0.0)
+	var their_at: float = CombatEventScheduler.get_pending_melee_attack_resolve_at(manager, incoming_attacker_id)
+	if their_at < 0.0:
+		return 0.0
+	var their_remaining: float = maxf(their_at - clock, 0.01)
+	var timing_delta: float = (their_at - our_end) / their_remaining
+	return clampf(
+		CombatConstants.GEGENSCHLAG_TRADE_BASE_PROB
+		+ CombatConstants.GEGENSCHLAG_TIMING_DELTA_SCALE * timing_delta,
+		0.05,
+		0.95
+	)
+
+
+static func should_gegenschlag_trade(manager: Node, counter_id: int, incoming_attacker_id: int) -> bool:
+	var prob: float = gegenschlag_trade_probability(manager, counter_id, incoming_attacker_id)
+	if prob <= 0.0:
+		return false
+	return randf() < prob
+
+
 static func defer_incoming_melee_after_counter(manager: Node, counter_id: int, deferred_attacker_id: int) -> void:
 	if manager == null or counter_id < 0 or deferred_attacker_id < 0:
+		return
+	if should_gegenschlag_trade(manager, counter_id, deferred_attacker_id):
 		return
 	if MedicalPhaseController.combat_resolution_blocked(manager):
 		var defer_atk: Dictionary = CombatantEntityAccess.manager_get_combatant(manager, deferred_attacker_id)
@@ -295,15 +332,23 @@ static func clear_riposte_chain(c: Dictionary) -> void:
 		return
 	c.erase(CombatConstants.COMBATANT_KEY_RIPOSTE_CHAIN_UNTIL)
 	c.erase(CombatConstants.COMBATANT_KEY_RIPOSTE_CHAIN_TARGET_ID)
+	c.erase(CombatConstants.COMBATANT_KEY_RIPOSTE_TARGET_LINE)
 
 
-static func grant_riposte_chain(manager: Node, defender: Dictionary, attacker_id: int) -> void:
+## HEMA nach: grant the riposte counterstrike window and record the attacker's committed line.
+## target_line: the attacker's effective attack line at the parry — the line the riposte should aim at
+## (the attacker over-extended there and their blade was displaced off it by the parry). "" disables the aim.
+static func grant_riposte_chain(manager: Node, defender: Dictionary, attacker_id: int, target_line: String = "") -> void:
 	if manager == null or defender == null or attacker_id < 0:
 		return
 	defender[CombatConstants.COMBATANT_KEY_RIPOSTE_CHAIN_UNTIL] = (
 		CombatantEntityAccess.combat_clock_float(manager) + CombatConstants.RIPOSTE_CHAIN_WINDOW_S
 	)
 	defender[CombatConstants.COMBATANT_KEY_RIPOSTE_CHAIN_TARGET_ID] = attacker_id
+	if not target_line.is_empty():
+		defender[CombatConstants.COMBATANT_KEY_RIPOSTE_TARGET_LINE] = target_line
+	else:
+		defender.erase(CombatConstants.COMBATANT_KEY_RIPOSTE_TARGET_LINE)
 
 
 static func riposte_chain_windup_mult(manager: Node, attacker: Dictionary, target_id: int) -> float:
@@ -315,6 +360,51 @@ static func riposte_chain_windup_mult(manager: Node, attacker: Dictionary, targe
 	if int(attacker.get(CombatConstants.COMBATANT_KEY_RIPOSTE_CHAIN_TARGET_ID, -1)) != target_id:
 		return 1.0
 	return CombatConstants.RIPOSTE_CHAIN_WINDUP_MULT
+
+
+## HEMA nach/Vorschlag: after a landed strike the attacker holds initiative while the victim is
+## off-balance. Grants a short, modest fast re-commit window against the just-hit target. Kept
+## deliberately weaker/slower than the blade-catch riposte chain (see grant_riposte_chain): a
+## completed strike is controlled commitment, not the rapid re-positioning of a parry.
+static func grant_hit_continuation(manager: Node, attacker: Dictionary, target_id: int) -> void:
+	if manager == null or attacker == null or target_id < 0:
+		return
+	attacker[CombatConstants.COMBATANT_KEY_HIT_CONTINUATION_UNTIL] = (
+		CombatantEntityAccess.combat_clock_float(manager) + CombatConstants.HIT_CONTINUATION_WINDOW_S
+	)
+	attacker[CombatConstants.COMBATANT_KEY_HIT_CONTINUATION_TARGET_ID] = target_id
+
+
+static func hit_continuation_windup_mult(manager: Node, attacker: Dictionary, target_id: int) -> float:
+	if manager == null or attacker == null or target_id < 0:
+		return 1.0
+	var until: float = attacker.get(CombatConstants.COMBATANT_KEY_HIT_CONTINUATION_UNTIL, -1.0)
+	if until <= CombatantEntityAccess.combat_clock_float(manager):
+		return 1.0
+	if int(attacker.get(CombatConstants.COMBATANT_KEY_HIT_CONTINUATION_TARGET_ID, -1)) != target_id:
+		return 1.0
+	return CombatConstants.HIT_CONTINUATION_WINDUP_MULT
+
+
+static func clear_hit_continuation(c: Dictionary) -> void:
+	if c == null:
+		return
+	c.erase(CombatConstants.COMBATANT_KEY_HIT_CONTINUATION_UNTIL)
+	c.erase(CombatConstants.COMBATANT_KEY_HIT_CONTINUATION_TARGET_ID)
+
+
+## HEMA nach: the riposte should aim at the attacker's committed line — the line they over-extended
+## into and whose blade was displaced off by the parry. Returns "" when no chain is active against
+## target_id or no line was recorded at grant time (callers fall back to normal move selection).
+static func riposte_target_line(manager: Node, attacker: Dictionary, target_id: int) -> String:
+	if manager == null or attacker == null or target_id < 0:
+		return ""
+	var until: float = attacker.get(CombatConstants.COMBATANT_KEY_RIPOSTE_CHAIN_UNTIL, -1.0)
+	if until <= CombatantEntityAccess.combat_clock_float(manager):
+		return ""
+	if int(attacker.get(CombatConstants.COMBATANT_KEY_RIPOSTE_CHAIN_TARGET_ID, -1)) != target_id:
+		return ""
+	return str(attacker.get(CombatConstants.COMBATANT_KEY_RIPOSTE_TARGET_LINE, ""))
 
 
 static func counter_tempo_listing_weight_mult(

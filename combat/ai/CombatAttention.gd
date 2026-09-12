@@ -891,6 +891,8 @@ static func append_focus_line_listing_actions(c: Dictionary, combatant_id: int, 
 		actions.append({"target_id": combatant_id, "move_id": move_id})
 
 ## Phase 5: get or create the deception_state sub-dict on a combatant.
+## A new deception state "establishes" with DECEPTION_ESTABLISH_PROB probability; if it fails,
+## the state is inert (established=false) and should_respect_bait returns false for this fighter.
 static func _get_deception_state(c: Dictionary) -> Dictionary:
 	var raw: Variant = c.get(CombatConstants.COMBATANT_KEY_DECEPTION_STATE, null)
 	if raw is not Dictionary:
@@ -898,6 +900,7 @@ static func _get_deception_state(c: Dictionary) -> Dictionary:
 			DataKeys.DECEPTION_PHASE: Yomi.DECEPTION_PHASE_ESTABLISH,
 			DataKeys.DECEPTION_RESISTANCE: 0.0,
 			DataKeys.DECEPTION_EXPLOIT_COUNTER: 0,
+			DataKeys.DECEPTION_ESTABLISHED: randf() < CombatConstants.DECEPTION_ESTABLISH_PROB,
 		}
 		c[CombatConstants.COMBATANT_KEY_DECEPTION_STATE] = raw
 	return raw as Dictionary
@@ -911,6 +914,7 @@ static func record_deception_outcome(c: Dictionary, opponent_id: int, success: b
 	var phase: String = ds.get(DataKeys.DECEPTION_PHASE, Yomi.DECEPTION_PHASE_ESTABLISH)
 	var resistance: float = ds.get(DataKeys.DECEPTION_RESISTANCE, 0.0)
 	var exploit_counter: int = ds.get(DataKeys.DECEPTION_EXPLOIT_COUNTER, 0)
+	var establish_count: int = int(ds.get(DataKeys.DECEPTION_ESTABLISH_SUCCESS_COUNT, 0))
 	if success:
 		if phase == Yomi.DECEPTION_PHASE_PROBE:
 			ds[DataKeys.DECEPTION_PHASE] = Yomi.DECEPTION_PHASE_EXPLOIT
@@ -920,18 +924,25 @@ static func record_deception_outcome(c: Dictionary, opponent_id: int, success: b
 		elif phase == Yomi.DECEPTION_PHASE_ESTABLISH:
 			resistance += Yomi.DECEPTION_RESISTANCE_ESTABLISH_SUCCESS_BOOST
 			resistance = clampf(resistance, 0.0, 1.0)
+			establish_count += 1
 	else:
 		if phase == Yomi.DECEPTION_PHASE_EXPLOIT:
 			ds[DataKeys.DECEPTION_PHASE] = Yomi.DECEPTION_PHASE_ESTABLISH
 			resistance = minf(resistance + Yomi.DECEPTION_RESISTANCE_EXPLOIT_FAILURE_BOOST, 1.0)
+			establish_count = 0
 		elif phase == Yomi.DECEPTION_PHASE_PROBE:
 			ds[DataKeys.DECEPTION_PHASE] = Yomi.DECEPTION_PHASE_ESTABLISH
+			establish_count = 0
 		else:
 			## Establish failure — resistance grows faster.
 			resistance += Yomi.DECEPTION_RESISTANCE_ESTABLISH_FAILURE_BOOST
 			resistance = clampf(resistance, 0.0, 1.0)
+			establish_count = 0
 	ds[DataKeys.DECEPTION_RESISTANCE] = resistance
 	ds[DataKeys.DECEPTION_EXPLOIT_COUNTER] = exploit_counter
+	ds[DataKeys.DECEPTION_ESTABLISH_SUCCESS_COUNT] = establish_count
+	if success and phase == Yomi.DECEPTION_PHASE_ESTABLISH:
+		try_advance_deception_probe(c, establish_count)
 
 
 ## Phase 5: return true when the opponent's deception state suggests they are baiting a counter-read.
@@ -942,6 +953,8 @@ static func should_respect_bait(c: Dictionary, rng: RandomNumberGenerator = null
 	if raw is not Dictionary:
 		return false
 	var ds: Dictionary = raw as Dictionary
+	if not bool(ds.get(DataKeys.DECEPTION_ESTABLISHED, true)):
+		return false
 	var phase: String = ds.get(DataKeys.DECEPTION_PHASE, Yomi.DECEPTION_PHASE_ESTABLISH)
 	if phase != Yomi.DECEPTION_PHASE_EXPLOIT:
 		return false

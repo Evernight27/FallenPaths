@@ -38,6 +38,9 @@ const FORM_SWITCH_PARRY_READINESS_END := 0.85
 const FORM_SWITCH_DODGE_PENALTY_START := 0.4
 const FORM_SWITCH_SHORT_RECOVERY_S := 0.3
 const FORM_SWITCH_COUNTER_TEMPO_BONUS_MULT := 1.25
+## HEMA: a fighter mid-guard-change has a blade in transit — the counter into the
+## transition lands on an unguarded line. Modest damage bonus for the striker.
+const FORM_SWITCH_VULNERABILITY_DMG_MULT := 1.15
 const WF_YOMI_FORM_INFERENCE_MIN_OBS := 4
 const WF_YOMI_FORM_INFERENCE_MARGIN := 0.15
 const WF_YOMI_FORM_PRIORS: Dictionary = {
@@ -90,6 +93,10 @@ const WF_YOMI_OBS_MED_CONFIDENCE: float = 0.6
 const WF_YOMI_OBS_HIGH_CONFIDENCE: float = 0.85
 const COUNTER_READ_COMMITMENT_DURATION_TICKS: int = 3
 const OVERCOMMIT_PARRY_DEFLECT_PENALTY: float = 0.7
+## Yomi/attention: attacking a target whose attention weight on you is high means it is reading
+## your line — the strike is more likely parried. Offensive action weight scales down from 1.0
+## (target unfocused, weight 0.25) to this floor (target fully focused, weight 1.0).
+const ATTENTION_FOCUSED_OFFENSE_WEIGHT_MIN: float = 0.7
 
 ## Phase 2: Counter-read outcome tracking key. Max entries kept in history to prevent unbounded growth.
 const COUNTER_READ_HISTORY_MAX_ENTRIES: int = 50

@@ -250,3 +250,29 @@ static func _find_party_button(world: Node2D) -> Control:
 		if "name" in child and child.name == "PartyButton":
 			return child
 	return null
+
+
+## Gladiator duel entry point: spawns a 1v1 sword duel via the ii2b preset.
+## Uses the full encounter pipeline so world meta, formation lock, and combat setup all apply.
+static func start_duel(world: Node2D) -> bool:
+	if world == null:
+		return false
+	var check: Dictionary = CampaignEncounterBridge.can_enter_combat(world)
+	if not check.get("ok", false):
+		if OperationalLog.is_play_session_active():
+			OperationalLog.play_world("start_duel blocked: %s" % str(check.get("message", "")))
+		return false
+	var encounter = EncounterNode.new()
+	SoakEncounterPresets.apply_preset(encounter, SoakEncounterPresets.PRESET_II2B_SWORD_DUEL)
+	world.add_child(encounter)
+	var rng := RandomNumberGenerator.new()
+	rng.randomize()
+	var enemies: Array = CampaignEncounterBridge.begin_contract_encounter(world, encounter, rng)
+	if enemies.is_empty():
+		if OperationalLog.is_play_session_active():
+			OperationalLog.play_world("start_duel: no enemies spawned, aborting")
+		return false
+	if OperationalLog.is_play_session_active():
+		OperationalLog.play_world("start_duel ii2b sword duel entering combat")
+	start_combat(world, enemies)
+	return true

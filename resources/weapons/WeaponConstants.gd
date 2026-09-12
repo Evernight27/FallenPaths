@@ -40,7 +40,7 @@ const VELOCITY_MAX_M_S: float = 24.0
 # Legacy KE->damage scale (sqrt(KE) law). No longer drives the cut channel (see CUT_DAMAGE_* below); it
 # remains the calibration anchor for bone-damage excess energy (CombatDamageMechanism) and species
 # tissue-capacity derivation (SpeciesResource). Historical note: it was originally the pre-armor cut law
-# (100 J -> ~35 pre_armor, cap ~661 J within the Yoganandan arm-severance band).
+# (100 J -> ~35 pre_armor, with the damage ceiling at ~661 J — an internal calibration choice, see DAMAGE_KE_MAX).
 const DAMAGE_KE_SCALE: float = 3.5  # Legacy sqrt(KE) anchor; retained for bone/tissue-capacity calibration only
 const DAMAGE_KE_MIN: float = 1.0
 # Cut-damage energy law: pre-armor cut scales as KE^CUT_DAMAGE_ENERGY_EXPONENT. The exponent matches the
@@ -55,7 +55,9 @@ const CUT_DAMAGE_ENERGY_EXPONENT: float = 0.6
 # above it slightly harder (<=~10% across the combat-realistic 35-160 J band).
 const CUT_DAMAGE_KE_SCALE: float = 2.2083
 
-# Pre-armor sharp damage hard cap — corresponds to KE=(90/3.5)^2 ≈ 661 J, within the Yoganandan arm-severance band (400-600J).
+# Pre-armor sharp damage hard cap — corresponds to KE=(90/3.5)^2 ≈ 661 J. A design ceiling chosen so a single
+# committed limb strike stays just under the "sever the limb" regime (severance is a sustained, multi-blow
+# event, not a single ~600 J swing); it is a tuning cap, not a measured biomechanical threshold.
 const DAMAGE_KE_MAX: float = 90.0
 
 # Cap penetration (mm RHA) from KE — physically grounded: Williams formula at max realistic combat KE (~130-160J spear thrust / mace overhead)
@@ -100,15 +102,18 @@ const MIN_CUT_RATIO: float = 0.02
 const SHARP_APEX_FRACTION: float = 0.25
 
 # --- Edge geometry (wedge mechanics by included angle) ---
-## Clinical/metallurgical basis: cutting force depends on wedge angle — sharper edges displace less material per mm depth.
-## Wedge mechanics: F = RHA_thickness / sin(edge_angle/2); a 30° wedge needs ~4× less force than 90°.
-## Historical steel edge angles (measured in modern replicas): fighting swords ~18-25°, daggers ~20-30°, battle axes ~25-35°.
-## Dull edges (battle-worn): 40-60°; very dull/nicks: 70-90°+. Sharpness stat maps to effective edge angle.
+## Cutting force depends on wedge (included) angle — a sharper edge displaces less material per mm of depth.
+## Wedge mechanics: F = RHA_thickness / sin(edge_angle/2); a sharp ~30° included edge cuts with far less force
+## than an obtuse ~90° one. All angles are INCLUDED angles. The sharpness stat maps onto this range: a keen,
+## freshly-ground edge sits near the sharp end (model ~25°), a battle-worn/nicked edge rolls toward the dull end
+## (~65°). Keen replica test edges can reach ~20°/side (~40° included); a durable historical working edge and
+## impact tools such as axes are ground more obtuse, so the model's sharp value is a tuned combat-feel choice
+## kept sharp for playability rather than a documented historical standard.
 # Default included angle for a freshly ground fighting sword edge (degrees).
 const EDGE_ANGLE_DEFAULT_DEG: float = 28.0
 # Sharpness-to-edge-angle mapping range: sharp=1 → EDGE_ANGLE_SHARP_DEG, dull=0 → EDGE_ANGLE_DULL_DEG.
-const EDGE_ANGLE_SHARP_DEG: float = 25.0      # newly ground fighting edge (historical swords ~25-35°)
-const EDGE_ANGLE_DULL_DEG: float = 65.0        # battle-worn/nicked edge (70°+ is essentially blunt)
+const EDGE_ANGLE_SHARP_DEG: float = 25.0      # model sharp end (keen, freshly-ground edge)
+const EDGE_ANGLE_DULL_DEG: float = 65.0        # model dull end (battle-worn/nicked; 70°+ is essentially blunt)
 # Wedge penetration bonus: sin(DEFAULT/2) / sin(angle/2) scales how much easier a sharper wedge penetrates vs dull.
 ## At sharp=1 (25°): factor = sin(14°)/sin(12.5°) ≈ 1.12 — ~12% penetration boost over default.
 ## At sharp=0 (65°): factor = sin(14°)/sin(32.5°) ≈ 0.448 — ~55% reduction vs default (dull edge struggles to bite).
@@ -117,19 +122,18 @@ const EDGE_WEDGE_PENETRATION_FLOOR: float = 0.3   # minimum wedge factor, keeps 
 
 # --- Pressure-based blunt damage (replaces flat DAMAGE_MOMENTUM_SCALE) ---
 ## P = m·v/(A·Δt): pressure at wound interface where Δt is contact duration, A is contact area.
-const BLUNT_IMPACT_CONTACT_TIME_MS: float = 12.0       # Median of measured range 8-18ms for rigid steel vs yielding flesh (Campbell et al., J. Biomechanics 36:1157)
-## Δt reference impact speed (m/s): the 12 ms constant is anchored at this tip speed. Faster impacts have
-## shorter pulse width (elastic-plastic contact duration scales ~v^-0.4), so peak force rises above linear-in-v.
+const BLUNT_IMPACT_CONTACT_TIME_MS: float = 12.0       # ~12 ms median impact contact duration, rigid weapon vs yielding tissue (plausible single-digit to ~20-30 ms band; tuned)
+## Δt reference impact speed (m/s): the 12 ms constant is anchored at this tip speed. Faster impacts
+## shorten the pulse width, so peak force rises above linear-in-v (a mild high-speed shortening).
 const BLUNT_IMPACT_REFERENCE_SPEED_M_S: float = 10.0
-## Δt speed exponent: Δt(v) = Δt_ref · (v/v_ref)^(-BLUNT_CONTACT_TIME_SPEED_EXPONENT). 0.4 sits in the
-## measured 0.3-0.5 band for rigid-on-yielding impacts (Campbell et al.); 0 keeps the legacy constant model.
+## Δt speed exponent: Δt(v) = Δt_ref · (v/v_ref)^(-BLUNT_CONTACT_TIME_SPEED_EXPONENT). 0.4 is a mild,
+## design-level high-speed shortening (0 keeps the legacy constant-Δt model); not a measured contact law.
 const BLUNT_CONTACT_TIME_SPEED_EXPONENT: float = 0.4
 ## Δt clamp (s): prevents sub-band velocities from inflating contact time into unrealistic multi-ms pulses.
 const BLUNT_CONTACT_TIME_MIN_S: float = 0.005
 const BLUNT_CONTACT_TIME_MAX_S: float = 0.025
 ## BLUNT_DAMAGE_PER_UNIT_PRESSURE: game-tuning coefficient calibrated so a typical mace impact produces ~25-45 damage after strength/mod factors are applied. Uses aggregate contact pressure (not peak stress), so the coefficient absorbs modeling simplifications — not directly derivable from clinical thresholds.
 const BLUNT_DAMAGE_PER_UNIT_PRESSURE: float = 0.000025      # Pa→damage; game-tuning coefficient calibrated for mace impact range
-const BLUNT_TARGET_EFFECTIVE_MASS_KG: float = 6.5         # Two-body reduced mass Plagenhofs limb-segment compliance; matches 5-8 kg biomechanical range for yielding tissue targets
 ## Effective inertia radius fraction — uniform rod about one end has I=mL²/3, but real weapons concentrate mass toward grip.
 ## Reduced from 0.48 to 0.35 (physics audit) and combined with removed separate MASS_DIST_CORRECTION:
 ## the single factor now correctly interpolates between measured values: dagger ~0.17m, arming sword ~0.32m, longswords ~0.42-0.50m.
@@ -138,17 +142,19 @@ const BLUNT_DAMAGE_MIN: float = 1.0       # Gameplay floor — prevents zero-dam
 const BLUNT_DAMAGE_MAX: float = 90.0      # Same ceiling as DAMAGE_KE_MAX; single blunt strike should not exceed maximal limb trauma in one blow
 
 # --- Parry deflection damage transfer (Issue 4 + physics audit MEDIUM #7) ---
-## Momentum-based impulse model: F = Δp/Δt where blade contact time ≈ 20ms (HEMA force-plate studies).
-## Deflected momentum transmits to defender's arm at ~20% of incoming momentum fraction.
-## Damage = momentum_transfer × IMPULSE_DAMAGE_SCALE × PARRY_DEFLECTION_SHOCK_TRANSFER. A parry transmits a small
-## fraction of the incoming blow's momentum into the defender's arm (HEMA force-plate: ~20% of incoming momentum).
-## Energy analysis: a sword parry deposits ~0.1-0.3 J into the arm (vs ~100 J for a full hit), so a typical parry
-## deals a SMALL amount (~0.2-1.0), meaningful mainly for heavy blows (mace). The >0.5 apply-gate suppresses the
-## small values, so light parries are effectively free.
-const PARRY_DEFLECTION_MOMENTUM_FRACTION: float = 0.20   # fraction of incoming momentum transferred to defender's arm
+## Momentum-based impulse model: F = Δp/Δt where blade contact time ≈ 20 ms (plausible order of
+## magnitude for a sword flex transient; see Hertzian/modal contact mechanics). No parry force-plate
+## dataset with these exact figures is published, so the fractions below are physically-motivated
+## design constants, not measurements.
+## A parry transmits only a SMALL fraction of the incoming blow's momentum into the defender's arm
+## (~20%); the rest is redirected or absorbed by the parrying blade. Energy check: a sword parry then
+## deposits ~0.1-0.3 J into the arm (vs ~100 J for a full committed hit), so the >0.5 apply-gate makes
+## light parries effectively free and only heavy blows (mace) register meaningful arm shock.
+const PARRY_DEFLECTION_MOMENTUM_FRACTION: float = 0.20   # fraction of incoming momentum transferred to defender's arm (design estimate)
 const IMPULSE_DAMAGE_SCALE: float = 0.6                   # converts (kg·m/s) impulse to game damage units
 ## Fraction of calculated impulse damage actually applied as tissue/bone blunt damage (rest absorbed by armor/weapon).
-## Blade steel absorbs ~55% through flexion/vibration; remaining 45% transfers to defender's arm.
+## Blades store and release energy in bending/vibration (they ring after a parry), so part of the impulse is
+## absorbed by the steel; ~45% is modeled as transferring to the defender's arm (design estimate).
 const PARRY_DEFLECTION_SHOCK_TRANSFER: float = 0.45
 const WEAPON_MOVE_PREFERRED_PARTS: Dictionary = {
 	"SPEAR":
@@ -219,14 +225,20 @@ static func weapon_is_two_handed(weapon: Variant) -> bool:
 
 
 # --- Option C: Kinetic energy (J) drives both damage and penetration ---
-# Williams (Knight & Blast Furnace): 1mm=55J, 1.5mm=110J, 2mm=175J -- E ~ t^1.67. Nonlinear: pen =
-# (KE/J_BASE)^PEN_EXPONENT.
-# Material correction: medieval armor steel ~250-300 BHN vs modern RHA 450-500 HBW, making it
-# roughly 1.5-1.7× easier to penetrate at equivalent thickness. Derived from metallurgical studies of surviving
-# armor (Robinson 1974; Hirst & Williams 2006) rather than direct Williams testing.
-# Obliquity: combat impacts are rarely normal; average deflection ~18° → effective thickness ×1.1 (t/cos(θ)).
-const WILLIAMS_MATERIAL_CORRECTION := 1.6   # Medieval armor ~250-300 BHN vs RHA 450-500 HBW → ~1.6× easier penetration (Robinson 1974; Hirst & Williams 2006)
-const WILLIAMS_OBLIQUITY_FACTOR := 1.1       # average combat deflection angle ~18°
+# Empirical power law E ~ t^1.67: pen = (KE/J_BASE)^0.6 where 0.6 = 1/1.67. A committed sword thrust
+# carries ~50-150 J, and ~55 J is the right order of magnitude to punch a sharp point through ~1 mm of
+# soft (mild) steel, so the 55 J/mm anchor is a physically-grounded tuning choice rather than a single
+# measured constant. The 1.67 exponent makes thicker plate need disproportionately more energy — the core
+# of why "heavier steel just means the weapon doesn't reach".
+# Material correction: medieval armor steel (temperable, ~250-300 BHN) vs modern RHA (work-hardened to
+# ~450-500 HBW). The 1.6 factor is essentially the hardness ratio (450/275 ~ 1.64): at equal thickness,
+# medieval plate is roughly 1.5-1.7x easier to penetrate. A first-order approximation; medieval steel
+# hardness varies between smiths and eras.
+# Obliquity: glancing impacts lengthen the effective path through the plate (t/cos(theta)). 1/cos(18°) ~ 1.05;
+# 1/cos(25°) ~ 1.10. The factor assumes the glancing end of plausible combat deflection angles (~25°), since
+# most edge-on-plate hits carry some deflection rather than dead-square impact.
+const WILLIAMS_MATERIAL_CORRECTION := 1.6   # medieval ~250-300 BHN vs RHA ~450-500 HBW -> ~1.6x easier penetration (hardness-ratio approximation)
+const WILLIAMS_OBLIQUITY_FACTOR := 1.1       # effective thickness t/cos(theta) at ~25 deg mean obliquity (1.05 at 18 deg; use the glancing end)
 
 ## Stab/thrust penetration bonus: forensic consensus that stabs penetrate deeper than cuts of equivalent energy
 ## because force concentrates on tiny tip area rather than distributing along cutting edge (~1.6× per Knight's Forensic Pathology).
@@ -257,6 +269,13 @@ static func is_parry_move(move_id: String) -> bool:
 static func is_feint_move(move_id: String) -> bool:
 	var m = get_move(move_id)
 	return m.get("is_feint", false)
+
+
+## HEMA circumscription (verwunden): a compound cut that draws the guard off one line and
+## strikes the far side of the committed blade. Marks the open-line payoff as the OPPOSITE line.
+static func is_circumscription_move(move_id: String) -> bool:
+	var m = get_move(move_id)
+	return m.get("circumscription", false)
 
 
 # Per-weapon overrides for shared move defs (Layer B aim).
@@ -396,14 +415,3 @@ static func edge_wedge_penetration_factor(sharpness: float) -> float:
 		return EDGE_WEDGE_PENETRATION_FLOOR
 	var factor: float = numer / denom
 	return maxf(factor, EDGE_WEDGE_PENETRATION_FLOOR)
-
-
-## Kinematic archetype helpers for test scaffolding — avoid inline dict construction across ~100+ call sites.
-static func make_kinematic_arch_swing() -> Dictionary:
-	return {"kinematic_delivery": KINEMATIC_DELIVERY_SWING}
-
-static func make_kinematic_arch_thrust() -> Dictionary:
-	return {"kinematic_delivery": KINEMATIC_DELIVERY_THRUST}
-
-static func make_kinematic_arch_mixed() -> Dictionary:
-	return {"kinematic_delivery": KINEMATIC_DELIVERY_MIXED}

@@ -27,6 +27,8 @@ const WOUNDED_VITAL_RAMP_RATIO: float = 0.35
 ## alignment_context: optional { attack_angle_deg, guard_angle_deg } for angle-based alignment.
 ## attacker: optional combatant dict for proficiency-scaled intended-part boost.
 ## move_def: optional move definition for contact_type / preferred_parts context.
+## move_id: optional move id; lets the resolver reuse the AI-pick weights (move-family
+## preferred parts) so the landing part matches the move the attacker actually committed to.
 static func resolve_hit_part(
     attack_line: String,
     guard_line: String,
@@ -37,7 +39,8 @@ static func resolve_hit_part(
     alignment_context: Dictionary = {},
     attacker: Dictionary = {},
     move_def: Dictionary = {},
-    depth_allows_low: bool = true
+    depth_allows_low: bool = true,
+    move_id: String = ""
 ) -> String:
     if targetable.is_empty():
         return ""
@@ -66,23 +69,59 @@ static func resolve_hit_part(
     if path_segment.is_empty():
         return BodyPartConstants.get_weighted_random_part(targetable)
     # Reaction state: RECOVERING + attack_hit = staggered, bias center mass. Parry attempted + hit = limbs in way.
+    # Base distribution: when an attacker context is present, seed part_weights from the SAME
+    # rich weights the AI uses to pick its target (anatomy x weapon x form x move-family x
+    # proficiency, capped, plus focus/yomi/preferred, wounded-vitals, and diagonal variance).
+    # Aligning the two means the landing part is centered on where the attacker actually aimed,
+    # instead of fighting a sparse base that the committed-aim boost can't reliably beat.
+    # Falls back to a flat 1.0 base when there is no attacker (e.g. harness calls), which keeps
+    # the resolver's original behavior for those paths.
     var part_weights: Dictionary = {}
-    for p in path_segment:
-        part_weights[p] = 1.0
+    var ai_weighted: bool = false
+    if not attacker.is_empty():
+        part_weights = part_weights_for_ai_pick(
+            path_segment,
+            attack_line,
+            move_def,
+            attacker,
+            defender,
+            CombatantEntityAccess.id_int(attacker),
+            move_id,
+            depth_allows_low,
+            targetable,
+            guard_line,
+            alignment,
+            alignment_context
+        )
+        if not part_weights.is_empty():
+            ai_weighted = true
+    if not ai_weighted:
+        for p in path_segment:
+            part_weights[p] = 1.0
     var recovery_cause: String = CombatConstants.normalize_recovery_cause(defender_ctx.get(DataKeys.ATTACK_RECOVERY_CAUSE, ""))
     var passive_parry: bool = defender_ctx.get(CombatConstants.PA_KEY_PASSIVE_PARRY_ATTEMPTED, false)
+    # Reaction-state modifiers are relative multipliers (not absolute overwrites) so they bias on
+    # top of whatever base is in use (rich AI-pick or flat 1.0) instead of clobbering it.
     if (
         recovery_cause == "attack_hit"
         and CombatantEntityAccess.state_str(defender_ctx) == CombatConstants.STATE_RECOVERING
     ):
         # Staggered: center mass (chest) more likely
         if part_weights.has(BodyPartConstants.PART_CHEST):
-            part_weights[BodyPartConstants.PART_CHEST] = 1.5
+            part_weights[BodyPartConstants.PART_CHEST] = part_weights.get(BodyPartConstants.PART_CHEST, 1.0) * 1.5
     if passive_parry:
         # Blade met blade; if hit, limbs (arms) more likely in the way
         for limb in [BodyPartConstants.PART_LEFT_ARM, BodyPartConstants.PART_RIGHT_ARM]:
             if part_weights.has(limb):
-                part_weights[limb] = 1.4
+                part_weights[limb] = part_weights.get(limb, 1.0) * 1.4
+    # Committed forward: defender mid-own-swing (WIND_UP) has their lead arm extended and cannot
+    # retract it, making the lead arm more exposed than a waiting defender's. Physically grounded:
+    # a committed swing locks the lead arm in the opponent's blade line.
+    var defender_state: String = str(defender_ctx.get("state", ""))
+    if defender_state == CombatConstants.STATE_WIND_UP and not defender.is_empty():
+        var lead_arm: String = CombatantEntityAccess.get_attacking_arm(defender)
+        if lead_arm != "" and part_weights.has(lead_arm):
+            part_weights[lead_arm] = part_weights.get(lead_arm, 1.0) * 1.3
     var interpose: Dictionary = CombatGuardLines.arm_interpose_eval(attack_line, guard_line, alignment, targetable)
     if interpose.get(DataKeys.INTERPOSE_ACTIVE, false):
         var interpose_arm: String = interpose.get(DataKeys.INTERPOSE_ARM, "")
@@ -90,40 +129,92 @@ static func resolve_hit_part(
             part_weights[interpose_arm] = (
                 part_weights.get(interpose_arm, 1.0) * CombatConstants.ARM_INTERPOSE_HIT_WEIGHT_MULT
             )
-    var contact_type: String = str(move_def.get(DataKeys.WEAPON_CONTACT_TYPE, "")).to_lower()
-    if not attacker.is_empty():
+    # Weapon target multipliers: already folded into the AI-pick base, so only apply on the
+    # flat-base fallback path to avoid double-counting.
+    if not ai_weighted and not attacker.is_empty():
+        var contact_type: String = str(move_def.get(DataKeys.WEAPON_CONTACT_TYPE, "")).to_lower()
         var wid_resolve: String = _weapon_id_for_attacker(attacker)
         for p in path_segment:
             var part_wptm: float = BodyPartConstants.weapon_part_target_mult(wid_resolve, p, contact_type)
             if not depth_allows_low and (p == BodyPartConstants.PART_LEFT_LEG or p == BodyPartConstants.PART_RIGHT_LEG):
                 part_wptm = 1.0
             part_weights[p] = part_weights.get(p, 1.0) * part_wptm
-    # Intended target: boost weight when in path (attacker aimed here; pathway allows it).
+    # Committed aim: when the attacker aimed at a part the pathway reaches, commit that part to a
+    # fixed share P of the landing distribution (not a raw multiplier the rich base can out-vote).
+    # P falls as alignment worsens (an off-line swing drifts to whatever is in the blade path) and
+    # with fatigue (a tired fencer's aim is less precise). On-line committed strikes therefore hit
+    # the aimed part reliably; glancing / poorly-aligned swings still drift — the realistic gradient.
     if not intended_part.is_empty() and path_segment.has(intended_part):
-        var intended_boost: float = 2.0
+        var align_share: float
+        if alignment >= CombatConstants.PARRY_PARTIAL_GUARD_ALIGNMENT_THRESHOLD:
+            align_share = 0.80
+        elif alignment >= CombatConstants.PARRY_GLANCING_ALIGNMENT_FLOOR:
+            align_share = 0.55
+        else:
+            align_share = 0.35
+        # Skill channel: a trained fencer commits more accurately. The targeting-proficiency
+        # boost range [2.0, 3.0] normalizes to a 0-1 skill fraction; it lifts the aimed-part
+        # share hardest on committed on-line strikes and least on off-line swings (where even a
+        # veteran drifts to whatever is in the blade path). Novice (fraction 0) leaves the tiers
+        # unchanged, so this is a bounded superset of the alignment-only gradient.
+        var skill_aim_lift: float = 0.0
         if not attacker.is_empty():
             var ent: CoreEntity = CombatantEntityAccess.scene_entity(attacker)
             if ent != null:
-                intended_boost = EntityProficiency.intended_part_boost_mult(
-                    ent, _weapon_id_for_attacker(attacker), CombatantEntityAccess.form_str(attacker)
+                var prof_01: float = clampf(
+                    (
+                        EntityProficiency.intended_part_boost_mult(
+                            ent, _weapon_id_for_attacker(attacker), CombatantEntityAccess.form_str(attacker)
+                        )
+                        - EntityProficiency.PROF_INTENDED_PART_BOOST_MIN
+                    )
+                    / maxf(EntityProficiency.PROF_INTENDED_PART_BOOST_MAX - EntityProficiency.PROF_INTENDED_PART_BOOST_MIN, 0.01),
+                    0.0,
+                    1.0
                 )
-        # Scale the boost with segment size so the aimed part stays the modal outcome.
-        # A wide segment (poor alignment, up to 6 parts) with a fixed 2-3x boost makes the
-        # intended part only ~30-40% likely (60-70% full-body-part drift). Scaling by
-        # segment size keeps the aimed part the clear favorite (~60-70%) while still
-        # allowing drift on glancing, poorly-aligned swings.
-        intended_boost *= float(maxi(path_segment.size(), 2)) / 2.0
-        # Fatigue-driven aim drift: a tired attacker's aim is less precise, so the intended
-        # part is less likely to be the landing part (couples aim_drift to stamina).
+                var lift_cap: float = 0.02
+                if alignment >= CombatConstants.PARRY_PARTIAL_GUARD_ALIGNMENT_THRESHOLD:
+                    lift_cap = 0.10
+                elif alignment >= CombatConstants.PARRY_GLANCING_ALIGNMENT_FLOOR:
+                    lift_cap = 0.05
+                skill_aim_lift = prof_01 * lift_cap
+        var stamina_ratio: float = 1.0
         if not attacker.is_empty():
-            intended_boost *= lerpf(
-                CombatConstantsAttackPath.AIM_DRIFT_FATIGUE_FLOOR, 1.0, CombatantEntityAccess.stamina_ratio(attacker)
-            )
-        part_weights[intended_part] = part_weights.get(intended_part, 1.0) * intended_boost
+            stamina_ratio = CombatantEntityAccess.stamina_ratio(attacker)
+        var fatigue_factor: float = lerpf(
+            CombatConstantsAttackPath.AIM_DRIFT_FATIGUE_FLOOR, 1.0, stamina_ratio
+        )
+        var aim_share: float = clampf((align_share + skill_aim_lift) * fatigue_factor, 0.30, 0.90)
+        # Near-miss falloff on the leak: the (1 - aim_share) remainder spreads across the other
+        # in-path parts, weighted by 1/(1 + K*d) where d is blade-path distance from the aimed
+        # part (path order = blade-travel order), so a missed strike clips the adjacent part
+        # rather than a distant one. K falls as stamina drops, so a tired fencer's error cloud
+        # widens and the leak spreads to more distant parts (sports-science: fatigue raises the
+        # spread of the aim error, not its center).
+        var leak_falloff_k: float = lerpf(
+            CombatConstantsAttackPath.LEAK_PROXIMITY_FALLOFF_K_FATIGUED,
+            CombatConstantsAttackPath.LEAK_PROXIMITY_FALLOFF_K,
+            stamina_ratio
+        )
+        var intended_idx: int = path_segment.find(intended_part)
+        for p in part_weights:
+            if p != intended_part and intended_idx >= 0:
+                var p_idx: int = path_segment.find(p)
+                if p_idx >= 0:
+                    var d: float = float(abs(p_idx - intended_idx))
+                    part_weights[p] = float(part_weights.get(p, 1.0)) / (1.0 + leak_falloff_k * d)
+        var rest_total: float = 0.0
+        for p in part_weights:
+            if p != intended_part:
+                rest_total += float(part_weights.get(p, 1.0))
+        # Set the aimed part's weight so it carries exactly aim_share of the total distribution.
+        part_weights[intended_part] = aim_share * rest_total / maxf(1.0 - aim_share, 0.01)
     # Vitals-finish exploit: press a defender's already-damaged head/chest when the pathway reaches it.
-    for vit in [BodyPartConstants.PART_HEAD, BodyPartConstants.PART_CHEST]:
-        if part_weights.has(vit):
-            part_weights[vit] = part_weights.get(vit, 1.0) * _wounded_vitals_part_mult(defender, vit)
+    # Already folded into the AI-pick base when ai_weighted, so only apply on the flat-base path.
+    if not ai_weighted:
+        for vit in [BodyPartConstants.PART_HEAD, BodyPartConstants.PART_CHEST]:
+            if part_weights.has(vit):
+                part_weights[vit] = part_weights.get(vit, 1.0) * _wounded_vitals_part_mult(defender, vit)
     var flat: bool = true
     var first_w: float = -1.0
     for w in part_weights.values():
@@ -300,7 +391,11 @@ static func part_weights_for_ai_pick(
     var off_focus_mult: float = lerpf(
         CombatConstants.AI_PICK_NOVICE_OFF_FOCUS_MULT, CombatConstants.AI_PICK_OFF_FOCUS_PART_MULT, perc_tier
     )
-    var on_focus_penalty: float = lerpf(0.92, CombatConstants.AI_PICK_ON_FOCUS_LINE_PENALTY_MULT, perc_tier)
+    var on_focus_penalty: float = lerpf(
+        CombatConstants.AI_PICK_NOVICE_ON_FOCUS_LINE_PENALTY_MULT,
+        CombatConstants.AI_PICK_ON_FOCUS_LINE_PENALTY_MULT,
+        perc_tier
+    )
     var yomi_habit_mult: float = lerpf(
         CombatConstants.AI_PICK_NOVICE_YOMI_HABIT_MULT, CombatConstants.AI_PICK_YOMI_HABIT_LINE_PART_MULT, perc_tier
     )

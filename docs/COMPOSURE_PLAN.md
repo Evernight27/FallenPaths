@@ -1,6 +1,6 @@
 # Composure — shipped
 
-**Live APIs:** [`AGENTS_API`](AGENTS_API.md#canonical-apis) composure rows · gauge 0–100 (`DataKeys.COMBATANT_GAUGE`) · campaign sync `world/CampaignComposureSync.gd`.
+**Live APIs:** [`AGENTS_API`](AGENTS_API.md#canonical-apis) composure rows · gauge 0–100 (`DataKeys.COMBATANT_GAUGE`), session-local.
 
 **LIVE_PATHS:** [`#composure-rework`](LIVE_PATHS.md#composure-rework).
 
@@ -14,4 +14,4 @@
 - **0** at wind-up start (`CombatStateHandlers.process_wind_up` / `AttackWindUpStarter`), medical wind-up, recovery, form switch, flee/yield, attack resolve, counter-tempo spend.
 - **Cowering idle** fills at **0.5/s** (`CombatStateHandlers.process_cowering_idle`).
 - **Thresholds:** counter-tempo ready ≥ `COUNTER_TEMPO_GAUGE_THRESHOLD` (50) · AI/action-list gate `< GAUGE_FULL_THRESHOLD` (99).
-- **Campaign sync:** `CampaignComposureSync` persists gauge onto party `CoreEntity` between fights.
+- **Not persisted between fights:** the gauge is session-local; each combat session re-derives it from scratch. The `CampaignComposureSync` campaign-sync bridge was never implemented and has been removed.

@@ -34,6 +34,10 @@ const FEATURE_ARMOR_BURDEN := true
 const FORMATION_ARMOR_MASS_REF_KG := 22.0
 ## Armor slows cooldown/readiness; 45% max penalty reflects historical reality of armored combat being exhausting work.
 const FORMATION_ARMOR_MAX_SLOW_MULT := 1.45
+## Cap on the armor-mass-to-reference ratio used to scale formation-move duration. Heavier-than-reference
+## armor slows repositioning, but the effect saturates (a fully-armored fighter is at most ~50% slower) so
+## a single heavy unit cannot freeze the formation.
+const FORMATION_ARMOR_MASS_RATIO_MAX := 1.5
 const ARMOR_BURDEN_ACTION_READY_MAX_MULT := 1.28
 const ARMOR_BURDEN_PASSIVE_READINESS_FLOOR := 0.78
 const FEATURE_INITIATIVE_ORDER := true
@@ -87,6 +91,12 @@ const WOUNDED_DEFENDER_CAUTION_BLOOD_REF := 30.0
 const WOUNDED_DEFENDER_CAUTION_MAX_BONUS := 0.10
 ## Doc-9 (yomi_transitions): a partial-parry **bind** opens the defender counterstrike (riposte chain) window.
 const FEATURE_PARRY_COUNTERSTRIKE_WINDOW := true
+## HEMA nach/Vorschlag: a landed strike grants the attacker a short fast re-commit window against the
+## off-balance victim. Distinct from (and weaker than) the parry-riposte chain.
+const FEATURE_HIT_CONTINUATION_WINDOW := true
+## HEMA measure-damage: a strike delivered out of optimal measure (over-extended or short of reach)
+## deals reduced damage. Complements the existing measure-ratio hit-chance penalty.
+const FEATURE_MEASURE_DAMAGE_COMMIT := true
 ## Mercy & execution: standing units may finish downed opponents (MOVE_ID_EXECUTE), weighted by personality
 ## (ruthlessness) x mood x situation (see docs/plan_mercy_execute.md).
 const FEATURE_MERCY_EXECUTE := true
@@ -152,6 +162,8 @@ static var _feature_fight_exhaustion_index: bool = FEATURE_FIGHT_EXHAUSTION_INDE
 static var _feature_arm_wound_degradation_load: int = -1
 static var _feature_wounded_defender_caution_load: int = -1
 static var _feature_parry_counterstrike_window_load: int = -1
+static var _feature_hit_continuation_window_load: int = -1
+static var _feature_measure_damage_commit_load: int = -1
 static var _feature_mercy_execute_load: int = -1
 
 
@@ -699,6 +711,37 @@ static func parry_counterstrike_doc_sync_line() -> String:
     ) % ("on" if FEATURE_PARRY_COUNTERSTRIKE_WINDOW else "off")
 
 
+static func is_feature_hit_continuation_window_enabled() -> bool:
+    if _feature_hit_continuation_window_load >= 0:
+        return _feature_hit_continuation_window_load != 0
+    return FEATURE_HIT_CONTINUATION_WINDOW
+
+
+static func set_feature_hit_continuation_window_load(enabled: bool) -> void:
+    _feature_hit_continuation_window_load = 1 if enabled else 0
+
+
+static func is_feature_measure_damage_commit_enabled() -> bool:
+    if _feature_measure_damage_commit_load >= 0:
+        return _feature_measure_damage_commit_load != 0
+    return FEATURE_MEASURE_DAMAGE_COMMIT
+
+
+static func set_feature_measure_damage_commit_load(enabled: bool) -> void:
+    _feature_measure_damage_commit_load = 1 if enabled else 0
+
+
+static func measure_damage_commit_doc_sync_line() -> String:
+    return (
+        "measure damage commit: feature=%s over_reach_floor=%.2f under_reach_floor=%.2f "
+        + "slice1=strike_out_of_measure_damage_reduction"
+    ) % [
+        "on" if FEATURE_MEASURE_DAMAGE_COMMIT else "off",
+        CombatConstantsDamage.MEASURE_DMG_OVER_REACH_FLOOR,
+        CombatConstantsDamage.MEASURE_DMG_UNDER_REACH_FLOOR,
+    ]
+
+
 ## Mercy & execution (docs/plan_mercy_execute.md): execute-vs-spare decisions are feature-gated for harness toggling.
 
 
@@ -719,6 +762,8 @@ static func reset_harness_feature_load_overrides() -> void:
     _feature_arm_wound_degradation_load = -1
     _feature_wounded_defender_caution_load = -1
     _feature_parry_counterstrike_window_load = -1
+    _feature_hit_continuation_window_load = -1
+    _feature_measure_damage_commit_load = -1
     _feature_ms_feint_resistance_load = -1
     _feature_ms_post_strike_load = -1
     _feature_ms_positional_awareness_load = -1

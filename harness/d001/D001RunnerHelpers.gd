@@ -212,15 +212,6 @@ static func _ensure_ii5_cowering_fall_back_executed(mgr: Node, combatant_id: int
     _OpsLog.play_combat("cowering_fall_back executed %s rank 0->1 file %d" % [who.strip_edges(), file])
 
 
-static func _drain_until_capture_needle(mgr: Node, needle: String, max_sec: float) -> void:
-    var elapsed: float = 0.0
-    while elapsed < max_sec:
-        if _D001Ii5Ii6Tests._count_needle(_OpsLog.get_captured_lines(), needle) >= 1:
-            return
-        mgr._process(TICK_DT)
-        elapsed += TICK_DT
-
-
 static func _try_force_fall_back(mgr: Node, combatant_id: int, actions: Array) -> bool:
     for a in actions:
         if a is not Dictionary:
@@ -232,15 +223,6 @@ static func _try_force_fall_back(mgr: Node, combatant_id: int, actions: Array) -
         mgr.resolve_action(combatant_id, combatant_id, CombatConstants.MOVE_ID_FALL_BACK, {})
         return true
     return false
-
-
-static func _soak_kill(mgr: Node, combatant_id: int) -> void:
-    var c: Variant = mgr._get_by_id(combatant_id)
-    if c is Dictionary:
-        c["hp"] = 0.0
-        var ent: CoreEntity = CombatantEntityAccess.scene_node(c) as CoreEntity
-        if ent != null:
-            ent.blood_volume = 0.0
 
 
 static func _first_alive_player_front_rank(mgr: Node) -> Dictionary:

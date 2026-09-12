@@ -206,6 +206,22 @@ static func off_balance_deflect_duration(intensity: float) -> float:
 	return Parry.off_balance_deflect_duration(intensity)
 
 
+static func hit_defender_off_balance_duration(intensity: float) -> float:
+	return Parry.hit_defender_off_balance_duration(intensity)
+
+
+static func miss_off_balance_duration(intensity: float) -> float:
+	return Parry.miss_off_balance_duration(intensity)
+
+
+static func feint_commit_off_balance_extra_s() -> float:
+	return Parry.FEINT_COMMIT_OFF_BALANCE_EXTRA_S
+
+
+static func thrust_commit_off_balance_extra_s() -> float:
+	return Parry.THRUST_COMMIT_OFF_BALANCE_EXTRA_S
+
+
 static func parry_bonus_mult(parry_control: float) -> float:
 	return Parry.parry_bonus_mult(parry_control)
 
@@ -625,6 +641,26 @@ static func is_feature_parry_counterstrike_window_enabled() -> bool:
 
 static func set_feature_parry_counterstrike_window_load(enabled: bool) -> void:
 	FeatureFlags.set_feature_parry_counterstrike_window_load(enabled)
+
+
+static func is_feature_hit_continuation_window_enabled() -> bool:
+	return FeatureFlags.is_feature_hit_continuation_window_enabled()
+
+
+static func set_feature_hit_continuation_window_load(enabled: bool) -> void:
+	FeatureFlags.set_feature_hit_continuation_window_load(enabled)
+
+
+static func is_feature_measure_damage_commit_enabled() -> bool:
+	return FeatureFlags.is_feature_measure_damage_commit_enabled()
+
+
+static func set_feature_measure_damage_commit_load(enabled: bool) -> void:
+	FeatureFlags.set_feature_measure_damage_commit_load(enabled)
+
+
+static func measure_damage_commit_doc_sync_line() -> String:
+	return FeatureFlags.measure_damage_commit_doc_sync_line()
 
 
 static func parry_counterstrike_doc_sync_line() -> String:

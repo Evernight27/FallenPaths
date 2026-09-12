@@ -429,16 +429,25 @@ static func apply_damage_split(
 		else:
 			layer_meta = CombatLayerTissue.penetration_after_soft_tissue(part, pen_to_tissue, true)
 		pen_for_mfb = float(layer_meta.get("penetration_to_bone_mm", pen_to_tissue))
-	var ke_blunt_bone: float = CombatLayerTissue.blunt_ke_reaching_bone(part, impact_ke)
+	# KE that physically reaches the body after armor absorption. The bone-fracture gates (sharp J-anchor
+	# + blunt tissue-budget) must be driven by this, not the weapon's pre-armor KE: otherwise a cuirass caps
+	# fracture magnitude (via the final_blunt share + ke_frac) yet the full pre-armor energy still clears the
+	# fracture threshold — armor limits HOW MUCH bone breaks, not WHETHER the mechanism fires. On the
+	# joule-authoritative path the running budget remainder is the transmitted KE; on every other path
+	# (no armor, or the legacy scalar path) the weapon KE is the best available estimate.
+	var body_ke_j: float = impact_ke
+	if joule_authoritative:
+		body_ke_j = maxf(0.0, float(joule_ke.get("armor_ke_remaining_j", impact_ke)))
+	var ke_blunt_bone: float = CombatLayerTissue.blunt_ke_reaching_bone(part, body_ke_j)
 	var mfb_alloc: Dictionary = CombatDamageMechanism.allocate_bone_and_tissue(
-		final_cut, final_blunt, total_final, part, sub_region, pen_for_mfb, impact_ke, ke_blunt_bone, entity.bone_max.get(part, 0)
+		final_cut, final_blunt, total_final, part, sub_region, pen_for_mfb, body_ke_j, ke_blunt_bone, entity.bone_max.get(part, 0)
 	)
 	var alloc: Dictionary = mfb_alloc
 	var force_curves: bool = extras.get("force_material_curves", false)
 	var curve_alloc: Dictionary = {}
 	if MaterialFailureCurves.is_active(force_curves):
 		curve_alloc = MaterialFailureCurves.allocate_bone_and_tissue(
-			final_cut, final_blunt, total_final, part, sub_region, pen_to_tissue, pen_for_mfb, impact_ke, ke_blunt_bone
+			final_cut, final_blunt, total_final, part, sub_region, pen_to_tissue, pen_for_mfb, body_ke_j, ke_blunt_bone
 		)
 		var blend_w: float = float(
 			extras.get("material_curve_blend_weight", BleedingConstants.MATERIAL_CURVE_BLEND_WEIGHT)
@@ -547,7 +556,7 @@ static func apply_damage_split(
 		var injury_type_for_wound: String = (
 			BleedingConstants.INJURY_TYPE_STAB if contact_type == WeaponConstants.ATTACK_TYPE_STAB else BleedingConstants.INJURY_TYPE_CUT
 		)
-		EntityWounds.add_wound(entity, part, injury_type_for_wound, to_cut, sub_region, "", impact_ke, wound_pen_mm, wound_extras)
+		EntityWounds.add_wound(entity, part, injury_type_for_wound, to_cut, sub_region, "", body_ke_j, wound_pen_mm, wound_extras)
 		# Torso thrusts can open a slow internal-organ bleed (forensic: stabs penetrate deeper and reach
 		# organs surface cuts miss). A separate unclottable wound so it doesn't merge with the external stab.
 		# Chance scales with penetration depth (a shallow thrust can't reach the organ plane). Dedicated RNG
@@ -564,7 +573,7 @@ static func apply_damage_split(
 				if ib_rng.randf() < ib_chance:
 					EntityWounds.add_wound(
 						entity, part, BleedingConstants.INJURY_TYPE_INTERNAL_BLEED, 1.0, sub_region,
-						BleedingConstants.internal_bleed_severity_for_penetration(wound_pen_mm), impact_ke, wound_pen_mm, {}
+						BleedingConstants.internal_bleed_severity_for_penetration(wound_pen_mm), body_ke_j, wound_pen_mm, {}
 					)
 	if to_blunt > 0.0:
 		var total_blunt_source: float = blunt_from_deflection + blunt_from_direct
@@ -574,54 +583,123 @@ static func apply_damage_split(
 			to_blunt_deflected = to_blunt * blunt_from_deflection / total_blunt_source
 			to_blunt_direct = to_blunt - to_blunt_deflected
 		if to_blunt_deflected > 0.0:
-			var sev: String = EntityWounds.severity_from_damage(entity, part, to_blunt_deflected, sub_region, impact_ke)
+			var sev: String = EntityWounds.severity_from_damage(entity, part, to_blunt_deflected, sub_region, body_ke_j)
 			if to_blunt_deflected <= float(DEFLECTION_BRUISE_THRESHOLD) or sev == BleedingConstants.SEVERITY_MINOR:
 				EntityWounds.add_wound(
-					entity, part, BleedingConstants.INJURY_TYPE_BRUISE, to_blunt_deflected, sub_region, "", impact_ke
+					entity, part, BleedingConstants.INJURY_TYPE_BRUISE, to_blunt_deflected, sub_region, "", body_ke_j
 				)
 			else:
 				EntityWounds.add_wound(
-					entity, part, BleedingConstants.INJURY_TYPE_CRUSH, to_blunt_deflected, sub_region, "", impact_ke
+					entity, part, BleedingConstants.INJURY_TYPE_CRUSH, to_blunt_deflected, sub_region, "", body_ke_j
 				)
 		if to_blunt_direct > 0.0:
 			EntityWounds.add_wound(
-				entity, part, BleedingConstants.INJURY_TYPE_CRUSH, to_blunt_direct, sub_region, "", impact_ke
+				entity, part, BleedingConstants.INJURY_TYPE_CRUSH, to_blunt_direct, sub_region, "", body_ke_j
 			)
-	# Blunt internal organ trauma (visceral injury without penetration): high-KE blunt strikes to
-	# thoracic/abdominal regions can rupture organs even when no sharp penetration path exists.
-	# Skip organ trauma when joule-authoritative armor already absorbed KE — the armor's energy
-	# absorption accounts for the blunt transfer; double-counting would inflate damage beyond bare.
+	# Blunt internal organ trauma (visceral injury without penetration): high-KE BLUNT strikes to
+	# thoracic/abdominal regions can rupture organs even when no sharp penetration path exists. This
+	# is a BLUNT-mechanism injury (crush/contusion), so it only applies to non-sharp-dominant strikes
+	# (blunt/mixed): a sharp-dominant cut lacerates rather than contuses, and its organ damage flows
+	# through the sharp channel. Plate armor TRANSMITS blunt force, so organ injury is driven by the
+	# KE that reaches the body (body_ke_j), not the weapon's pre-armor KE: a cuirass reduces the risk
+	# but a hard mace blow through plate still risks liver/rib/organ trauma. A fully absorbed glancing
+	# blow passes ~0 J and correctly produces none.
 	var organ_trauma: Dictionary = {}
-	if not joule_authoritative or (joule_ke.get("armor_ke_absorbed_j", 0.0) <= 0.0):
+	if mechanism_raw != "sharp":
 		organ_trauma = CombatDamageMechanism.check_blunt_internal_organ_trauma(
-			part, sub_region, impact_ke, pen_to_tissue
+			part, sub_region, body_ke_j, pen_to_tissue
 		)
 	if not organ_trauma.get("trauma_type", "").is_empty() and organ_trauma.get("organ_blunt_dmg", 0.0) > 0.0:
 		var extra_blunt: float = organ_trauma["organ_blunt_dmg"]
 		entity.body_blunt[part] = entity._round_tissue(maxf(0.0, entity.body_blunt.get(part, 0.0) - extra_blunt))
 		to_blunt += extra_blunt
 		total_damage_this_hit += extra_blunt
+		# Create an unclottable internal-bleed wound so ruptured organs sustain continuous
+		# blood loss independent of the crush-wound path.
+		var ib_severity: String
+		match organ_trauma["trauma_type"]:
+			"aortic_trauma":
+				ib_severity = BleedingConstants.SEVERITY_CRITICAL
+			"liver_spleen_tear":
+				ib_severity = BleedingConstants.SEVERITY_SEVERE
+			_:
+				ib_severity = BleedingConstants.SEVERITY_MODERATE
+		EntityWounds.add_wound(
+			entity, part, BleedingConstants.INJURY_TYPE_INTERNAL_BLEED, 1.0, sub_region,
+			ib_severity, body_ke_j, 0.0, {}
+		)
 		if CombatConstants.combat_debug_active():
 			CombatDebug.log(
-				"[OrganTrauma] %s %s (%s): %s KE=%.1fJ => +%.1f blunt (visceral injury)"
-				% [entity.name, part, sub_region, organ_trauma["trauma_type"], impact_ke, extra_blunt]
+				"[OrganTrauma] %s %s (%s): %s KE=%.1fJ => +%.1f blunt, internal_bleed=%s (visceral injury)"
+					% [entity.name, part, sub_region, organ_trauma["trauma_type"], body_ke_j, extra_blunt, ib_severity]
 			)
 	if to_bone > 0.0:
 		var fracture_severity: String = EntityWounds.severity_from_bone_damage(entity, part, to_bone)
 		EntityWounds.add_wound(
-			entity, part, BleedingConstants.INJURY_TYPE_FRACTURE, to_bone, sub_region, fracture_severity, impact_ke
+			entity, part, BleedingConstants.INJURY_TYPE_FRACTURE, to_bone, sub_region, fracture_severity, body_ke_j
 		)
-	# Concussion from head bone damage (Issue 1). Uses allocated_bone (the KE-allocated bone trauma the strike
-	# DELIVERS to the skull, pre health-pool clamp) rather than the clamped to_bone — a concussion is caused by the
-	# impact force, not by how much of the bone-health pool was consumed. This makes the ratio able to exceed 1.0
-	# for heavy head blows (previously to_bone was capped at cur_bone <= bone_max, so the ratio was always <= 1.0
-	# and the CONCUSSION_BONE_THRESHOLD_MIN gate was unreachable — the whole concussion system was dead code).
-	if to_bone > 0.0 and part == BodyPartConstants.PART_HEAD:
-		var head_bone_max: float = maxf(1.0, float(entity.bone_max.get(part, 8)))
-		EntityPainConsciousness.try_enter_concussion_from_head_bone_damage(entity, allocated_bone / head_bone_max)
+	# Intracranial hemorrhage: a head wound that breaches the skull (fracture or deep sharp penetration)
+	# opens an internal, unclottable bleed distinct from external scalp laceration. Field pressure
+	# cannot stop it; it progresses over time and is only treatable via evacuation/surgery.
+	var head_skull_breached: bool = part == BodyPartConstants.PART_HEAD and (
+		to_bone > 0.0 or (to_cut > 0.0 and pen_to_tissue >= BleedingConstants.HEAD_SKULL_BREACH_PEN_MM)
+	)
+	if head_skull_breached:
+		var ic_chance: float = BleedingConstants.internal_bleed_chance_head_skull_damage(to_bone)
+		if ic_chance <= 0.0 and to_cut > 0.0 and pen_to_tissue >= BleedingConstants.HEAD_SKULL_BREACH_PEN_MM:
+			ic_chance = BleedingConstants.HEAD_INTRACRANIAL_BLEED_MAX_CHANCE * 0.5
+		if ic_chance > 0.0:
+			var ic_seed: int = hash("%s:%s:%d" % [entity.name, "ic_bleed", int(float(entity._game_time_seconds) * 1000.0)])
+			var ic_rng := RandomNumberGenerator.new()
+			ic_rng.seed = ic_seed
+			if ic_rng.randf() < ic_chance:
+				var ic_severity: String = BleedingConstants.internal_bleed_severity_head_skull_damage(to_bone, pen_to_tissue)
+				EntityWounds.add_wound(
+					entity, part, BleedingConstants.INJURY_TYPE_INTERNAL_BLEED, 1.0, sub_region,
+					ic_severity, body_ke_j, pen_to_tissue, {"intracranial": true}
+				)
+				if CombatConstants.combat_debug_active():
+					CombatDebug.log(
+						"[IntracranialBleed] %s %s: skull breached (to_bone=%.1f pen=%.1fmm) severity=%s chance=%.2f"
+						% [entity.name, part, to_bone, pen_to_tissue, ic_severity, ic_chance]
+					)
+	# Concussion from head impact (Issue 1 + rotational channel). Two physical mTBI mechanisms, both
+	# anchored to the calibrated fracture-energy reference (CombatDamageMechanism.blunt_fracture_j_anchor):
+	#  - LINEAR (bone impulse): KE that reaches the skull bone cracks it / imparts linear acceleration.
+	#    A concussion is caused by the impact impulse on the brain at energies well below those that
+	#    fracture the skull, so it gates on ke_blunt_bone > 0, NOT to_bone > 0 (the sqrt(J) bone formula +
+	#    45% blunt-share cap caps head bone at ~1-1.5 units, so allocated_bone/8 never reached the 1.2
+	#    threshold and the to_bone>0 gate was dead code). Fires on committed blows that reach the skull.
+	#  - ROTATIONAL (head spin): total KE transmitted to the head spins it. Rowson/Duma: rotational
+	#    acceleration, not linear, is the dominant TBI/diffuse-axonal-injury predictor, so this catches
+	#    glancing or scalp-absorbed blows that spin the head without reaching the bone (sub-fracture
+	#    rotational mTBI the linear bone gate misses). Driven by transmitted head KE; I_head/dt/share
+	#    cancel out of the fracture-anchored gate, so the trigger is transmitted-head-KE in the 0.75-1.5x
+	#    fracture-energy band, mirroring the linear channel.
+	if part == BodyPartConstants.PART_HEAD and body_ke_j > 0.0:
+		var fracture_anchor: float = CombatDamageMechanism.blunt_fracture_j_anchor(part, sub_region)
+		if fracture_anchor > 0.0:
+			# A single impact is ONE mTBI event. Fire the LINEAR (bone-impulse) channel when it clears the
+			# onset ratio; otherwise fall back to the ROTATIONAL channel to catch sub-fracture glancing blows
+			# that spin the head below the bone-impulse onset. Firing both on the same hit would double-count
+			# the cumulative counter and accelerate Second-Impact escalation beyond a single impact.
+			var transmitted_ratio: float = ke_blunt_bone / fracture_anchor if ke_blunt_bone > 0.0 else 0.0
+			if transmitted_ratio >= EntityPainConsciousness.CONCUSSION_BONE_THRESHOLD_MIN:
+				EntityPainConsciousness.try_enter_concussion_from_head_bone_damage(entity, transmitted_ratio)
+			else:
+				# Rotational: alpha from the KE that actually reaches the head — body_ke_j, the same
+				# post-armor transmitted energy the bone/organ gates use (armor absorbs the rest). This
+				# includes the scalp/tissue KE the bone channel's `ke_blunt_bone` subtracts away. Gated
+				# against fracture-energy-anchored thresholds. No-armor: body_ke_j == impact_ke.
+				var transmitted_head_ke: float = body_ke_j
+				if transmitted_head_ke > 0.0:
+					var alpha_head: float = EntityPainConsciousness.head_rotational_accel_rad_s2(transmitted_head_ke)
+					var alpha_thr: Array = EntityPainConsciousness.rotational_alpha_thresholds_for_fracture_anchor(fracture_anchor)
+					EntityPainConsciousness.try_enter_concussion_from_rotation(entity, alpha_head, alpha_thr[0], alpha_thr[1])
 	# Track last hit blunt KE for realistic head trauma classification (Issue: dagger HEAD_TRAUMA at 17J).
-	if part == BodyPartConstants.PART_HEAD and impact_ke > 0.0 and to_blunt > 0.0:
-		entity.set_meta("_last_hit_blunt_ke_j", impact_ke)
+	# Uses body_ke_j (KE reaching the head) so a helmet/plate reduces the classified trauma.
+	if part == BodyPartConstants.PART_HEAD and body_ke_j > 0.0 and to_blunt > 0.0:
+		entity.set_meta("_last_hit_blunt_ke_j", body_ke_j)
 	var early_severed: bool = false
 	var part_sever_threshold: float = _get_severance_threshold_for_part_entity_aware(entity, part)
 	if not entity._is_part_severed(part) and total_damage_this_hit >= part_sever_threshold:
@@ -653,8 +731,9 @@ static func apply_damage_split(
 						early_severed = true
 						total_damage_this_hit = to_cut + to_blunt + to_bone
 						# Track last hit blunt KE for head trauma classification even when early severance zeroes the part.
-						if part == BodyPartConstants.PART_HEAD and impact_ke > 0.0:
-							entity.set_meta("_last_hit_blunt_ke_j", impact_ke)
+						# Uses body_ke_j (KE reaching the head) so a helmet/plate reduces the classified trauma.
+						if part == BodyPartConstants.PART_HEAD and body_ke_j > 0.0:
+							entity.set_meta("_last_hit_blunt_ke_j", body_ke_j)
 						# Sync J reservoir after early severance zeroing (prevents stale J after display reset).
 						if "tissue_energy_capacity_j" in entity and "tissue_energy_remaining_j" in entity:
 							var body_max_t: int = clampi(int(entity.body_max.get(part, 10)), 1, 999)
@@ -701,7 +780,7 @@ static func apply_damage_split(
 		)
 	else:
 		if to_cut > 0.0:
-			var sev_cut: String = EntityWounds.severity_from_damage(entity, part, to_cut, sub_region, impact_ke)
+			var sev_cut: String = EntityWounds.severity_from_damage(entity, part, to_cut, sub_region, body_ke_j)
 			pain_from_this_hit_raw += entity._get_pain_contribution_for_wound(
 				part, to_cut, sev_cut, BleedingConstants.INJURY_TYPE_CUT, sub_region, false, wound_pen_mm
 			)
@@ -714,7 +793,7 @@ static func apply_damage_split(
 				to_blunt_direct = to_blunt - to_blunt_deflected
 			if to_blunt_deflected > 0.0:
 				var sev_def: String = EntityWounds.severity_from_damage(
-					entity, part, to_blunt_deflected, sub_region, impact_ke
+					entity, part, to_blunt_deflected, sub_region, body_ke_j
 				)
 				var itype_def: String = (
 					BleedingConstants.INJURY_TYPE_BRUISE
@@ -729,7 +808,7 @@ static func apply_damage_split(
 				)
 			if to_blunt_direct > 0.0:
 				var sev_dir: String = EntityWounds.severity_from_damage(
-					entity, part, to_blunt_direct, sub_region, impact_ke
+					entity, part, to_blunt_direct, sub_region, body_ke_j
 				)
 				pain_from_this_hit_raw += entity._get_pain_contribution_for_wound(
 					part, to_blunt_direct, sev_dir, BleedingConstants.INJURY_TYPE_CRUSH, sub_region, false
@@ -741,7 +820,7 @@ static func apply_damage_split(
 			)
 	# Add pain for blunt organ trauma (visceral nociceptors produce disproportionately severe pain).
 	if organ_trauma.has("organ_pain_mult") and organ_trauma["organ_pain_mult"] > 1.0:
-		var organ_sev: String = EntityWounds.severity_from_damage(entity, part, organ_trauma.get("organ_blunt_dmg", 0.0), sub_region, impact_ke)
+		var organ_sev: String = EntityWounds.severity_from_damage(entity, part, organ_trauma.get("organ_blunt_dmg", 0.0), sub_region, body_ke_j)
 		pain_from_this_hit_raw += entity._get_pain_contribution_for_wound(
 			part, organ_trauma["organ_blunt_dmg"], organ_sev, BleedingConstants.INJURY_TYPE_CRUSH, sub_region, false
 		)

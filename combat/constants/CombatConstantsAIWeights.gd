@@ -44,6 +44,53 @@ const AI_ROTATE_FILE_WHEN_ENGAGEMENT_LISTED_MULT := 0.35  # Prefer strikes/close
 
 const AI_SPARSE_LINE_OFFENSE_MULT := 1.35  # Listed melee on sparse post-flee front — fight over focus shuffle
 
+## Open/guarded line bias: a fencer prefers attacking the open side of the opponent's guard.
+## Aligned (on-line) attacks carry a penalty because the defender is already covering that line;
+## open-line attacks carry a small bonus. The gap is moderate (not dominant) so that timing,
+## stamina, wounds and other factors still compete.
+## Research: ~2:1 open-to-guarded split at elite level (in-line attacks remain a viable minority,
+## observed floor ~25% of options). Guarded mult 0.70 reproduces the 2:1 split on the SELECTION
+## metric (which lines the AI picks): measured open:guarded selection 2.10:1 at .70 vs 1.37:1 with
+## no bias. The low in-line *hit* share is correct defense behavior (held lines get parried ~40%),
+## not a selection defect — do not chase the hit-share.
+## The factor is a pure function of line alignment — it must NOT vary with defender footwork or
+## state, or the plain-move weight invariants (feint_list footwork tests) break.
+const AI_OPEN_LINE_MULT := 1.40
+const AI_GUARDED_LINE_MULT := 0.70
+
+## Line-memory repeat suppression: a line that just FAILED (miss/parry/dodge — the defender read it)
+## is briefly de-weighted so the attacker varies under pressure instead of hammering a line already
+## demonstrated readable. FLOOR is the penalty at zero age (freshest failure); the factor decays to
+## 1.0 (neutral) linearly over DECAY_WINDOW_S on the combat clock. A landed hit clears the line's
+## entry (AttackResultApplier), so success does NOT suppress — only reads do.
+const AI_LINE_FAIL_PENALTY_FLOOR := 0.75
+const AI_LINE_FAIL_DECAY_WINDOW_S := 12.0
+
+## Proactive yomi line variation: a line the attacker has been hitting recently (as observed
+## by the defender, in the ~5-observation recent window) is getting readable. De-weight it so
+## the AI varies BEFORE the defender's guard drift fully matures, not only after a line fails
+## (that reactive case is line_fail_weight_mult). MIN_RECENT is how many times the line must
+## appear in the recent window before any penalty applies; FLOOR is the penalty at full share
+## (attacker is one-dimensional on that line). Kept mild so a working OPEN line is never
+## suppressed in favor of predictability — the open/guarded bias dominates this term.
+const AI_YOMI_VARY_MIN_RECENT := 2
+const AI_YOMI_VARY_FLOOR := 0.85
+
+## Feint open-line follow-up: when a feint has just opened a line on the target
+## (PA_FEINT_OPEN_LINE window still live), boost weight for strikes into that line.
+## TOP_MULT is the max boost at full openness (lowest stored parry mult ≈ 0.55).
+## Kept at the same top as AI_OPEN_LINE_MULT so it nudges but does not dominate.
+const AI_FEINT_OPEN_LINE_FOLLOWUP_TOP_MULT := 1.40
+
+## Feint repeat-read damp: after a feint on a line gets READ (miss/parry/dodge), the defender
+## now expects that line. Re-telegraphing the same line is the least realistic choice, so feint
+## moves that repeat a just-failed line get an extra de-weight on top of line_fail_m, which
+## already applies to all moves on that line. Net effect: after a read feint, commit to a real
+## strike or vary the line; if returning to that line, do it honestly rather than re-feinting.
+## Applies to feint moves only (honest strikes are not affected). Mild; the floor is the
+## penalty at the freshest failure, decaying to 1.0 over AI_LINE_FAIL_DECAY_WINDOW_S.
+const AI_FEINT_REPEAT_FAIL_DAMP := 0.60
+
 const AI_STAMINA_DEEP_EXHAUST_MULT := 0.40
 
 const AI_STAMINA_DEEP_EXHAUST_RATIO := 0.05

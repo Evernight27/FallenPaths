@@ -80,8 +80,8 @@ static func try_afterblow(
         # Not hindered  -  allow
         return _execute_afterblow(manager, tgt, 0.0)
     var part_relevance: float = _get_part_relevance(hit_part, attacking_arm, _get_supporting_leg(tgt_n))
-    var severity: float = clampf(total_dmg / CombatAfterblowConstants.AFTERBLOW_DAMAGE_HINDER_THRESHOLD, 0.0, 1.5)
-    var outcome_mult: float = 0.6 if outcome == "glancing" or outcome == "negligible" else 1.0
+    var severity: float = clampf(total_dmg / CombatAfterblowConstants.AFTERBLOW_DAMAGE_HINDER_THRESHOLD, 0.0, CombatAfterblowConstants.AFTERBLOW_SEVERITY_MAX)
+    var outcome_mult: float = CombatAfterblowConstants.AFTERBLOW_GLANCING_OUTCOME_MULT if outcome == "glancing" or outcome == "negligible" else 1.0
     var hindrance: float = clampf(part_relevance * severity * intensity * outcome_mult, 0.0, 1.0)
 
     if hindrance >= CombatAfterblowConstants.AFTERBLOW_HINDRANCE_BLOCK:
@@ -130,7 +130,7 @@ static func _cancel_pending(manager: Node, tgt: Dictionary) -> void:
 static func _execute_afterblow(manager: Node, tgt: Dictionary, hindrance: float) -> bool:
     var pa: Dictionary = CombatantEntityAccess.nested_dictionary_for_mutation(tgt, "pending_attack")
     var damage_mult: float = 1.0 - hindrance
-    pa[DataKeys.PA_AFTERBLOW_DAMAGE_MULT] = maxf(0.2, damage_mult)
+    pa[DataKeys.PA_AFTERBLOW_DAMAGE_MULT] = maxf(CombatAfterblowConstants.AFTERBLOW_DAMAGE_MULT_FLOOR, damage_mult)
 
     # Cap afterblow velocity to weapon committed-band range. The target's PA has no velocity_m_s set
     # (wind-up never sets it), so AttackResolver derives velocity fresh from stored intensity at line 87.

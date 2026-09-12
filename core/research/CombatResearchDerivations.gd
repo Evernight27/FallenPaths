@@ -8,10 +8,14 @@ extends RefCounted
 const HumanSpecies := preload("res://resources/species/human.tres")
 const GoblinSpecies := preload("res://resources/species/goblin.tres")
 
-## ATLS 10th ed. hemorrhage; field untreated major bleed (CoTCCC order-of-minutes, wide variance).
-const LITERATURE_TTD_UNTREATED_S_MIN: float = 30.0
-const LITERATURE_TTD_UNTREATED_S_MAX: float = 120.0
-const LITERATURE_TTD_TARGET_S: float = 48.0
+## Clinical exsanguination for an untreated major arterial bleed (carotid/femoral severance):
+## 120-300 s (2-5 min) per Irandoust/Byard 2013 (J Forensic Leg Med 20:944-946) and TCCC
+## order-of-minutes. Target 180 s (3 min) = median of the documented clinical range.
+## Prior value (48 s) was a gameplay pacing choice (~4x faster than clinical); now anchored to
+## the literature so the sim mirrors real-world exsanguination.
+const LITERATURE_TTD_UNTREATED_S_MIN: float = 120.0
+const LITERATURE_TTD_UNTREATED_S_MAX: float = 300.0
+const LITERATURE_TTD_TARGET_S: float = 180.0
 ## StatPearls NBK526077 / standard transfusion: ~70 mL/kg (male); female ~65 mL/kg.
 const LITERATURE_BLOOD_ML_PER_KG_NOMINAL: float = CombatDesignAnchors.REFERENCE_BLOOD_ML_PER_KG
 const LITERATURE_BLOOD_ML_PER_KG_TOLERANCE: float = 1.0
@@ -90,8 +94,8 @@ const LITERATURE_GRIP_NERVE_ARTERY_MAX: float = 70.0
 const LITERATURE_GRIP_PARRY_ATTACK_RATIO: float = 10.0 / 15.0
 const LITERATURE_GRIP_RATIO_TOLERANCE: float = 0.02
 const HUMAN_ARM_TISSUE_BODY_MAX: int = CombatDesignAnchors.REFERENCE_HUMAN_ARM_TISSUE_DISPLAY
-## Pain performance at NRS 4 (first effect): -8% per PainConsciousnessConstants.
-const LITERATURE_PAIN_PERF_AT_NRS4: float = 0.92
+## Pain performance at NRS 4 (first effect): -10% per PainConsciousnessConstants (lit. -10 to -18%).
+const LITERATURE_PAIN_PERF_AT_NRS4: float = 0.90
 const LITERATURE_PAIN_PERF_TOLERANCE: float = 0.02
 ## Joule armor: sqrt(ke_remaining/strike_ke) transmission; cuirass pen6 reference strike.
 const LITERATURE_JOULE_REFERENCE_STRIKE_KE_J: float = 120.0
@@ -219,11 +223,11 @@ static func derived_blood_loss_multiplier_for_ttd(target_ttd_s: float) -> float:
 
 
 ## Implied mL/s from abstract HP/s bleed via percent'??"mL bridge (`BloodVolumeMl`).
-## Not a clinical flow-rate claim  -  **TTD** (30 - 120 s band) is the calibrated outcome.
+## Not a clinical flow-rate claim  -  **TTD** (120 - 300 s band) is the calibrated outcome.
 
 
 ## Implied mL/s from abstract HP/s bleed via percent'??"mL bridge (`BloodVolumeMl`).
-## Not a clinical flow-rate claim  -  **TTD** (30 - 120 s band) is the calibrated outcome.
+## Not a clinical flow-rate claim  -  **TTD** (120 - 300 s band) is the calibrated outcome.
 static func reference_uncontrolled_implied_ml_per_second(
     reference_mass_kg: float = CombatDesignAnchors.REFERENCE_ADULT_MASS_KG, loss_mult: float = 1.0
 ) -> float:
@@ -231,12 +235,6 @@ static func reference_uncontrolled_implied_ml_per_second(
     return BloodVolumeMl.blood_ml_loss_per_second(
         BleedingConstants.REFERENCE_UNCONTROLLED_BLEED_RATE, max_ml, loss_mult
     )
-
-
-static func reference_uncontrolled_implied_ml_per_minute(
-    reference_mass_kg: float = CombatDesignAnchors.REFERENCE_ADULT_MASS_KG, loss_mult: float = 1.0
-) -> float:
-    return reference_uncontrolled_implied_ml_per_second(reference_mass_kg, loss_mult) * 60.0
 
 
 static func clinical_ttd_seconds(loss_mult: float = 1.0) -> float:

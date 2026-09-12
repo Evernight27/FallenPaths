@@ -328,6 +328,18 @@ static func resolve(manager: Node, attacker_id: int, target_id: int, move_id: St
     if CombatMobilityRetreat.cannot_commit_melee(atk):
         CombatDebug.resolve_action_rejected(manager, attacker_id, move_id, "no functional arm for melee")
         return false
+    if move_id == CombatConstants.MOVE_ID_BIND_PRESS:
+        CombatBindPressure.resolve_bind_press(manager, attacker_id, target_id)
+        return true
+    if move_id == CombatConstants.MOVE_ID_BIND_VOID:
+        CombatBindPressure.resolve_bind_void(manager, attacker_id, target_id)
+        return true
+    if move_id == CombatConstants.MOVE_ID_BIND_WIND:
+        CombatBindPressure.resolve_bind_wind(manager, attacker_id, target_id)
+        return true
+    if move_id == CombatConstants.MOVE_ID_BIND_WRESTLE:
+        CombatBindPressure.resolve_bind_wrestle(manager, attacker_id, target_id)
+        return true
     var opts: Dictionary = {}
     if options.has(DataKeys.ACTION_TARGET_PART):
         opts[DataKeys.ATTACK_TARGET_PART] = options.target_part

@@ -6,7 +6,6 @@ extends RefCounted
 ## Harness assertion tolerance tiers.
 const ASSERT_CRITICAL_TOLERANCE: float = 0.001
 const ASSERT_COMPUTED_TOLERANCE: float = 0.02
-const ASSERT_RATIO_TOLERANCE: float = 0.03
 
 
 static func run(failures: PackedStringArray) -> void:
@@ -568,9 +567,10 @@ static func _run_muscle_fatigue_step_speed_curve(failures: PackedStringArray) ->
             var expected_ret := lerpf(1.0, CombatConstants.MUSCLE_FATIGUE_RETREAT_SPEED_FLOOR_AT_MAX, pow(leg_f_75, CombatConstants.MUSCLE_FATIGUE_STEP_SPEED_CURVE_POWER))
             if absf(tired_ret - expected_ret) > ASSERT_COMPUTED_TOLERANCE:
                 HarnessFixtures._fail(failures, "muscle_fatigue_step_speed_75_ret: want ~%.3f got %.3f" % [expected_ret, tired_ret])
-            # Verify forward is penalized more than retreat (retreat floor 0.75 > forward floor 0.10).
-            if not (tired_ret > tired_fwd):
-                HarnessFixtures._fail(failures, "muscle_fatigue_step_speed: forward should be penalized more than retreat fwd=%.3f ret=%.3f" % [tired_fwd, tired_ret])
+            # Verify retreat is harder than forward (research: Barton et al. 2017, Heijnen & Hommel 2005).
+            # Retreat floor 0.08 < forward floor 0.10 — backward motion requires more proprioception/balance.
+            if not (tired_ret < tired_fwd):
+                HarnessFixtures._fail(failures, "muscle_fatigue_step_speed: retreat should be harder than forward fwd=%.3f ret=%.3f" % [tired_fwd, tired_ret])
             if not (tired_lat < tired_fwd):
                 HarnessFixtures._fail(failures, "muscle_fatigue_step_speed: lateral should be penalized vs forward fwd=%.3f lat=%.3f" % [tired_fwd, tired_lat])
     )

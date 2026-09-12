@@ -10,6 +10,7 @@ const _DesignAnchors := preload("res://core/CombatDesignAnchors.gd")
 const _Bleeding := preload("res://core/BleedingConstants.gd")
 const _WeaponDamageHelper := preload("res://resources/weapons/WeaponDamageHelper.gd")
 const _WeaponConstants := preload("res://resources/weapons/WeaponConstants.gd")
+const _CombatConstants := preload("res://combat/CombatConstants.gd")
 
 ## Note stamped by **`AttackResultApplier._tuning_follow_through_extras`** on a strike that lands as the
 ## follow-through of a parried blow (real hit, but low KE is the parried-blow residual, not a committed strike).
@@ -84,10 +85,6 @@ static func exchange_outcome(result: Dictionary) -> String:
 	return _resolved_outcome(result)
 
 
-static func strike_ke_from_result(result: Dictionary) -> float:
-	return _strike_ke_j(_resolved_payload(result))
-
-
 static func ke_sample_from_result(result: Dictionary) -> Dictionary:
 	var sample: Dictionary = _ke_sample_meta(result)
 	var rd: Dictionary = _resolved_payload(result)
@@ -109,6 +106,13 @@ static func _ke_sample_meta(result: Dictionary) -> Dictionary:
 		# (fraction of intentional hits that land on a different part than aimed).
 		"aim_part": str(result.get("target_part", rd.get("target_part", ""))).strip_edges(),
 		"hit_part": str(rd.get("part", "")).strip_edges(),
+		# True when the aimed part was inside the intercept segment at resolve time.
+		# False/absent means the guard/first-contact parts interposed before it — a physical
+		# block rather than a targeting error. Stamped by AttackResolver when target_part set.
+		"aim_reachable": bool(result.get("aim_reachable", rd.get("aim_reachable", false))),
+		# Alignment (0..1) at resolve time; lets format_aim_drift bucket aim-error by
+		# aligned/glancing/off using the same thresholds the defense resolver uses.
+		"hit_alignment": float(result.get("hit_alignment", rd.get("hit_alignment", -1.0))),
 	}
 	var sample_move_id: String = str(sample.get("move_id", ""))
 	if not sample_move_id.is_empty():
@@ -193,10 +197,6 @@ static func format_ke_tag_for_sample(sample: Variant) -> String:
 	var combat_min: float = _DesignAnchors.COMBAT_REALISTIC_KE_J_MIN
 	var combat_max: float = _DesignAnchors.COMBAT_REALISTIC_KE_J_MAX
 	return "KE=%.0fJ [%s, weapon %.0f-%.0fJ, combat %.0f-%.0fJ]" % [ke_j, band_label, band.x, band.y, combat_min, combat_max]
-
-
-static func format_hema_ke_tag(ke_j: float) -> String:
-	return format_ke_tag_for_sample({"ke_j": ke_j, "weapon_id": "SWORD"})
 
 
 ## Space-separated, CSV-safe attribution of a strike's KE multipliers so weak
@@ -315,7 +315,13 @@ static func _recon_side_bit(entity: Node) -> String:
 	var rate: float = 0.0
 	var wound_count: int = 0
 	if ("wounds" in entity) and (entity.wounds is Dictionary):
-		rate = EntityWounds.get_total_bleeding_rate(entity) * _Bleeding.BLOOD_LOSS_RATE_MULTIPLIER
+		# Display the ACTUAL blood-volume drain, not the raw (uncapped) wound sum: process_blood_loss
+		# clamps the drain to MAX_TOTAL_BLOOD_LOSS_RATE in both the % and mL paths, so the uncapped
+		# total (e.g. 15.4%/s) misrepresents the ~3.5%/s the sim really applies and understates TTD.
+		rate = minf(
+			EntityWounds.get_total_bleeding_rate(entity) * _Bleeding.BLOOD_LOSS_RATE_MULTIPLIER,
+			_Bleeding.MAX_TOTAL_BLOOD_LOSS_RATE
+		)
 		var wounds: Dictionary = entity.wounds as Dictionary
 		for p in wounds.keys():
 			var arr: Array = wounds[p]
@@ -701,21 +707,6 @@ static func _performance_tags_for(role: String, entity: Node) -> PackedStringArr
 	return bits
 
 
-## Optional second line with part tissue delta (verbose tuning panel).
-static func format_strike_detail(result: Dictionary, atk_gauge: float, def_gauge: float) -> String:
-	var rd: Dictionary = _resolved_payload(result)
-	var hb: float = float(rd.get("health_before", 0.0))
-	var ha: float = float(rd.get("health_after", 0.0))
-	if hb <= 0.0 and ha <= 0.0 and atk_gauge < 0.0:
-		return ""
-	var lines := PackedStringArray()
-	if hb > 0.0 or ha > 0.0:
-		lines.push_back("  part_hp: %.0f -> %.0f (delta=%.0f)" % [hb, ha, ha - hb])
-	if atk_gauge >= 0.0:
-		lines.push_back("  gauge: atk=%.3f def=%.3f" % [atk_gauge, def_gauge])
-	return "\n".join(lines)
-
-
 static func format_matchup_banner(atk_cfg: Variant, def_cfg: Variant) -> String:
 	var atk_species: String = "human" if str(atk_cfg.species_tres_path).contains("human") else "goblin"
 	var def_species: String = "human" if str(def_cfg.species_tres_path).contains("human") else "goblin"
@@ -1028,9 +1019,23 @@ static func _ke_sample_is_light_swing(sample: Variant) -> bool:
 ## line (which is over all strikes). A fight can be hit=100% (every strike connected) AND
 ## aim_drift=100% (every connection off the aimed part). Returns e.g. `aim_drift=37.8% (28/74
 ## contacts)` or "" when no intentional contacts were sampled.
+##
+## When drift > 0 the line appends `[blocked=N aim-error=M]`:
+##   blocked   - aimed part was outside the intercept segment (guard/first-contact in the way)
+##   aim-error - aimed part was in-segment but the weighted pick chose a different part
+##
+## aim-error is further bucketed by alignment tier (same thresholds as
+## DefenseChoiceResolver: aligned >= PARRY_PARTIAL_GUARD_ALIGNMENT_THRESHOLD,
+## glancing >= PARRY_GLANCING_ALIGNMENT_FLOOR, else off) so the log separates
+## drift on committed, well-aligned strikes (a tuning signal) from drift on
+## glancing, poorly-aligned swings (expected).
 static func format_aim_drift(ke_samples: Array) -> String:
 	var intentional: int = 0
 	var drifted: int = 0
+	var guard_blocked: int = 0
+	var err_aligned: int = 0
+	var err_glancing: int = 0
+	var err_off: int = 0
 	for raw in ke_samples:
 		if not (raw is Dictionary):
 			continue
@@ -1042,9 +1047,23 @@ static func format_aim_drift(ke_samples: Array) -> String:
 		var hit: String = str(s.get("hit_part", "")).strip_edges()
 		if not hit.is_empty() and aim != hit:
 			drifted += 1
+			if not bool(s.get("aim_reachable", false)):
+				guard_blocked += 1
+			else:
+				var al: float = float(s.get("hit_alignment", -1.0))
+				if al >= _CombatConstants.PARRY_PARTIAL_GUARD_ALIGNMENT_THRESHOLD:
+					err_aligned += 1
+				elif al >= _CombatConstants.PARRY_GLANCING_ALIGNMENT_FLOOR:
+					err_glancing += 1
+				else:
+					err_off += 1
 	if intentional == 0:
 		return ""
-	return "aim_drift=%.1f%% (%d/%d contacts)" % [float(drifted) / float(intentional) * 100.0, drifted, intentional]
+	var aim_error: int = drifted - guard_blocked
+	var breakdown: String = " [blocked=%d aim-error=%d]" % [guard_blocked, aim_error] if drifted > 0 else ""
+	if aim_error > 0:
+		breakdown += " err(align=%d gl=%d off=%d)" % [err_aligned, err_glancing, err_off]
+	return "aim_drift=%.1f%% (%d/%d contacts)%s" % [float(drifted) / float(intentional) * 100.0, drifted, intentional, breakdown]
 
 
 static func _format_ke_bucket_line(
@@ -1170,46 +1189,6 @@ static func _format_ke_aggregate(ke_samples: Array) -> String:
 		sum_ke += _ke_sample_ke_j(raw)
 	var n: int = ke_samples.size()
 	return "KE_all: n=%d mean=%.0fJ" % [n, sum_ke / float(n)]
-
-
-static func format_strike_one_line(move_id: String, result: Dictionary) -> String:
-	return format_exchange_line("?", "?", result).replace("[HEMA] ? ", "[HEMA] %s " % move_id)
-
-
-static func format_entity_health(entity: Node) -> String:
-	if entity == null or not is_instance_valid(entity):
-		return "(no entity)"
-	entity.ensure_consciousness_current()
-	var parts := _ConfigData.BODY_PARTS
-	var lines := PackedStringArray()
-	for part in parts:
-		var cut: float = entity.body_cutting.get(part, 0.0)
-		var blunt: float = entity.body_blunt.get(part, 0.0)
-		var max_hp: float = entity.body_max.get(part, 1.0)
-		var bone: float = entity.bone_health.get(part, 0.0)
-		var bone_max_val: float = entity.bone_max.get(part, 1.0)
-		# Remaining-fraction scale matching format_entity_tissue_oneline (pool = 2x max).
-		var hp_ratio: float = (cut + blunt) / (max_hp * 2.0) if max_hp > 0.0 else 0.0
-		hp_ratio = clampf(hp_ratio, 0.0, 1.0)
-		var bone_ratio: float = bone / bone_max_val if bone_max_val > 0.0 else 0.0
-		lines.push_back("  %s: tissue=%.0f%% bone=%.0f%%" % [part, hp_ratio * 100.0, bone_ratio * 100.0])
-	lines.push_back("  %s" % format_vitals_suffix(entity))
-	return "\n".join(lines)
-
-
-static func format_combatant_state(c: Dictionary) -> String:
-	if c.is_empty():
-		return "(no combatant)"
-	return (
-		"state=%s stamina=%.0f%% gauge=%.0f%% guard=%s form=%s"
-		% [
-			c.get("state", "?"),
-			float(c.get("stamina", 0.0)) / maxf(float(c.get("stamina_max", 100.0)), 1.0) * 100.0,
-			float(c.get("gauge", 0.0)),
-			c.get("guard_line", "?"),
-			str(c.get("weapon_form", c.get("_form_str", "?"))),
-		]
-	)
 
 
 static func csv_header() -> String:

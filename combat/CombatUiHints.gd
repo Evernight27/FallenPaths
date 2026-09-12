@@ -26,10 +26,6 @@ static func _get_company_state() -> GDScript:
     return CombatUiHints._company_state
 
 
-static func any_tactical_features_enabled() -> bool:
-    return CombatFootwork.enabled() or CombatAttention.enabled() or CounterTempo.enabled() or CombatFlurryBind.enabled()
-
-
 static func medical_phase_active(manager: Node) -> bool:
     return manager != null and manager.medical_phase
 

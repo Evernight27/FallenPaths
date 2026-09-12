@@ -760,14 +760,19 @@ static func _run_defense_footwork_waiting_boosts_dodge_when_settled_vs_off_balan
         _fail(
             failures, "defense_footwork_waiting: off-balance dodge_chance too small %.6f" % d_off
         )
-    elif not is_equal_approx(d_settled / d_off, CombatConstants.DEFENSE_FOOTWORK_WAITING_DODGE_MULT):
-        _fail(
-            failures,
-            (
-                "defense_footwork_waiting: settled/off want ratio %.4f got %.4f"
-                % [CombatConstants.DEFENSE_FOOTWORK_WAITING_DODGE_MULT, d_settled / d_off]
+    else:
+        # Settled waiting defender: gets DEFENSE_FOOTWORK_WAITING_DODGE_MULT.
+        # Off-balance waiting defender: loses that bonus AND gets OFF_BALANCE_DODGE_CHANCE_MULT
+        # (stepping is impaired). Combined settled/off ratio is the two factors divided.
+        var expected_ratio: float = CombatConstants.DEFENSE_FOOTWORK_WAITING_DODGE_MULT / CombatConstants.OFF_BALANCE_DODGE_CHANCE_MULT
+        if not is_equal_approx(d_settled / d_off, expected_ratio):
+            _fail(
+                failures,
+                (
+                    "defense_footwork_waiting: settled/off want ratio %.4f got %.4f"
+                    % [expected_ratio, d_settled / d_off]
+                )
             )
-        )
     HarnessFixtures._free_manager_restore_global_rng(mgr)
 
 

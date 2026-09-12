@@ -7,7 +7,6 @@ extends RefCounted
 ## harness).
 
 const SAVE_PATH := "user://fallen_paths_slot0.json"
-const SAVE_TMP_PATH := "user://fallen_paths_slot0.json.tmp"
 const SAVE_VERSION := 2
 const WORLD_META_CONSUMED_CONTRACT_TILES := "consumed_contract_tiles"
 const WORLD_META_CAMP_HEAL_HINT_SHOWN := "camp_heal_hint_shown"

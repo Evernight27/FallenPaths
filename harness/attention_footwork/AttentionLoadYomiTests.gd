@@ -83,7 +83,7 @@ static func _run_attention_load_stacks_peril_and_incoming(failures: PackedString
     var atk_id: int = CombatantEntityAccess.id_int(atk)
     var ally_ent: Node = CombatantEntityAccess.get_entity_from_manager(mgr, ally)
     if ally_ent != null:
-        ally_ent.blood_volume = 46.0
+        ally_ent.blood_volume = 52.0
     AttackWindUpStarter.start(mgr, atk_id, medic_id, "oberhau")
     CombatAttention.refresh_salience(mgr, medic_id)
     var load: float = CombatAttention.get_attention_load(medic)
@@ -157,7 +157,7 @@ static func _run_mental_stack_medical_overrides_attack(failures: PackedStringArr
     var ally_id: int = CombatantEntityAccess.id_int(ally)
     var enemy_id: int = CombatantEntityAccess.id_int(mgr.combatants[2])
     var ally_ent: Node = CombatantEntityAccess.get_entity_from_manager(mgr, ally)
-    AttentionFootworkAttentionLoadTests._harness_immediate_peril_bleeding_chest(ally_ent, 46.0)
+    AttentionFootworkAttentionLoadTests._harness_immediate_peril_bleeding_chest(ally_ent, 52.0)
     mgr.medical_phase = true
     mgr.medical_phase_winner = "player"
 
@@ -592,7 +592,7 @@ static func _run_mental_stack_stamps_layer_on_medical_pick(failures: PackedStrin
     var medic_id: int = CombatantEntityAccess.id_int(medic)
     var ally_id: int = CombatantEntityAccess.id_int(ally)
     var ally_ent: Node = CombatantEntityAccess.get_entity_from_manager(mgr, ally)
-    AttentionFootworkAttentionLoadTests._harness_immediate_peril_bleeding_chest(ally_ent, 46.0)
+    AttentionFootworkAttentionLoadTests._harness_immediate_peril_bleeding_chest(ally_ent, 52.0)
     mgr.medical_phase = true
     mgr.medical_phase_winner = "player"
     var actions: Array = [
@@ -634,8 +634,8 @@ static func _run_mental_stack_self_peril_before_ally_medical(failures: PackedStr
     var ally_id: int = CombatantEntityAccess.id_int(ally)
     var medic_ent: Node = CombatantEntityAccess.get_entity_from_manager(mgr, medic)
     var ally_ent: Node = CombatantEntityAccess.get_entity_from_manager(mgr, ally)
-    AttentionFootworkAttentionLoadTests._harness_immediate_peril_bleeding_chest(medic_ent, 46.0)
-    AttentionFootworkAttentionLoadTests._harness_immediate_peril_bleeding_chest(ally_ent, 46.0)
+    AttentionFootworkAttentionLoadTests._harness_immediate_peril_bleeding_chest(medic_ent, 52.0)
+    AttentionFootworkAttentionLoadTests._harness_immediate_peril_bleeding_chest(ally_ent, 52.0)
     mgr.medical_phase = true
     mgr.medical_phase_winner = "player"
     var actions: Array = [

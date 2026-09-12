@@ -858,7 +858,7 @@ static func append_research_verdict_summary(lines: PackedStringArray) -> void:
     )
     lines.append("ATLS_hemorrhage=ATLS_10th_ed_student_manual_class_I-IV_loss_pct")
     lines.append("blood_volume=StatPearls_NBK526077_70mL_per_kg_male_adult")
-    lines.append("TTD_band=CoTCCC_order_of_minutes_30-120s_project_anchor")
+    lines.append("TTD_band=forensic_exsanguination_120-300s_project_anchor")
     lines.append("arterial_soft_signs=WTA_ATLS_teaching_2plus_signs_25pct_not_population_prevalence")
     lines.append("direct_pressure=manual_compression_arterial_incomplete_occlusion_heuristic")
     lines.append("blunt_J_anchors=biomechanics_rank_order_only_not_Nm_calibration")

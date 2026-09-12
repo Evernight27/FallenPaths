@@ -1,7 +1,7 @@
 # Combat Balance Tuning Plan
 
 **Date:** 2026-07-11
-**Last Updated:** 2026-08-28 — physics verification added; broken proposals superseded (see below). Prior: 2026-08-01 wounded-vitals exploit implemented; read-guard added.
+**Last Updated:** 2026-09-03 — internal-bleed rates changed from flat 0.15 to severity-scaled (0.5/2.0/5.0); blunt organ trauma now also creates internal-bleed wounds (not just thrusts). Prior: 2026-08-28 — physics verification added; broken proposals superseded (see below). Prior: 2026-08-01 wounded-vitals exploit implemented; read-guard added.
 **Status:** PROPOSAL (pending approval) — **Read-guard:** "Current:" baselines below are pre-ship history, not shipped values; shipped bleeding/death live in `core/BleedingConstants.gd`. Code anchors: line 91, §Issue 2 (lines 522-544).
 
 ## Physics Verification (2026-08-28) — supersedes the broken proposals below
@@ -34,7 +34,10 @@
 > **Most of this plan was already shipped before this pass.** Verify against the shipped code (below) before implementing anything — do not re-implement what's already there.
 
 **Implemented this pass (2026-08-28) — gate green (d001 + regression + calibration + doc-links):**
-1. **Thrust internal bleed (Change 2, the missing half):** a deep torso thrust opens a slow *unclottable* internal-organ bleed (0.15 HP/s). Chance **scales with penetration depth** (0 below `PENETRATION_DEPTH_SEVERITY_MIN_MM`, full `INTERNAL_BLEED_CHANCE_TORSO_THRUST = 0.15` at `PENETRATION_DEPTH_SEVERITY_FULL_MM`) so a shallow thrust can't reach the organ plane.
+1. **Thrust internal bleed (Change 2, the missing half):** a deep torso thrust opens a slow *unclottable* internal-organ bleed. Chance **scales with penetration depth** (0 below `PENETRATION_DEPTH_SEVERITY_MIN_MM`, full `INTERNAL_BLEED_CHANCE_TORSO_THRUST = 0.15` at `PENETRATION_DEPTH_SEVERITY_FULL_MM`) so a shallow thrust can't reach the organ plane.
+    - **⚠️ 2026-09-03 — rate + source changed (supersedes the old "0.15 HP/s flat" wording above and on line 145):** `INJURY_TYPE_INTERNAL_BLEED` rates moved from a flat `0.15` to severity-scaled `{moderate 0.5, severe 2.0, critical 5.0}` (`core/BleedingConstants.gd:54`). The old flat 0.15 was clinically too slow (~8 h to exsanguination vs ~20–60 min real untreated solid-organ bleed, see `RESEARCH_hypovolemic_shock.md:408`). Two consequences, both intended:
+        - **Thrust source** (unchanged path): a deep thrust now bleeds at 0.5–2.0 (`moderate`→`severe` via `internal_bleed_severity_for_penetration`), not 0.15. The 15% *chance* is unchanged — only the rate. If a future weapon sweep shows sword thrusts ending faster via hidden internal bleed, this is why (it is more realistic, not a regression).
+        - **New blunt source (added 2026-09-03):** `check_blunt_internal_organ_trauma` (`CombatDamageMechanism.gd`) → when a mace/axe chest hit crosses the KE thresholds, `EntityDamage.gd` now *also* creates the same unclottable `INJURY_TYPE_INTERNAL_BLEED` wound. Severity map: `aortic_trauma`→`critical` (5.0), `liver_spleen_tear`→`severe` (2.0), `pulmonary_contusion`/`bowel_injury`→`moderate` (0.5). This is what makes blunt torso trauma lethally dangerous instead of a slow crush-only grind.
     - `core/BleedingConstants.gd`: `INJURY_TYPE_INTERNAL_BLEED`, `INTERNAL_BLEED_CHANCE_TORSO_THRUST`, `internal_bleed_chance_torso_thrust()`, `internal_bleed_severity_for_penetration()` (shallow nick = moderate, deep pierce = severe — drives decomp time + pain; capped at severe), `is_unclottable()`, arterial guard.
     - **Confirmed live (2026-08-28):** a SWORD thrust reaches ~6.5mm (full depth → 15% chance); the internal bleed fires at ~17% through the real `apply_damage_split` path (probe, 400 trials). It is rare by design (deep chest thrusts only), so a given seeded D-001 soak may show 0 — that is expected, not dead code. Durable integration assertion in `WoundedDefenderCautionTests._run_thrust_internal_bleed`.
    - `core/EntityDamage.gd`: the roll (torso + stab), **dedicated RNG** seeded from entity+part+game-time.

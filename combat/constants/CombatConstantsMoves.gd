@@ -66,6 +66,12 @@ const MOVE_ID_MEDIUM := "medium"
 
 const MOVE_ID_QUICK := "quick"
 
+const MOVE_ID_BIND_PRESS := "bind_press"
+const MOVE_ID_BIND_VOID := "bind_void"
+const MOVE_ID_BIND_WIND := "bind_wind"
+const MOVE_ID_BIND_WRESTLE := "bind_wrestle"
+const MOVE_ID_VERWUNDEN := "verwunden"
+
 const MOVE_ID_WAIT := "wait"
 
 

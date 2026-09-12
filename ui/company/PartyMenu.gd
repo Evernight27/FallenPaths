@@ -7,6 +7,7 @@ var _end_day_button: Button
 var _camp_heal_button: Button
 var _hire_button: Button
 var _new_company_button: Button
+var _fight_duel_button: Button
 var _autosave_footer_label: Label
 var _title_label: Label
 var _world: Node2D
@@ -72,6 +73,12 @@ func _ready() -> void:
     _new_company_button.pressed.connect(_on_new_company_pressed)
     content_vbox.add_child(_new_company_button)
 
+    _fight_duel_button = Button.new()
+    _fight_duel_button.text = "Fight Duel"
+    _fight_duel_button.visible = false
+    _fight_duel_button.pressed.connect(_on_fight_duel_pressed)
+    content_vbox.add_child(_fight_duel_button)
+
     _autosave_footer_label = Label.new()
     _autosave_footer_label.visible = false
     PartyRowFormatter.configure_wrapped_label(_autosave_footer_label)
@@ -107,6 +114,7 @@ func show_party(world: Node2D, members: Array) -> void:
             or child == _camp_heal_button
             or child == _hire_button
             or child == _new_company_button
+            or child == _fight_duel_button
             or child == _autosave_footer_label
         ):
             continue
@@ -118,6 +126,8 @@ func show_party(world: Node2D, members: Array) -> void:
         PartyRowFormatter.configure_wrapped_label(notice_lbl)
         notice_lbl.add_theme_color_override("font_color", Color(0.95, 0.5, 0.45))
         content_vbox.add_child(notice_lbl)
+
+    _append_last_battle_banner(world)
 
     var triage_active: bool = world != null and CampaignEncounterBridge.party_has_untreated_wounds(world)
     # One-shot when the last untreated part is dressed (med may still be 0 â€”" copy in complete_line).
@@ -337,8 +347,14 @@ func show_party(world: Node2D, members: Array) -> void:
             mood_lbl.text = "Mood: %d" % int(roundf(mood_val))
             if mood_val <= CompanyState.MOOD_ANGRY_THRESHOLD:
                 mood_lbl.add_theme_color_override("font_color", Color(0.95, 0.45, 0.4))
-                mood_lbl.text += " â€” desertion risk at day end"
+                mood_lbl.text += " — desertion risk at day end"
             v.add_child(mood_lbl)
+        if not triage_row:
+            var node_ref = m.get("node_ref")
+            if is_instance_valid(node_ref):
+                if CompanyState.read_stub_proficiency_enabled():
+                    _append_train_row(v, node_ref)
+                _append_gear_row(v, m, node_ref)
         v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
         content_vbox.add_child(v)
 
@@ -370,6 +386,20 @@ func show_party(world: Node2D, members: Array) -> void:
         _hire_button.tooltip_text = CompanyState.format_hire_tooltip(world, true)
     if _new_company_button != null:
         _new_company_button.visible = CompanyState.can_offer_new_campaign_from_menu()
+    if _fight_duel_button != null:
+        var duel_ready: bool = CompanyState.can_start_duel(world)
+        _fight_duel_button.visible = world != null
+        _fight_duel_button.disabled = not duel_ready
+        if duel_ready:
+            _fight_duel_button.text = "Fight Duel"
+        else:
+            _fight_duel_button.text = (
+                "Fight Duel (%s)"
+                % str(CampaignEncounterBridge.can_enter_combat(world).get("message", "unavailable"))
+            )
+        _fight_duel_button.tooltip_text = (
+            "1v1 sword duel. Leader only, party fights on the unit AI."
+        )
     var opening: bool = not visible
     popup_centered()
     self.grab_focus()
@@ -508,6 +538,164 @@ func _on_new_company_pressed() -> void:
         return
     hide()
     CompanyState.request_new_campaign(_world)
+
+
+func _on_fight_duel_pressed() -> void:
+    if _world == null:
+        return
+    if CompanyState.start_duel(_world):
+        hide()
+    elif OperationalLog.is_play_session_active():
+        OperationalLog.play_world("Fight duel blocked.")
+
+
+func _append_last_battle_banner(world: Node) -> void:
+    if world == null:
+        return
+    var summary: Dictionary = CompanyState.get_last_battle_summary(world)
+    if summary.is_empty():
+        return
+    var winner: String = str(summary.get("winner", ""))
+    var deaths: Array = summary.get("deaths", [])
+    var text := ""
+    if winner == "player":
+        text = "Last battle: Won"
+        if deaths.size() > 0:
+            var names: PackedStringArray = []
+            for d in deaths:
+                if d is Dictionary:
+                    names.append(str((d as Dictionary).get("name", "?")))
+            text += "  (fell: " + ", ".join(names) + ")"
+    elif winner == "enemy":
+        text = "Last battle: Lost"
+    else:
+        return
+    var lbl := Label.new()
+    lbl.text = text
+    PartyRowFormatter.configure_wrapped_label(lbl)
+    if winner == "player":
+        lbl.add_theme_color_override("font_color", Color(0.55, 0.9, 0.55))
+    else:
+        lbl.add_theme_color_override("font_color", Color(0.95, 0.5, 0.45))
+    content_vbox.add_child(lbl)
+
+
+func _on_train_pressed(node_ref: Node, stat: String) -> void:
+    if _world == null:
+        return
+    if CompanyState.train_stat(_world, node_ref, stat):
+        _refresh_party_view()
+    elif OperationalLog.is_play_session_active():
+        OperationalLog.play_world("Train blocked -- %s %s." % [str(node_ref.name), stat])
+
+
+static func _stat_short(stat: String) -> String:
+    match stat:
+        "strength":
+            return "STR"
+        "agility":
+            return "AGI"
+        "intelligence":
+            return "INT"
+        "endurance":
+            return "END"
+        "perception":
+            return "PER"
+    return stat
+
+
+## Append the per-member drill buttons (Train STR/AGI/INT/END/PER) to a member row.
+func _append_train_row(v: VBoxContainer, node_ref: Node) -> void:
+    if _world == null:
+        return
+    if not CompanyState.read_stub_proficiency_enabled():
+        return
+    var box := HBoxContainer.new()
+    box.add_theme_constant_override("separation", 4)
+    var hdr := Label.new()
+    hdr.text = "Train (%dg, applies at camp rest):" % CompanyEconomy.TRAIN_GOLD_COST
+    hdr.add_theme_font_size_override("font_size", 11)
+    hdr.add_theme_color_override("font_color", Color(0.6, 0.8, 0.9))
+    box.add_child(hdr)
+    for stat in CompanyCamp.TRAIN_STATS:
+        var tp: Dictionary = node_ref.get("training_pending")
+        var pending: int = int(tp.get(stat, 0.0))
+        var btn := Button.new()
+        btn.text = _stat_short(stat) + (" +%d" % pending if pending > 0 else "")
+        btn.tooltip_text = ("Drill %s: +1 proficiency at next camp rest (%dg)." % [stat, CompanyEconomy.TRAIN_GOLD_COST]) + (" %d pending." % pending if pending > 0 else "")
+        var enabled: bool = CompanyState.can_train_stat(_world, node_ref, stat)
+        btn.disabled = not enabled
+        var bound_stat: String = stat
+        var bound_ref: Node = node_ref
+        btn.pressed.connect(func() -> void: _on_train_pressed(bound_ref, bound_stat))
+        box.add_child(btn)
+    v.add_child(box)
+
+
+func _on_buy_weapon_pressed(node_ref: Node, weapon_id: String) -> void:
+    if _world == null:
+        return
+    if CompanyState.buy_weapon(_world, node_ref, weapon_id):
+        _refresh_party_view()
+    elif OperationalLog.is_play_session_active():
+        OperationalLog.play_world("Buy weapon blocked -- %s %s." % [str(node_ref.name), weapon_id])
+
+
+func _on_buy_armor_pressed(node_ref: Node, part: String) -> void:
+    if _world == null:
+        return
+    if CompanyState.buy_armor(_world, node_ref, part):
+        _refresh_party_view()
+    elif OperationalLog.is_play_session_active():
+        OperationalLog.play_world("Buy armor blocked -- %s %s." % [str(node_ref.name), part])
+
+
+## Append the per-member gear buttons (buy weapon + best armor per body part).
+func _append_gear_row(v: VBoxContainer, m: Dictionary, node_ref: Node) -> void:
+    if _world == null:
+        return
+    var weapon_box := HBoxContainer.new()
+    weapon_box.add_theme_constant_override("separation", 4)
+    var w_hdr := Label.new()
+    w_hdr.text = "Weapon:"
+    w_hdr.add_theme_font_size_override("font_size", 11)
+    w_hdr.add_theme_color_override("font_color", Color(0.6, 0.8, 0.9))
+    weapon_box.add_child(w_hdr)
+    for wid in CompanyGear.WEAPON_SALE_ORDER:
+        var label: String = str(CompanyGear.WEAPON_SHORT_NAMES.get(wid, wid))
+        var price: int = CompanyGear.weapon_price(wid)
+        var equipped: bool = CompanyGear.is_weapon_equipped(node_ref, wid)
+        var btn := Button.new()
+        btn.text = label + (" \u2713" if equipped else "")
+        btn.tooltip_text = ("Buy %s (%dg)" % [label, price]) + (" -- already equipped." if equipped else ".")
+        btn.disabled = not CompanyState.can_buy_weapon(_world, node_ref, wid)
+        var bound_wid: String = wid
+        var bound_ref: Node = node_ref
+        btn.pressed.connect(func() -> void: _on_buy_weapon_pressed(bound_ref, bound_wid))
+        weapon_box.add_child(btn)
+    v.add_child(weapon_box)
+    var armor_box := HBoxContainer.new()
+    armor_box.add_theme_constant_override("separation", 4)
+    var a_hdr := Label.new()
+    a_hdr.text = "Armor:"
+    a_hdr.add_theme_font_size_override("font_size", 11)
+    a_hdr.add_theme_color_override("font_color", Color(0.6, 0.8, 0.9))
+    armor_box.add_child(a_hdr)
+    for part in CompanyGear.ARMOR_PART_SALE_ORDER:
+        var piece_id: String = CompanyGear.best_armor_for_part(part)
+        var label: String = str(CompanyGear.PART_LABELS.get(part, part))
+        var price: int = CompanyGear.armor_price_for_part(part)
+        var best_name: String = str(CompanyGear.BEST_ARMOR_DISPLAY.get(piece_id, piece_id))
+        var equipped: bool = CompanyGear.is_best_armor_equipped(node_ref, part)
+        var btn := Button.new()
+        btn.text = label + (" \u2713" if equipped else "")
+        btn.tooltip_text = ("Buy %s for %s (%dg)" % [best_name, label, price]) + (" -- already equipped." if equipped else ".")
+        btn.disabled = not CompanyState.can_buy_armor(_world, node_ref, part)
+        var bound_part: String = part
+        var bound_ref2: Node = node_ref
+        btn.pressed.connect(func() -> void: _on_buy_armor_pressed(bound_ref2, bound_part))
+        armor_box.add_child(btn)
+    v.add_child(armor_box)
 
 
 ## Append a compact weapon-form specialty readout to a member row.

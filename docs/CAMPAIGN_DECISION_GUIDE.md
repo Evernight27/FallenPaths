@@ -10,9 +10,9 @@ Closed-gate defaults, §12 economy, or **new gates** (const + `read_stub_*` + de
 
 | Anchor | Value |
 |--------|-------|
-| Untreated TTD | ~48 s (CoTCCC/ATLS 30–120 s) |
-| Death threshold | 30% blood remaining |
-| Triage danger / peril | 55% / 47% @ 60 s / 30 s |
+| Untreated TTD | ~180 s (Irandoust/Byard 2013, 120–300 s) |
+| Death threshold | 50% blood remaining (ATLS Class IV, ~45–50% loss fatal untreated) |
+| Triage danger / peril | 58% / 55% @ 225 s / 112.5 s |
 | Map step | 60 s |
 | Direct pressure | ~2× TTD |
 

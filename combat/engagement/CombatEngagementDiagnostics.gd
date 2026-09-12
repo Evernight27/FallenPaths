@@ -15,60 +15,6 @@ static func diagnostics_active() -> bool:
     return OperationalLog.is_play_session_active() and CombatConstants.play_session_diagnostic_active()
 
 
-static func log_fight_start_summary(manager: Node) -> void:
-    if not diagnostics_active() or manager == null or _fight_start_logged:
-        return
-    if not manager.has_meta(EngagementOpposition.META_OPPOSITION_FILE_OFFSET_BY_SIDE):
-        return
-    _fight_start_logged = true
-    var forms: Dictionary = manager.get("formations") as Dictionary
-    var pf: int = int((forms.get("player", {}) as Dictionary).get(DataKeys.FORMATION_FILES, 1))
-    var ef: int = int((forms.get("enemy", {}) as Dictionary).get(DataKeys.FORMATION_FILES, 1))
-    var off_p: int = EngagementOpposition.opposition_file_offset(manager, "player")
-    var off_e: int = EngagementOpposition.opposition_file_offset(manager, "enemy")
-    var line_gap_p: bool = CombatFormationFlow.formation_line_has_rank0_gap(manager, "player")
-    var line_gap_e: bool = CombatFormationFlow.formation_line_has_rank0_gap(manager, "enemy")
-    (
-        OperationalLog
-        . play_combat(
-            (
-                (
-                    "engagement_debug fight_start offset_player=%d offset_enemy=%d files=%d/%d "
-                    + "skirmish_rotate_player=%s skirmish_rotate_enemy=%s line_gap_player=%s line_gap_enemy=%s"
-                )
-                % [
-                    off_p,
-                    off_e,
-                    pf,
-                    ef,
-                    str(CombatEngagementMode.allow_rotate_file_for_formation(manager, "player")).to_lower(),
-                    str(CombatEngagementMode.allow_rotate_file_for_formation(manager, "enemy")).to_lower(),
-                    str(line_gap_p).to_lower(),
-                    str(line_gap_e).to_lower(),
-                ]
-            )
-        )
-    )
-    var pairs: PackedStringArray = _rank0_opposition_pair_lines(manager)
-    for line in pairs:
-        OperationalLog.play_combat("engagement_debug rank0_map %s" % line)
-    OperationalLog.play_combat(
-        (
-            "engagement_debug hint grep engagement_debug turn  -  reach=gap/eff/reach/band/"
-            + "threaten/in_swing; bind_close=true outer wing must close not rotate; "
-            + "reserve_only+LONG=no strikes; in-swing at LONG lists strikes not close; "
-            + "rotate needs skirmish outnumber; rotate_suppress=true sparse/mop-up/CLOSE-band/"
-            + "bind_close; sparse_line=true post-flee fight-first; fight_finish=true L4b/"
-            + "trusted-close tail; sparse_prefer_finish=true finish-over-shuffle; "
-            + "wing_lack=true enables L4 close; mop_up=true suppresses rotate without melee; "
-            + "mop_up combat tail want strikes_listed/strikes>0 not close-only stall (3e); "
-            + "line_plug=false when sparse_line unless line_plug_pick=1; line_plug_pick=1 "
-            + "on rank-0 gap swap/rotate or incap plug-forward swap; sparse rank-0 CLOSE/"
-            + "MID omits redundant attempt_close when melee listed"
-        )
-    )
-
-
 static func maybe_log_turn_pick(manager: Node, combatant_id: int, actions: Array, choice: Dictionary) -> void:
     if not diagnostics_active() or manager == null or choice.is_empty():
         return
@@ -312,22 +258,3 @@ static func _reach_hint_for_nearest_opposed(manager: Node, actor: Dictionary) ->
         "gap=%d eff=%.2f reach=%.2f band=%s threaten=%s in_swing=%s"
         % [gap, eff, reach, band, str(threaten).to_lower(), str(in_swing).to_lower()]
     )
-
-
-static func _rank0_opposition_pair_lines(manager: Node) -> PackedStringArray:
-    var out: PackedStringArray = PackedStringArray()
-    var players: Array = []
-    for c in manager.combatants:
-        if (
-            CombatantEntityAccess.is_player_side(c)
-            and CombatantEntityAccess.rank_int(c) == 0
-            and CombatantEntityAccess.alive_bool(c)
-        ):
-            players.append(c)
-    players.sort_custom(func(a, b): return CombatantEntityAccess.file_int(a) < CombatantEntityAccess.file_int(b))
-    for p in players:
-        var pf: int = CombatantEntityAccess.file_int(p)
-        var label: String = _nearest_opposed_label(manager, p)
-        var reach: String = _reach_hint_for_nearest_opposed(manager, p)
-        out.append("p_f%d->%s %s" % [pf, label, reach])
-    return out

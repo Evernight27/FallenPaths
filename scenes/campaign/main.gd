@@ -241,10 +241,6 @@ func _maybe_camp_tile_hint(p_tile: Vector2i) -> void:
         CombatDebug.world_session("Camp: autosave on settlement continue, End day, Camp rest, and soft-defeat return.")
 
 
-func _tile_center(tile: Vector2i) -> Vector2:
-    return OverworldMap.tile_center(tile)
-
-
 func _get_encounter_on_tile(tile: Vector2i) -> Node:
     for child in get_children():
         if child.get_script() == EncounterNode and _tile_coords(child.position) == tile:

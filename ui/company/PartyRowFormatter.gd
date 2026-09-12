@@ -286,14 +286,43 @@ static func format_proficiency_bonus_line(member: Dictionary) -> String:
     var prof_labels := {
         "strength": "STR", "agility": "AGI", "intelligence": "INT", "endurance": "END", "perception": "PER"
     }
+    var pending_total: int = 0
     for stat in ["strength", "agility", "intelligence", "endurance", "perception"]:
         var bonus_val: float = float(prof.get(stat, 0))
         if bonus_val > 0.0:
             var label: String = prof_labels[stat]
             parts.append("+%s:%d" % [label, int(bonus_val)])
-    if parts.is_empty():
+    if "training_pending" in entity:
+        var tp: Dictionary = entity.training_pending
+        for stat in ["strength", "agility", "intelligence", "endurance", "perception"]:
+            pending_total += int(float(tp.get(stat, 0.0)))
+    if parts.is_empty() and pending_total == 0:
         return ""
-    return " | ".join(parts)
+    var prefix: String = "%s " % _proficiency_rank(entity)
+    var body: String = " | ".join(parts) if not parts.is_empty() else "no bonuses yet"
+    if pending_total > 0:
+        body += "  (%d drill%s queued)" % [pending_total, "" if pending_total == 1 else "s"]
+    return prefix + body
+
+
+## Highest proficiency tier reached across all stats, as a short rank name.
+static func _proficiency_rank(entity: Node) -> String:
+    var best: float = 0.0
+    if "_proficiency_bonus" in entity:
+        var prof: Dictionary = entity._proficiency_bonus
+        for stat in EntityStatsUtil.PROFICIENCY_STATS:
+            best = maxf(best, float(prof.get(stat, 0.0)))
+    if best <= 0.0:
+        return "Rookie"
+    if best <= float(EntityProficiency.PROFICIENCY_NOVICE_MAX):
+        return "Novice"
+    if best <= float(EntityProficiency.PROFICIENCY_PROFICIENT_MAX):
+        return "Proficient"
+    if best <= float(EntityProficiency.PROFICIENCY_VETERAN_MAX):
+        return "Veteran"
+    if best <= float(EntityProficiency.PROFICIENCY_ELITE_MAX):
+        return "Elite"
+    return "Master"
 
 
 ## Highest-urgency living member from live party snapshots (or summary fallback rows).

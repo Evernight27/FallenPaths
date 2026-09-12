@@ -396,6 +396,11 @@ static func _compute_attack_weight_components(
 		form_counter_m = CombatWeaponForm.form_counter_mult(
 			CombatantEntityAccess.form_str(c), inferred, move_id, CombatantEntityAccess.get_weapon(c)
 		)
+		# A2: meisterhau-family cuts are risky without yomi commitment — scale counter bonus down
+		# when the fighter is not holding a committed counter-read against this target.
+		if form_counter_m > 1.0 and move_id in ["zornhau", "scheitelhau", "krumphau", "schielhau"]:
+			if not CombatWeaponForm.is_counter_read_committed(c, CombatantEntityAccess.combat_clock_float(manager)):
+				form_counter_m = lerpf(1.0, form_counter_m, CombatConstants.A2_MEISTERHAU_CONFIDENCE_SCALE_FACTOR)
 	var feint_list_m: float = 1.0
 	if move_id != CombatConstants.MOVE_ID_ATTEMPT_CLOSE and WeaponConstants.is_feint_move(move_id):
 		var tid_feint: int = a.get(DataKeys.ACTION_TARGET_ID, -1)
@@ -486,6 +491,42 @@ static func _compute_attack_weight_components(
 	# weakest target. The old feint-only gate left the AI blind to wound state when choosing which enemy to strike.
 	if target_id >= 0 and move_id != CombatConstants.MOVE_ID_ATTEMPT_CLOSE:
 		opp_degrad_m = _opponent_degradation_weight_mult(manager, target_id)
+	# Yomi/attention: a target that is highly focused on you is more likely to read and parry the strike.
+	# Scales offensive weight down from 1.0 (target unfocused, weight 0.25) to ATTENTION_FOCUSED_OFFENSE_WEIGHT_MIN.
+	var focus_read_m: float = 1.0
+	if target_id >= 0 and move_id != CombatConstants.MOVE_ID_ATTEMPT_CLOSE:
+		var focus_tgt: Dictionary = CombatantEntityAccess.manager_get_combatant(manager, target_id)
+		if not focus_tgt.is_empty():
+			var atk_weight: float = CombatAttention.get_attention_weight(focus_tgt, combatant_id)
+			var focus_t: float = clampf((atk_weight - 0.25) / 0.75, 0.0, 1.0)
+			focus_read_m = lerpf(1.0, CombatConstants.ATTENTION_FOCUSED_OFFENSE_WEIGHT_MIN, focus_t)
+	# Open/guarded line bias: prefer striking the line the defender is NOT covering.
+	# A fencer does not hammer a guarded line; open lines are where hits actually land.
+	# Moderate by design (see AI_OPEN_LINE_MULT) — timing/stamina/wounds still compete.
+	var open_guard_m: float = 1.0
+	var line_fail_m: float = 1.0
+	var yomi_vary_m: float = 1.0
+	var feint_open_line_m: float = 1.0
+	var feint_read_fail_m: float = 1.0
+	if target_id >= 0 and move_id != CombatConstants.MOVE_ID_ATTEMPT_CLOSE:
+		var og_tgt: Dictionary = CombatantEntityAccess.manager_get_combatant(manager, target_id)
+		if not og_tgt.is_empty():
+			var og_move_def: Dictionary = WeaponConstants.get_move(move_id)
+			var og_atk_line: String = str(og_move_def.get(DataKeys.PA_ATTACK_LINE, ""))
+			var og_guard_line: String = str(og_tgt.get(DataKeys.ATTACK_GUARD_LINE, CombatConstants.GUARD_DEFAULT))
+			var og_counter: bool = bool(a.get(CombatConstants.ACTION_KEY_COUNTER_TEMPO, false))
+			open_guard_m = open_guard_line_weight_mult(og_atk_line, og_guard_line, move_id, og_tgt, og_counter)
+			line_fail_m = line_fail_weight_mult(c, og_atk_line, manager)
+			yomi_vary_m = yomi_vary_weight_mult(og_tgt, combatant_id, og_atk_line)
+			feint_open_line_m = _feint_open_line_mult(og_tgt, og_atk_line)
+			# A feint on an already-open line is inert — there is no guard there to draw a
+			# reaction, so the deception has nothing to commit the defender onto. The opening
+			# is exploited by a REAL strike, not by re-feinting it. Gate the open-line boost to
+			# honest strikes; feints keep only the generic open/guarded bias. (No open-line state
+			# in the ratio fixtures, so this does not perturb the pinned feint/plain ratios.)
+			if WeaponConstants.is_feint_move(move_id):
+				feint_open_line_m = 1.0
+			feint_read_fail_m = _feint_read_fail_mult(c, og_atk_line, move_id, manager)
 	var w: float = (
 		base_stamina
 		* CombatTargetScoring.ai_targeting_weight_mult(
@@ -507,6 +548,12 @@ static func _compute_attack_weight_components(
 		* decision_q_m
 		* mood_offense_m
 		* opp_degrad_m
+		* focus_read_m
+		* open_guard_m
+		* line_fail_m
+		* yomi_vary_m
+		* feint_open_line_m
+		* feint_read_fail_m
 	)
 	if (
 		move_id == CombatConstants.MOVE_ID_ATTEMPT_CLOSE
@@ -544,6 +591,166 @@ static func _compute_attack_weight_components(
 			w *= CombatConstants.AI_ATTEMPT_CLOSE_BIND_CLOSE_MULT
 	w *= TacticalCombat.iv12_offense_weight_mult(manager, combatant_id)
 	return {"weight": w, "occ_mult": prof_occ_m}
+
+
+## Open/guarded line bias for move selection. A fencer attacks the line the defender is NOT
+## covering, not the line the defender is holding. alignment (0..1) is how on-line the
+## move is: 1.0 = same line as the guard (fully guarded, discounted), 0.0 = fully open
+## (full bonus). The mapping is continuous so 45-degree adjacent lines fall in between.
+## Exempt (1.0) for reactive counter-tempo actions, which are deliberately in-line.
+## Feints DO take the bias: a feint only draws a response when it presents an open line,
+## and every feint shares the attack_line of its plain counterpart, so the factor cancels
+## in the feint/plain weight ratio (locked by the feint_listing harness invariants).
+## Exception: if the defender's guard was just committed/displaced on a line by a feint
+## (live PA_FEINT_OPEN_LINE window), that line is NOT guarded — the defense model already
+## discounts parry on it, so the offensive bias must not treat it as "on the guard line"
+## either (doing so would cancel the feint_open_line_m press). Treated as fully open.
+## Depends on line alignment + feint-open-line state; never on defender footwork/off-balance
+## (locked by the feint_list settled/recov footwork harness invariants; the open-line
+## window is absent in those fixtures, so the invariants are untouched).
+static func open_guard_line_weight_mult(
+	atk_line: String,
+	guard_line: String,
+	move_id: String,
+	defender: Dictionary,
+	is_counter_tempo: bool
+) -> float:
+	if atk_line.is_empty() or guard_line.is_empty():
+		return 1.0
+	if move_id == CombatConstants.MOVE_ID_ATTEMPT_CLOSE:
+		return 1.0
+	if is_counter_tempo:
+		return 1.0
+	var align: float = CombatConstants.get_line_alignment(atk_line, guard_line)
+	# A line the defender's guard was just committed/displaced on (feint open-line window)
+	# is not actually guarded: the defense model already discounts parry on it, so treat it
+	# as fully open here. This keeps the offensive open/guarded bias consistent with the
+	# defensive parry model and stops the guarded-line discount from eating the
+	# feint_open_line_m press. Fresh fixtures have no live open-line, so invariants hold.
+	var open_now: String = _defender_live_feint_open_line(defender)
+	if not open_now.is_empty() and CombatGuardLines.normalize_line(atk_line) == open_now:
+		align = 0.0
+	return lerpf(
+		CombatConstantsAIWeights.AI_OPEN_LINE_MULT,
+		CombatConstantsAIWeights.AI_GUARDED_LINE_MULT,
+		align
+	)
+
+
+## Line-memory repeat suppression: after a strike on a given line fails (miss/parry/dodge),
+## the AI briefly de-weights re-attacking that same line so it varies under pressure.
+## The penalty decays linearly to 1.0 over AI_LINE_FAIL_DECAY_WINDOW_S on the combat clock.
+## A successful hit clears the entry (handled in AttackResultApplier), so pressing an
+## advantage is unaffected.
+static func line_fail_weight_mult(attacker: Dictionary, candidate_line: String, manager: Node) -> float:
+	if candidate_line.is_empty():
+		return 1.0
+	var mem: Dictionary = attacker.get(DataKeys.ATTACK_LINE_FAIL_MEMORY, {})
+	if not mem.has(candidate_line):
+		return 1.0
+	var last_fail: float = float(mem[candidate_line])
+	var now: float = manager.combat_clock
+	var age: float = now - last_fail
+	var window: float = CombatConstantsAIWeights.AI_LINE_FAIL_DECAY_WINDOW_S
+	if age >= window or age < 0.0:
+		return 1.0
+	var recency: float = 1.0 - age / window
+	return lerpf(1.0, CombatConstantsAIWeights.AI_LINE_FAIL_PENALTY_FLOOR, recency)
+
+
+## Proactive yomi line variation: a candidate line the attacker has been leaning on
+## recently (per the target's yomi recent-window counts) is getting readable. De-weight
+## it so the AI varies BEFORE the defender's guard drift fully matures. Complement to
+## line_fail_weight_mult: that reacts to a line that FAILED; this reacts to a line USED
+## A LOT, regardless of outcome. Kept mild (FLOOR 0.85) and share-scaled so it only
+## nudges — a working open line is still preferred via the open/guarded bias, which
+## dominates this term. If every available strike is on the same line, all get the same
+## factor and the relative ordering is unchanged, so it never punishes a genuine
+## single-line weapon.
+static func yomi_vary_weight_mult(defender: Dictionary, attacker_id: int, candidate_line: String) -> float:
+	if candidate_line.is_empty() or defender.is_empty():
+		return 1.0
+	var entry: Dictionary = CombatAttention.yomi_entry_for_attacker(defender, attacker_id)
+	if entry.is_empty():
+		return 1.0
+	var counts: Dictionary = entry.get(DataKeys.ATTENTION_ENTRY_RECENT_LINE_COUNTS, {}) as Dictionary
+	var n_this: int = int(counts.get(candidate_line, 0))
+	if n_this < CombatConstantsAIWeights.AI_YOMI_VARY_MIN_RECENT:
+		return 1.0
+	var n_total: int = 0
+	for raw in counts.values():
+		n_total += int(raw)
+	if n_total <= 0:
+		return 1.0
+	var share: float = clampf(float(n_this) / float(n_total), 0.0, 1.0)
+	return lerpf(1.0, CombatConstantsAIWeights.AI_YOMI_VARY_FLOOR, share)
+
+
+## Returns the defender's currently-live feint-open line (normalized), or "" if none.
+## A feint that just committed/displaced the guard leaves that line open for the
+## PA_FEINT_OPEN_LINE window. Shared by open_guard_line_weight_mult (which must NOT
+## treat that line as guarded) and _feint_open_line_mult (the follow-up press) so the
+## two factors agree on which line is open.
+static func _defender_live_feint_open_line(defender: Dictionary) -> String:
+	if defender.is_empty():
+		return ""
+	var until: float = float(defender.get(DataKeys.PA_FEINT_OPEN_LINE_UNTIL, -1.0))
+	if until <= 0.0 or CombatTiming.now_seconds() >= until:
+		return ""
+	var open_line: String = str(defender.get(DataKeys.PA_FEINT_OPEN_LINE, ""))
+	if open_line.is_empty():
+		return ""
+	return CombatGuardLines.normalize_line(open_line)
+
+
+## Feint open-line follow-up: when a feint just landed and the target's guard is still
+## displaced on a line for the PA_FEINT_OPEN_LINE window, boost striking that same line —
+## press the opening the feint drew. Mirrors the defensive reader
+## (DefenseChoiceResolver._feint_open_line_parry_mult): same TTL, same normalize_line
+## match, but turns the stored open-line strength into a weight boost instead of a parry
+## penalty. Gated to honest strikes only at the call site (a feint on an already-open
+## line is inert). Mild and windowed by design: nudges the just-opened line toward the
+## top pick for ~3s without overpowering stamina/timing.
+static func _feint_open_line_mult(defender: Dictionary, candidate_line: String) -> float:
+	if candidate_line.is_empty():
+		return 1.0
+	var open_now: String = _defender_live_feint_open_line(defender)
+	if open_now.is_empty() or CombatGuardLines.normalize_line(candidate_line) != open_now:
+		return 1.0
+	var stored_mult: Variant = defender.get(DataKeys.PA_FEINT_OPEN_LINE_PARRY_MULT, null)
+	var open_mult: float = float(stored_mult) if stored_mult != null else CombatConstants.FEINT_OPEN_LINE_PARRY_MULT
+	var openness: float = clampf(1.0 - open_mult, 0.0, 1.0)
+	return lerpf(1.0, CombatConstantsAIWeights.AI_FEINT_OPEN_LINE_FOLLOWUP_TOP_MULT, openness)
+
+
+## Feint repeat-read damp: after a feint on a line gets PARRIED, the defender demonstrably
+## covered that line — re-telegraphing it is the least realistic choice. This de-weights
+## feint moves that repeat a just-parried line harder than the generic line_fail_m (which
+## damps ALL moves on any just-failed line to AI_LINE_FAIL_PENALTY_FLOOR). Stacked: a feint
+## on a parrued line takes ~floor*0.60 vs an honest strike's ~floor, so the AI steers to
+## committing or varying rather than re-running the same feint.
+##
+## Keyed on the PARRY record specifically (ATTACK_LINE_PARRY_MEMORY), not any failure: a
+## missed feint is not a read (no reaction was drawn), and a dodged feint opens the line
+## (the open-line factors should encourage a commit there, not suppress re-feints). Only a
+## parry is true "the defender expects this line" evidence. Mirrors line_fail_weight_mult's
+## clock/window/recency. Fresh fixtures / honest moves / unparrued lines all return 1.0, so
+## the pinned feint/plain ratios and footwork invariants are untouched.
+static func _feint_read_fail_mult(attacker: Dictionary, candidate_line: String, move_id: String, manager: Node) -> float:
+	if not WeaponConstants.is_feint_move(move_id):
+		return 1.0
+	if candidate_line.is_empty():
+		return 1.0
+	var mem: Dictionary = attacker.get(DataKeys.ATTACK_LINE_PARRY_MEMORY, {})
+	if not mem.has(candidate_line):
+		return 1.0
+	var last_parry: float = float(mem[candidate_line])
+	var age: float = manager.combat_clock - last_parry
+	var window: float = CombatConstantsAIWeights.AI_LINE_FAIL_DECAY_WINDOW_S
+	if age >= window or age < 0.0:
+		return 1.0
+	var recency: float = 1.0 - age / window
+	return lerpf(1.0, CombatConstantsAIWeights.AI_FEINT_REPEAT_FAIL_DAMP, recency)
 
 
 ## IV-11: doctrine-context weight for party leader / enemy commander instant orders.

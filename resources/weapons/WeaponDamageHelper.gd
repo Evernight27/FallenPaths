@@ -6,7 +6,6 @@ extends RefCounted
 const INTENSITY_VELOCITY_FLOOR_FACTOR := 0.50
 ## Floor for effective delivery intensity (intensity - -  extension commit).
 const DELIVERY_INTENSITY_FLOOR := 0.05
-const DELIVERY_COMMIT_FLOOR := 0.05
 ## R5: Sub-band energy penalty — strikes below band-minimum energy get a smooth damage/KE ramp.
 ## Replaces the harsh sqrt(ratio) floor (which zeroed out low-energy hits at ratio<0.04).
 ## Model: full value above SUB_BAND_RAMP_FULL_RATIO; linear ramp down to 25% at SUB_BAND_MINIMUM_RATIO;
@@ -536,13 +535,15 @@ static func compute_penetration(
             WeaponConstants.BASELINE_CONTACT_CM / contact_cm, WeaponConstants.CONTACT_AREA_EXPONENT
         )
         ## Effective KE adjusted for historical steel (1.6× more penetrable than RHA) and average combat angle (÷1.1 effective armor thickness).
-        ## Since pen ∝ KE^0.67, the 1.45× net KE multiplier yields ~1.27× penetration increase — consistent with softer medieval steel vs RHA.
+        ## Since pen ∝ KE^PENETRATION_EXPONENT (=0.6), the 1.45× net KE multiplier (1.6/1.1) yields 1.45^0.6 ≈ 1.25×
+        ## penetration increase — consistent with softer medieval steel vs RHA.
         var ke_effective: float = ke_j * WeaponConstants.WILLIAMS_MATERIAL_CORRECTION / WeaponConstants.WILLIAMS_OBLIQUITY_FACTOR
         var pen_mm_rha: float = (
             pow(ke_effective / WeaponConstants.J_PER_MM_BASE, WeaponConstants.PENETRATION_EXPONENT) * area_factor
         )
         # Edge geometry (wedge mechanics): sharper edges displace less material per mm depth.
-        # Factor = sin(DEFAULT/2)/sin(angle/2) where angle interpolates between sharp=18° and dull=65°.
+        # Factor = sin(DEFAULT/2)/sin(angle/2) where angle interpolates between sharp=25° and dull=65°
+        # (EDGE_ANGLE_SHARP_DEG..EDGE_ANGLE_DULL_DEG).
         var edge_angle: float = WeaponConstants.EDGE_ANGLE_DEFAULT_DEG  # fallback when weapon has no sharpness
         if weapon != null and "sharpness" in weapon:
             var s_val = weapon.sharpness
@@ -611,13 +612,6 @@ static func _get_blunt_contact_for_penetration(
 
 
 # Blunt cushion: momentum per area (kg·m/s)/mÂ². Used by armor for transmission absorption.
-static func compute_blunt_momentum_per_area(weapon: RefCounted, attack_instance: RefCounted) -> float:
-    var contact_cm: float = get_blunt_contact_cm(weapon, attack_instance)
-    return (
-        _compute_blunt_momentum_per_area_with_contact(weapon, attack_instance, contact_cm) if contact_cm > 0 else -1.0
-    )
-
-
 static func _compute_blunt_momentum_per_area_with_contact(
     weapon: RefCounted, attack_instance: RefCounted, contact_cm: float, target_effective_mass_kg: float = -1.0
 ) -> float:
@@ -635,25 +629,7 @@ static func _compute_blunt_momentum_per_area_with_contact(
     return momentum / area_m2 if area_m2 > 0 else 0.0
 
 
-## Compute pressure-based blunt damage for pre-armor calculation (Pa → game units).
-static func compute_blunt_pressure_damage(
-    weapon: RefCounted, attack_instance: RefCounted, contact_cm: float, target_effective_mass_kg: float = -1.0
-) -> float:
-    if weapon == null or contact_cm <= 0.0:
-        return 0.0
-    var d_m: float = contact_cm / 100.0
-    var area_m2: float = PI * (d_m / 2.0) * (d_m / 2.0)   # diameter in m → radius → circular area
-    area_m2 = maxf(area_m2, WeaponConstants.MIN_BLUNT_AREA_M2)
-    var mass_kg: float = strike_mass_kg(weapon, attack_instance)
-    if target_effective_mass_kg > 0.0:
-        mass_kg = reduced_mass_pair_kg(mass_kg, target_effective_mass_kg)
-    var v: float = get_effective_velocity_m_s(weapon, attack_instance, false)
-    var p_mult: float = _attack_float_or_default(attack_instance, "strike_momentum_mult", 1.0)
-    var momentum: float = mass_kg * v * maxf(0.05, p_mult)
-    ## Pressure at interface: P = m·v/(A·Δt), converted to game damage via BLUNT_DAMAGE_PER_UNIT_PRESSURE.
-    var delta_t_s: float = impact_contact_time_s(v)
-    var pressure_pa: float = momentum / (maxf(area_m2, 0.0001) * maxf(delta_t_s, WeaponConstants.BLUNT_CONTACT_TIME_MIN_S))
-    return pressure_pa * WeaponConstants.BLUNT_DAMAGE_PER_UNIT_PRESSURE
+
 
 
 # Damage type for this attack (SHARP or BLUNT).
@@ -741,17 +717,6 @@ static func _get_blunt_contact_for_damage(weapon: RefCounted, attack_instance: R
             return minf(contact, WeaponConstants.BLUNT_HEAD_MAX_CONTACT_CM)
         return contact
     push_warning("[WeaponDamageHelper] attack_instance missing attack_type; using BASELINE_CONTACT_CM for blunt.")
-    return WeaponConstants.BASELINE_CONTACT_CM
-
-
-# Contact width for damage factor: archetype override or weapon default.
-static func _get_contact_width_for_damage(weapon: RefCounted, attack_instance: RefCounted) -> float:
-    var arch = attack_instance.get("archetype")
-    if arch is Dictionary and arch.get("contact_override_cm", -1.0) >= 0.0:
-        return float(arch.contact_override_cm)
-    var at = attack_instance.get("attack_type")
-    if at is String:
-        return _get_contact_width_cm(weapon, at)
     return WeaponConstants.BASELINE_CONTACT_CM
 
 

@@ -102,16 +102,16 @@ static func _run_mat_energy_entity_flag_off_matches_display_pools(failures: Pack
             SimulationCombatTests._fail(failures, "%s: %s diverged" % [fail_tag, key])
 
 
-## Research gate: untreated arterial TTD in clinical 30 - 120 s band.
+## Research gate: untreated arterial TTD in clinical 120 - 300 s band.
 
 
-## Research gate: untreated arterial TTD in clinical 30 - 120 s band.
+## Research gate: untreated arterial TTD in clinical 120 - 300 s band.
 static func _run_research_clinical_ttd_band(failures: PackedStringArray) -> void:
     var ttd_s: float = BleedingConstants.seconds_to_exsanguination(
         BleedingConstants.REFERENCE_UNCONTROLLED_BLEED_RATE, BleedingConstants.MAX_BLOOD_VOLUME, 1.0
     )
-    if ttd_s < 30.0 or ttd_s > 120.0:
-        SimulationCombatTests._fail(failures, "research_ttd: %.1fs outside clinical 30-120s band" % ttd_s)
+    if ttd_s < 120.0 or ttd_s > 300.0:
+        SimulationCombatTests._fail(failures, "research_ttd: %.1fs outside clinical 120-300s band" % ttd_s)
 
 
 ## Research gate: species `.tres` masses and human tissue sum match design anchors.
@@ -179,10 +179,10 @@ static func _run_research_atls_class_boundaries(failures: PackedStringArray) -> 
         )
 
 
-## Research gate: BLOOD_LOSS_RATE_MULTIPLIER matches closed-form derivation for 48 s TTD.
+## Research gate: BLOOD_LOSS_RATE_MULTIPLIER matches closed-form derivation for 180 s TTD.
 
 
-## Research gate: BLOOD_LOSS_RATE_MULTIPLIER matches closed-form derivation for 48 s TTD.
+## Research gate: BLOOD_LOSS_RATE_MULTIPLIER matches closed-form derivation for 180 s TTD.
 static func _run_research_blood_loss_multiplier_derived(failures: PackedStringArray) -> void:
     if not CombatResearchAnchors.blood_loss_multiplier_matches_derived():
         var derived: float = CombatResearchAnchors.derived_blood_loss_multiplier_for_ttd(
@@ -216,8 +216,8 @@ static func _run_research_reference_bleed_derivation(failures: PackedStringArray
             failures, "research_bleed_deriv: shipped multiplier diverges from 48s TTD derivation"
         )
     var ttd_s: float = float(deriv.get("clinical_ttd_s", 0.0))
-    if ttd_s < 30.0 or ttd_s > 120.0:
-        SimulationCombatTests._fail(failures, "research_bleed_deriv: calibrated TTD %.1fs outside 30-120s" % ttd_s)
+    if ttd_s < 120.0 or ttd_s > 300.0:
+        SimulationCombatTests._fail(failures, "research_bleed_deriv: calibrated TTD %.1fs outside 120-300s" % ttd_s)
     if not bool(deriv.get("ml_ttd_parity_ok", false)):
         SimulationCombatTests._fail(
             failures, "research_bleed_deriv: percent and mL TTD paths diverge at reference bleed"

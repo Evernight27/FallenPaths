@@ -10,10 +10,21 @@ const GEOMETRIC_LEAK_MAX := 0.25
 const PARRY_GEOMETRY_VARIANCE_BASE := 0.08
 ## Fatigue-driven aim drift: the intended-part boost is multiplied by lerp(this, 1.0, stamina_ratio).
 ## A fresh attacker (stamina 1.0) aims precisely (boost x1.0); an exhausted one (stamina 0.0)
-## aims at half precision (boost x0.5), so the landing part drifts off the aimed part more often.
-## Couples the diagnostic aim_drift to a real mechanic (stamina) instead of leaving it a pure
-## small-sample artifact. 0.5 keeps the aimed part the modal outcome even when exhausted.
-const AIM_DRIFT_FATIGUE_FLOOR := 0.5
+## aims at 80% precision (boost x0.80), so the landing part drifts off the aimed part a bit more
+## often. Couples the diagnostic aim_drift to a real mechanic (stamina). 0.80 reflects the
+## sports-science finding that fatigue widens the error around the intended target (precision loss)
+## rather than shifting which part is aimed at — the aimed part stays the modal outcome even when
+## exhausted, just with somewhat wider scatter.
+const AIM_DRIFT_FATIGUE_FLOOR := 0.8
+## Aim-leak near-miss falloff: the probability that leaks off the aimed part (the
+## (1 - aim_share) remainder) decays with blade-path distance from that part,
+## 1/(1 + K*d) where d = number of path positions from the aimed part. Path order
+## is blade-travel order, so the parts the blade actually passes clip preferentially.
+## A fresh fencer's error cloud is tight (high K -> steep falloff, near-misses dominate);
+## fatigue widens it (K drops -> flatter falloff, misses spread to more distant parts),
+## matching the sports-science finding that fatigue raises the spread of the aim error.
+const LEAK_PROXIMITY_FALLOFF_K := 0.7
+const LEAK_PROXIMITY_FALLOFF_K_FATIGUED := 0.25
 
 const PARRY_OPPOSITE_DEFLECT_SEVERITY_CUT := 0.65
 const PARRY_OPPOSITE_DEFLECT_SEVERITY_THRUST := 0.5

@@ -100,6 +100,7 @@ static func prepare_fight_end_log() -> void:
     CombatF5SoakTraceRollups._archive_fight_camp_combat_lines()
     reset_fight_trace_buffer()
     CombatEngagementDiagnostics.reset_session()
+    AttackWindUpStarter.reset_fp_session_dedup()
     _last_diagram_banner_line = ""
     _last_diagram_banner_enemy_line = ""
     _session_counts = {
@@ -654,23 +655,6 @@ static func log_turn_ready_player_ui(manager: Node, c: Dictionary, actions: Arra
             _last_gauge_tooltip_formation_fp_line = formation_tip
             OperationalLog.play_combat("gauge_tooltip_formation id=%d %s line=%s" % [cid, who, formation_tip])
     CombatF5SoakTraceUiMatch._emit_turn_ready_formation_fp(cid, who, fp_line)
-
-
-## Auto / manual weapon form change (**WF-1c / WF-3** soak grep). Production path: **`CombatWeaponForm.assign_form`**.
-
-
-## Auto / manual weapon form change (**WF-1c / WF-3** soak grep). Production path: **`CombatWeaponForm.assign_form`**.
-static func log_form_switch(_manager: Node, c: Dictionary, old_form: String, new_form: String, reason: String) -> void:
-    if not OperationalLog.is_play_session_active() or c.is_empty():
-        return
-    var cid: int = CombatantEntityAccess.id_int(c)
-    var who: String = CombatantEntityAccess.get_display_name(c, cid)
-    OperationalLog.play_combat(
-        (
-            "form_switch id=%d %s %s->%s reason=%s"
-            % [cid, who, old_form.strip_edges(), new_form.strip_edges(), reason.strip_edges()]
-        )
-    )
 
 
 ## Party diagram header above player rows (**#8**  -  grep **`diagram_banner player:`**).

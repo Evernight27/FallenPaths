@@ -87,9 +87,6 @@ const _TIER_CONSECUTIVE_FAILURES := "consecutive_failures"
 ## Phase 3: minimum consecutive failures at higher tiers before L2 counter-tempo is allowed.
 const MENTAL_STACK_L1_TO_L2_FAILURE_THRESHOLD: int = 2
 
-## Phase 5: Minimum margin ratio for form staleness detection (recent vs historical divergence).
-const WF_FORM_STALENESS_MARGIN_RATIO_THRESHOLD: float = 0.25
-
 ## Phase 5: Deception state machine combatant dict key.
 
 const COMBATANT_KEY_DECEPTION_STATE := "_deception_state"

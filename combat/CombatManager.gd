@@ -22,6 +22,11 @@ var combat_resolution_closed: bool = false
 # Hybrid: signals (`formation_changed`, `turn_resolved`,  - ) decide when to schedule; heap runs events at `resolve_at`.
 var event_queue: Array[Dictionary] = []
 var combat_clock: float = 0.0
+## Time-scale for the simulation tick. 1.0 = real-time; 2.0/4.0 = fast-forward.
+## Scales `delta` fed to `CombatProcessTick.tick` (see `_process`).
+var _combat_speed: float = 1.0
+## When true, `_process` skips the tick entirely (hard pause).
+var _combat_paused: bool = false
 var encounter: Dictionary = {}
 var formations: Dictionary = {}
 ## Per `formation_id` (e.g. player / enemy): `CombatConstants.DOCTRINE_*`  -  hybrid targeting + AI weights.
@@ -292,6 +297,8 @@ func start(player_formation: Dictionary = {}, enemy_formation: Dictionary = {}):
 		c.erase(CombatConstants.COMBATANT_KEY_COUNTER_TEMPO_UI_HINT)
 		c.erase(CombatConstants.COMBATANT_KEY_RIPOSTE_CHAIN_UNTIL)
 		c.erase(CombatConstants.COMBATANT_KEY_RIPOSTE_CHAIN_TARGET_ID)
+		c.erase(CombatConstants.COMBATANT_KEY_RIPOSTE_TARGET_LINE)
+		CounterTempo.clear_hit_continuation(c)
 		c.erase(CombatConstants.COMBATANT_KEY_SUSPEND_BLEED_TICK)
 		CombatFlurryBind.clear(c)
 		MedicalPhaseBatchResolve._reset_fled_and_combat_absent(c)
@@ -372,10 +379,6 @@ func recompute_zoc_and_distance() -> void:
 
 func _schedule_initial_action_ready_events() -> void:
 	CombatEventScheduler.schedule_initial_action_ready_events(self)
-
-
-func _action_ready_cooldown(c: Dictionary) -> float:
-	return CombatEventScheduler.action_ready_cooldown(c)
 
 
 func _schedule_event(ev: Dictionary) -> void:
@@ -651,20 +654,8 @@ func get_combatants() -> Array:
 	return CombatCombatantsSnapshot.build(self)
 
 
-func _get_next_action_ready_at(combatant_id: int) -> float:
-	return CombatEventScheduler.get_next_action_ready_at(self, combatant_id)
-
-
-func _cancel_pending_action_ready(combatant_id: int) -> void:
-	CombatEventScheduler.cancel_pending_action_ready(self, combatant_id)
-
-
 func _schedule_action_ready(combatant_id: int, delay_s: float) -> void:
 	CombatEventScheduler.schedule_action_ready(self, combatant_id, delay_s)
-
-
-func _reschedule_back_rank_turns(fid: String) -> void:
-	CombatEventScheduler.reschedule_back_rank_turns(self, fid)
 
 
 func _connect_turn_resolved_depth_recheck() -> void:
@@ -688,15 +679,6 @@ func track_medical_failure_and_maybe_retry(
 	performer: Dictionary, target: Dictionary, part: String, target_cid: int
 ) -> void:
 	CombatMedicalCoordination.track_failure_and_maybe_retry(self, performer, target, part, target_cid)
-
-
-func _get_parts_being_treated_on(combatant_id: int) -> Array:
-	return CombatMedicalCoordination.get_parts_being_treated_on(self, combatant_id)
-
-
-## Returns list of {move_id, target_part} for medical actions the performer can apply to the ally's part.
-func _get_ally_medical_actions(performer: Dictionary, ally: Dictionary, part: String) -> Array:
-	return MedicalPhaseController.get_ally_medical_actions(self, performer, ally, part)
 
 
 ## Ensures vacancy reconcile before listing actions. With dirty-only mode, marks **all** lines first so this stays a
@@ -756,7 +738,27 @@ func _get_rout_threshold(formation_id: String, key: String) -> float:
 
 
 func _process(delta: float) -> void:
-	CombatProcessTick.tick(self, delta)
+	if _combat_paused:
+		return
+	CombatProcessTick.tick(self, delta * _combat_speed)
+
+
+## Sets the simulation time-scale (1.0 = real-time, 2.0 = 2x, 4.0 = 4x).
+func set_combat_speed(mult: float) -> void:
+	_combat_speed = clampf(mult, 0.0, 8.0)
+
+
+func get_combat_speed() -> float:
+	return _combat_speed
+
+
+## Toggles a soft pause: the tick is skipped but the node stays in the tree.
+func set_combat_paused(paused: bool) -> void:
+	_combat_paused = paused
+
+
+func is_combat_paused() -> bool:
+	return _combat_paused
 
 
 ## Resolves one chosen action. **Combat targeting is AI-driven:** `turn_ready` / `EVENT_ACTION_READY` build
@@ -913,10 +915,6 @@ func _get_by_id(id: int):
 		if CombatantEntityAccess.id_int(c) == id:
 			return c
 	return null
-
-
-func _find_first_opponent(side: String) -> Dictionary:
-	return CombatStandingHelper.get_first_opponent(combatants, side)
 
 
 func _check_for_winner() -> String:

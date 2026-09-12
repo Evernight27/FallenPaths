@@ -15,7 +15,6 @@ const _CombatWeaponForm := preload("res://combat/weapon_form/CombatWeaponForm.gd
 static var _cached_weapons: Dictionary = {}
 static var _cached_armor: Dictionary = {}
 static var _cached_weapon_melee_ranges: Dictionary = {}
-static var _cached_weapon_move_counts: Dictionary = {}
 static var _windup_duration_cache: Dictionary = {}
 
 
@@ -24,7 +23,6 @@ static func flush_static_caches() -> void:
     _cached_weapons.clear()
     _cached_armor.clear()
     _cached_weapon_melee_ranges.clear()
-    _cached_weapon_move_counts.clear()
     _windup_duration_cache.clear()
 
 
@@ -39,13 +37,6 @@ static func get_cached_weapon_melee_range(weapon_id: String) -> float:
         var w := get_cached_weapon(weapon_id)
         _cached_weapon_melee_ranges[weapon_id] = float(w.melee_range)
     return _cached_weapon_melee_ranges[weapon_id]
-
-
-static func get_cached_weapon_move_count(weapon_id: String) -> int:
-    if not _cached_weapon_move_counts.has(weapon_id):
-        var w := get_cached_weapon(weapon_id)
-        _cached_weapon_move_counts[weapon_id] = w.attack_types.size()
-    return _cached_weapon_move_counts[weapon_id]
 
 
 static func get_cached_armor(piece_id: String) -> ArmorPiece:

@@ -21,6 +21,9 @@ const DEFAULT_DAY_INDEX: int = 0
 const HIRE_GOLD_COST: int = 200
 ## Gold cost to bury fallen mercenaries (respect mechanic; prevents morale/renown penalties from unburied dead).
 const BURIAL_GOLD_COST: int = 25
+## Gold cost to drill one stat for one party member (queues +1 proficiency, applied at next camp rest).
+## ~1.7 days of a single merc's wages; a soft gate so training is a deliberate spend, not free.
+const TRAIN_GOLD_COST: int = 25
 ## Maximum living combatants per side in engagement formation — balanced around squad-level medieval skirmish size.
 const ROSTER_MAX_LIVING: int = 7
 const HIRE_ENTRY: String = "both"

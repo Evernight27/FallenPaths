@@ -10,14 +10,17 @@ const MFB_SHARP_DOMINANT_RATIO := 0.85
 ## cortical bone (~2-3 mm thick) requires actual tissue penetration of ~5-8 mm beyond skin/fascia to chip bone.
 const MFB_CUT_BONE_MIN_PENETRATION_MM := 2.5
 ## Actual tissue depth (mm from skin surface) needed to reach and chip cortical bone after passing through
-## subcutaneous fat, fascia, and muscle (~3-5 mm average for mid-torso). Replaces RHA-based threshold.
+## subcutaneous fat, fascia, and muscle (thin-build mid-torso baseline; ~6 mm, more for heavier builds). Replaces RHA-based threshold.
 const CUT_BONE_MIN_TISSUE_DEPTH_MM := 6.0
 const MFB_BLUNT_FRACTURE_GAME_DAMAGE_FLOOR := 1.0
 ## Blunt-dominant: bone chip capped so crush tissue remains on the stream.
 const MFB_BLUNT_MAX_BONE_SHARE_OF_BLUNT := 0.45
 
-## Blunt fracture anchor energy (J) by sub-region (clinical biomechanics literature order-of-magnitude).
-## Skull ~70-130J, rib ~40-80J, humerus ~60-120J, radius/ulna ~60-120J, femur ~120-250J (combat) / 300-500J (polearm), tibia ~100-200J.
+## Blunt bone-damage threshold = the WEAPON IMPACT KE (J) that must reach a sub-region to drive
+## fracture-scale damage. These are impact-energy anchors, NOT the intrinsic work of fracture: quasi-static
+## bone fracture work is far lower (femur ~35 J, tibia ~25 J, skull ~4-23 J; see BodyPartConstants), and a
+## real weapon must deliver well above that because the impact is dynamic and much of the strike's KE is not
+## fully coupled into the bone. Magnitudes are tuned order-of-magnitude anchors for game feel.
 const MFB_BLUNT_FRACTURE_J_BY_SUBREGION: Dictionary = {
 	BodyPartConstants.PART_HEAD: {"scalp": 80.0, "face": 60.0, "neck": 50.0},
 	BodyPartConstants.PART_CHEST: {"thoracic": 65.0, "abdominal": 80.0, "sternum": 45.0},
@@ -28,15 +31,13 @@ const MFB_BLUNT_FRACTURE_J_BY_SUBREGION: Dictionary = {
 }
 
 # --- Blunt internal organ trauma thresholds (J) — visceral injury without penetration ---
-## Clinical basis: liver/spleen rupture requires ~30-70J blunt KE to capsule tear;
-## pulmonary contusion onset ~15-25J; aortic rupture ~80-150J. Visceral injury occurs at
-## lower KE than bone fracture in thoracic/abdominal regions because soft tissue fails first.
-## These thresholds apply when penetration_sharp < CUT_BONE_MIN_TISSUE_DEPTH_MM (no cut path).
-## NOTE: Thresholds set ABOVE COMBAT_REALISTIC_KE_J_MIN (35J) to avoid triggering on every
-## strike — organ trauma requires concentrated energy transfer beyond a normal glancing blow.
+## Game impact-KE thresholds, not clinical measurements. Real blunt-organ injury is characterized by
+## deceleration (g), chest/abdominal compression (%), or force (kN) rather than a fixed Joule amount, so
+## these are order-of-magnitude anchors for when concentrated blunt energy should plausibly produce organ
+## trauma. Set above the ~35 J combat-realistic floor so a normal glancing blow doesn't count.
 const BLUNT_INTERNAL_ORGAN_TRAUMA_J: Dictionary = {
-	"thoracic": {"pulmonary_contusion": 55.0, "aortic_vessel": 120.0},  # lung contusion / great vessel rupture
-	"abdominal": {"liver_spleen_tear": 65.0, "bowel_injury": 80.0},     # solid organ capsule tear / mesenteric shear
+	"thoracic": {"pulmonary_contusion": 40.0, "aortic_vessel": 120.0},  # lung contusion (low KE); great-vessel damage needs a much more concentrated transfer
+	"abdominal": {"liver_spleen_tear": 65.0, "bowel_injury": 1500.0},     # liver/spleen capsule tear (low threshold); bowel injury requires extreme, near-severing energy
 }
 
 # --- Internal organ trauma damage output (game HP applied to body_blunt as hidden tissue damage) ---
@@ -93,6 +94,15 @@ static func allocate_bone_and_tissue(
 	if to_bone > total_final:
 		to_bone = total_final
 		to_tissue_total = 0.0
+	# R4: a blunt impact always drives some soft-tissue trauma; at least
+	# BLUNT_MIN_TISSUE_FLOOR_MULT of the (post-armor) blunt value must remain as
+	# tissue rather than being allocated entirely to bone. Redistribute from bone to
+	# tissue so conservation still holds.
+	if mechanism in ["blunt", "mixed"] and final_blunt > 0.0:
+		var tissue_floor: float = CombatConstantsDamage.BLUNT_MIN_TISSUE_FLOOR_MULT * final_blunt
+		if to_tissue_total < tissue_floor:
+			to_tissue_total = minf(tissue_floor, total_final)
+			to_bone = maxf(0.0, total_final - to_tissue_total)
 	if to_tissue_total > 0.0:
 		to_cut = to_tissue_total * (final_cut / total_final)
 		to_blunt = maxf(0.0, to_tissue_total - to_cut)
@@ -114,9 +124,11 @@ static func j_excess_to_bone_damage(excess_j: float) -> float:
 ## Convert RHA-equivalent armor penetration (mm) to approximate tissue depth (mm).
 ## NOTE: This is a game abstraction, not a clinical measurement. RHA penetration quantifies
 ## armor-steel resistance; tissue depth measures actual blade travel through skin→fat→fascia→muscle.
-## The 3.0× factor absorbs the difference — calibrated so that weapon archetypes penetrating
-## ~2mm RHA reach cortical bone (~6mm tissue depth), matching anatomical expectations for mid-torso strikes.
-## A proper implementation would use a layered-anatomy lookup table (skin~1-2mm, fat~5-30mm variable, fascia~0.5mm).
+## The 3.0× factor absorbs that difference — calibrated so ~2mm RHA maps to ~6mm tissue depth, which
+## reaches cortical bone at mid-torso for a thin build. Depth-to-bone is body-habitus-dependent
+## (fat ~5-30mm plus pectoral muscle add several mm on average builds), so treat ~6mm as a conservative
+## baseline rather than a universal constant. A fuller model would use a layered-anatomy lookup per
+## body part (skin ~1-2mm, fat ~5-30mm variable, fascia ~0.5mm).
 static func rha_penetration_to_tissue_depth_mm(rha_pen_mm: float) -> float:
 	return rha_pen_mm * 3.0
 
@@ -199,8 +211,11 @@ static func check_blunt_internal_organ_trauma(
 	var organ_data: Variant = BLUNT_INTERNAL_ORGAN_TRAUMA_J.get(sub_region, {})
 	if organ_data is not Dictionary or strike_ke_j <= 0.0:
 		return {"organ_blunt_dmg": 0.0, "organ_pain_mult": 1.0, "trauma_type": ""}
-	## Only trigger when there's NO sharp penetration path to bone (pure blunt trauma).
-	if penetration_sharp >= CUT_BONE_MIN_TISSUE_DEPTH_MM:
+	## Only trigger when there's NO sharp penetration path to bone (pure blunt trauma). Compare in
+	## tissue-depth units (RHA->tissue), consistent with the sharp bone-chip gate in _sharp_bone_damage:
+	## without the conversion a mixed strike whose blade actually reaches bone (e.g. ~3mm RHA ~ 9mm tissue)
+	## would still fire organ trauma because the raw RHA value never reaches the tissue-depth threshold.
+	if rha_penetration_to_tissue_depth_mm(penetration_sharp) >= CUT_BONE_MIN_TISSUE_DEPTH_MM:
 		return {"organ_blunt_dmg": 0.0, "organ_pain_mult": 1.0, "trauma_type": ""}
 	var organ_blunt_dmg: float = 0.0
 	var trauma_type: String = ""

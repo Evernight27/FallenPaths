@@ -59,7 +59,7 @@ Use these names in new code — avoid duplicating membership tests, manager priv
 | Tier 4.2 / III-8 recovery cause | **`CombatConstants.normalize_recovery_cause`** · **`readiness_curve_for_cause`** · **`defense_footwork_recovering_dodge_mult_for_cause`** |
 | L3 guard line for UI / parry step | `CombatUiHints.active_line_for_ui` · live **`guard_line`** on dict (writers per **`GuardLineUpdater`**) |
 | Wait / focus form bias | `CombatWeaponForm.wait_action_weight_mult` · `preferred_guards` · `CombatConstants.AI_FOCUS_LINE_FORM_PREFERRED_MULT` |
-| Composure (gauge) | `gauge` 0–100 (`DataKeys.COMBATANT_GAUGE`) — **event-driven**: `CombatEventDispatch.handle_action_ready` sets 100; wind-up / recovery / medical / form-switch set 0; cowering idle fills 0.5/s (`CombatStateHandlers.process_cowering_idle`); persist via `CampaignComposureSync` |
+| Composure (gauge) | `gauge` 0–100 (`DataKeys.COMBATANT_GAUGE`) — **event-driven**: `CombatEventDispatch.handle_action_ready` sets 100; wind-up / recovery / medical / form-switch set 0; cowering idle fills 0.5/s (`CombatStateHandlers.process_cowering_idle`). Session-local — not persisted between fights |
 | Composure thresholds | counter-tempo ready ≥ `CombatConstants.COUNTER_TEMPO_GAUGE_THRESHOLD` (50) · AI/action-list gate `< GAUGE_FULL_THRESHOLD` (99) — **no** wind-up cost deduction, **no** quality/parry scaling |
 | Parry lockout | `CombatConstantsParry.OFF_BALANCE_DURATION_S` (0.4s) — set on parry_deflect in `AttackResultApplier`, gated in `DefenseChoiceResolver` |
 | Under attack check | `CombatIncomingParryChoice.incoming_attacker_ids_on_defender(manager, defender_id)` — scans WIND_UP combatants for `pending_attack` targeting this id |

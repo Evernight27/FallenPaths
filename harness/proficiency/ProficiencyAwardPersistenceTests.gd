@@ -6,10 +6,6 @@ const _CombatRegressionHarness := preload("res://harness/regression/CombatRegres
 ## All tests are gated by CompanyState.read_stub_proficiency_enabled() — stub is false by default.
 
 
-static func _new_entity_weapon_id() -> String:
-    return "SWORD"
-
-
 ## Read _proficiency_bonus from a CoreEntity.
 
 
@@ -67,71 +63,6 @@ static func _free_proficiency_combat(data: Dictionary) -> void:
     var mgr: Node = data.get("mgr")
     if is_instance_valid(mgr):
         HarnessFixtures._free_manager_in_place(mgr)
-
-
-## Helper: simulate a hit resolving on the player combatant, then check proficiency gains.
-
-
-## Helper: simulate a hit resolving on the player combatant, then check proficiency gains.
-static func _simulate_hit_resolve_and_check_gains(
-    data: Dictionary,
-    failures: PackedStringArray,
-    expected_str_gain_min: float = 0.3,
-    expected_end_gain_min: float = 0.2
-) -> void:
-    if data.is_empty():
-        return
-    var mgr: Node = data.get("mgr")
-    var player_ent: Node = data.get("player_ent")
-    var p_id: int = data.get("p_id", -1)
-    var enemy_ent: Node = data.get("enemy_ent")
-
-    # Trigger a hit action by setting up pending_attack and resolving.
-    var enemy: Dictionary = CombatantEntityAccess.manager_get_combatant(mgr, 1)
-    if enemy.is_empty():
-        return
-    var atk: Dictionary = CombatantEntityAccess.manager_get_combatant(mgr, p_id)
-    if atk.is_empty():
-        return
-
-    # Set up a wind-up on the player.
-    atk.state = CombatConstants.STATE_WIND_UP
-    atk.pending_attack = {
-        "target_id": 1,
-        "intensity": 0.5,
-        "attack_type": "thrust",
-    }
-
-    # Resolve + apply like CombatManager._execute_attack (proficiency awards live in AttackResultApplier).
-    var result: Dictionary = AttackResolver.resolve_attack(mgr, p_id)
-    AttackResultApplier.apply_result(mgr, p_id, result)
-
-    # The resolve should produce a hit (since perception is 95 and miss chance is low).
-    if result.get("action", "") != "hit":
-        # Even if miss, we should still get wind-up gains.
-        var bonus_str: float = float(player_ent._proficiency_bonus.get("strength", 0))
-        if bonus_str < expected_str_gain_min * 0.5:
-            _fail(
-                failures,
-                (
-                    "hit_gains: wind-up STR gain too low on %s result (got %.2f, want >= %.1f)"
-                    % [result.get("action", ""), bonus_str, expected_str_gain_min]
-                )
-            )
-        return
-
-    var bonus_str: float = float(player_ent._proficiency_bonus.get("strength", 0))
-    if bonus_str < expected_str_gain_min:
-        _fail(
-            failures, "hit_gains: STR gain too low (got %.2f, want >= %.1f)" % [bonus_str, expected_str_gain_min]
-        )
-
-    var bonus_end: float = float(enemy_ent._proficiency_bonus.get("endurance", 0))
-    if bonus_end < expected_end_gain_min:
-        _fail(
-            failures,
-            "hit_gains: END gain on defender too low (got %.2f, want >= %.1f)" % [bonus_end, expected_end_gain_min]
-        )
 
 
 # --- Test functions ---

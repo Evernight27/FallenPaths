@@ -76,6 +76,42 @@ static func _try_merge_training_pending(world: Node2D) -> void:
             EntityProficiency.merge_training_pending(entity)
 
 
+const TRAIN_STATS: Array = ["strength", "agility", "intelligence", "endurance", "perception"]
+
+
+static func can_train_stat(world: Node2D, node_ref: Node, stat: String) -> bool:
+    if not _get_state().read_stub_proficiency_enabled():
+        return false
+    if stat not in TRAIN_STATS:
+        return false
+    if node_ref == null or not is_instance_valid(node_ref):
+        return false
+    return _get_economy().get_gold(world) >= _get_economy().TRAIN_GOLD_COST
+
+
+## Drills a stat for a party member: charges gold, queues +1 into training_pending.
+## The queued gain is applied to _proficiency_bonus at next camp rest.
+static func train_stat(world: Node2D, node_ref: Node, stat: String) -> bool:
+    if not can_train_stat(world, node_ref, stat):
+        return false
+    if not _get_economy().consume_gold(world, _get_economy().TRAIN_GOLD_COST):
+        return false
+    var entity: Node = CampaignEncounterBridge.health_entity_from_character(node_ref)
+    if entity == null or not entity.has_method("_set_training_pending_value"):
+        _get_economy().add_gold(world, _get_economy().TRAIN_GOLD_COST)
+        return false
+    var pending: Dictionary = entity._get_training_pending()
+    var current: float = float(pending.get(stat, 0.0))
+    entity._set_training_pending_value(stat, current + 1.0)
+    _get_state().refresh_hud(world)
+    if OperationalLog.is_play_session_active():
+        OperationalLog.play_world(
+            "train_stat %s %s pending=%.1f gold_left=%d"
+            % [str(node_ref.name), stat, current + 1.0, _get_economy().get_gold(world)]
+        )
+    return true
+
+
 static func camp_heal_ready(world: Node2D, from_party_menu: bool = false) -> bool:
     return can_offer_camp_heal(world, from_party_menu) and _party_bleeding_controlled(world)
 
@@ -278,6 +314,7 @@ static func try_camp_heal(world: Node2D, from_party_menu: bool = false) -> bool:
     _get_state().try_advance_day(world)
     _apply_roster_rest_quality(world, rest_quality)
     _sharpen_roster_weapons(world)
+    _restore_roster_muscle_fatigue(world)
     _try_apply_decay(world)
     _try_merge_training_pending(world)
     _get_mood().apply_camp_rest_mood(world)
@@ -379,6 +416,15 @@ static func _sharpen_roster_weapons(world: Node2D) -> void:
         var entity: Node = CampaignEncounterBridge.health_entity_from_character(n)
         if entity != null and entity.has_method("sharpen_weapon"):
             entity.sharpen_weapon()
+
+
+## Camp rest clears per-limb muscle exertion pools (FEATURE_MUSCLE_GROUP_FATIGUE campaign bridge):
+## a rested fighter enters the next fight with fresh limbs.
+static func _restore_roster_muscle_fatigue(world: Node2D) -> void:
+    for n in CampaignEncounterBridge.get_fightable_party_nodes(world):
+        var entity: Node = CampaignEncounterBridge.health_entity_from_character(n)
+        if entity != null and entity.has_method("_restore_muscle_fatigue_at_camp"):
+            entity._restore_muscle_fatigue_at_camp()
 
 
 static func format_post_fight_field_care_short_log(parts_left: int) -> String:

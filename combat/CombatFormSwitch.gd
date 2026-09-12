@@ -31,7 +31,7 @@ static func transition_duration(
 		base *= CombatConstantsEncounter.FORM_SWITCH_BIND_PENALTY_MULT
 	if not old_cardinal.is_empty() and old_cardinal == new_cardinal:
 		base *= CombatConstantsEncounter.FORM_SWITCH_SAME_CARDINAL_BONUS_MULT
-	base /= clampf(float(agility) / 100.0, 0.7, 1.3)
+	base /= clampf(float(agility) / 100.0, CombatConstants.RECOVERY_AGILITY_MIN, CombatConstants.RECOVERY_AGILITY_MAX)
 	if perf_mod > 0.0:
 		base /= maxf(CombatConstants.PERF_MOD_MIN, perf_mod)
 	base *= exhaustion_mult
@@ -52,22 +52,6 @@ static func parry_readiness_during_switch(progress: float) -> float:
 ## Dodge penalty during transition (scales with progress 0..1).
 static func dodge_penalty_during_switch(progress: float) -> float:
 	return lerpf(CombatConstantsEncounter.FORM_SWITCH_DODGE_PENALTY_START, 1.0, clampf(progress, 0.0, 1.0))
-
-
-## Blade angle interpolation during transition (degrees).
-static func blade_angle_during_switch(old_guard: String, new_guard: String, progress: float) -> float:
-	var a: float = CombatGuardLines.line_to_angle(old_guard)
-	var b: float = CombatGuardLines.line_to_angle(new_guard)
-	var d: float = CombatGuardLines.angle_diff_deg(a, b)
-	var dir: float = 1.0
-	var diff: float = b - a
-	if diff > 180.0:
-		diff -= 360.0
-	elif diff < -180.0:
-		diff += 360.0
-	dir = 1.0 if diff >= 0.0 else -1.0
-	var current: float = a + dir * d * clampf(progress, 0.0, 1.0)
-	return fmod(current + 360.0, 360.0)
 
 
 ## Check if the combatant can initiate a form switch.

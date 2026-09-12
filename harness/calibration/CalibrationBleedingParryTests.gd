@@ -9,7 +9,6 @@ const _CombatRegressionHarness := preload("res://harness/regression/CombatRegres
 
 const REPORT_FILENAME := ".calibration_audit.txt"
 const BIND_THRESHOLD := CombatConstants.PARRY_BIND_CONTROL_THRESHOLD
-const DEFLECT_THRESHOLD := CombatConstants.PARRY_DEFLECT_THRESHOLD
 ## Soak lines tag `parry_deflect` for full-stop outcomes; `parry_bind` only when `parry_was_bind`  -  allow ctrl at
 ## threshold on deflect rows.
 const BIND_CTRL_AUDIT_EPS := 0.001
@@ -84,7 +83,7 @@ static func _append_bleeding_section(lines: PackedStringArray, failures: PackedS
             )
         )
     )
-    lines.append("clinical_TTD_band_untreated_arterial=30-120s (order-of-minutes)")
+    lines.append("clinical_TTD_band_untreated_arterial=120-300s (order-of-minutes)")
     var derived_mult: float = CombatResearchAnchors.derived_blood_loss_multiplier_for_ttd(
         CombatResearchAnchors.LITERATURE_TTD_TARGET_S
     )
@@ -101,10 +100,10 @@ static func _append_bleeding_section(lines: PackedStringArray, failures: PackedS
             )
         )
     )
-    var ttd_ok: bool = ttd >= 30.0 and ttd <= 120.0
+    var ttd_ok: bool = ttd >= 120.0 and ttd <= 300.0
     lines.append("audit_TTD_in_clinical_band=%s" % str(ttd_ok).to_lower())
     if not ttd_ok:
-        failures.append("bleeding: reference TTD %.1fs outside 30-120s" % ttd)
+        failures.append("bleeding: reference TTD %.1fs outside 120-300s" % ttd)
     var pressure_ttd: float = ttd * 2.0
     lines.append("estimated_TTD_with_sustained_pressure_halve=%.0fs" % pressure_ttd)
     CalibrationBleedingParryTests._append_literal_blood_ml_section(lines)
@@ -157,7 +156,7 @@ static func _append_literal_blood_ml_section(lines: PackedStringArray) -> void:
     var implied_ml_s: float = CombatResearchAnchors.reference_uncontrolled_implied_ml_per_second(ref_h, 1.0)
     var implied_ml_min: float = implied_ml_s * 60.0
     lines.append("reference_implied_ml_per_s=%.2f implied_ml_per_min=%.1f" % [implied_ml_s, implied_ml_min])
-    lines.append("note=HP_per_s_is_abstract_game_unit; implied_mL_is_percent_bridge_only; clinical_TTD_band=30-120s")
+    lines.append("note=HP_per_s_is_abstract_game_unit; implied_mL_is_percent_bridge_only; clinical_TTD_band=120-300s")
     lines.append("bridge=loss_ml_per_s = (rate * BLOOD_LOSS_RATE_MULTIPLIER) * ml_max / MAX_BLOOD_VOLUME")
     var bleed_deriv: Dictionary = CombatResearchAnchors.reference_bleed_rate_derivation()
     (
@@ -441,10 +440,10 @@ static func _append_material_failure_production_section(lines: PackedStringArray
     var ttd_s: float = BleedingConstants.seconds_to_exsanguination(
         BleedingConstants.REFERENCE_UNCONTROLLED_BLEED_RATE, BleedingConstants.MAX_BLOOD_VOLUME, 1.0
     )
-    var ttd_ok: bool = ttd_s >= 30.0 and ttd_s <= 120.0
-    lines.append("audit_TTD_s=%.1f in_band_30-120=%s" % [ttd_s, str(ttd_ok).to_lower()])
+    var ttd_ok: bool = ttd_s >= 120.0 and ttd_s <= 300.0
+    lines.append("audit_TTD_s=%.1f in_band_120-300=%s" % [ttd_s, str(ttd_ok).to_lower()])
     if not ttd_ok:
-        failures.append("material_production: TTD %.1fs outside 30-120s" % ttd_s)
+        failures.append("material_production: TTD %.1fs outside 120-300s" % ttd_s)
     var sword: Weapon = HarnessFixtures.get_cached_weapon("SWORD")
     if sword != null:
         var ai: AttackInstance = AttackInstance.new("oberhau", 1.0)
