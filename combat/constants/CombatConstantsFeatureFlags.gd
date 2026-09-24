@@ -128,6 +128,10 @@ const ARM_WOUND_GRIP_SEVERITY_WEIGHT: Dictionary = {
 ## 1 - (1 - grip) * this, so parry capacity stays gentler than attack at the same wound (ratio < 1) while scaling
 ## with the same severity-scaled grip mult.
 const ARM_WOUND_GRIP_PARRY_PENALTY_RATIO := 10.0 / 15.0
+## Tier 3.1 persistent facing: a fighter who turns to answer a flank/rear attack stays turned for a
+## decaying beat; while still turned, their blade is off-line on the new exposure line (bounded
+## parry-capacity dip). D001-neutral (front-on duels never stamp a facing turn).
+const FEATURE_PERSISTENT_FACING := true
 
 ## Tier 4.3 combat attention (default on; harness may toggle).
 static var _feature_combat_attention_enabled: bool = true
@@ -165,6 +169,7 @@ static var _feature_parry_counterstrike_window_load: int = -1
 static var _feature_hit_continuation_window_load: int = -1
 static var _feature_measure_damage_commit_load: int = -1
 static var _feature_mercy_execute_load: int = -1
+static var _feature_persistent_facing_load: int = -1
 
 
 static func is_feature_combat_attention_enabled() -> bool:
@@ -755,6 +760,16 @@ static func set_feature_mercy_execute_load(enabled: bool) -> void:
     _feature_mercy_execute_load = 1 if enabled else 0
 
 
+static func is_feature_persistent_facing_enabled() -> bool:
+    if _feature_persistent_facing_load >= 0:
+        return _feature_persistent_facing_load != 0
+    return FEATURE_PERSISTENT_FACING
+
+
+static func set_feature_persistent_facing_load(enabled: bool) -> void:
+    _feature_persistent_facing_load = 1 if enabled else 0
+
+
 ## Headless harness: clear all set_feature_*_load overrides.
 static func reset_harness_feature_load_overrides() -> void:
     _feature_ambient_pain_shock = FEATURE_AMBIENT_PAIN_SHOCK
@@ -783,3 +798,4 @@ static func reset_harness_feature_load_overrides() -> void:
     _feature_arm_interpose_load = -1
     _feature_iv6_attack_path_octant_load = -1
     _feature_mercy_execute_load = -1
+    _feature_persistent_facing_load = -1

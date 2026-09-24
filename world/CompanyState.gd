@@ -48,9 +48,34 @@ const WORLD_META_MAP_BLEED_MULT: String = "campaign_map_bleed_mult"
 const MED_BATTLE_MODE: String = "hybrid"
 const SUPPLY_FACTOR_AT_ZERO_MED: float = 0.5
 const AFFLICTIONS_ENABLED: bool = true
+const INFECTION_STAGING_ENABLED: bool = true
+const WOUND_SCARS_ENABLED: bool = true
 const PROVISIONS_ENABLED: bool = true
 const BURIAL_COSTS_ENABLED: bool = true
 const BANKRUPT_MODE: String = "desertion"
+## XCamp-5f: per-fighter fame & career arc. Each survivor of a paid-contract win accrues personal fame
+## scaled by how hard the opponents were (desirable difficulty), which drives a sponsor payout and a
+## career-tier label. Distinct from company renown (a fleet-level attribute).
+const FIGHTER_FAME_ENABLED: bool = true
+## Base fame per victory for a survivor, before the difficulty scale (0.85–1.35) is applied. Chosen so an
+## evenly-matched win (~1.0x) nets ~10 fame, i.e. one win to Skilled; a stronger foe (up to 1.35x) nets ~13.
+const FAME_WIN_BASE: int = 10
+## Gold each survivor at/above the qualifying career tier adds to the contract payout. Set equal to
+## FAME_WIN_BASE so one qualifying survivor is worth one "win" of bonus gold on top of the base pay.
+const FAME_SPONSOR_PER_QUALIFYING_FIGHTER: int = 10
+## Index into FAME_TIERS that sponsors pay from (the "Skilled" threshold) -- the first tier above
+## Newcomer, so a brand-new fighter (no wins yet) does not yet command a sponsor.
+const FAME_SPONSOR_MIN_TIER_INDEX: int = 1
+## XCamp-5f career tiers: [fame_min, label]. A fighter's tier = the last row whose min they meet.
+## Thresholds step +10/20/30/40 fame (Newcomer 0, Skilled 10, Veteran 30, Elite 60, Champion 100), so
+## climbing each next tier costs ~one extra win of fame -- a slow arc that rewards a long campaign.
+const FAME_TIERS: Array = [
+	{"min": 0, "label": "Newcomer"},
+	{"min": 10, "label": "Skilled"},
+	{"min": 30, "label": "Veteran"},
+	{"min": 60, "label": "Elite"},
+	{"min": 100, "label": "Champion"},
+]
 ## P2 persistence.
 const PERSISTENCE_MODE: String = "P2"
 const P2_RESTORE_ON_MAIN_RESTART: bool = true
@@ -111,12 +136,36 @@ static func read_stub_afflictions_enabled() -> bool:
 	return AFFLICTIONS_ENABLED
 
 
+static func read_stub_infection_staging_enabled() -> bool:
+	return INFECTION_STAGING_ENABLED
+
+
+static func read_stub_wound_scars_enabled() -> bool:
+	return WOUND_SCARS_ENABLED
+
+
 static func read_stub_provisions_enabled() -> bool:
 	return PROVISIONS_ENABLED
 
 
 static func read_stub_burial_costs_enabled() -> bool:
 	return BURIAL_COSTS_ENABLED
+
+
+static func read_stub_fighter_fame_enabled() -> bool:
+	return FIGHTER_FAME_ENABLED
+
+
+## XCamp-5f: career-tier label for a fame value -- the label of the last FAME_TIERS row whose min the
+## fame meets (Newcomer is the floor). UI and settlement logs use this to name a fighter's standing.
+static func fame_tier_label(fame: int) -> String:
+	var label: String = ""
+	for tier in FAME_TIERS:
+		if tier is Dictionary and int(fame) >= int(tier.get("min", 0)):
+			label = str(tier.get("label", ""))
+	if label.is_empty():
+		label = str((FAME_TIERS[0] as Dictionary).get("label", ""))
+	return label
 
 
 static func read_stub_bankrupt_mode() -> String:
@@ -438,6 +487,23 @@ static func train_stat(world: Node2D, node_ref: Node, stat: String) -> bool:
 	return CompanyCamp.train_stat(world, node_ref, stat)
 
 
+## XCamp-6: form/weapon drills (mirrors train_stat; applied at next camp rest).
+static func can_train_form(world: Node2D, node_ref: Node, form: String) -> bool:
+	return CompanyCamp.can_train_form(world, node_ref, form)
+
+
+static func train_form(world: Node2D, node_ref: Node, form: String) -> bool:
+	return CompanyCamp.train_form(world, node_ref, form)
+
+
+static func can_train_weapon(world: Node2D, node_ref: Node, weapon_id: String) -> bool:
+	return CompanyCamp.can_train_weapon(world, node_ref, weapon_id)
+
+
+static func train_weapon(world: Node2D, node_ref: Node, weapon_id: String) -> bool:
+	return CompanyCamp.train_weapon(world, node_ref, weapon_id)
+
+
 ## Gladiator duel: true when the party is ready to enter the 1v1 ii2b sword duel.
 static func can_start_duel(world: Node2D) -> bool:
 	return CampaignEncounterBridge.can_enter_combat(world).get("ok", false)
@@ -447,6 +513,152 @@ static func can_start_duel(world: Node2D) -> bool:
 ## unit AI; rewards/casualties settle the same as a contract (no active contract => no pay).
 static func start_duel(world: Node2D) -> bool:
 	return CombatFlow.start_duel(world)
+
+
+## === Gladiatorial school (XCamp-6, delegated to CompanySchool / CompanyScout / CompanyMatch) ===
+
+
+static func school_ids() -> PackedStringArray:
+	return CompanySchool.school_ids()
+
+
+static func has_school(school_id: String) -> bool:
+	return CompanySchool.has_school(school_id)
+
+
+static func school_display_name(school_id: String) -> String:
+	return CompanySchool.school_display_name(school_id)
+
+
+static func school_prestige(school_id: String) -> int:
+	return CompanySchool.school_prestige(school_id)
+
+
+static func dossier_for(world: Node, school_id: String) -> Array:
+	return CompanySchool.dossier_for(world, school_id)
+
+
+static func dossier_reveal_ratio(world: Node, school_id: String) -> float:
+	return CompanySchool.dossier_reveal_ratio(world, school_id)
+
+
+static func dossier_fully_revealed(world: Node, school_id: String) -> bool:
+	return CompanySchool.dossier_fully_revealed(world, school_id)
+
+
+static func can_dispatch_scout(world: Node, member_name: String, school_id: String) -> Dictionary:
+	return CompanyScout.can_dispatch_scout(world, member_name, school_id)
+
+
+static func dispatch_scout(world: Node, member_name: String, school_id: String) -> bool:
+	return CompanyScout.dispatch_scout(world, member_name, school_id)
+
+
+static func active_scout_member_names(world: Node) -> PackedStringArray:
+	return CompanyScout.active_scout_member_names(world)
+
+
+static func member_is_scouting(world: Node, member_name: String) -> bool:
+	return CompanyScout.member_is_scouting(world, member_name)
+
+
+static func scout_days_remaining(world: Node, member_name: String) -> int:
+	return CompanyScout.scout_days_remaining(world, member_name)
+
+
+static func advance_school_scouts(world: Node) -> PackedStringArray:
+	return CompanyScout.advance_scouts(world)
+
+
+static func has_active_match(world: Node) -> bool:
+	return CompanyMatch.has_active_match(world)
+
+
+static func match_active_snapshot(world: Node) -> Dictionary:
+	return CompanyMatch.active_match(world)
+
+
+static func match_school_id(world: Node) -> String:
+	return CompanyMatch.match_school_id(world)
+
+
+static func match_bout_count(world: Node) -> int:
+	return CompanyMatch.match_bout_count(world)
+
+
+static func match_score(world: Node) -> Dictionary:
+	return CompanyMatch.match_score(world)
+
+
+static func current_bout_index(world: Node) -> int:
+	return CompanyMatch.current_bout_index(world)
+
+
+static func current_bout_player_name(world: Node) -> String:
+	return CompanyMatch.current_bout_player_name(world)
+
+
+static func can_appoint_match(world: Node, school_id: String, member_names: Array) -> Dictionary:
+	return CompanyMatch.can_appoint_match(world, school_id, member_names)
+
+
+static func appoint_match(world: Node, school_id: String, member_names: Array) -> bool:
+	return CompanyMatch.appoint_match(world, school_id, member_names)
+
+
+static func cancel_active_match(world: Node) -> bool:
+	return CompanyMatch.cancel_active_match(world)
+
+
+static func can_enter_current_bout(world: Node) -> Dictionary:
+	return CompanyMatch.can_enter_current_bout(world)
+
+
+static func current_bout_opponent(world: Node) -> OpponentFighterProfile:
+	return CompanyMatch.current_bout_opponent(world)
+
+
+static func begin_current_bout(world: Node) -> bool:
+	return CompanyMatch.begin_current_bout(world)
+
+
+static func build_current_bout_encounter(world: Node, enemy_scene: PackedScene = null) -> EncounterNode:
+	return CompanyMatch.build_current_bout_encounter(world, enemy_scene)
+
+
+static func record_bout_outcome(world: Node, player_won: bool) -> Dictionary:
+	return CompanyMatch.record_bout_outcome(world, player_won)
+
+
+static func match_result(world: Node) -> Dictionary:
+	return CompanyMatch.match_result(world)
+
+
+static func collect_match_result(world: Node) -> Dictionary:
+	return CompanyMatch.collect_match_result(world)
+
+
+static func school_summary(world: Node, school_id: String) -> Dictionary:
+	return CompanySchool.school_summary(world, school_id)
+
+
+static func schools_overview(world: Node) -> Array:
+	return CompanySchool.schools_overview(world)
+
+
+## Player-visible dossier rows for a school (no intel leak past the reveal tiers).
+static func dossier_visible_view(world: Node, school_id: String) -> Array:
+	return CompanySchool.dossier_visible_view(world, school_id)
+
+
+## {school_id: [member_name, ...]} of the legal scout dispatches right now.
+static func scouting_candidates(world: Node) -> Dictionary:
+	return CompanyScout.scouting_candidates(world)
+
+
+## Everything the current bout's prep needs (fighter, opponent, reveal-tier-safe intel).
+static func current_bout_card(world: Node) -> Dictionary:
+	return CompanyMatch.current_bout_card(world)
 
 
 ## === Gladiator gear (delegated to CompanyGear) ===
@@ -460,12 +672,52 @@ static func buy_weapon(world: Node2D, node_ref: Node, weapon_id: String) -> bool
 	return CompanyGear.buy_weapon(world, node_ref, weapon_id)
 
 
-static func can_buy_armor(world: Node2D, node_ref: Node, part: String) -> bool:
-	return CompanyGear.can_buy_armor(world, node_ref, part)
+static func can_buy_armor(world: Node2D, node_ref: Node, part: String, piece_id: String) -> bool:
+	return CompanyGear.can_buy_armor(world, node_ref, part, piece_id)
 
 
-static func buy_armor(world: Node2D, node_ref: Node, part: String) -> bool:
-	return CompanyGear.buy_armor(world, node_ref, part)
+static func buy_armor(world: Node2D, node_ref: Node, part: String, piece_id: String) -> bool:
+	return CompanyGear.buy_armor(world, node_ref, part, piece_id)
+
+
+## === Gear sell/unequip (XCamp-4e, delegated to CompanyGear) ===
+
+static func sell_value_for_weapon(weapon_id: String) -> int:
+	return CompanyGear.sell_value_for_weapon(weapon_id)
+
+
+static func sell_value_for_piece(piece_id: String) -> int:
+	return CompanyGear.sell_value_for_piece(piece_id)
+
+
+static func equipped_weapon_id(node_ref: Node) -> String:
+	return CompanyGear.equipped_weapon_id(node_ref)
+
+
+static func equipped_armor_piece_id(node_ref: Node, part: String) -> String:
+	return CompanyGear.equipped_armor_piece_id(node_ref, part)
+
+
+static func sell_equipped_weapon(world: Node2D, node_ref: Node) -> int:
+	return CompanyGear.sell_equipped_weapon(world, node_ref)
+
+
+static func sell_equipped_armor(world: Node2D, node_ref: Node, part: String) -> int:
+	return CompanyGear.sell_equipped_armor(world, node_ref, part)
+
+
+## === Armor repair (XCamp-4h, delegated to CompanyGear) ===
+
+static func armor_repair_cost(node_ref: Node) -> int:
+	return CompanyGear.armor_repair_cost(node_ref)
+
+
+static func can_repair_armor(world: Node2D, node_ref: Node) -> bool:
+	return CompanyGear.can_repair_armor(world, node_ref)
+
+
+static func repair_armor(world: Node2D, node_ref: Node) -> bool:
+	return CompanyGear.repair_armor(world, node_ref)
 
 
 ## === Tool repair (delegated to CompanyCamp) ===

@@ -8,7 +8,7 @@
 | Combat | [`agent_combat.md`](agent_combat.md) ([3e](agent_combat.md#specialty-iii-4-3e-fight-finish) · [line plug](agent_combat.md#specialty-iii-6-line-plug)) | `PHASE0: PASS` |
 | Enhance | [`agent_enhance.md`](agent_enhance.md) | `PHASE0: PASS` |
 | Playtest | [`agent_playtest.md`](agent_playtest.md) | validator + `human_signoff: READY` |
-| Campaign | [`agent_campaign.md`](agent_campaign.md) | CompanyStateChecks **406** or Phase 0 + ship audit |
+| Campaign | [`agent_campaign.md`](agent_campaign.md) | CompanyStateChecks **558** or Phase 0 + ship audit |
 | Hygiene | [`agent_hygiene.md`](agent_hygiene.md) | no production `.gd` |
 | Audit | [`agent_audit.md`](agent_audit.md) | Phase 0 + company |
 | Medical | [`agent_medical.md`](agent_medical.md) | `PHASE0: PASS` |

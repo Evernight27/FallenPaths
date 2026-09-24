@@ -136,9 +136,15 @@ const ATTACK_LAST_MOVE_ID: String = "attack_last_move_id"
 const PA_PARRY_AGAINST_ID: String = "parry_against_id"
 const PA_PARRY_WAS_BIND: String = "parry_was_bind"
 const PA_OFF_BALANCE_UNTIL: String = "off_balance_until"
+const PA_OFF_BALANCE_TOTAL: String = "off_balance_total"
+## Persistent facing (Tier 3.1): a decaying window during which the defender is still "turned" from a
+## flank/rear attack and has not re-braced on their new front. Mirrors the off-balance pair.
+const PA_FACING_TURN_UNTIL: String = "facing_turn_until"
+const PA_FACING_TURN_TOTAL: String = "facing_turn_total"
 const PA_FEINT_OPEN_LINE: String = "feint_open_line"
 const PA_FEINT_OPEN_LINE_UNTIL: String = "feint_open_line_until"
 const PA_FEINT_OPEN_LINE_PARRY_MULT: String = "feint_open_line_parry_mult"
+const PA_FEINT_OPEN_LINE_DURATION_S: String = "feint_open_line_duration_s"
 const PA_PENDING_MEDICAL: String = "pending_medical"
 const PA_RECEIVING_MEDICAL_COUNT: String = "receiving_medical_count"
 const PA_RECEIVING_CARE_COOLDOWN: String = "receiving_care_action_cooldown"
@@ -286,6 +292,7 @@ const ATK_BLUNT_MOMENTUM_PA_MULT: String = "blunt_momentum_pa_mult"
 const ATK_PENETRATION_SHARP: String = "penetration_sharp"
 const ATK_PENETRATION_BLUNT_MPA: String = "penetration_blunt_momentum_per_area"
 const ATK_BLUNT_CONTACT_CM: String = "blunt_contact_cm"
+const ATK_BLUNT_COUPLING_CONTACT_CM: String = "blunt_coupling_contact_cm"
 
 # --- Combat attention dict keys ---
 const ATTENTION_LINE_COUNTS: String = "line_counts"

@@ -1,6 +1,6 @@
 Stream: **Campaign**. Exp-3 ☑ — economy UX maintain; **P2** only if asked. Bundle chat 3: [`README#parallel-expansion-bundle`](README.md#parallel-expansion-bundle).
 
-**Gate:** `./tools/ci/run_company_state_checks.sh` → **`FP_HARNESS_OK: CompanyStateChecks (406 tests)`** (fast) or Phase 0 + `./tools/ci/run_campaign_ship_audit.sh`.
+**Gate:** `./tools/ci/run_company_state_checks.sh` → **`FP_HARNESS_OK: CompanyStateChecks (558 tests)`** (fast) or Phase 0 + `./tools/ci/run_campaign_ship_audit.sh`.
 
 **Own:** `world/*`, `scenes/campaign/main.gd`, `PartyManager.gd`, party/settlement/HUD/run-end UI, company harness rows.
 

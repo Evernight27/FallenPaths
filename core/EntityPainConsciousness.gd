@@ -33,10 +33,17 @@ const DODGE_MIN_STEP_TIME_S: float = 0.45              # trained-fighter lateral
 ## near-0% dodge rate eliminates player agency and contradicts documented HEMA defensive drills.
 const DODGE_CHANCE_CEILING: float = 0.35                # max dodge chance (veteran vs slow attack)
 
-## Armor encumbrance on dodge speed — ~4% per kg above baseline human mass (~25 kg).
-## Models Williams 2003 armor cushioning + historical HEMA reports of heavily armored fighters
-## having reduced mobility; full plate adds ~20-25 kg, imposing 80-100% step time penalty.
-const ENCUMBRANCE_BASELINE_MASS_KG: float = 25.0
+## Armor encumbrance on dodge speed — ~4% per kg above the baseline.
+## Models historical HEMA reports of heavily armored fighters having reduced
+## mobility: full plate adds ~17-18 kg in-sim, imposing a large step-time penalty.
+## The baseline is set just above the mass of a full light (cloth/leather) kit
+## (~3-4 kg) so that light armor is free to wear, mail is a modest cost, and
+## plate is a real mobility tax. XCamp-4j: lowered from 25.0 (which no kit ever
+## reached, so the mechanic was dormant) to 6.0 to match the intended behavior,
+## and the mass-read guard in `_get_armor_encumbrance_modifier` was fixed from
+## `has_method("armor_slots")` (always false — it is a property) to
+## `"armor_slots" in entity`, so the mass loop actually runs.
+const ENCUMBRANCE_BASELINE_MASS_KG: float = 6.0
 const ENCUMBRANCE_PER_KG_STEP_MULT: float = 0.04       # 4% slower per extra kg of armor load
 
 # --- Concussion constants (Issue 1: head trauma / concussion mechanics) ---
@@ -404,6 +411,18 @@ static func get_pain_for_part(entity: Node, part: String) -> float:
 		)
 		var progress: float = EntityWounds._get_wound_healing_progress(entity, injury)
 		total += d * sev_mult * part_mult * itype_mult * sub_mult * stump_mult * depth_mult * (1.0 - progress)
+	# Localized (stage 1) infection is painful (cellulitis: warmth, swelling, pain) — CAMP-INF-1.
+	# Applied once per part if any wound on it is in the localized stage.
+	var localized_infection: bool = false
+	for injury in entity.wounds[part]:
+		var st: int = int(injury.get("infection_stage", 0))
+		if st < 1 and injury.get("is_infected", false):
+			st = 1
+		if st == 1:
+			localized_infection = true
+			break
+	if localized_infection:
+		total *= BleedingConstants.INFECTION_LOCALIZED_PAIN_MULT
 	if entity.has_method("_get_campaign_pain_mult"):
 		total *= float(entity._get_campaign_pain_mult())
 	return total
@@ -756,6 +775,20 @@ static func get_performance_modifier(entity: Node) -> float:
 			pain_shock_reduction = PainConsciousnessConstants.PAIN_SHOCK_CONSCIOUSNESS_REDUCTION / 100.0
 	# Apply perception modifier from concussion phase.
 	base_mod *= conc_perception_mult
+	# Sepsis confusion (CAMP-INF-1): a septic member thinks slower (CNS/altered mental status).
+	# Gated on the entity-level is_septic state; a playable, recoverable combat tell.
+	if entity.has_method("_get_sepsis_stamina_mult") or "is_septic" in entity:
+		if bool(entity.get("is_septic")):
+			base_mod *= BleedingConstants.SEPSIS_COMBAT_PERCEPTION_MULT
+	# Tetanus (plan §10.2): tetanospasmin rigidity impairs aim/handling. Gated on the entity-level
+	# is_tetanus state; a playable, recoverable combat tell.
+	if "is_tetanus" in entity:
+		if bool(entity.get("is_tetanus")):
+			base_mod *= BleedingConstants.TETANUS_PERCEPTION_MULT
+	# Scarred head (CAMP-SCAR-1 §9.5): chronic perception penalty from a healed head scar
+	# (the residue of an acute head injury). Gated on the per-part scar penalty.
+	if entity.has_method("_get_scar_part_penalty"):
+		base_mod *= float(entity._get_scar_part_penalty(BodyPartConstants.PART_HEAD).get("perception", 1.0))
 	# Pain-concussion synergistic amplification (Gosselin et al., J Neurotrauma 2012).
 	## When both pain shock AND concussion are active, they amplify each other synergistically.
 	## Interaction term = pain_shock_reduction * concussive_reduction * SYNERGY_FACTOR
@@ -858,7 +891,7 @@ static func get_dodge_speed_modifier(entity: Node) -> float:
 
 static func _get_armor_encumbrance_modifier(entity: Node) -> float:
 	var total_armor_kg: float = 0.0
-	if entity.has_method("armor_slots") and entity.armor_slots is Dictionary:
+	if "armor_slots" in entity and entity.armor_slots is Dictionary:
 		for slot_value in entity.armor_slots.values():
 			if slot_value != null and slot_value.has_method("get_total_mass_kg"):
 				total_armor_kg += slot_value.get_total_mass_kg()
@@ -1055,6 +1088,10 @@ static func try_enter_concussion_from_head_bone_damage(entity: Node, bone_damage
 		cumulative_bonus = 1.0 + cumulative_count * CONCUSSION_CUMULATIVE_SEVERITY_BONUS
 		var new_weighted_severity_raw: float = weighted_severity * sis_multiplier * cumulative_bonus
 		check_and_apply_sis_catastrophic_outcome(entity, new_weighted_severity_raw)
+		# A SIS catastrophic outcome above may have extended _concussion_until_time by a 1-12h
+		# recovery window. Capture it so the re-impact timeline math below cannot clobber the
+		# extension (a re-impact never shortens the concussion already in progress).
+		var post_cata_until: float = float(entity.get_meta("_concussion_until_time", current_until))
 		var new_weighted_severity: float = clampf(new_weighted_severity_raw, 0.0, 2.0) # cap at double severity
 		if time_since_initial < CONCUSSION_CRITICAL_DURATION_S and new_weighted_severity <= 0.5:
 			# Mild re-impact during critical phase — extend with SIS consideration.
@@ -1062,11 +1099,11 @@ static func try_enter_concussion_from_head_bone_damage(entity: Node, bone_damage
 			var min_severity_bump: float = 0.05 # at least +5% severity from any head trauma during concussion
 			new_weighted_severity = maxf(new_weighted_severity, weighted_severity + min_severity_bump)
 			var ext: float = lerp(CONCUSSION_MIN_TOTAL_DURATION_S * 0.25, CONCUSSION_MAX_TOTAL_DURATION_S * 0.3, bone_damage_ratio / CONCUSSION_BONE_THRESHOLD_MAX)
-			entity.set_meta("_concussion_until_time", current_until + ext)
+			entity.set_meta("_concussion_until_time", maxf(current_until + ext, post_cata_until))
 		else:
 			# Severe re-impact or later phase — calculate extended timeline with phases.
 			var total_recover_s = _calculate_total_recovery_duration(new_weighted_severity, cumulative_count + 1, sis_multiplier)
-			entity.set_meta("_concussion_until_time", current_time + total_recover_s)
+			entity.set_meta("_concussion_until_time", maxf(current_time + total_recover_s, post_cata_until))
 		entity.set_meta("_cumulative_concussion_count", cumulative_count + 1)
 		entity.set_meta("_last_concussion_time", current_time)
 		if cumulative_count == 0:
@@ -1205,8 +1242,11 @@ static func try_enter_concussion_from_rotation(
 	if current_until > current_time:
 		sis_multiplier = 1.0 + cumulative_count * CONCUSSION_CUMULATIVE_SEVERITY_BONUS
 		var new_severity: float = severity * sis_multiplier
-		new_severity = clampf(new_severity, 0.0, 2.0)
+		# SIS catastrophic gate runs on the RAW (unclamped) severity, matching the head-bone channel:
+		# clamping to 2.0 first made the >= 4.0 gate unreachable for a pure rotational re-impact, so a
+		# rotational-only fighter could never take a SIS catastrophic outcome (stun / perm stat loss).
 		check_and_apply_sis_catastrophic_outcome(entity, new_severity)
+		new_severity = clampf(new_severity, 0.0, 2.0)
 		if current_until - current_time < CONCUSSION_CRITICAL_DURATION_S and new_severity <= 0.5:
 			var ext: float = lerp(CONCUSSION_MIN_TOTAL_DURATION_S * 0.25, CONCUSSION_MAX_TOTAL_DURATION_S * 0.3, new_severity)
 			entity.set_meta("_concussion_until_time", current_until + ext)
@@ -1426,7 +1466,7 @@ static func check_and_apply_sis_catastrophic_outcome(entity: Node, sis_severity:
 	Returns true if SIS catastrophic event occurred (KO state triggered).
 	SIS catastrophic outcomes: immediate KO/stun, extended recovery days, permanent stat reduction (-5% to -15%).
 	SIS is most likely when severity_multiplier >= 4.0 (critical tier) and second impact delivers significant trauma."""
-	if not entity.is_inside_tree() or not entity.has_method("_get_vital_parts"):
+	if not entity.has_method("_get_vital_parts"):
 		return false
 	var vital_parts: Array = entity._get_vital_parts()
 	if "head" not in vital_parts:

@@ -570,7 +570,17 @@ static func compute_penetration(
     var momentum_per_area: float = _compute_blunt_momentum_per_area_with_contact(
         weapon, attack_instance, contact_cm, tgt_m
     )
-    return {"penetration_blunt_momentum_per_area": momentum_per_area, "blunt_contact_cm": contact_cm}
+    # The rigid-plate area-coupling term needs the weapon's TRUE (uncapped) face: a mace's broad
+    # head drives more of a rigid plate into the body, so it must couple at full face size. The
+    # pressure/penetration channel above caps contact at BLUNT_HEAD_MAX_CONTACT_CM (2.5 cm); using
+    # that capped face for coupling would make the largest blunt weapon couple at 2.5/8.0 = 0.3125
+    # instead of the intended 1.0. Momentum/area stays computed from the capped face (pressure).
+    var coupling_cm: float = _get_blunt_contact_cm(weapon, attack_type)
+    return {
+        "penetration_blunt_momentum_per_area": momentum_per_area,
+        "blunt_contact_cm": contact_cm,
+        "blunt_coupling_contact_cm": coupling_cm
+    }
 
 
 # Blunt contact width (cm) for area-dependent transmission. Public for armor coupling.

@@ -399,6 +399,8 @@ static func write_d001_soak_report(ok: bool, preset_results: Dictionary, failure
         var pr: Dictionary = preset_results[preset_id] as Dictionary
         lines.append("")
         lines.append("[%s] pass=%s" % [preset_id, str(pr.get("ok", false)).to_lower()])
+        if pr.has("duration_ms"):
+            lines.append("  duration_ms=%d" % int(pr.get("duration_ms", 0)))
         var checks: Dictionary = pr.get("checks", {}) as Dictionary
         for check_id in checks.keys():
             var cr: Dictionary = checks[check_id] as Dictionary

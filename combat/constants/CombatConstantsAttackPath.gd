@@ -418,8 +418,9 @@ static func get_attack_angle_deg(
         if stamina_ratio < 1.0:
             var sf: float = CombatConstantsStamina.stamina_factor(stamina_ratio)
             mult = 1.0 + (ANGLE_VARIANCE_STAMINA_AT_ZERO_MULT - 1.0) * (1.0 - sf)
-        if variance_context.get(DataKeys.VAR_CTX_OFF_BALANCE, false):
-            mult *= ANGLE_VARIANCE_OFF_BALANCE_MULT
+        var ob_depth: float = float(variance_context.get(DataKeys.VAR_CTX_OFF_BALANCE, 0.0))
+        if ob_depth > 0.0:
+            mult *= lerpf(1.0, ANGLE_VARIANCE_OFF_BALANCE_MULT, ob_depth)
         var mass_kg: float = float(variance_context.get(DataKeys.VAR_CTX_WEAPON_MASS_KG, ANGLE_VARIANCE_MASS_REFERENCE_KG))
         if mass_kg > 0 and ANGLE_VARIANCE_MASS_REFERENCE_KG > 0:
             var mass_mult: float = 1.0 + (mass_kg - ANGLE_VARIANCE_MASS_REFERENCE_KG) * ANGLE_VARIANCE_MASS_SCALE

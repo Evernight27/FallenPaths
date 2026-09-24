@@ -356,16 +356,25 @@ static func _batch_apply_medical_action(
             failed.remove_at(idx)
         # XCamp-4: proficiency gains for batch medical actions.
         if MedicalPhaseBatchResolve._get_company_state().read_stub_proficiency_enabled():
-            EntityProficiency.award_stat_gain(
-                perf_entity,
-                "intelligence",
-                EntityProficiency.GAIN_MEDICAL_ACTION_BASE * MedicalPhaseFastForward._get_batch_item_mult(move_id)
-            )
-            if perf_entity != tgt_entity and tgt_entity.has("_proficiency_bonus"):
+            if perf_entity != null and "_proficiency_bonus" in perf_entity and EntityProficiency.is_stat_gain_tracked(perf_entity):
+                EntityProficiency.award_stat_gain(
+                    perf_entity,
+                    "intelligence",
+                    EntityProficiency.GAIN_MEDICAL_ACTION_BASE * MedicalPhaseFastForward._get_batch_item_mult(move_id)
+                )
+            # Patient END for enduring blood peril during treatment. Self-treatment counts too — a
+            # fighter bandaging their own wound endures their own blood loss (matches the wind-up and
+            # fast-forward paths, which do not exclude self-treatment). Distinct from the medic INT
+            # above, so awarding both to the same entity is correct, not a double-count. Scaled by how
+            # badly the patient is bleeding — enduring a deep hemorrhage trains more endurance than a
+            # light scratch.
+            if tgt_entity != null and "_proficiency_bonus" in tgt_entity and EntityProficiency.is_stat_gain_tracked(tgt_entity):
                 EntityProficiency.award_stat_gain(
                     tgt_entity,
                     "endurance",
-                    EntityProficiency.GAIN_BLOOD_PERIL_BASE * EntityProficiency.GAIN_MEDICAL_PATIENT_END_MULT
+                    EntityProficiency.GAIN_BLOOD_PERIL_BASE
+                    * EntityProficiency.GAIN_MEDICAL_PATIENT_END_MULT
+                    * EntityProficiency.blood_peril_end_factor(float(tgt_entity.blood_volume))
                 )
     else:
         var failed_mut: Array = CombatantEntityAccess.nested_array_for_mutation(target, "failed_medical_parts")

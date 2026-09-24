@@ -37,6 +37,69 @@ const BLUNT_DURABILITY_THRESHOLD_RATIO: float = 0.5
 # a plate layer (durability 100, rate 0.07) wears ~3.5/committed hit -> fails after ~28 hits.
 const JOULE_KE_DURABILITY_SCALE: float = 0.5
 
+# XCamp-4i: how much wear erodes a layer's protection. 0.0 = no degradation (a layer keeps
+# protecting at full strength until its durability hits 0, the pre-XCamp-4i behavior); 1.0 =
+# full effect, a layer at D% durability provides D% of its sharp resistance and its blunt
+# transmission/cushion degrade proportionally toward "no protection." Fresh armor (100%) is
+# unaffected at any strength, so existing calibration and fresh-armor tests are unchanged.
+const ARMOR_WEAR_DEGRADATION_STRENGTH: float = 1.0
+# XCamp-4k/4l: how much a layer's rigidity shields its protection from wear. A worn layer's
+# cut-resistance AND its blunt cushion both scale as prot^(1 - rigidity*this) — so at full
+# durability (prot=1) the factor is 1.0 for every material (bit-identical to XCamp-4i) and at
+# zero durability (prot=0) it is 0.0 for every material (a destroyed layer neither blocks a cut
+# nor cushions a blow, keeping the XCamp-4i invariants). Between the two, a rigid plate
+# (rigidity 1.0) retains both far longer than a soft gambeson (rigidity 0.0): a dented plate
+# still deflects blade and its underlayer still cushions, a torn cloth layer does neither.
+# 0.0 disables the split on both axes (pure XCamp-4i).
+const ARMOR_WEAR_RIGIDITY_SHIELD: float = 0.6
+# XCamp-4m: fatigue — a worn layer wears faster than a fresh one (compromised material fails
+# quicker). Multiplier on durability loss = 1.0 + ARMOR_WEAR_FATIGUE_MAX * (1 - dur/max_dur).
+# Pinned: at full durability the multiplier is exactly 1.0 (fresh armor bit-identical to 4i/4k/4l),
+# rising to 1.0 + ARMOR_WEAR_FATIGUE_MAX at zero durability. 0.0 disables fatigue (constant wear).
+const ARMOR_WEAR_FATIGUE_MAX: float = 0.5
+# XCamp-4t: fatigue cliff. 4m already makes a worn layer wear faster, linearly from the first
+# point of wear. Real metal is different: it holds up, then in the final stretch of its life the
+# micro-cracks it has accumulated open at once and it fails all at once (fatigue / S-N curve).
+# So the wear-rate penalty is not just linear in wear_frac — it gets an extra, *convex* boost that
+# only activates once a layer is very worn. Below the threshold the cliff factor is exactly 1.0
+# (4m unchanged, its pinned mid-life values stay bit-identical); above it the factor ramps from
+# 1.0 to 1.0 + CLIFF_MAX at zero durability. 0.0 disables the cliff (pure 4m linear fatigue).
+const ARMOR_WEAR_FATIGUE_CLIFF_THRESHOLD: float = 0.75
+const ARMOR_WEAR_FATIGUE_CLIFF_MAX: float = 0.5
+# XCamp-4o: damage-type-accurate wear. A layer's durability loss rate is modulated by how
+# its rigidity interacts with the failure mode. Flexible layers (low rigidity) fray/tear
+# faster from cuts (SHARP) but absorb blunts well (padding is its design purpose); rigid
+# layers (high rigidity) deflect blade so cuts wear them slower, but dents/blows (BLUNT) are
+# their real failure mode and wear them faster. The modifier is 1.0 at rigidity 0.5 (the
+# neutral midpoint) for both types, so materials at the midpoint are unchanged. 0.0 disables
+# the effect entirely (constant wear rate, pre-XCamp-4o behaviour). 0.15 = a ±15% spread at
+# the rigidity extremes.
+const ARMOR_WEAR_DAMAGE_TYPE_SPREAD: float = 0.15
+# XCamp-4q: breakthrough crush. When a hit destroys a layer (transitions it to durability 0),
+# the next surviving inner layer takes a one-time durability penalty: the shock of sudden
+# exposure plus spall/debris from the failed outer layer. The penalty equals the energy the
+# broken layer absorbed on this hit times this ratio, applied through the normal wear math.
+# Pinned: fires only on the destruction transition (layer was not destroyed before this hit),
+# no-op when 0.0 or no surviving inner layer. A fresh outer layer that survives the hit
+# produces no crush, so pre-4q behavior is preserved for the common case.
+const ARMOR_BREAKTHROUGH_CRUSH_RATIO: float = 0.2
+# XCamp-4r: worn deflection. A layer's sharp_deflect_transmission (the fraction of a
+# stopped cut that passes through as blunt shock) rises as the layer wears: a fresh,
+# flat bevel turns a blade cleanly, while a dented/scratched surface catches and channels
+# it. Deflected transmission = base * (1 + penalty * wear_frac) where wear_frac = 1 -
+# pow(prot, ARMOR_WEAR_CURVE_EXPONENT) (the 4s convex shape of the 4i protection factor:
+# 1.0 fresh, 0.0 destroyed). Pinned: at full durability (prot=1) the factor is exactly 1.0
+# (fresh armor bit-identical to pre-4r); a destroyed layer's transmission is base * (1 +
+# penalty). 0.0 disables (constant deflection).
+const ARMOR_WEAR_DEFLECT_PENALTY: float = 0.5
+# XCamp-4s: non-linear (cliff-edge) deflection wear. The 4r wear_frac that drives the
+# deflection penalty is now shaped by this power curve: wear_frac = 1 - pow(prot, exp)
+# instead of 1 - prot. With exp < 1.0 a worn bevel stays clean through most of a layer's
+# life (small penalty at mid-life) and only degrades sharply as prot -> 0 (near failure).
+# 1.0 = the pre-4s linear curve (wear_frac = 1 - prot). Only affects the 4r deflection
+# penalty; the 4k threshold and 4l cushion keep the linear protection factor.
+const ARMOR_WEAR_CURVE_EXPONENT: float = 0.7
+
 # --- Generic layer stats (cloth, leather, mail, plate only) ---
 # Sharp resistance: mm RHA equivalent. Nonlinear pen = (KE/55)^0.6 - -  area_factor (Williams).
 # Blunt: transmission-only (no penetration check). Durability uses sharp_resistance_rha_mm and blunt_transmission.
@@ -130,12 +193,12 @@ const DEFAULT_PENETRATION_SHARP: float = 5.0
 # Piece IDs by body part for random equipment.
 static func get_armor_options_by_part() -> Dictionary:
     return {
-        "head": ["KETTLE_HELM", "LEATHER_CAP", "CLOTH_COIF"],
-        "chest": ["CUIRASS", "GAMBESON", "HAUBERK", "LEATHER_CUIRASS"],
-        "right_arm": ["VAMBRACES_RIGHT", "LEATHER_BRACERS_RIGHT", "ARM_WRAPS_RIGHT"],
-        "left_arm": ["VAMBRACES_LEFT", "LEATHER_BRACERS_LEFT", "ARM_WRAPS_LEFT"],
-        "right_leg": ["GREAVES_RIGHT", "LEG_WRAPS_RIGHT", "LEATHER_GREAVES_RIGHT"],
-        "left_leg": ["GREAVES_LEFT", "LEG_WRAPS_LEFT", "LEATHER_GREAVES_LEFT"]
+        "head": ["KETTLE_HELM", "MAIL_COIF", "LEATHER_CAP", "CLOTH_COIF"],
+        "chest": ["CUIRASS", "HAUBERK", "LEATHER_CUIRASS", "GAMBESON"],
+        "right_arm": ["VAMBRACES_RIGHT", "MAIL_SLEEVES_RIGHT", "LEATHER_BRACERS_RIGHT", "ARM_WRAPS_RIGHT"],
+        "left_arm": ["VAMBRACES_LEFT", "MAIL_SLEEVES_LEFT", "LEATHER_BRACERS_LEFT", "ARM_WRAPS_LEFT"],
+        "right_leg": ["GREAVES_RIGHT", "MAIL_CHAUSSES_RIGHT", "LEATHER_GREAVES_RIGHT", "LEG_WRAPS_RIGHT"],
+        "left_leg": ["GREAVES_LEFT", "MAIL_CHAUSSES_LEFT", "LEATHER_GREAVES_LEFT", "LEG_WRAPS_LEFT"]
     }
 
 
@@ -164,19 +227,21 @@ static func get_piece_definition(piece_id: String) -> Dictionary:
 
 static func _piece_definitions_build() -> Dictionary:
     return {
-        # Head: helm = plate + cloth (arming cap under metal)
+        # Head: bascinet = plate skull + cloth aventail/cap under metal; mail coif = mail + cloth; leather cap; cloth coif
         "KETTLE_HELM":
-        {"name": "Kettle Helm", "body_part": "head", "layers": [LAYER_PLATE.duplicate(), LAYER_CLOTH.duplicate()]},
+        {"name": "Bascinet", "body_part": "head", "layers": [LAYER_PLATE.duplicate(), LAYER_CLOTH.duplicate()]},
+        "MAIL_COIF":
+        {"name": "Mail Coif", "body_part": "head", "layers": [LAYER_MAIL.duplicate(), LAYER_CLOTH.duplicate()]},
         "LEATHER_CAP": {"name": "Leather Cap", "body_part": "head", "layers": [LAYER_LEATHER.duplicate()]},
         "CLOTH_COIF": {"name": "Cloth Coif", "body_part": "head", "layers": [LAYER_CLOTH.duplicate()]},
-        # Chest: cuirass = plate + cloth; hauberk = mail + cloth; gambeson = cloth only
+        # Chest: cuirass = plate + cloth; hauberk = mail + cloth; leather jack = boiled leather; gambeson = cloth only
         "CUIRASS":
         {"name": "Cuirass", "body_part": "chest", "layers": [LAYER_PLATE.duplicate(), LAYER_CLOTH.duplicate()]},
         "GAMBESON": {"name": "Gambeson", "body_part": "chest", "layers": [LAYER_CLOTH.duplicate()]},
         "HAUBERK":
         {"name": "Mail Hauberk", "body_part": "chest", "layers": [LAYER_MAIL.duplicate(), LAYER_CLOTH.duplicate()]},
-        "LEATHER_CUIRASS": {"name": "Leather Cuirass", "body_part": "chest", "layers": [LAYER_LEATHER.duplicate()]},
-        # Arms: vambraces = plate + cloth; leather bracers = leather; cloth = cloth
+        "LEATHER_CUIRASS": {"name": "Leather Jack", "body_part": "chest", "layers": [LAYER_LEATHER.duplicate()]},
+        # Arms: vambraces = plate + cloth; mail sleeves = mail + cloth; leather bracers = leather; cloth wraps = cloth
         "VAMBRACES_RIGHT":
         {
             "name": "Vambraces (R)",
@@ -189,23 +254,41 @@ static func _piece_definitions_build() -> Dictionary:
             "body_part": "left_arm",
             "layers": [LAYER_PLATE.duplicate(), LAYER_CLOTH.duplicate()]
         },
+        "MAIL_SLEEVES_RIGHT":
+        {"name": "Mail Sleeves (R)", "body_part": "right_arm", "layers": [LAYER_MAIL.duplicate(), LAYER_CLOTH.duplicate()]},
+        "MAIL_SLEEVES_LEFT":
+        {"name": "Mail Sleeves (L)", "body_part": "left_arm", "layers": [LAYER_MAIL.duplicate(), LAYER_CLOTH.duplicate()]},
         "LEATHER_BRACERS_RIGHT":
         {"name": "Leather Bracers (R)", "body_part": "right_arm", "layers": [LAYER_LEATHER.duplicate()]},
         "LEATHER_BRACERS_LEFT":
         {"name": "Leather Bracers (L)", "body_part": "left_arm", "layers": [LAYER_LEATHER.duplicate()]},
         "ARM_WRAPS_RIGHT": {"name": "Arm Wraps (R)", "body_part": "right_arm", "layers": [LAYER_CLOTH.duplicate()]},
         "ARM_WRAPS_LEFT": {"name": "Arm Wraps (L)", "body_part": "left_arm", "layers": [LAYER_CLOTH.duplicate()]},
-        # Legs: greaves = plate + cloth; leather = leather; cloth = cloth
+        # Legs: greaves = plate + cloth; mail chausses = mail + cloth; leather chausses = leather; cloth wraps = cloth
         "GREAVES_RIGHT":
-        {"name": "Greaves (R)", "body_part": "right_leg", "layers": [LAYER_PLATE.duplicate(), LAYER_CLOTH.duplicate()]},
+        {
+            "name": "Greaves (R)",
+            "body_part": "right_leg",
+            "layers": [LAYER_PLATE.duplicate(), LAYER_CLOTH.duplicate()]
+        },
         "GREAVES_LEFT":
-        {"name": "Greaves (L)", "body_part": "left_leg", "layers": [LAYER_PLATE.duplicate(), LAYER_CLOTH.duplicate()]},
-        "LEG_WRAPS_RIGHT": {"name": "Leg Wraps (R)", "body_part": "right_leg", "layers": [LAYER_CLOTH.duplicate()]},
-        "LEG_WRAPS_LEFT": {"name": "Leg Wraps (L)", "body_part": "left_leg", "layers": [LAYER_CLOTH.duplicate()]},
+        {
+            "name": "Greaves (L)",
+            "body_part": "left_leg",
+            "layers": [LAYER_PLATE.duplicate(), LAYER_CLOTH.duplicate()]
+        },
+        "MAIL_CHAUSSES_RIGHT":
+        {"name": "Mail Chausses (R)", "body_part": "right_leg", "layers": [LAYER_MAIL.duplicate(), LAYER_CLOTH.duplicate()]},
+        "MAIL_CHAUSSES_LEFT":
+        {"name": "Mail Chausses (L)", "body_part": "left_leg", "layers": [LAYER_MAIL.duplicate(), LAYER_CLOTH.duplicate()]},
+        "LEG_WRAPS_RIGHT":
+        {"name": "Leg Wraps (R)", "body_part": "right_leg", "layers": [LAYER_CLOTH.duplicate()]},
+        "LEG_WRAPS_LEFT":
+        {"name": "Leg Wraps (L)", "body_part": "left_leg", "layers": [LAYER_CLOTH.duplicate()]},
         "LEATHER_GREAVES_RIGHT":
-        {"name": "Leather Greaves (R)", "body_part": "right_leg", "layers": [LAYER_LEATHER.duplicate()]},
+        {"name": "Leather Chausses (R)", "body_part": "right_leg", "layers": [LAYER_LEATHER.duplicate()]},
         "LEATHER_GREAVES_LEFT":
-        {"name": "Leather Greaves (L)", "body_part": "left_leg", "layers": [LAYER_LEATHER.duplicate()]}
+        {"name": "Leather Chausses (L)", "body_part": "left_leg", "layers": [LAYER_LEATHER.duplicate()]}
     }
 
 # Default penetration when no weapon is specified (strength-scaled later)

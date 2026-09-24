@@ -916,7 +916,7 @@ static func _run_instant_complete_finishes_in_progress_bandage(failures: PackedS
         return
     var clock_before: float = float(mgr.combat_clock)
     seed(88204)
-    MedicalPhaseController.instant_complete_on_early_exit(mgr)
+    MedicalPhaseController.instant_complete_on_early_exit(mgr, 60.0)
     seed(_HARNESS_RESTORE_GLOBAL_SEED)
     if float(mgr.combat_clock) <= clock_before:
         _fail(failures, "instant_complete_bandage: fast-forward should advance combat_clock")

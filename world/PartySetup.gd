@@ -101,7 +101,10 @@ static func spawn_hire_companion(world: Node2D, rng: RandomNumberGenerator) -> N
     if pm == null or not pm.has_method("add_member"):
         return null
     var slot_index: int = _companion_slot_index(companion.name)
-    PlayerCompanionSetup.setup_hired_companion(companion, rng, slot_index)
+    var used_names: PackedStringArray = PlayerCompanionSetup.gather_living_fighter_names(world)
+    # XCamp-4c: reputation payoff -- pass world so the hire's stat roll + proficiency baseline
+    # scale with the company's renown.
+    PlayerCompanionSetup.setup_hired_companion(companion, rng, slot_index, used_names, world)
     if "visible" in companion:
         companion.visible = false
     pm.add_member(companion)

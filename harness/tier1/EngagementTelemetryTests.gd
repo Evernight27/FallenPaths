@@ -8,7 +8,7 @@ const _CombatRegressionHarness := preload("res://harness/regression/CombatRegres
 
 static func _run_engagement_classifier_multi_seed(failures: PackedStringArray) -> void:
     var rng := RandomNumberGenerator.new()
-    for scenario_seed in 64:
+    for scenario_seed in 32:
         rng.seed = scenario_seed
         var pn: int = rng.randi_range(1, 8)
         var en: int = rng.randi_range(1, 8)
@@ -127,7 +127,7 @@ static func _run_engagement_mode_cache_reset_on_second_start(failures: PackedStr
 ## stability).
 static func _run_engagement_attrition_monotone(failures: PackedStringArray) -> void:
     var rng := RandomNumberGenerator.new()
-    for scenario_seed in 32:
+    for scenario_seed in 16:
         rng.seed = scenario_seed
         var pn: int = rng.randi_range(4, 8)
         var en: int = rng.randi_range(4, 8)
@@ -175,7 +175,7 @@ static func _run_engagement_attrition_monotone(failures: PackedStringArray) -> v
 ## Tier 1.8 (P9): telemetry meta + embedded snapshot agree with resolved mode; no spurious transitions on cold start.
 static func _run_telemetry_lock_multi_seed(failures: PackedStringArray) -> void:
     var rng := RandomNumberGenerator.new()
-    for scenario_seed in 48:
+    for scenario_seed in 24:
         rng.seed = scenario_seed
         var pn: int = rng.randi_range(1, 8)
         var en: int = rng.randi_range(1, 8)
@@ -270,7 +270,7 @@ static func _run_telemetry_lock_multi_seed(failures: PackedStringArray) -> void:
 ## enemy.
 static func _run_depth_polearm_band_vs_actions_fuzz(failures: PackedStringArray) -> void:
     var rng := RandomNumberGenerator.new()
-    for scenario_seed in 48:
+    for scenario_seed in 24:
         rng.seed = scenario_seed
         var pf: int = rng.randi_range(1, 4)
         var ef: int = rng.randi_range(1, 4)

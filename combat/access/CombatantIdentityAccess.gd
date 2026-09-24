@@ -283,7 +283,11 @@ static func get_display_name(combatant: Variant, fallback_id: int = -1) -> Strin
         return "id:%d" % fallback_id
     var node = node_variant(combatant)
     if node != null:
-        return str(node.name)
+        var raw_name: String = str(node.name)
+        if str(combatant.get("side", "")) == CombatConstantsMisc.SIDE_PLAYER:
+            # XCamp-4b: prefer the fighter's persisted gladiator name over the slot-derived name.
+            return PlayerCompanionSetup.resolve_fighter_display_name(node)
+        return raw_name
     return "id:%d" % id_int(combatant, fallback_id)
 
 

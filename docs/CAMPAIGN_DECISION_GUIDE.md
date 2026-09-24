@@ -44,7 +44,7 @@ Consts in `CompanyState`; `read_stub_*()` forwards ([SHIP_PLAN §19](SHIP_PLAN.m
 
 <a id="affliction-rng-medieval-alignment"></a>
 
-**Affliction RNG:** peril 30% · danger 12% · bone cripple 45% · max one per fight · mood −1.35 on permanent.
+**Affliction RNG:** peril 30% · danger 12% · bone cripple 45% · max one per fight · mood −1.35 on permanent. Additional triggers (tuned; medieval-alignment framing in [`plan_balance_tuning`](plan_balance_tuning.md)): struck-down 33% (concussion: ~35% of mTBI cases report prolonged symptoms — `RESEARCH_concussion_mTBI_combat.md`, PMC3003467) · arterial fail 55% (major-extremity-artery residual: 10–46% limb loss even with modern revascularization, strictly worse untreated — popliteal series 14.5–46%) · collapsed-lung split 35% (tuned flavor split for the near-death danger tier). Trigger roll capped at 55% (`P_CAP`). Affliction *effects* are tuned 5–10% stamina/pain multipliers; wound-derived scar multipliers are the research-anchored sibling (plan §2.2).
 
 <a id="b3-desertion-integration-points"></a>
 

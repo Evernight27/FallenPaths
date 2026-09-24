@@ -16,17 +16,9 @@ static func sharp_penetration_to_tissue_mm(armor: ArmorPiece, penetration_sharp_
     var pen: float = penetration_sharp_mm
     var consumed: float = 0.0
     for layer in armor.layers:
-        if not layer is Dictionary or _is_layer_destroyed(layer):
+        if not layer is Dictionary or ArmorPiece._is_layer_destroyed(layer):
             continue
-        var res: float = maxf(
-            0.0,
-            float(
-                layer.get(
-                    ArmorConstants.ARMOR_LAYER_KEY_SHARP_RESISTANCE_RHA_MM,
-                    ArmorConstants.DEFAULT_ARMOR_LAYER_SHARP_RESISTANCE
-                )
-            )
-        )
+        var res: float = ArmorPiece.effective_sharp_resistance_for_layer(layer)
         if pen < res:
             return {
                 "penetration_to_tissue_mm": 0.0,
@@ -40,7 +32,3 @@ static func sharp_penetration_to_tissue_mm(armor: ArmorPiece, penetration_sharp_
         "armor_pen_consumed_mm": consumed,
         "stopped_by_armor": false,
     }
-
-
-static func _is_layer_destroyed(layer: Dictionary) -> bool:
-    return layer.get("durability", 100.0) <= 0.0

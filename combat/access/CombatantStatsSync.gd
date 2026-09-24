@@ -47,21 +47,23 @@ static func _copy_core_stats(entity: Node, stats: Dictionary) -> void:
     # Apply SIS permanent stat reduction to combatant-level stats (Issue 1 — Second Impact Syndrome).
     if entity.has_method("get_meta") and EntityPainConsciousness.was_sis_catastrophic(entity):
         var sis_reduction: float = EntityPainConsciousness.get_sis_perm_stat_reduction(entity)
-        for key in ["strength", "agility", "intelligence", "endurance", "perception"]:
+        for key in EntityStatsUtil.PROFICIENCY_STATS:
             if key in stats:
                 stats[key] = int(stats[key] * (1.0 - sis_reduction))
 
 
 ## Applies proficiency bonus to a single stat value. Returns raw value when stub is off or entity lacks proficiency
-## data.
-static func _apply_prof_bonus(entity: Node, stat_key: String, base_value: Variant, prof_active: bool) -> int:
+## data. Kept as float so the combat dict matches the core EntityStatsUtil.get_effective_stat read path
+## (which does not int-truncate the bonus or the untrained penalty) — without this, combat saw
+## int-truncated stats and progression felt stuck in the low single-digit bonus range.
+static func _apply_prof_bonus(entity: Node, stat_key: String, base_value: Variant, prof_active: bool) -> float:
     if not prof_active:
-        return int(base_value)
+        return float(base_value)
     if not "_proficiency_bonus" in entity:
-        return int(base_value)
-    var bonus: int = entity._proficiency_bonus.get(stat_key, 0)
-    var penalty: int = int(EntityProficiency.untrained_stat_penalty(entity, stat_key))
-    return maxi(0, int(base_value) + bonus - penalty)
+        return float(base_value)
+    var bonus: float = float(entity._proficiency_bonus.get(stat_key, 0))
+    var penalty: float = EntityProficiency.untrained_stat_penalty(entity, stat_key)
+    return maxf(0.0, float(base_value) + bonus - penalty)
 
 
 ## Syncs entity state into stats dict (mutates stats in place).

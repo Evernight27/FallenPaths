@@ -47,6 +47,14 @@ static func resolve_close_attempt(manager: Node, attacker_id: int, target_id: in
     pressure *= CombatWeaponForm.mod(
         CombatantEntityAccess.form_str(atk), "close_attempt", CombatantEntityAccess.get_weapon(atk)
     )
+    # HEMA realism: a compromised center of gravity weakens the leg-driven advance. The off-balance
+    # attacker's close pressure is scaled down, fading with depth like the other off-balance penalties.
+    pressure *= PassiveParryContext.off_balance_penalty_mult(atk, CombatConstants.OFF_BALANCE_CLOSE_PRESSURE_MULT)
+    # Tier 2.1 v2: the lead leg drives the closing step-in; a wounded lead leg weakens the lunge.
+    # Persistent deficit (unlike the fading off-balance term). D001-neutral at full lead-leg health.
+    pressure *= CombatConstants.close_advance_lead_leg_mult(
+        CombatantEntityAccess.get_lead_leg_functionality(atk)
+    )
     var evasion: float = agi_def * CombatConstants.stamina_factor(CombatantEntityAccess.stamina_ratio(tgt))
     evasion *= CombatWeaponForm.mod(
         CombatantEntityAccess.form_str(tgt), "evasion", CombatantEntityAccess.get_weapon(tgt)

@@ -111,6 +111,7 @@ static func process_incapacitation(manager: Node, c: Dictionary) -> bool:
         CombatFootwork.return_to_waiting(c)
         c.gauge = 0.0
         c[DataKeys.COMBATANT_GUARD] = CombatConstants.GUARD_AFTER_ATTACK
+        PassiveParryContext.apply_cower_replant(c)
         var who_name: String = CombatantEntityAccess.get_display_name(c)
         CombatDebug.combat_session("%s no longer cowering (arm functionality returned)." % who_name)
         CombatEventScheduler.schedule_action_ready_for_combatant(manager, c, 0.05)

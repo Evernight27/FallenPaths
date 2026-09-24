@@ -74,6 +74,13 @@ const MOVE_ID_VERWUNDEN := "verwunden"
 
 const MOVE_ID_WAIT := "wait"
 
+## Regain Footing: cheap self-action a fighter may take while off-balance to re-root and cut the
+## remaining off-balance window roughly in half. Costs the fighter's turn (like WAIT — the gauge
+## resets on the turn) instead of a committed strike, and a moderate AI weight so off-balance AI
+## prefer it over striking.
+const MOVE_ID_REGAIN_FOOTING := "regain_footing"
+const REGAIN_FOOTING_AI_WEIGHT := 4.0
+
 
 static func guard_line_for_focus_move_id(move_id: String) -> String:
     match move_id:

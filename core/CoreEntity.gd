@@ -23,8 +23,29 @@ var training_pending: Dictionary = {
 	"perception": 0.0,
 }
 
+## XCamp-6: queued camp drills for fighting form / weapon proficiency (mirrors training_pending,
+## but keyed by form id / weapon id). Merged into _form_proficiency / _weapon_proficiency at the
+## next camp rest via EntityProficiency.merge_form/weapon_training_pending.
+var _form_training_pending: Dictionary = {}
+var _weapon_training_pending: Dictionary = {}
+
 ## Day index of last combat participation (for calendar-day decay calculation).
 var last_fought_day: int = 0
+
+## XCamp-4: highest campaign day up to which proficiency decay has already been charged for the
+## current absence. Lets EntityProficiency.apply_decay() apply only the not-yet-decayed tail so
+## consecutive calls (e.g. each camp rest) do not re-count the same rusting days.
+var last_decay_day: int = 0
+
+## XCamp-4b: gladiator display name. Per-individual identity set at setup/hire and
+## persisted so a surviving fighter keeps their name across save/load (and it does not
+## get re-rolled for a new hire into the same slot). Empty = fall back to slot-derived name.
+var fighter_name: String = ""
+
+## XCamp-5f: per-fighter fame. A personal brand distinct from company renown: accrues on each
+## victory scaled by how hard that fighter made it (opponent difficulty) plus kill bonuses.
+## Drives the sponsor payout and career-tier label on the gladiator. Persisted like fighter_name.
+var fame: int = 0
 
 ## Whether this merc participated in the most recent combat (tracks who fought vs who stayed at camp).
 var last_fought_in_combat: bool = false
@@ -48,6 +69,9 @@ var perception: int = 100
 # Attacking arm: which hand is dominant and offhand effectiveness (0.6--"1.0).
 var dominant_hand: String = BodyPartConstants.PART_RIGHT_ARM
 var offhand_functionality: float = 0.8
+# Lead leg: the leg that steps into a strike (drive/extension), as opposed to the trail leg
+# that pushes off. Drives per-leg wind-up; the trail leg is not modeled separately in v1.
+var lead_leg: String = BodyPartConstants.PART_RIGHT_LEG
 # One armor piece per body part (e.g. chest -> Cuirass with plate + gambeson layers).
 var armor_slots: Dictionary = {}  # body_part (String) -> ArmorPiece
 # Optional equipped weapon (Weapon instance from template). Null = unarmed.
@@ -97,6 +121,10 @@ var direct_pressure_held_by: Node = null
 # Optional second ally pressing the same part during stabilizing treatment wind-up (helper holds, medic treats).
 var direct_pressure_assist_held_by: Node = null
 var campaign_afflictions: Array[Dictionary] = []
+## CAMP-SCAR-1: resolved-wound descriptors stashed during a healing advance (core); the world layer mints
+## scars from this and clears it. Entry: { part, severity, injury_type, is_compound_fracture,
+## was_infected, had_ischemia, is_osteomyelitis }. Campaign-only (day-advance), never mid-battle.
+var resolved_wounds_this_advance: Array[Dictionary] = []
 ## Campaign → combat muscle fatigue carry-over (part -> 0..1). Synced from combatant dict after fights.
 var muscle_fatigue: Dictionary = {}
 ## Campaign weariness: 0..1 fatigue accumulated from fighting + daily operations; recovered by camp rest.
@@ -128,6 +156,8 @@ var _campaign_supply_factor: float = 1.0
 
 ## Per-stat proficiency bonus above species base (int). Grows through combat, decays through inactivity.
 ## Stored as SEPARATE dict from base stats so _apply_species() cannot wipe it.
+## Read dynamically by EntityProficiency / EntityStatsUtil, hence the ignore.
+@warning_ignore("unused_private_class_variable")
 var _proficiency_bonus: Dictionary = {
 	"strength": 0.0,
 	"agility": 0.0,
@@ -140,6 +170,8 @@ var _weapon_proficiency: Dictionary = {}
 var _form_proficiency: Dictionary = {}
 ## Proficiency-tracked fighter (campaign party onboarding). Enables the combat skill curve
 ## (melee_skill from weapon/form experience, below-baseline reads as "untrained").
+## Read dynamically by EntityProficiency, hence the ignore.
+@warning_ignore("unused_private_class_variable")
 var _combat_skill_trained: bool = false
 var _game_time_seconds: float = 0.0
 var _pain_shock_until_time: float = -1.0  # Time.get_ticks_msec()/1000.0 when shock ends; -1 = not in shock
@@ -156,6 +188,31 @@ var _adrenaline_cooldown_until: float = -1.0  # game time when next adrenaline d
 var _consciousness_dirty: bool = true
 
 var _death_notified: bool = false
+## Sepsis (CAMP-INF-1): entity-level systemic infection state. Set when any wound reaches
+## infection_stage == 2; persists until recovered (sepsis_resolve_progress >= 1) or death.
+var is_septic: bool = false
+## 0..1 accrual toward sepsis recovery; only advances while the septic focus is source-controlled.
+var sepsis_resolve_progress: float = 0.0
+## Death flag set by the sepsis day-advance death roll; folded into is_dead() + _get_death_reason().
+var _sepsis_dead: bool = false
+## Latched true on first sepsis recovery (CAMP-SCAR-1): used to mint the whole-body
+## post_sepsis_weakness scar once (plan §2.3: "was is_septic and is now recovered").
+var sepsis_recovered: bool = false
+## Tetanus (Phase A+, plan §10.2): entity-level spore-load + systemic-rigidity state.
+## Incubation is entity-level (spores germinate in the body) so it survives the seeding wound
+## resolving — the wound can fully heal before the member manifests 3-21 days later.
+## -1.0 = no spore load present; > 0.0 = days remaining until the onset roll.
+var tetanus_incubation_days: float = -1.0
+## Systemic tetanus rigidity active; persists for the TETANUS_SYMPTOMATIC_DAYS window (death roll + perception tell).
+var is_tetanus: bool = false
+## 0..1 accrual across the tetanus symptomatic window; at 1.0 the member survives (is_tetanus cleared).
+var tetanus_resolve_progress: float = 0.0
+## Death flag set by the tetanus per-day death roll; folded into is_dead() + _get_death_reason().
+var _tetanus_dead: bool = false
+## Latched at spore-load arming: true when the contaminated part had definitive hemostasis (clean
+## / debrided / dressed) at the moment spores were seeded. A well-dressed wound halves the onset
+## probability (debridement removes spores before germination — plan §10.2 counter-play).
+var tetanus_cleaned_at_arm: bool = false
 ## Grace period after vital destruction before death is registered (seconds of combat time).
 ## Models the real-world delay between organ destruction and circulatory collapse. Fallback for
 ## parts not listed in VITAL_DESTRUCTION_GRACE_PERIODS.
@@ -186,6 +243,22 @@ func _get_training_pending() -> Dictionary:
 
 func _set_training_pending_value(stat: String, value: float) -> void:
 	training_pending[stat] = value
+
+
+func _get_form_training_pending() -> Dictionary:
+	return _form_training_pending
+
+
+func _set_form_training_pending_value(form: String, value: float) -> void:
+	_form_training_pending[form] = value
+
+
+func _get_weapon_training_pending() -> Dictionary:
+	return _weapon_training_pending
+
+
+func _set_weapon_training_pending_value(weapon_id: String, value: float) -> void:
+	_weapon_training_pending[weapon_id] = value
 
 
 # BleedingConstants is class_name in core/BleedingConstants.gd; preload for linter/standalone parse
@@ -287,7 +360,12 @@ func _get_offhand() -> String:
 
 
 func _get_leg_functionality() -> float:
-	return BodyPartQuery.get_leg_functionality(self)
+	var base: float = BodyPartQuery.get_leg_functionality(self)
+	# CAMP-SCAR-1 §9.5: a scarred/malunited/infected-bone leg drives slower. Latches onto the
+	# whole-locomotion value, so it also raises movement stamina cost and the cowering threshold.
+	var lp: float = _get_scar_part_penalty(BodyPartConstants.PART_LEFT_LEG).get("move_speed", 1.0)
+	var rp: float = _get_scar_part_penalty(BodyPartConstants.PART_RIGHT_LEG).get("move_speed", 1.0)
+	return clampf(base * lp * rp, 0.0, 1.0)
 
 
 func _get_part_dodge_modifier(part: String) -> float:
@@ -313,11 +391,6 @@ func _get_attack_damage_modifier() -> float:
 
 func _get_armor_for_part(part: String) -> Variant:
 	return EntityEquipment._get_armor_for_part(self, part)
-
-
-# Sharp resistance (mm RHA) of armor on this part. For energy-based thrust contact estimation.
-func _get_armor_sharp_resistance_for_part(part: String) -> float:
-	return EntityEquipment._get_armor_sharp_resistance_for_part(self, part)
 
 
 func _get_armor_slots() -> Dictionary:
@@ -502,6 +575,13 @@ func get_dodge_speed_modifier() -> float:
 
 
 func is_dead() -> bool:
+	# Sepsis death (CAMP-INF-1): the day-advance sepsis death roll sets _sepsis_dead; the campaign
+	# polls is_dead() to reconcile the roster, so the flag must fold in here.
+	if _sepsis_dead:
+		return true
+	# Tetanus death (Phase A+, plan §10.2): same day-advance death-roll pattern as sepsis.
+	if _tetanus_dead:
+		return true
 	if blood_volume <= _get_blood_loss_death_threshold():
 		return true
 	# Grace period: vital destruction is not instantly fatal. The countdown is initialized in
@@ -592,6 +672,14 @@ func _get_death_reason() -> String:
 		var zero_blunt: float = body_blunt.get(part, 0.0)
 		if zero_cut <= 0.0 and zero_blunt <= 0.0:
 			return "vital_part_zero (%s cut=%.2f blunt=%.2f)" % [part, zero_cut, zero_blunt]
+	# Sepsis (CAMP-INF-1): after a definitive vital-part cause, before blood_loss. A sepsis death
+	# clamps blood_volume via emit_death_once, so a blood check first would mislabel it.
+	if _sepsis_dead:
+		return "sepsis (systemic infection)"
+	# Tetanus (plan §10.2): after sepsis, before blood_loss — a tetanus death clamps blood_volume
+	# via emit_death_once, so a blood check first would mislabel it.
+	if _tetanus_dead:
+		return "tetanus (tetanospasmin)"
 	var death_thresh: float = _get_blood_loss_death_threshold()
 	if blood_volume <= death_thresh:
 		return "blood_loss (volume=%.1f < threshold %.1f)" % [blood_volume, death_thresh]
@@ -667,9 +755,7 @@ func _get_bandage_application_time_seconds_for_part(part: String) -> float:
 
 
 func _get_medical_effectiveness() -> float:
-	var effective_int: float = float(intelligence)
-	if CompanyState.read_stub_proficiency_enabled():
-		effective_int += float(_proficiency_bonus.get("intelligence", 0))
+	var effective_int: float = EntityStatsUtil.get_effective_stat(self, "intelligence")
 	var base: float = clampf(effective_int / 100.0, 0.5, 1.5)
 	return base * clampf(_campaign_supply_factor, 0.25, 1.5)
 
@@ -683,16 +769,12 @@ func _get_campaign_supply_factor() -> float:
 
 
 func _get_endurance_blood_volume_mult() -> float:
-	var effective_end: float = float(endurance)
-	if CompanyState.read_stub_proficiency_enabled():
-		effective_end += float(_proficiency_bonus.get("endurance", 0))
+	var effective_end: float = EntityStatsUtil.get_effective_stat(self, "endurance")
 	return 1.0 + (effective_end - 100) / 400.0
 
 
 func _get_endurance_healing_speed_mult() -> float:
-	var effective_end: float = float(endurance)
-	if CompanyState.read_stub_proficiency_enabled() and "_proficiency_bonus" in self:
-		effective_end += float(_proficiency_bonus.get("endurance", 0))
+	var effective_end: float = EntityStatsUtil.get_effective_stat(self, "endurance")
 	# Higher END heals FASTER (fit veterans recover quicker): 100 -> 1.0x, 150 -> 1.20x, caps at 1.25x.
 	# (The old `1.0 - ...` form inverted this, making fit characters heal slower.)
 	return 1.0 + clampf((effective_end - 100) / 250.0, 0.0, 0.25)
@@ -709,9 +791,7 @@ func _get_nutrition_healing_speed_mult() -> float:
 
 
 func _get_intelligence_contract_bonus_mult() -> float:
-	var effective_int: float = float(intelligence)
-	if CompanyState.read_stub_proficiency_enabled():
-		effective_int += float(_proficiency_bonus.get("intelligence", 0))
+	var effective_int: float = EntityStatsUtil.get_effective_stat(self, "intelligence")
 	return 1.0 + clampf((effective_int - 100) / 500.0, 0.0, 0.15)
 
 
@@ -721,7 +801,16 @@ func _get_campaign_stamina_mult() -> float:
 		if raw is Dictionary:
 			m *= clampf(raw.get("stamina_mult", 1.0), 0.5, 1.0)
 	m *= _get_campaign_fatigue_mult()
+	m *= _get_sepsis_stamina_mult()
+	# Chest scar (CAMP-SCAR-1 §9.5): scarred thorax reduces sustained stamina output.
+	m *= _get_scar_part_penalty(BodyPartConstants.PART_CHEST).get("stamina_pool", 1.0)
 	return m
+
+
+## Stamina cap multiplier from active systemic sepsis (CAMP-INF-1): 1.0 healthy,
+## SEPSIS_STAMINA_MULT while is_septic (systemic catabolism + CIP/CIM weakness).
+func _get_sepsis_stamina_mult() -> float:
+	return BleedingConstants.SEPSIS_STAMINA_MULT if is_septic else 1.0
 
 
 ## Stamina cap multiplier from campaign weariness: 1.0 (fresh) -> CAMPAIGN_FATIGUE_STAMINA_FLOOR (fully fatigued).
@@ -782,14 +871,108 @@ func _get_campaign_pain_mult() -> float:
 	return m
 
 
+## CAMP-SCAR-1: per-part incoming-damage multiplier from wound-derived scars (product of matching
+## damage_mult). Whole-body scars (part "") never match a part, so they add nothing here.
+func _get_scar_damage_mult(part: String) -> float:
+	var m: float = 1.0
+	for raw in campaign_afflictions:
+		if raw is Dictionary and str(raw.get("part", "")) == part:
+			m *= clampf(float(raw.get("damage_mult", 1.0)), 0.5, 2.0)
+	return m
+
+
+## CAMP-SCAR-1: per-part bleeding-rate multiplier (product of matching bleed_mult).
+func _get_scar_bleed_mult(part: String) -> float:
+	var m: float = 1.0
+	for raw in campaign_afflictions:
+		if raw is Dictionary and str(raw.get("part", "")) == part:
+			m *= clampf(float(raw.get("bleed_mult", 1.0)), 0.5, 2.0)
+	return m
+
+
+## CAMP-SCAR-1: per-part heal multiplier (product of matching heal_mult; < 1.0 = heals slower).
+func _get_scar_heal_mult(part: String) -> float:
+	var m: float = 1.0
+	for raw in campaign_afflictions:
+		if raw is Dictionary and str(raw.get("part", "")) == part:
+			m *= clampf(float(raw.get("heal_mult", 1.0)), 0.1, 1.0)
+	return m
+
+
+## CAMP-SCAR-1 §9.5: part-specific scar penalties (move_speed, grip, perception, stamina_pool).
+## Returns a Dictionary of multiplier factors; each is the product of matching scars on that part.
+## All values default to 1.0 (no penalty) when no scars match.
+func _get_scar_part_penalty(part: String) -> Dictionary:
+	var out: Dictionary = {"move_speed": 1.0, "grip": 1.0, "perception": 1.0, "stamina_pool": 1.0}
+	if part.is_empty():
+		return out
+	for raw in campaign_afflictions:
+		if not raw is Dictionary or str(raw.get("part", "")) != part:
+			continue
+		for k in out.keys():
+			var v: float = float(raw.get(k, 1.0))
+			if v != 1.0:
+				out[k] *= clampf(v, 0.3, 1.0)
+	return out
+
+
+## CAMP-SCAR-1 §9.3: re-injury vulnerability. A part already carrying a scar re-injures more readily
+## (lost rete pegs, reduced elasticity — mechanical stress stimulates scarring), so a new wound on it
+## lands one band worse. Binary per-part (scarred vs clean), not scaled by scar count. Read in
+## EntityWounds.severity_from_damage. 1.0 when the part has no scars.
+func _get_scar_reinjury_mult(part: String) -> float:
+	if part.is_empty():
+		return 1.0
+	for raw in campaign_afflictions:
+		if raw is Dictionary and str(raw.get("part", "")) == part:
+			return BleedingConstants.SCAR_REINJURY_MULT
+	return 1.0
+
+
+## Stash a resolved-wound descriptor (called by core EntityHealing at the resolution seam).
+func _stash_resolved_wound(desc: Dictionary) -> void:
+	resolved_wounds_this_advance.append(desc)
+
+
+## World layer calls this after minting scars from resolved_wounds_this_advance.
+func clear_resolved_wounds() -> void:
+	resolved_wounds_this_advance.clear()
+
+
 func _add_campaign_affliction(def: Dictionary) -> bool:
 	if def.is_empty():
 		return false
 	var id: String = def.get("id", "")
 	if id.is_empty():
 		return false
+	var part: String = str(def.get("part", ""))
+	# CAMP-SCAR-1: wound-derived scars carry a part. On an id+part match, deepen the existing scar
+	# (a second severe wound on a scarred part worsens it) instead of no-op-ing. Whole-body scars
+	# (part "") keep the plain id-dedup behaviour. Deepen is SCAR-ONLY (plan §9.6): the post-victory
+	# tier-RNG afflictions also carry a part (bone picks) but must keep plain id+part dedup — they are
+	# tagged `is_wound_scar=false`, so a repeated "Limping left_leg" roll can never silently stack
+	# damage_mult the way a wound-derived scar deepens.
+	if part != "" and bool(def.get("is_wound_scar", false)):
+		for i in range(campaign_afflictions.size()):
+			var raw: Dictionary = campaign_afflictions[i]
+			if raw is Dictionary and raw.get("id", "") == id and str(raw.get("part", "")) == part \
+					and bool(raw.get("is_wound_scar", false)):
+				raw["damage_mult"] = clampf(
+					float(raw.get("damage_mult", 1.0)) * BleedingConstants.SCAR_DEEPEN_MULT, 1.0, 2.0
+				)
+				# A deepened scar also heals WORSE (hypovascular, reduced tensile strength / extensibility —
+				# same anchor as SCAR_REINJURY_MULT), so the heal side deepens inverse to damage_mult
+				# (× 1/1.05 ≈ 0.95) and clamps like the _get_scar_heal_mult read floor so repeated deepens
+				# can never push below 0.1.
+				raw["heal_mult"] = clampf(
+					float(raw.get("heal_mult", 1.0)) * (1.0 / BleedingConstants.SCAR_DEEPEN_MULT), 0.1, 1.0
+				)
+				# bleed_mult is deliberately NOT deepened: the wound on a re-injured scar and the residual
+				# friability were set at first mint (e.g. scarred_tissue 1.05); repeated scarring only makes
+				# the tissue MORE hypovascular, so its hemorrhage does not grow multiplicatively with depth.
+				return false
 	for raw in campaign_afflictions:
-		if raw is Dictionary and raw.get("id", "") == id:
+		if raw is Dictionary and raw.get("id", "") == id and str(raw.get("part", "")) == part:
 			return false
 	campaign_afflictions.append(def.duplicate(true))
 	return true
@@ -825,6 +1008,12 @@ func _apply_stabilize(part: String, effectiveness: float = 1.0) -> bool:
 
 func _apply_fluid_resuscitation(effectiveness: float = 1.0) -> bool:
 	return EntityMedical._apply_fluid_resuscitation(self, effectiveness)
+
+
+## Surgical amputation (sepsis source control): sever the limb and replace its wounds with the
+## stump. Delegates to EntityMedical.amputate_part (plan §10.5).
+func amputate_part(part: String, sub_region: String = "") -> bool:
+	return EntityMedical.amputate_part(self, part, sub_region)
 
 
 func _get_stabilize_application_time_seconds_for_part(part: String) -> float:
@@ -1019,6 +1208,10 @@ func _apply_species():
 		remove_meta("_cumulative_concussion_count")
 	if has_meta("_last_concussion_time"):
 		remove_meta("_last_concussion_time")
+	# Persistent concussion fatigue (EntityPainConsciousness) is per-session brain impairment; it must
+	# reset with the other concussion metas or it ratchets across campaigns into a permanent penalty.
+	if has_meta("_concussion_persistent_fatigue"):
+		remove_meta("_concussion_persistent_fatigue")
 	if has_meta("_tuning_pain_shock_locked"):
 		remove_meta("_tuning_pain_shock_locked")
 	if has_meta("_tuning_pain_shock_locked_value"):
@@ -1031,6 +1224,11 @@ func _apply_species():
 ## Common seed defaults shared by species and fallback branches.
 func _apply_common_seed_defaults():
 	dominant_hand = [BodyPartConstants.PART_RIGHT_ARM, BodyPartConstants.PART_LEFT_ARM][randi() % 2]
+	# Correlate lead leg with the dominant side so the lead/trail asymmetry (Tier 2.1) varies per
+	# fighter: a right-hander leads with the right leg, a left-hander with the left. Reads the
+	# already-seeded dominant_hand (no extra RNG call) so the deterministic harness stream is
+	# unaffected; the D001/harness path pins lead_leg explicitly via apply_species_harness_deterministic.
+	lead_leg = BodyPartConstants.PART_LEFT_LEG if dominant_hand == BodyPartConstants.PART_LEFT_ARM else BodyPartConstants.PART_RIGHT_LEG
 	offhand_functionality = randf_range(0.6, 1.0)
 	CombatLayerTissue.seed_all_layer_states(self)
 	TissueEnergyCapacity.seed_entity_energy_pools(self, true)
@@ -1040,6 +1238,7 @@ func _apply_common_seed_defaults():
 func apply_species_harness_deterministic():
 	_apply_species()
 	dominant_hand = BodyPartConstants.PART_RIGHT_ARM
+	lead_leg = BodyPartConstants.PART_RIGHT_LEG
 	offhand_functionality = 1.0
 
 

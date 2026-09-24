@@ -88,11 +88,46 @@ static func _apply_stabilizing_treatment(
                 injury["is_stabilized"] = true
                 if BleedingConstants.BANDAGE_STABILIZATION_DURATION > 0.0:
                     injury["stabilized_remaining_seconds"] = BleedingConstants.BANDAGE_STABILIZATION_DURATION
-            # A clean definitive dressing treats infection: clear it so healing resumes at full speed.
-            if injury.get("is_infected", false):
-                injury["is_infected"] = false
-                injury["infection_progress"] = 0.0
-                cleared_infection = true
+            # Staged infection treatment (CAMP-INF-1): a successful dressing is "source control"
+            # for the bleeding. For infection it clears localized (stage 1) probabilistically
+            # (effectiveness/INT-scaled, repeatable), but never clears a septic (stage 2) focus —
+            # that needs amputation. On a stage-1 clear, recompute the resolution duration from
+            # the pre-infection baseline so healing resumes at full speed. The baseline itself is
+            # scar-aware (CAMP-SCAR-1): curing an infection on a scarred part must restore that
+            # part's scar-scaled duration, or the cured wound would close faster than an identical
+            # never-infected scarred wound.
+            var in_stage: int = int(injury.get("infection_stage", 0))
+            if in_stage < 1 and injury.get("is_infected", false):
+                in_stage = 1
+            if in_stage >= 2:
+                pass  # septic: a dressing is not enough; source control (amputation) required
+            elif in_stage == 1:
+                var clear_chance: float = clampf(
+                    BleedingConstants.INFECTION_DRESSING_CLEAR_STAGE1 * clampf(eff, 0.0, 1.5), 0.0, 1.0
+                )
+                if randf() < clear_chance:
+                    injury["is_infected"] = false
+                    injury["infection_stage"] = 0
+                    injury["infection_progress"] = 0.0
+                    injury["sepsis_progress"] = 0.0
+                    injury["healing_duration_seconds"] = EntityWounds.scaled_healing_duration_seconds(
+                        entity,
+                        part,
+                        str(injury.get(DataKeys.INJURY_SEVERITY, BleedingConstants.SEVERITY_MODERATE)),
+                        str(injury.get("injury_type", BleedingConstants.INJURY_TYPE_CUT))
+                    )
+                    cleared_infection = true
+                else:
+                    # Failed clear: infection persists but progress is partially reset.
+                    injury["infection_progress"] = 0.5
+        # Debridement (plan §10.2 counter-play): a successful clean dressing removes devitalized
+        # tissue + debris from a depth-qualified cut/stab, so it is no longer contaminated (the
+        # WOUND_INFECTION_CONTAMINATED_MULT dose boost and the tetanus candidacy both stop). Idempotent:
+        # is_wound_contaminated returns false once debrided, so re-dressing is a no-op. Stumps stay
+        # contaminated (raw amputation surface) regardless.
+        for injury in entity.wounds[part]:
+            if BleedingConstants.is_wound_contaminated(injury) and not bool(injury.get("is_stump", false)):
+                injury["debrided"] = true
         mark_dict[part] = true
         if cleared_infection:
             log_medical_session(
@@ -271,8 +306,10 @@ static func _apply_stabilize(entity: Node, part: String, effectiveness: float = 
 
 ## Field fluid resuscitation / transfusion: restores a fraction of the current blood deficit for a
 ## living casualty. This is the countermeasure to decompensated shock — raising `blood_volume` back
-## above the decompensation threshold automatically clears the decompensation bleed-acceleration,
-## ATLS performance penalty, and stamina cap (all stateless reads of `blood_volume`). Returns false
+## above the decompensation threshold clears the decompensation bleed-acceleration, ATLS performance
+## penalty, and stamina cap (all stateless reads of `blood_volume`). A decompensated patient (below
+## DECOMPENSATION_BLOOD_THRESHOLD) responds poorly to a bolus, so the restore fraction is scaled down
+## (FLUID_RESUSCITATION_DECOMPENSATED_MULT) — deep Class IV shock needs repeated boluses. Returns false
 ## when the casualty is dead or already at full volume (nothing to restore).
 static func _apply_fluid_resuscitation(entity: Node, effectiveness: float = 1.0) -> bool:
     if entity.is_dead():
@@ -285,11 +322,46 @@ static func _apply_fluid_resuscitation(entity: Node, effectiveness: float = 1.0)
     var restore_frac: float = clampf(
         BleedingConstants.FLUID_RESUSCITATION_DEFICIT_RESTORE_FRACTION * effectiveness, 0.0, 1.0
     )
+    # A decompensated patient (ATLS Class III->IV, below the decompensation threshold) has a dilated,
+    # leaky vascular compartment and responds poorly to a crystalloid bolus — the same volume restores
+    # far less effective circulating volume than in a compensated patient. Scale the restore fraction
+    # down so a single bolus rarely pulls a deep Class IV casualty back above the threshold on its own
+    # (deep shock needs repeated boluses / blood products). Mirrors the binary tipping point the
+    # recovery-suppression path uses in process_blood_loss.
+    if entity.blood_volume < BleedingConstants.DECOMPENSATION_BLOOD_THRESHOLD:
+        restore_frac *= BleedingConstants.FLUID_RESUSCITATION_DECOMPENSATED_MULT
     var restored: float = deficit * restore_frac
     entity.blood_volume = minf(BleedingConstants.MAX_BLOOD_VOLUME, entity.blood_volume + restored)
     log_medical_session(
         "%s _apply_fluid_resuscitation => blood %.0f%% (+%.0f%%)" % [entity.name, entity.blood_volume, restored]
     )
+    return true
+
+
+## Deliberate surgical amputation (sepsis source control, plan §10.5): sever the limb and
+## replace its wounds with the amputation stump — the non-combat twin of the combat-severance
+## outcome. Zeroes the tissue/bone pools so BodyPartQuery.is_part_severed reads true, then
+## ensure_stump_wound mints the stump wound that drives stump bleeding, contamination, and the
+## amputated_limb scar. Removing the stage-2 focus makes _all_septic_foci_source_controlled true,
+## dropping the sepsis death roll to the source-controlled rate; the entity stays is_septic until
+## sepsis_resolve_progress accrues (amputation removes the focus, not the systemic infection).
+## Deterministic: a committed surgical decision, not a roll. Limbs only.
+static func amputate_part(entity: Node, part: String, sub_region: String = "") -> bool:
+    if part.is_empty() or not ("body_cutting" in entity) or not ("bone_health" in entity):
+        return false
+    if not BodyPartQuery.is_limb(part):
+        return false
+    if BodyPartQuery.is_part_severed(entity, part):
+        return false
+    entity.body_cutting[part] = 0.0
+    entity.body_blunt[part] = 0.0
+    entity.bone_health[part] = 0.0
+    if "tissue_energy_remaining_j" in entity and part in entity.tissue_energy_remaining_j:
+        entity.tissue_energy_remaining_j[part] = 0.0
+    # The prior clamp/dressings described the OLD wound channel; the stump mint releases them
+    # centrally (ensure_stump_wound) so both surgery and combat severance share the invariant.
+    EntityWounds.ensure_stump_wound(entity, part, sub_region)
+    log_medical_session("%s amputate(%s): limb severed (sepsis source control)" % [entity.name, part])
     return true
 
 
@@ -764,6 +836,11 @@ static func _apply_tourniquet(entity: Node, part: String, effectiveness: float =
 
 static func _remove_tourniquet(entity: Node, part: String) -> void:
     entity.tourniquet_applied.erase(part)
+    # End the clamp SESSION: a later application (new wound days later, or a freshly severed stump)
+    # must not inherit this session's placement fumbles. The +15% retry bonus per prior failure models
+    # the medic adjusting placement WITHIN a session; it dies with the clamp, not with the limb's date.
+    if "tourniquet_failures" in entity and entity.tourniquet_failures is Dictionary:
+        (entity.tourniquet_failures as Dictionary).erase(part)
 
 
 ## Ischemic soft-tissue damage from a tourniquet left on too long (necrosis / compartment injury). Reduces the
@@ -780,6 +857,12 @@ static func apply_tourniquet_ischemia_damage(entity: Node, part: String) -> void
         return
     entity.body_cutting[part] = entity._round_tissue(maxf(0.0, entity.body_cutting.get(part, 0.0) - damage))
     entity.body_blunt[part] = entity._round_tissue(maxf(0.0, entity.body_blunt.get(part, 0.0) - damage))
+    # Latch ischemia history on the wound(s) so the scar-mint descriptor captures it later,
+    # even after the tourniquet is removed from tourniquet_applied.
+    if entity.wounds.has(part):
+        for inj in entity.wounds[part]:
+            if inj is Dictionary:
+                inj["had_ischemia"] = true
     log_medical_session(
         (
             "%s tourniquet_ischemia(%s): TQ left on too long => -%.1f tissue (ischemic necrosis)"

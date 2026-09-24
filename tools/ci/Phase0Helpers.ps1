@@ -132,7 +132,7 @@ function Invoke-Phase0CompanyState {
 
 
 
-	Write-Host "=== CompanyStateChecks (406 tests) ==="
+	Write-Host "=== CompanyStateChecks (558 tests) ==="
 
 	$companyOut = @(& (Join-Path $Root "tools\ci\run_company_state_checks.ps1") 2>&1 | ForEach-Object { "$_" })
 

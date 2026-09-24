@@ -21,13 +21,6 @@ static func _get_armor_for_part(entity: Node, part: String) -> Variant:
     return null
 
 
-static func _get_armor_sharp_resistance_for_part(entity: Node, part: String) -> float:
-    var armor_var = _get_armor_for_part(entity, part)
-    if armor_var is ArmorPiece:
-        return armor_var.get_outer_layer_sharp_resistance_rha_mm()
-    return 0.0
-
-
 static func get_armor_slots(entity: Node) -> Dictionary:
     if entity == null or not "armor_slots" in entity:
         return {}

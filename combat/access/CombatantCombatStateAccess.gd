@@ -278,18 +278,6 @@ static func get_passive_parry_reaction_time(combatant: Dictionary) -> float:
     return node._get_passive_parry_reaction_time()
 
 
-## Sets `blunt_opts["armor_resistance_rha_mm"]` when the defender node exposes armor RHA for `part`.
-
-
-## Sets `blunt_opts["armor_resistance_rha_mm"]` when the defender node exposes armor RHA for `part`.
-static func apply_armor_sharp_resistance_to_blunt_opts(
-    blunt_opts: Dictionary, defender: Dictionary, part: String
-) -> void:
-    var node: Node = scene_node(defender)
-    if node != null and node.has_method("_get_armor_sharp_resistance_for_part"):
-        blunt_opts["armor_resistance_rha_mm"] = node._get_armor_sharp_resistance_for_part(part)
-
-
 static func finalize_dead_combatant_if_node_dead(manager: Node, c: Dictionary) -> bool:
     if c.is_empty() or not alive_bool(c):
         return false
@@ -311,6 +299,19 @@ static func get_attacking_arm(combatant: Dictionary) -> String:
     if node == null or not node.has_method("get_attacking_arm"):
         return ""
     return node.get_attacking_arm()
+
+
+## Arm-wound grip factor for the attacking arm (1.0 healthy, down to ARM_WOUND_GRIP_FLOOR at a full
+## localized wound). Feature-gated via BodyPartQuery.get_arm_wound_function_mult. Returns 1.0 when the
+## attacking arm is empty or the node is unavailable. Used to slow wind-up for a wounded striking arm.
+static func get_striking_arm_grip_mult(combatant: Dictionary) -> float:
+    var node = node_variant(combatant)
+    if node == null:
+        return 1.0
+    var arm: String = get_attacking_arm(combatant)
+    if arm.is_empty():
+        return 1.0
+    return BodyPartQuery.get_arm_wound_function_mult(node, arm)
 
 
 ## Entity has any wound part not comprehensively dressed (bandage/pack/TQ). Direct pressure alone does not count.
@@ -349,6 +350,16 @@ static func get_leg_functionality(combatant: Dictionary) -> float:
     if node == null or not node.has_method("_get_leg_functionality"):
         return 1.0
     return node._get_leg_functionality()
+
+
+## Lead-leg drive functionality (1.0 healthy, lower when the lead leg is wounded/destroyed).
+## Used by wind-up drive so a compromised lead leg slows the step-in. D001-neutral at healthy values.
+static func get_lead_leg_functionality(combatant: Dictionary) -> float:
+    var node = node_variant(combatant)
+    if node == null:
+        return 1.0
+    var part: String = node.lead_leg if "lead_leg" in node else BodyPartConstants.PART_RIGHT_LEG
+    return BodyPartQuery.get_leg_functionality_for(node, part)
 
 
 ## Returns targetable body parts array. Empty if unavailable.

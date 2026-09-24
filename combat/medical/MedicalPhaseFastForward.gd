@@ -40,17 +40,21 @@ static func _batch_apply_direct_pressure(
         if MedicalPhaseBatchResolve._get_company_state().read_stub_proficiency_enabled():
             var perf_entity = CombatantEntityAccess.get_entity_from_manager(manager, performer)
             var tgt_entity = CombatantEntityAccess.get_entity_from_manager(manager, target)
-            if perf_entity != null and perf_entity.has("_proficiency_bonus"):
+            if perf_entity != null and "_proficiency_bonus" in perf_entity and EntityProficiency.is_stat_gain_tracked(perf_entity):
                 Proficiency.award_stat_gain(
                     perf_entity,
                     "intelligence",
                     Proficiency.GAIN_MEDICAL_ACTION_BASE * Proficiency.GAIN_DIRECT_PRESSURE_INT_MULT
                 )
-            if tgt_entity != null and tgt_entity.has("_proficiency_bonus"):
+            if tgt_entity != null and "_proficiency_bonus" in tgt_entity and EntityProficiency.is_stat_gain_tracked(tgt_entity):
+                # Enduring blood peril scales with how badly the patient is bleeding (deep hemorrhage
+                # trains more endurance than a light scratch) — matches the wind-up and batch paths.
                 Proficiency.award_stat_gain(
                     tgt_entity,
                     "endurance",
-                    Proficiency.GAIN_BLOOD_PERIL_BASE * Proficiency.GAIN_DIRECT_PRESSURE_PATIENT_END_MULT
+                    Proficiency.GAIN_BLOOD_PERIL_BASE
+                    * Proficiency.GAIN_DIRECT_PRESSURE_PATIENT_END_MULT
+                    * EntityProficiency.blood_peril_end_factor(float(tgt_entity.blood_volume))
                 )
     return applied
 

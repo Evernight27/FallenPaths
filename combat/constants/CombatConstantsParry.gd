@@ -1,6 +1,8 @@
 class_name CombatConstantsParry
 extends RefCounted
 
+const Misc := preload("res://combat/constants/CombatConstantsMisc.gd")
+
 const PARRY_V_FRACTION_OF_MAX_STRIKE := 0.5
 const PARRY_STRENGTH_NORM := 100.0
 const PARRY_DEFLECT_THRESHOLD := 0.45
@@ -31,6 +33,18 @@ const FEINT_COMMIT_OFF_BALANCE_EXTRA_S := 0.25
 ## well past the feet, making recovery harder than for a cutting swing of the same intensity.
 ## Additive on top of the base off-balance window.
 const THRUST_COMMIT_OFF_BALANCE_EXTRA_S := 0.20
+## HEMA: a full dodge is a movement off the base of support (lateral step, duck, pull-back). The
+## dodger is briefly off-balance until they re-stabilize, so they are exposed to the next incoming
+## strike for a short window. Modeled as an off-balance window on the DODGER, distinct from the
+## *recovery* duration (the "cannot act" period, already handled by recovery_duration_with_form).
+## Base is below the whiff base (OFF_BALANCE_DURATION_S 0.4s): a braced, reactive dodge re-centers
+## faster than a forward-committed whiff. The incoming strike's intensity sets how far the defender
+## had to move to avoid it (harder strike = bigger evasive motion = longer re-stabilization). Scaled
+## by off_balance_recovery_mult (agility / legs / exhaustion / concussion), unifying dodge
+## re-stabilization with the hit re-stabilization path. D001 is unaffected: combatants dodge with
+## default stats (recovery ~1.0) and the window is short and bounded.
+const DODGE_OFF_BALANCE_BASE_S := 0.25
+const DODGE_OFF_BALANCE_INTENSITY_SCALE_S := 0.20
 
 
 const OFF_BALANCE_DEFLECT_DURATION_S := 1.0          ## Base off-balance after parry deflect — extends beyond recovery so the action_ready surcharge fires.
@@ -41,6 +55,17 @@ const OFF_BALANCE_DODGE_CHANCE_MULT := 0.80
 ## HEMA: an off-balance attacker's strike is weaker — compromised center of gravity reduces
 ## transfer of body weight through the weapon. Symmetric with the defensive parry-capacity penalty.
 const OFF_BALANCE_ATTACK_DMG_MULT := 0.7
+## HEMA: an off-balance attacker also lands less precisely — a staggered center of gravity makes it
+## harder to drive the blade to the intended target line, so base hit chance is reduced. Kept mild
+## (0.85) and depth-faded because off-balance already widens angle variance (aim) and slows wind-up;
+## this is the distinct *precision* axis, applied to the hit-chance roll, not the damage/angle paths.
+const OFF_BALANCE_HIT_CHANCE_MULT := 0.85
+## HEMA: the mirror of OFF_BALANCE_HIT_CHANCE_MULT, applied to the *target* — an off-balance defender
+## is a looser, slower-to-recover target (guard compromised, recovery degraded), so the attacker's
+## clean-hit rate rises. The mirror of the attacker's own 0.85 precision penalty, kept at the same
+## 15% magnitude and depth-faded, so a settled target is unaffected (D001-neutral). This is a boost
+## (> 1.0): off_balance_penalty_mult interpolates 1.0 -> this value by target off-balance depth.
+const OFF_BALANCE_TARGET_HIT_CHANCE_MULT := 1.15
 ## Additive readiness surcharge (seconds) while off-balance, replacing the multiplicative x2 divisor.
 ## Regaining footing after a heavy exchange is a fixed bounded cost, not a penalty that stacks
 ## multiplicatively with stamina/armor/perf degradation (that stack created 13s+ readiness gaps).
@@ -58,6 +83,186 @@ const OFF_BALANCE_WINDUP_SLOW_MULT := 0.85
 ## OFF_BALANCE_PARRY_CAPACITY_MULT / OFF_BALANCE_DODGE_CHANCE_MULT / OFF_BALANCE_ATTACK_DMG_MULT / angle-variance paths already read.
 const HIT_DEFENDER_OFF_BALANCE_BASE_S := 0.5
 const HIT_DEFENDER_OFF_BALANCE_INTENSITY_SCALE_S := 0.3
+## --- Off-balance strike-location scaling (realism) ---
+## HEMA: where a hit lands matters for balance independently of how hard it is. A strike to the head
+## disrupts the vestibular/proprioceptive system (startle, dizziness); a strike to the legs hits the
+## base of support; a torso hit displaces central mass; an arm hit barely disturbs balance (it may
+## disable the striking arm, but that is a separate arm-functionality mechanic). Multiplied onto the
+## intensity × recovery off-balance window on a landed hit. Chest is the neutral 1.0 baseline.
+const HIT_OFF_BALANCE_PART_HEAD_MULT := 1.30
+const HIT_OFF_BALANCE_PART_LEG_MULT := 1.25
+const HIT_OFF_BALANCE_PART_ARM_MULT := 0.90
+## HEMA: how much a *glancing* hit disrupts the defender's balance, relative to a clean hit. A graze
+## (blade clips, tissue_dmg below the glancing floor) carries far less of the blow into the body than
+## a clean strike, so the off-balance window is cut in half rather than applied at full strength. Kept
+## distinct from the part multipliers (where it lands) and intensity (how hard): this is *how much of
+## the swing actually landed*. Negligible outcomes (damage floored to ~0) get no off-balance window at
+## all — handled by hit_off_balance_outcome_mult, not a constant.
+const HIT_GLANCING_OFF_BALANCE_MULT := 0.5
+## --- Off-balance impulse scaling (physics) ---
+## HEMA/physics: balance disruption scales with the kinetic energy (impulse) the blow delivers, not
+## just commitment. Maps the combat-realistic KE band (CombatDesignAnchors.COMBAT_REALISTIC_KE_J_MIN/
+## MAX, 35-95 J) to a stagger multiplier: light taps 0.8x, heavy blows 1.2x, and exactly 1.0x at the
+## mid-band (~65 J, a typical sword strike) so D001 pacing is unchanged by construction.
+const HIT_STAGGER_IMPULSE_MIN_MULT := 0.80
+const HIT_STAGGER_IMPULSE_MAX_MULT := 1.20
+## --- Head-impact startle floor (physiology) ---
+## HEMA/physiology: a sudden impact to the head triggers the startle reflex — an involuntary flinch
+## and vestibular jolt that delays voluntary re-balancing. Model as a hard floor on the off-balance
+## window for a clean head hit above a meaningful KE threshold. Applied AFTER agility/recovery
+## scaling (the reflex precedes voluntary re-rooting, so a fast fighter cannot undercut it). 0.55s
+## sits just above the lightest clean head-hit window (~0.54s at intensity 0, 40 J) so the reflex
+## does not fade with blow size: it binds on light head hits and passes through on everything heavier.
+const STARTLE_HEAD_IMPACT_MIN_S := 0.55
+const STARTLE_HEAD_IMPACT_KE_MIN_J := 40.0
+## --- Off-balance engagement-angle (orientation) scaling (physiology) ---
+## HEMA/physiology: where a blow meets the body relative to its facing matters for balance,
+## independent of force. A frontal impact meets the sagittal brace with the feet set deep along the
+## line of attack; a lateral impact arrives roughly across the support base, where a biped
+## stabilizes far worse (lateral steps are slower and shorter); a rear impact arrives with no
+## anticipation or visual counter-stiffening. Driven by the defender's stamped PA_ENGAGEMENT_ANGLE.
+## Front is the neutral 1.0 baseline, so D001 1v1 duels (always face-on) are unaffected.
+const HIT_ORIENTATION_FLANK_MULT := 1.15
+const HIT_ORIENTATION_REAR_MULT := 1.30
+## --- Persistent facing / turn-to (Tier 3.1, physiology + HEMA) ---
+## HEMA: once a fighter turns to answer a flank or rear attack, they stay turned for a beat —
+## they do not snap back to front-on between every exchange. A decaying facing-turn window captures
+## that lingering posture. It is stamped on the defender at a flank/rear resolve and consumed as a
+## small bounded parry-capacity dip (blade off-line on the new exposure line). Distinct axis from
+## off-balance (balance/feet), so the two timed decays never stack into a double stagger.
+## D001-neutral: the SWORD soak always resolves front-on, so it never stamps a facing turn.
+const FACING_TURN_WINDOW_FLANK_S := 1.2
+const FACING_TURN_WINDOW_REAR_S := 1.5
+## Max parry-capacity dip at full facing depth: a still-turning fighter's blade is off-line on the
+## newly-exposed line, so the parry is at most this weak. 1.0 when settled, lerped toward this min.
+const FACING_TURN_PARRY_CAPACITY_MULT_MIN := 0.90
+## Cap on the total facing-turn window when flank/rear events pile on. Mirrors OFF_BALANCE_MAX_WINDOW_S:
+## repeated flank/rear hits keep the fighter turned longer, but a stacked turn can never exceed this,
+## so a fighter is never pinned off-line indefinitely. Slightly above the single rear window (1.5s)
+## so two rear hits can visibly extend the turn before the cap clamps.
+const FACING_TURN_MAX_WINDOW_S := 2.5
+## --- Off-balance armor-mass (inertia) scaling (physics) ---
+## HEMA/physics: the mass a fighter carries matters for balance in two opposing ways. A defender in
+## heavy plate is braced — the armor's distributed mass raises the body's effective inertia, so the
+## same impact jolts the center of mass less and stagger is *reduced*. An attacker in heavy plate
+## whiffs into a heavier commitment — the swing carried more mass, so the follow-through takes longer
+## to arrest and over-extension *increases*. Driven by the equipped-armor mass ratio (the IV-7
+## armor-burden axis that already slows movement). No armor -> 1.0 neutral, so D001 (bare fighters)
+## is unaffected. Bounded to a modest band so armor never dominates the off-balance window.
+const HIT_ARMOR_INERTIA_REDUCTION := 0.15
+const WHIFF_ARMOR_INERTIA_EXTENSION := 0.15
+## --- Off-balance medical wind-up slow (realism) ---
+## HEMA: tending a wound (bandage / pack / tourniquet) is careful manual work. A medic who is off-balance
+## — hands unsteady, center of gravity off — works slower, so the medical wind-up duration is divided by
+## this factor (mildly slower than the strike wind-up: 0.85 -> ~18%; here 0.90 -> ~11%) when the performer
+## is off-balance. Fades with depth like the strike wind-up slow.
+const OFF_BALANCE_MEDICAL_WINDUP_SLOW_MULT := 0.90
+## --- Cumulative off-balance cap (realism) ---
+## HEMA: repeated off-balance events pile on (a second whiff while already wobbly is worse than a
+## fresh single whiff). When a fighter is already off-balance and takes another off-balance event,
+## the new window adds onto the remaining time instead of resetting to the fresh duration. This cap
+## bounds how long stacked events can keep a fighter off-balance, so repeated hits cannot pin them
+## permanently. Single events (0.4-1.2s) never approach the cap; only rapid repeated events do.
+const OFF_BALANCE_MAX_WINDOW_S := 3.0
+## --- Off-balance in bind contests (realism) ---
+## HEMA: an off-balance fighter's compromised center of gravity weakens the bind too — they cannot
+## drive or hold pressure as effectively. Applied to the off-balance side's contest power (both the
+## presser in bind_press and either side in bind_wrestle) via off_balance_penalty_mult, so it fades
+## with depth like the other off-balance penalties. Mild (0.75) vs the 0.70 strike/parry penalties:
+## the bind is a static grapple, not a dynamic strike.
+const OFF_BALANCE_BIND_CONTEST_MULT := 0.75
+## --- Off-balance execute (coup de grâce) fumble (realism) ---
+## HEMA: a staggered fighter's center of gravity is compromised, so a committed finishing strike on a
+## downed foe is less likely to land cleanly. At full off-balance depth the coup de grâce can fumble
+## (turn consumed, target stays downed — you can re-attempt once settled). Fades linearly with depth
+## via off_balance_depth so a nearly-settled fighter finishes as reliably as a settled one. Bounded
+## well under certainty even at full depth: a wobbly fighter usually still lands on a prostrate enemy.
+const OFF_BALANCE_EXECUTE_FAIL_CHANCE_MAX := 0.30
+## --- Off-balance close-attempt (movement) penalty (realism) ---
+## HEMA: advancing on an opponent is a leg-driven, committed lunge. A fighter whose footing is off
+## can't drive that advance as effectively, so the off-balance attacker's close pressure is scaled
+## down (fades with depth). Models the movement side of "compromised center of gravity".
+const OFF_BALANCE_CLOSE_PRESSURE_MULT := 0.80
+## --- Close-advance lead-leg drive (Tier 2.1 v2, HEMA) ---
+## HEMA: closing distance is a committed leg-driven lunge where the lead leg steps *into* the opponent
+## (the propulsive drive). A wounded lead leg can't generate that forward drive, so the attacker's close
+## pressure is reduced. Floor when the lead leg is fully destroyed: the fighter can still lunge a little
+## off the trail leg, so it never reaches 0. Set slightly below the momentary off-balance close floor
+## (0.80) because a destroyed lead leg is a persistent deficit, not a fading stagger. D001-neutral at
+## full lead-leg functionality (1.0 -> 1.0 mult).
+const CLOSE_ADVANCE_LEAD_LEG_MULT_MIN := 0.70
+## --- Off-balance recovery scaling (realism) ---
+## Re-establishing footing is a proprioceptive/motor skill, not a flat clock: a healthy, agile
+## fighter re-roots faster, a leg-wounded one lingers. This factor multiplies the off-balance
+## duration computed by the miss/deflect/hit/bind writers (and the action-ready surcharge window).
+## Neutral 1.0 at a healthy leg (leg = 1.0) and default agility (Misc.DEFAULT_STAT_VALUE = 100),
+## so the D001 SWORD soak (no species, default stats) is unaffected.
+## Leg term: healthy (1.0) -> 1.0; both legs destroyed (0.08) -> ~1.46 (re-rooting far slower).
+const OFF_BALANCE_RECOVERY_LEG_RANGE := 0.5
+## Agility term: neutral at default; 0.2% per stat point, clamped to these bounds (+/-50 stat
+## -> +/-10% recovery window).
+const OFF_BALANCE_RECOVERY_AGI_PER_POINT := 0.002
+const OFF_BALANCE_RECOVERY_AGI_MIN := 0.85
+const OFF_BALANCE_RECOVERY_AGI_MAX := 1.15
+## Overall clamp: recovery can never make off-balance shorter than 0.75x or longer than 1.6x base.
+const OFF_BALANCE_RECOVERY_MIN := 0.75
+const OFF_BALANCE_RECOVERY_MAX := 1.6
+## Floor for the exhaustion inverse: how much exhaustion alone may stretch re-rooting. A fully spent
+## fighter re-roots slower, but this keeps the single-factor stretch bounded before the overall clamp.
+const OFF_BALANCE_RECOVERY_EXHAUSTION_FLOOR := 0.6
+## --- Leg-wound parry bracing (realism) ---
+## HEMA: a parry is a force redirect that terminates in the ground — the impulse runs blade -> arm ->
+## shoulder -> spine -> feet, so the brace is only as strong as the base planted underneath it. A
+## compromised base (a wounded leg) weakens the *capacity* to absorb/redirect (the blade deflects a
+## little more, follow-through is softer) rather than the *timing* (the leg contributes little to the
+## vision -> CNS -> muscle reaction window). Kept mild (floor 0.85, i.e. ~15% at a destroyed leg)
+## because parry bracing is far less leg-dependent than dodge (which needs full lateral displacement);
+## the leg is a secondary brace, the arm/torso structure is primary. Distinct from the arm limb-impairment
+## parry penalty (primary weapon handling) and from the momentary off-balance penalty. D001-neutral: a
+## healthy leg (leg == 1.0) yields exactly 1.0.
+const LEG_STANCE_PARRY_MULT_MIN := 0.85
+## --- Off-balance base-of-support susceptibility (realism) ---
+## HEMA/physics: whether an incoming impact tips the center of mass outside the support base depends
+## on the base's width and the corrective force the legs can generate. A wounded leg narrows the
+## effective support base and weakens the corrective push, so the *same* blow tips the fighter more
+## easily. This is the *susceptibility* axis (how hard a hit must be to start an off-balance window)
+## and is deliberately separate from off_balance_recovery_mult (the *re-rooting* axis — how fast a
+## fighter recovers once already off-balance). A leg-wounded defender is both more easily knocked
+## off-balance AND slower to re-center. Applied only to the incoming-impact (hit) path: a dodge or
+## whiff is a self-initiated displacement, not an external tip, so the base-of-support threshold does
+## not apply there. Neutral 1.0 at a healthy leg; at total leg loss the window is stretched by up to
+## ~35% (within the researched 20-40% band for a compromised base). D001 SWORD soak is unaffected
+## (no species / default stats -> healthy legs -> 1.0).
+const HIT_OFF_BALANCE_LEG_SUSCEPTIBILITY_RANGE := 0.35
+## --- Torso-wound parry bracing (realism) ---
+## HEMA: a parry is braced through the core — the chest/rib cage transfers the blade-on-blade impulse
+## into the ground through the spine and legs. A structurally compromised core (ribs fractured, sternum
+## bruised, core tissue damaged) leaks that brace, so the same catch that a healthy fighter absorbs
+## with minimal displacement costs a wounded fighter more displacement and control. This is the *core*
+## axis; leg_stance_parry_mult is the *base* axis. Kept at the same 0.85 floor as the leg term because
+## the core is a single vital part (no two-part averaging), so a full compromise is already severe.
+## Distinct from arm limb-impairment (weapon handling) and arm-wound grip (blade delivery).
+## D001-neutral: healthy chest -> torso 1.0 -> exactly 1.0.
+const TORSO_STANCE_PARRY_MULT_MIN := 0.85
+## --- Formation-move settling (realism) ---
+## HEMA: a fighter who just stepped / rotated / fell back in the line is mid-replant — weight is
+## shifting and the base is not yet braced, so they are briefly less stable than a settled fighter.
+## Modeled as a short off-balance window (reusing the existing window system, no new state), shorter
+## than a whiff because the move was deliberate, not a committed blow. Move-kind scaled: rotating the
+## file and falling back shift the base more than a rank swap. Plug-forward is a fast deliberate
+## advance that gains tempo, so it settles at 0.0. D001 SWORD soak has no formation movement, so it is
+## unaffected.
+const FORMATION_SETTLE_OFF_BALANCE_BASE_S := 0.35
+const FORMATION_SETTLE_ROTATE_SCALE := 1.2
+const FORMATION_SETTLE_FALL_BACK_SCALE := 1.1
+
+## Cower re-plant: a fighter who just got back on his feet after cowering (limb destruction /
+## unconsciousness cleared) is not instantly braced. Base is the arms-only window; when the legs are
+## still weakened the re-plant is slower (a leg-collapsed re-plant takes longer than an arms-only one).
+## D001-neutral: D001 never enters cower, so the SWORD soak is unaffected.
+const COWER_REPLANT_OFF_BALANCE_BASE_S := 0.6
+const COWER_REPLANT_LEGS_SCALE := 1.4
+const COWER_REPLANT_LEGS_COMPROMISED_THRESHOLD := 0.9
 const PARRY_BONUS_AFTER_DEFLECT_S := 2.0
 const PARRY_BONUS_MULT_MIN := 1.05              ## Marginal parry (low control): 5% capacity boost.
 const PARRY_BONUS_MULT_MAX := 1.15              ## Perfect parry (high control): 15% capacity boost.
@@ -287,6 +492,25 @@ const GUARD_TRANSITION_MULT_MAX := 1.35
 ## Models HEMA reality: parrying pushes blade away from rest position; repositioning to a different guard line costs extra time.
 ## 0–45° delta: minimal cost (~0.05s); 90° delta: moderate (~0.15s); 180° delta: significant (~0.25s max).
 const GUARD_TRANSITION_RECOVERY_MAX_S := 0.25
+## HEMA: a staggered (off-balance) defender has reduced fine motor control for blade repositioning.
+## After a parry knocks the blade to the attack line, re-centering the guard takes proportionally
+## longer. Applied multiplicatively to the guard-transition cost in the parry recovery path.
+## At full off-balance depth (depth=1.0) the transition cost is multiplied by (1 + SCALE).
+## Kept mild (0.5) so a fully off-balance fighter pays 1.5x transition cost, not 2x.
+## Fades with depth via off_balance_depth — a nearly-settled fighter pays almost the full base cost.
+const GUARD_TRANSITION_OFF_BALANCE_SCALE := 0.5
+## HEMA: a fatigued striking limb slows blade re-centering after a parry. Sustained muscle fatigue in
+## the striking arm degrades the fine-motor speed needed to bring the blade back to guard, so the
+## guard-transition cost is extended proportionally. Applied multiplicatively alongside the off-balance
+## term in the parry recovery path. `fatigue` is the dominant striking-limb fatigue (0.0 fresh, 1.0
+## exhausted); neutral at 0.0. Kept mild (0.2) so full fatigue adds at most 20% on top of the base
+## transition cost — distinct from the transient off-balance term, which fades on its own window.
+const GUARD_TRANSITION_FATIGUE_SCALE := 0.2
+## HEMA: a wounded striking arm accelerates the blade more slowly — the cut/stab compromises grip and
+## shoulder drive. Multiplied onto wind-up duration as 1 + depth*(1 - grip). Neutral at a healthy arm
+## (grip 1.0). Bounded by the arm-wound grip floor (ARM_WOUND_GRIP_FLOOR). Distinct from the arm
+## damage/parry-capacity terms (which scale *force*, not *speed*).
+const ARM_WINDUP_WOUND_SLOW_RANGE := 0.30
 const PREFERRED_PART_BONUS_MULT := 1.5
 ## AI pick: attack parts off defender mental focus / guard line.
 const AI_PICK_OFF_FOCUS_PART_MULT := 1.35
@@ -362,11 +586,45 @@ static func off_balance_deflect_duration(intensity: float) -> float:
     return OFF_BALANCE_DEFLECT_DURATION_S * lerpf(0.5, 1.0, clampf(intensity, 0.0, 1.0))
 
 
+## Formation-move settling window: a fighter who just moved in the line is mid-replant and less braced
+## for a beat. Scaled by move kind (rotate > fall-back > swap/drag). Plug-forward is a deliberate
+## fast advance that gains tempo, so it settles at 0.0 (no penalty). Unknown move kinds default to
+## the base (treated like a rank swap). D001-neutral: no formation moves in the SWORD soak.
+static func formation_settle_off_balance_duration(move_kind: String) -> float:
+    match move_kind:
+        CombatConstants.MOVE_ID_PLUG_FORWARD:
+            return 0.0
+        CombatConstants.MOVE_ID_ROTATE_FILE:
+            return FORMATION_SETTLE_OFF_BALANCE_BASE_S * FORMATION_SETTLE_ROTATE_SCALE
+        CombatConstants.MOVE_ID_FALL_BACK, CombatConstants.FORMATION_MOVE_KIND_FALL_BACK_PAIR:
+            return FORMATION_SETTLE_OFF_BALANCE_BASE_S * FORMATION_SETTLE_FALL_BACK_SCALE
+        _:
+            return FORMATION_SETTLE_OFF_BALANCE_BASE_S
+
+
+## Cower re-plant window: a fighter getting back to his feet after cowering is not instantly braced.
+## Base is the arms-only re-plant. When the legs are still weakened (functionality below the
+## compromised threshold), the re-plant takes longer — a leg-collapsed fighter must re-weight through
+## a bad knee before the guard is trustworthy. D001-neutral: D001 never enters cower.
+static func cower_replant_off_balance_duration(leg_functionality: float) -> float:
+    if leg_functionality < COWER_REPLANT_LEGS_COMPROMISED_THRESHOLD:
+        return COWER_REPLANT_OFF_BALANCE_BASE_S * COWER_REPLANT_LEGS_SCALE
+    return COWER_REPLANT_OFF_BALANCE_BASE_S
+
+
 static func miss_off_balance_duration(intensity: float) -> float:
     ## Attacker who whiffs a committed strike stays off-balance longer than a light probe.
     ## Base is the historical OFF_BALANCE_DURATION_S (0.4s) at zero intensity; a full-committed
     ## swing adds up to MISS_OFF_BALANCE_INTENSITY_SCALE_S of extra off-balance time.
     return OFF_BALANCE_DURATION_S + MISS_OFF_BALANCE_INTENSITY_SCALE_S * clampf(intensity, 0.0, 1.0)
+
+
+static func dodge_off_balance_duration(intensity: float) -> float:
+    ## Defender who lands a clean full dodge: they moved off their base of support, so re-centering
+    ## takes a short bounded window. Base 0.25s (below the whiff base: a braced reactive dodge
+    ## re-centers faster than a committed over-extension) + up to 0.20s scaled by the incoming
+    ## strike's intensity (harder blow = bigger evasive motion).
+    return DODGE_OFF_BALANCE_BASE_S + DODGE_OFF_BALANCE_INTENSITY_SCALE_S * clampf(intensity, 0.0, 1.0)
 
 
 static func hit_defender_off_balance_duration(intensity: float) -> float:
@@ -376,6 +634,178 @@ static func hit_defender_off_balance_duration(intensity: float) -> float:
     ## next action than getting parried is to the attacker. Feeds PA_OFF_BALANCE_UNTIL; the existing
     ## OFF_BALANCE_PARRY_CAPACITY_MULT / OFF_BALANCE_DODGE_CHANCE_MULT / OFF_BALANCE_ATTACK_DMG_MULT / angle-variance paths already read it.
     return HIT_DEFENDER_OFF_BALANCE_BASE_S + HIT_DEFENDER_OFF_BALANCE_INTENSITY_SCALE_S * clampf(intensity, 0.0, 1.0)
+
+
+## Strike-location off-balance multiplier: where the hit lands on the defender scales how long their
+## footing is disrupted, independent of intensity. Head (vestibular startle) and legs (striking the
+## base of support) disrupt balance most; a torso hit is the neutral baseline; an arm hit disturbs
+## balance least (an arm is not a balance-critical region). Returns 1.0 for unknown/empty parts so the
+## window degrades gracefully when no part is recorded.
+static func hit_part_off_balance_mult(part: String) -> float:
+    match part:
+        "head":
+            return HIT_OFF_BALANCE_PART_HEAD_MULT
+        "left_leg", "right_leg":
+            return HIT_OFF_BALANCE_PART_LEG_MULT
+        "left_arm", "right_arm":
+            return HIT_OFF_BALANCE_PART_ARM_MULT
+    return 1.0
+
+
+## Off-balance outcome multiplier: how much of the defender's off-balance window a landed strike
+## should actually consume, by result outcome. A clean "hit" disrupts at full strength (1.0). A
+## "glancing" hit (blade grazes, tissue well below the glancing floor) only half-disrupts
+## (HIT_GLANCING_OFF_BALANCE_MULT). A "negligible" hit (damage floored to ~0, the swing never
+## really connected) disrupts nothing (0.0). Multiplied onto the intensity × part × recovery
+## off-balance window in the hit path. Unknown/empty outcomes degrade to 1.0 (treat as clean hit)
+## so a missing outcome key can never silently zero out a legitimate stagger.
+static func hit_off_balance_outcome_mult(outcome: String) -> float:
+    match outcome:
+        "glancing":
+            return HIT_GLANCING_OFF_BALANCE_MULT
+        "negligible":
+            return 0.0
+    return 1.0
+
+
+## Off-balance impulse multiplier from the strike's kinetic energy (J): a balance disruption scales
+## with the impulse delivered, not just commitment. Maps the combat-realistic band (35-95 J) to
+## [HIT_STAGGER_IMPULSE_MIN_MULT, HIT_STAGGER_IMPULSE_MAX_MULT] with 1.0 at the mid-band, so a
+## typical sword strike is D001-neutral. No KE data (ke_j <= 0) stays neutral 1.0.
+static func hit_impulse_stagger_mult(ke_j: float) -> float:
+    if ke_j <= 0.0:
+        return 1.0
+    var t: float = clampf(
+        (ke_j - CombatDesignAnchors.COMBAT_REALISTIC_KE_J_MIN) / (CombatDesignAnchors.COMBAT_REALISTIC_KE_J_MAX - CombatDesignAnchors.COMBAT_REALISTIC_KE_J_MIN),
+        0.0, 1.0
+    )
+    return lerpf(HIT_STAGGER_IMPULSE_MIN_MULT, HIT_STAGGER_IMPULSE_MAX_MULT, t)
+
+
+## Head-impact startle floor: minimum off-balance window (s) for a clean head hit carrying real
+## impact energy, or 0.0 when not applicable (not a head, not a clean hit, or below the KE
+## threshold). The startle reflex is involuntary, so the caller applies this as a hard floor AFTER
+## agility/recovery scaling — a fast fighter cannot undercut it.
+static func hit_startle_min_s(part: String, outcome: String, ke_j: float) -> float:
+    if part != "head" or outcome != "hit" or ke_j < STARTLE_HEAD_IMPACT_KE_MIN_J:
+        return 0.0
+    return STARTLE_HEAD_IMPACT_MIN_S
+
+
+## Off-balance orientation multiplier: a hit that meets the defender's flank or rear disrupts
+## balance more than a frontal hit. A frontal blow meets the sagittal brace (feet set deep along
+## the attack line); a lateral blow crosses the support base, where bipedal stabilization is
+## weakest; a rear blow arrives with no visual anticipation or counter-stiffening. Driven by the
+## defender's stamped PA_ENGAGEMENT_ANGLE ("front" / "flank" / "rear"). Unknown/empty values
+## degrade to 1.0 so a missing stamp never fabricates a penalty.
+static func hit_orientation_stagger_mult(angle: String) -> float:
+    match angle:
+        "flank":
+            return HIT_ORIENTATION_FLANK_MULT
+        "rear":
+            return HIT_ORIENTATION_REAR_MULT
+    return 1.0
+
+
+## Facing-turn window duration: how long the lingering turned-posture lasts after a flank or rear
+## strike resolves. "rear" takes longer to recover from (no anticipation) than "flank". Any other
+## angle (including "front", "", or unknown) returns 0.0 so D001 front-on duels are unaffected.
+static func facing_turn_window_s(angle: String) -> float:
+    match angle:
+        "flank":
+            return FACING_TURN_WINDOW_FLANK_S
+        "rear":
+            return FACING_TURN_WINDOW_REAR_S
+    return 0.0
+
+
+## Off-balance armor-inertia multiplier for a defender taking a hit: heavy armor braces the body
+## (distributed mass raises effective inertia), so a given impact produces less stagger. 1.0 with
+## no armor, down to (1 - HIT_ARMOR_INERTIA_REDUCTION) at full armor. `armor_ratio` clamps to [0,1].
+static func hit_armor_inertia_mult(armor_ratio: float) -> float:
+    return lerpf(1.0, 1.0 - HIT_ARMOR_INERTIA_REDUCTION, clampf(armor_ratio, 0.0, 1.0))
+
+
+## Off-balance armor-inertia multiplier for an attacker whiffing: heavy armor adds swing mass, so
+## the follow-through takes longer to arrest and the fighter stays off-balance longer. 1.0 with no
+## armor, up to (1 + WHIFF_ARMOR_INERTIA_EXTENSION) at full armor. `armor_ratio` clamps to [0,1].
+static func whiff_armor_inertia_mult(armor_ratio: float) -> float:
+    return lerpf(1.0, 1.0 + WHIFF_ARMOR_INERTIA_EXTENSION, clampf(armor_ratio, 0.0, 1.0))
+
+
+## Off-balance recovery multiplier from leg functionality and agility. Multiply an off-balance
+## duration by this to reflect how fast the fighter re-establishes footing. Pure in (leg, agi) so
+## it is callable from constants without entity access. Returns a factor: <1.0 re-roots faster,
+## >1.0 lingers off-balance longer. Neutral 1.0 at healthy leg (1.0) + default agility, so the
+## D001 SWORD soak (no species, default stats) is unaffected.
+static func off_balance_recovery_mult(leg: float, agi: float) -> float:
+    var leg_term: float = 1.0 + (1.0 - clampf(leg, 0.0, 1.0)) * OFF_BALANCE_RECOVERY_LEG_RANGE
+    var agi_term: float = clampf(
+        1.0 - (agi - float(Misc.DEFAULT_STAT_VALUE)) * OFF_BALANCE_RECOVERY_AGI_PER_POINT,
+        OFF_BALANCE_RECOVERY_AGI_MIN,
+        OFF_BALANCE_RECOVERY_AGI_MAX
+    )
+    return clampf(leg_term * agi_term, OFF_BALANCE_RECOVERY_MIN, OFF_BALANCE_RECOVERY_MAX)
+
+
+## Leg-wound parry-brace multiplier: a compromised base weakens the bracing platform that a parry
+## relies on to absorb the incoming impulse. 1.0 at full leg functionality, lerping down to
+## LEG_STANCE_PARRY_MULT_MIN as the base fails. Pure in `leg` so it is callable from constants
+## without entity access. D001-neutral at leg == 1.0.
+static func leg_stance_parry_mult(leg: float) -> float:
+    return lerpf(1.0, LEG_STANCE_PARRY_MULT_MIN, 1.0 - clampf(leg, 0.0, 1.0))
+
+
+## Torso-wound parry-brace multiplier: a parry is braced through the core, not just the legs — a
+## compromised chest (ribs/sternum/core muscle) weakens the central brace that absorbs the incoming
+## blow. Symmetric complement to leg_stance_parry_mult (the *base* axis); this is the *core* axis.
+## 1.0 at a healthy core, lerping down to TORSO_STANCE_PARRY_MULT_MIN as the core fails. Pure in
+## `torso` so it is callable from constants without entity access. D001-neutral at torso == 1.0.
+## Distinct from arm limb-impairment (weapon handling) and from arm-wound grip (blade delivery speed).
+static func torso_stance_parry_mult(torso: float) -> float:
+    return lerpf(1.0, TORSO_STANCE_PARRY_MULT_MIN, 1.0 - clampf(torso, 0.0, 1.0))
+
+
+## Base-of-support susceptibility multiplier: a compromised leg narrows the support base and weakens
+## the corrective push, so an incoming impact tips the fighter more easily. Multiplied onto the
+## off-balance window in hit_off_balance_window. Distinct from off_balance_recovery_mult (re-rooting
+## speed) — a wounded fighter is BOTH more easily knocked off-balance AND slower to re-center.
+## Neutral 1.0 at full leg functionality; up to +35% window at total leg loss. D001-neutral.
+static func hit_off_balance_leg_susceptibility_mult(leg: float) -> float:
+    return 1.0 + HIT_OFF_BALANCE_LEG_SUSCEPTIBILITY_RANGE * (1.0 - clampf(leg, 0.0, 1.0))
+
+
+## Guard-transition off-balance multiplier: a staggered defender re-centers their blade more slowly.
+## Multiplied onto the computed guard-transition cost. `depth` is off-balance depth (0.0 settled,
+## 1.0 fully staggered). Returns 1.0 + depth * SCALE, clamped to [1.0, 1.0 + SCALE]. D001-neutral:
+## a settled fighter (depth 0) gets exactly 1.0.
+static func guard_transition_off_balance_mult(depth: float) -> float:
+    return 1.0 + clampf(depth, 0.0, 1.0) * GUARD_TRANSITION_OFF_BALANCE_SCALE
+
+
+## Guard-transition fatigue multiplier: sustained muscle fatigue in the striking limb slows blade
+## re-centering after a parry. Multiplied onto the computed guard-transition cost alongside the
+## off-balance term. `fatigue` is the dominant striking-limb fatigue (0.0 fresh, 1.0 exhausted).
+## Returns 1.0 + fatigue * SCALE, clamped to [1.0, 1.0 + SCALE]. D001-neutral at fatigue 0.0.
+static func guard_transition_fatigue_mult(fatigue: float) -> float:
+    return 1.0 + clampf(fatigue, 0.0, 1.0) * GUARD_TRANSITION_FATIGUE_SCALE
+
+
+## Arm-wound wind-up slowdown: a compromised striking arm accelerates the blade more slowly.
+## `grip` is the arm-wound function factor (1.0 healthy, down to ARM_WOUND_GRIP_FLOOR at a full
+## localized wound). Returns a multiplier >= 1.0 to extend wind-up duration. D001-neutral at grip 1.0.
+static func arm_wound_windup_slow_mult(grip: float) -> float:
+    return 1.0 + ARM_WINDUP_WOUND_SLOW_RANGE * (1.0 - clampf(grip, 0.0, 1.0))
+
+
+## Close-advance lead-leg drive multiplier (Tier 2.1 v2): a wounded lead leg weakens the committed
+## forward lunge that closes distance. `leg` is the lead-leg functionality (1.0 healthy, lower when
+## the lead leg is wounded/destroyed). Lerps 1.0 down to CLOSE_ADVANCE_LEAD_LEG_MULT_MIN as the lead
+## leg fails. Pure in `leg` so it is callable from constants without entity access. Distinct axis
+## from the momentary off-balance close penalty (a fading stagger) — this is a persistent lead-leg
+## deficit. D001-neutral at leg == 1.0.
+static func close_advance_lead_leg_mult(leg: float) -> float:
+    return lerpf(1.0, CLOSE_ADVANCE_LEAD_LEG_MULT_MIN, 1.0 - clampf(leg, 0.0, 1.0))
 
 
 static func parry_bonus_mult(parry_control: float) -> float:

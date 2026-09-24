@@ -118,6 +118,18 @@ static func show_and_await(world: Node2D):
         pay_lbl.text = "Payment: +%d gold (renown %d)" % [pay, _get_company_state().get_renown(world)]
     vbox.add_child(pay_lbl)
 
+    var promo_raw: Variant = (
+        world.get_meta(CampaignTypes.WORLD_META_LAST_FAME_PROMOTIONS, [])
+        if world.has_meta(CampaignTypes.WORLD_META_LAST_FAME_PROMOTIONS)
+        else []
+    )
+    if promo_raw is PackedStringArray and not promo_raw.is_empty():
+        var promo_lbl := Label.new()
+        promo_lbl.text = "Fame climbed — %s" % "  ·  ".join(promo_raw)
+        PartyRowFormatter.configure_wrapped_label(promo_lbl)
+        promo_lbl.add_theme_color_override("font_color", Color(0.95, 0.78, 0.45))
+        vbox.add_child(promo_lbl)
+
     for aff_line in affliction_lines:
         var aff_lbl := Label.new()
         aff_lbl.text = "Scarred \u2014 %s" % aff_line
@@ -328,6 +340,13 @@ static func _append_member_vitals_labels(parent: VBoxContainer, m: Dictionary, w
         PartyRowFormatter.configure_wrapped_label(aff_lbl)
         aff_lbl.add_theme_color_override("font_color", Color(0.75, 0.65, 0.95))
         parent.add_child(aff_lbl)
+    var fame_line: String = PartyRowFormatter.format_fame_line(m)
+    if not fame_line.is_empty():
+        var fame_lbl := Label.new()
+        fame_lbl.text = fame_line
+        PartyRowFormatter.configure_wrapped_label(fame_lbl)
+        fame_lbl.add_theme_color_override("font_color", Color(0.95, 0.78, 0.45))
+        parent.add_child(fame_lbl)
 
 
 static func _hide_party_menu_if_open(world: Node2D) -> void:

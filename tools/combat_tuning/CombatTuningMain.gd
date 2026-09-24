@@ -1000,16 +1000,19 @@ func _infer_end_cause(winner_side: String) -> String:
 				minf(head_cut, head_blunt) / float(head_max) if head_max > 0 else 1.0
 			)
 			if head_channel_frac <= 0.15:
-				# Head channel destroyed. Distinguish acute TBI (last strike >= 90 J) from
-				# gradual channel exhaustion by repeated sub-threshold hits. Both are head-caused;
-				# the KE gate only differentiates the label, not the outcome.
-				var last_strike_ke: float = 0.0
-				if incapacitated_entity.has_meta("_last_hit_blunt_ke_j"):
-					last_strike_ke = float(incapacitated_entity.get_meta("_last_hit_blunt_ke_j"))
-				var has_realistic_head_trauma_ke: bool = (
-					last_strike_ke >= PainConsciousnessConstants.BLUNT_HEAD_TRAUMA_MIN_KE_J
-				) if last_strike_ke > 0 else false
-				if has_realistic_head_trauma_ke:
+				# Head channel destroyed. Classify by MECHANISM + PHYSICS instead of a single last-strike
+				# blunt-KE scalar: (1) a pointed/edged weapon that breached the skull vault is a focal
+				# pressure (P=F/A) penetrating kill at ANY KE — "head penetration"; (2) a heavy blunt strike
+				# >= the 90 J TBI/fracture anchor is acute traumatic brain injury — "head trauma"; (3)
+				# otherwise the pool was exhausted by cumulative sub-threshold crush — "head destruction".
+				# All are head-caused; the tier only differentiates the label, not the outcome.
+				var head_prof: Dictionary = {}
+				if incapacitated_entity.has_meta(EntityDamage.HEAD_STRIKE_PROFILE_META):
+					head_prof = incapacitated_entity.get_meta(EntityDamage.HEAD_STRIKE_PROFILE_META, {})
+				if bool(head_prof.get("sharp_penetrated", false)):
+					return "head penetration"
+				var worst_head_ke: float = float(head_prof.get("max_ke_j", 0.0))
+				if worst_head_ke >= PainConsciousnessConstants.BLUNT_HEAD_TRAUMA_MIN_KE_J:
 					return "head trauma"
 				return "head destruction"
 
@@ -1755,15 +1758,15 @@ func _log_batch_cycle_summary(
 		def_vitals = "%s %s" % [def_cfg_snap.display_name, _Formatter.format_vitals_suffix(def_node)]
 	var winner_side: String = _resolve_tuning_matchup_winner(atk_c, def_c)
 	var winner_name: String = "draw"
-	var batch_atk_wins: int = 0
-	var batch_def_wins: int = 0
+	var _batch_atk_wins: int = 0
+	var _batch_def_wins: int = 0
 	match winner_side:
 		"defender":
 			winner_name = def_cfg_snap.display_name
-			batch_def_wins = 1
+			_batch_def_wins = 1
 		"attacker":
 			winner_name = atk_cfg_snap.display_name
-			batch_atk_wins = 1
+			_batch_atk_wins = 1
 		"mutual":
 			winner_name = "mutual"
 	var end_cause: String = (

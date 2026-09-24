@@ -593,6 +593,8 @@ static func handle_swap_rank_resolve(manager: Node, ev: Dictionary) -> void:
     _clear_shuffle_doctrine_commitments([init, partner])
     _set_combatant_waiting(init)
     _set_combatant_waiting(partner)
+    PassiveParryContext.apply_formation_settle(init, move_kind)
+    PassiveParryContext.apply_formation_settle(partner, move_kind)
     var outcome: String = "swap_rank_complete"
     match move_kind:
         CombatConstants.MOVE_ID_DRAG_BACK:
@@ -654,6 +656,7 @@ static func handle_fall_back_solo_resolve(manager: Node, ev: Dictionary) -> void
     init.erase(DataKeys.FM_FORMATION_MOVE_PARTNER_ID)
     _clear_shuffle_doctrine_commitments([init])
     _set_combatant_waiting(init)
+    PassiveParryContext.apply_formation_settle(init, CombatConstants.MOVE_ID_FALL_BACK)
     CombatDebug.flow_log("fall_back_solo_resolve id=%d complete rank 0->1 file %d" % [initiator_id, f])
     if CombatantEntityAccess.get_attacking_arm(init).is_empty():
         CombatF5SoakTrace.note_cowering_fall_back_executed(
@@ -721,6 +724,8 @@ static func handle_rotate_file_resolve(manager: Node, ev: Dictionary) -> void:
     _stamp_rotate_file_reverse_pair_lock(manager, init, partner)
     _set_combatant_waiting(init)
     _set_combatant_waiting(partner)
+    PassiveParryContext.apply_formation_settle(init, CombatConstants.MOVE_ID_ROTATE_FILE)
+    PassiveParryContext.apply_formation_settle(partner, CombatConstants.MOVE_ID_ROTATE_FILE)
     CombatDebug.flow_log(
         "rotate_file_resolve id=%d <-> %d complete files %d <-> %d" % [initiator_id, partner_id, f0, f1]
     )
@@ -843,6 +848,9 @@ static func handle_plug_forward_resolve(manager: Node, ev: Dictionary) -> void:
     _clear_shuffle_doctrine_commitments([init, partner])
     _set_combatant_waiting(init)
     _set_combatant_waiting(partner)
+    # Plug-forward is a deliberate fast advance (gains tempo) -> settles at 0.0 (no-op, kept for uniformity).
+    PassiveParryContext.apply_formation_settle(init, CombatConstants.MOVE_ID_PLUG_FORWARD)
+    PassiveParryContext.apply_formation_settle(partner, CombatConstants.MOVE_ID_PLUG_FORWARD)
     if CombatDebug.flow_verbose_enabled():
         var n0: String = CombatantEntityAccess.get_display_name(init, initiator_id)
         var n1: String = CombatantEntityAccess.get_display_name(partner, partner_id)

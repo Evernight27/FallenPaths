@@ -123,9 +123,20 @@ static func choose_defense(
 	# Apply graduated limb impairment to dodge — damaged legs reduce movement speed and reaction.
 	if not tgt.is_empty():
 		var node: Node = CombatantEntityAccess.scene_node(tgt)
-		if node != null and node.has_method("_get_vital_parts"):
-			var limb_impairment: Dictionary = EntityPainConsciousness.get_limb_impairment_multiplier(node)
-			dodge_chance *= limb_impairment.get("dodge_mult", 1.0)
+		if node != null:
+			if node.has_method("_get_vital_parts"):
+				var limb_impairment: Dictionary = EntityPainConsciousness.get_limb_impairment_multiplier(node)
+				dodge_chance *= limb_impairment.get("dodge_mult", 1.0)
+			# Concussion: impaired balance/proprioception degrades the evasive step — a concussed fighter
+			# can't shift weight cleanly to step away. balance_mult < 1.0 while concussed, 1.0 otherwise
+			# (D001-neutral). This is the one axis of get_dodge_speed_modifier NOT already in the base
+			# dodge formula (leg pain / performance / armor encumbrance are all in it), so only the
+			# balance term is applied here to avoid double-counting.
+			var conc_balance: float = float(
+				EntityPainConsciousness.get_concussion_phase_info(node).get("balance_mult", 1.0)
+			)
+			if conc_balance < 0.999:
+				dodge_chance *= conc_balance
 	dodge_chance *= CombatWeaponForm.mod(
 		CombatantEntityAccess.form_str(tgt), "evasion", CombatantEntityAccess.get_weapon(tgt)
 	)
@@ -145,9 +156,10 @@ static func choose_defense(
 	elif CombatantEntityAccess.state_str(tgt) == CombatConstants.STATE_FORM_SWITCH:
 		dodge_chance *= CombatFormSwitch.dodge_penalty_during_switch(CombatFormSwitch.transition_progress(tgt))
 	# HEMA: an off-balance defender can't step away as effectively — compromised center of gravity
-	# impairs the evasive step. Symmetric with the parry-capacity penalty applied elsewhere.
+	# impairs the evasive step. Symmetric with the parry-capacity penalty applied elsewhere. Fades as
+	# the defender re-establishes balance (proportional to off-balance depth).
 	if PassiveParryContext.is_off_balance(tgt):
-		dodge_chance *= CombatConstants.OFF_BALANCE_DODGE_CHANCE_MULT
+		dodge_chance *= PassiveParryContext.off_balance_penalty_mult(tgt, CombatConstants.OFF_BALANCE_DODGE_CHANCE_MULT)
 	result.dodge_chance = dodge_chance
 
 	var already_used_defense: bool = pa.get(CombatConstants.PA_KEY_PASSIVE_PARRY_ATTEMPTED, false)
@@ -249,8 +261,25 @@ static func choose_defense(
 				var node_p: Node = CombatantEntityAccess.scene_node(tgt)
 				if node_p != null and node_p.has_method("_get_vital_parts"):
 					parry_c_d *= EntityPainConsciousness.get_limb_impairment_multiplier(node_p).get("parry_mult", 1.0)
+				# Leg-wound bracing: a compromised base weakens the platform a parry braces into.
+				# Distinct from the arm limb-impairment above (weapon handling) and from the momentary
+				# off-balance penalty below (dynamic, fades with depth).
+				parry_c_d *= CombatConstants.leg_stance_parry_mult(
+					CombatantEntityAccess.get_leg_functionality(tgt)
+				)
+				# Torso-wound bracing: a compromised core weakens the central brace a parry absorbs
+				# into. Reads the chest part's structural (bone + tissue) integrity directly. D001-neutral.
+				parry_c_d *= CombatConstants.torso_stance_parry_mult(
+					BodyPartQuery.get_torso_core_functionality(node_p)
+				)
+				# Tier 3.1 persistent facing: a fighter still turned from a prior flank/rear hit has a
+				# blade off-line on the new exposure line — a bounded parry-capacity dip, distinct axis
+				# from the momentary off-balance penalty below. No-op when the window is empty (front-on /
+				# D001 never stamps it).
+				if CombatConstants.is_feature_persistent_facing_enabled():
+					parry_c_d *= PassiveParryContext.facing_turn_parry_capacity_mult(tgt)
 				if parry_off_balance:
-					parry_c_d *= CombatConstants.OFF_BALANCE_PARRY_CAPACITY_MULT
+					parry_c_d *= PassiveParryContext.off_balance_penalty_mult(tgt, CombatConstants.OFF_BALANCE_PARRY_CAPACITY_MULT)
 				parry_c_d *= _parry_bonus_if_active(tgt)
 				# HEMA bind pressure: opponent pressing the bind reduces defender's parry capacity.
 				if manager != null:
@@ -381,6 +410,19 @@ static func choose_defense(
 				var node_l: Node = CombatantEntityAccess.scene_node(tgt)
 				if node_l != null and node_l.has_method("_get_vital_parts"):
 					parry_c_d *= EntityPainConsciousness.get_limb_impairment_multiplier(node_l).get("parry_mult", 1.0)
+				# Leg-wound bracing (late path): mirrors the on-time path above.
+				parry_c_d *= CombatConstants.leg_stance_parry_mult(
+					CombatantEntityAccess.get_leg_functionality(tgt)
+				)
+				# Torso-wound bracing (late path): mirrors the on-time path above.
+				parry_c_d *= CombatConstants.torso_stance_parry_mult(
+					BodyPartQuery.get_torso_core_functionality(node_l)
+				)
+				# Tier 3.1 persistent facing (late path): a fighter still turned from a prior flank/rear hit
+				# has a blade off-line on the new exposure line — a bounded parry-capacity dip. No-op when
+				# the window is empty (front-on / D001 never stamps it).
+				if CombatConstants.is_feature_persistent_facing_enabled():
+					parry_c_d *= PassiveParryContext.facing_turn_parry_capacity_mult(tgt)
 				# HEMA: a mid-swing defender's blade is locked in their own attack arc — they cannot reposition it
 				# to meet the incoming strike, so their reflexive parry has reduced blade control. Applied on top of
 				# the timing-based late floor so a committed weapon is strictly weaker than a waiting defender's
@@ -421,7 +463,7 @@ static func choose_defense(
 				)
 				parry_off_balance = PassiveParryContext.is_off_balance(tgt)
 				if parry_off_balance:
-					parry_c_d *= CombatConstants.OFF_BALANCE_PARRY_CAPACITY_MULT
+					parry_c_d *= PassiveParryContext.off_balance_penalty_mult(tgt, CombatConstants.OFF_BALANCE_PARRY_CAPACITY_MULT)
 				parry_c_d *= _parry_bonus_if_active(tgt)
 				# Positional feint open-line (late parry path): same grounded effect as the on-time path —
 				# a defender still displaced on the feint line has reduced reflexive parry capacity too.
@@ -1366,16 +1408,20 @@ static func _reach_parry_readiness_bonus(def_weapon: Variant, atk_weapon: Varian
 ## displaced on the given line from a feint that just landed, else 1.0. A circumscription (verwunden)
 ## carries a stronger stored mult (far side of the committed blade is more exposed than a same-line
 ## follow-up); plain feints fall back to the default FEINT_OPEN_LINE_PARRY_MULT.
+## The penalty scales with the live open-line openness (eased time decay over the window) so the
+## defender's parry capacity on that line recovers gradually instead of snapping back instantly.
 static func _feint_open_line_parry_mult(tgt: Dictionary, incoming_line: String) -> float:
-	var until: float = tgt.get(DataKeys.PA_FEINT_OPEN_LINE_UNTIL, -1.0)
-	if until <= 0.0 or CombatTiming.now_seconds() >= until:
+	if incoming_line.is_empty():
 		return 1.0
 	var open_line: String = str(tgt.get(DataKeys.PA_FEINT_OPEN_LINE, ""))
-	if open_line.is_empty() or incoming_line.is_empty():
+	if open_line.is_empty():
 		return 1.0
-	if CombatGuardLines.normalize_line(open_line) == CombatGuardLines.normalize_line(incoming_line):
-		var stored_mult: Variant = tgt.get(DataKeys.PA_FEINT_OPEN_LINE_PARRY_MULT, null)
-		if stored_mult != null:
-			return float(stored_mult)
-		return CombatConstants.FEINT_OPEN_LINE_PARRY_MULT
-	return 1.0
+	if CombatGuardLines.normalize_line(open_line) != CombatGuardLines.normalize_line(incoming_line):
+		return 1.0
+	var openness: float = CombatGuardLines.open_line_openness(tgt)
+	if openness <= 0.0:
+		return 1.0
+	var stored_mult: Variant = tgt.get(DataKeys.PA_FEINT_OPEN_LINE_PARRY_MULT, null)
+	if stored_mult != null:
+		return lerpf(1.0, float(stored_mult), openness)
+	return lerpf(1.0, CombatConstants.FEINT_OPEN_LINE_PARRY_MULT, openness)

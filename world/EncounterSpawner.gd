@@ -127,7 +127,34 @@ static func armor_ids_from_entity(entity: Node) -> Dictionary:
     return out
 
 
-static func apply_equipment_snapshot(character: Node, weapon_id: String, armor_by_part: Dictionary) -> void:
+## XCamp-4h: per-part armor layer durability (for persistence). Mirrors `armor_ids_from_entity`
+## so wear accrued in combat survives save/load. Returns {part: [layer_durability, ...]} aligned to
+## the piece's layer order. Old saves without this key load at full durability (back-compat).
+static func armor_durability_from_entity(entity: Node) -> Dictionary:
+    var out: Dictionary = {}
+    if entity == null or not ("armor_slots" in entity):
+        return out
+    for part in entity.armor_slots.keys():
+        var piece: Variant = entity.armor_slots[part]
+        if piece is not ArmorPiece:
+            continue
+        var durs: Array = []
+        for layer in (piece as ArmorPiece).layers:
+            if layer is Dictionary:
+                durs.append(
+                    float(layer.get(ArmorConstants.ARMOR_LAYER_KEY_DURABILITY, ArmorConstants.DEFAULT_ARMOR_LAYER_DURABILITY))
+                )
+        if not durs.is_empty():
+            out[str(part)] = durs
+    return out
+
+
+static func apply_equipment_snapshot(
+    character: Node,
+    weapon_id: String,
+    armor_by_part: Dictionary,
+    armor_durability_by_part: Dictionary = {}
+) -> void:
     if character == null:
         return
     if not weapon_id.is_empty():
@@ -139,12 +166,36 @@ static func apply_equipment_snapshot(character: Node, weapon_id: String, armor_b
                 continue
             var piece: Variant = ArmorPiece.create_from_definition(piece_id)
             if piece != null and character.has_method("equip_armor"):
+                _restore_armor_layer_durability(piece as ArmorPiece, armor_durability_by_part, str(part))
                 character.equip_armor(str(part), piece)
+
+
+## XCamp-4h: re-apply saved per-layer durability onto a freshly created piece. Layer count is
+## guarded so a mismatch (old save / edited piece) never writes out of bounds; missing data is a
+## no-op, leaving the piece at full durability.
+static func _restore_armor_layer_durability(piece: ArmorPiece, durability_by_part: Dictionary, part: String) -> void:
+    if piece == null:
+        return
+    var durs: Variant = durability_by_part.get(part, [])
+    if durs is not Array:
+        return
+    var arr: Array = durs
+    for i in range(piece.layers.size()):
+        if i >= arr.size():
+            break
+        if piece.layers[i] is Dictionary:
+            (piece.layers[i] as Dictionary)["durability"] = float(
+                (arr[i] as float) if (arr[i] is float) or (arr[i] is int) else (piece.layers[i] as Dictionary).get(
+                    "max_durability", ArmorConstants.DEFAULT_ARMOR_LAYER_DURABILITY
+                )
+            )
 
 
 static func _armor_piece_id_from_instance(piece: ArmorPiece) -> String:
     if piece == null:
         return ""
+    if not piece.piece_id.is_empty():
+        return piece.piece_id
     var options: Dictionary = ArmorConstants.get_armor_options_by_part()
     for ids in options.values():
         if ids is not Array:

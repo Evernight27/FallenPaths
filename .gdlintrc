@@ -3,6 +3,8 @@
 #
 # max-line-length / tab-characters match .gdformatrc (120 cols, 4-space indent).
 # excluded_directories replaces the default set (keep .git).
+# Entries match directory BASENAMES during the os.walk (not relative paths),
+# so the quarantined tuning tool is named "combat_tuning" (== tools/combat_tuning).
 
 max-line-length: 120
 tab-characters: 4
@@ -10,4 +12,4 @@ excluded_directories:
   - .git
   - .godot
   - .ci-venv
-  - tools/combat_tuning
+  - combat_tuning

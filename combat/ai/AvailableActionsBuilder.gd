@@ -66,6 +66,10 @@ static func build(manager: Node, combatant_id: int) -> Array:
             return actions
         CombatAttention.append_focus_line_listing_actions(c, combatant_id, actions)
         CombatFormationMoveListing.append_combat_wait_if_needed(manager, c, actions, combatant_id)
+        # Regain Footing: a cheap re-root available only while off-balance, so a fighter can cut the
+        # remaining off-balance window in half instead of riding it out (proportional penalty fade).
+        if PassiveParryContext.is_off_balance(c):
+            actions.append({"target_id": combatant_id, "move_id": CombatConstants.MOVE_ID_REGAIN_FOOTING})
         CombatMedicalActionListing.append_mid_fight_ally_medical_actions(manager, c, combatants, actions)
     else:
         CombatMedicalActionListing.append_medical_phase_winner_actions(

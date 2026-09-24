@@ -206,12 +206,102 @@ static func off_balance_deflect_duration(intensity: float) -> float:
 	return Parry.off_balance_deflect_duration(intensity)
 
 
+static func formation_settle_off_balance_duration(move_kind: String) -> float:
+	return Parry.formation_settle_off_balance_duration(move_kind)
+
+
+static func cower_replant_off_balance_duration(leg_functionality: float) -> float:
+	return Parry.cower_replant_off_balance_duration(leg_functionality)
+
+
+static func facing_turn_window_s(angle: String) -> float:
+	return Parry.facing_turn_window_s(angle)
+
+
+static func close_advance_lead_leg_mult(leg: float) -> float:
+	return Parry.close_advance_lead_leg_mult(leg)
+
+
 static func hit_defender_off_balance_duration(intensity: float) -> float:
 	return Parry.hit_defender_off_balance_duration(intensity)
 
 
+static func hit_part_off_balance_mult(part: String) -> float:
+	return Parry.hit_part_off_balance_mult(part)
+
+
+static func hit_off_balance_outcome_mult(outcome: String) -> float:
+	return Parry.hit_off_balance_outcome_mult(outcome)
+
+
+static func hit_impulse_stagger_mult(ke_j: float) -> float:
+	return Parry.hit_impulse_stagger_mult(ke_j)
+
+
+static func hit_startle_min_s(part: String, outcome: String, ke_j: float) -> float:
+	return Parry.hit_startle_min_s(part, outcome, ke_j)
+
+
+static func hit_orientation_stagger_mult(angle: String) -> float:
+	return Parry.hit_orientation_stagger_mult(angle)
+
+
+static func hit_armor_inertia_mult(armor_ratio: float) -> float:
+	return Parry.hit_armor_inertia_mult(armor_ratio)
+
+
+static func whiff_armor_inertia_mult(armor_ratio: float) -> float:
+	return Parry.whiff_armor_inertia_mult(armor_ratio)
+
+
+static func off_balance_recovery_mult(leg: float, agi: float) -> float:
+	return Parry.off_balance_recovery_mult(leg, agi)
+
+
+## Leg-wound parry-brace: a compromised base weakens the platform that a parry braces into.
+## 1.0 at full leg functionality → LEG_STANCE_PARRY_MULT_MIN at total leg loss. D001-neutral.
+static func leg_stance_parry_mult(leg: float) -> float:
+	return Parry.leg_stance_parry_mult(leg)
+
+
+## Leg-wound off-balance susceptibility: a narrower support base tips more easily under an incoming
+## impact (the threshold axis, distinct from re-rooting speed in off_balance_recovery_mult).
+## 1.0 at full leg functionality → up to +HIT_OFF_BALANCE_LEG_SUSCEPTIBILITY_RANGE at total leg loss.
+static func hit_off_balance_leg_susceptibility_mult(leg: float) -> float:
+	return Parry.hit_off_balance_leg_susceptibility_mult(leg)
+
+
+## Guard-transition off-balance multiplier: a staggered defender re-centers their blade more slowly.
+## Multiplied onto the parry recovery guard-transition cost. D001-neutral at depth 0.
+static func guard_transition_off_balance_mult(depth: float) -> float:
+	return Parry.guard_transition_off_balance_mult(depth)
+
+
+## Guard-transition fatigue multiplier: sustained muscle fatigue in the striking limb slows blade
+## re-centering after a parry. Multiplied onto the parry recovery guard-transition cost alongside the
+## off-balance term. D001-neutral at fatigue 0.
+static func guard_transition_fatigue_mult(fatigue: float) -> float:
+	return Parry.guard_transition_fatigue_mult(fatigue)
+
+
+## Arm-wound wind-up slowdown: a compromised striking arm accelerates the blade more slowly.
+## `grip` is the arm-wound function factor (1.0 healthy). Multiplier >= 1.0 extends wind-up. D001-neutral.
+static func arm_wound_windup_slow_mult(grip: float) -> float:
+	return Parry.arm_wound_windup_slow_mult(grip)
+
+
+## Torso-wound parry-brace: a compromised core weakens the central brace a parry absorbs into.
+## 1.0 at a healthy core → TORSO_STANCE_PARRY_MULT_MIN at full core loss. D001-neutral.
+static func torso_stance_parry_mult(torso: float) -> float:
+	return Parry.torso_stance_parry_mult(torso)
+
+
 static func miss_off_balance_duration(intensity: float) -> float:
 	return Parry.miss_off_balance_duration(intensity)
+
+
+static func dodge_off_balance_duration(intensity: float) -> float:
+	return Parry.dodge_off_balance_duration(intensity)
 
 
 static func feint_commit_off_balance_extra_s() -> float:
@@ -657,6 +747,14 @@ static func is_feature_measure_damage_commit_enabled() -> bool:
 
 static func set_feature_measure_damage_commit_load(enabled: bool) -> void:
 	FeatureFlags.set_feature_measure_damage_commit_load(enabled)
+
+
+static func is_feature_persistent_facing_enabled() -> bool:
+	return FeatureFlags.is_feature_persistent_facing_enabled()
+
+
+static func set_feature_persistent_facing_load(enabled: bool) -> void:
+	FeatureFlags.set_feature_persistent_facing_load(enabled)
 
 
 static func measure_damage_commit_doc_sync_line() -> String:

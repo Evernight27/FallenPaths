@@ -217,6 +217,24 @@ static func _run_camp_2_bridge_spot_checks(failures: PackedStringArray) -> void:
         _fail(failures, "Camp-2.4: snapshot should expose affliction effect line")
     else:
         _pass()
+    var aff_line: String = str(aff_snap.get("affliction_effects", ""))
+    if not aff_line.contains("Pain +10%"):
+        _fail(failures, "Camp-2.4: snapshot effect line want a signed delta ('Pain +10%') got '%s'" % aff_line)
+    else:
+        _pass()
+    if aff_line.contains("Stamina f -") or aff_line.contains("Pain f -"):
+        _fail(
+            failures,
+            "Camp-2.4: snapshot effect line must not reprint the remaining-value artifact got '%s'" % aff_line
+        )
+    else:
+        _pass()
+    var ribs_def: Dictionary = CampaignAfflictions.catalog_def(CampaignAfflictions.AFFLICTION_CRACKED_RIBS, "chest")
+    var ribs_fx: String = CampaignAfflictions._effect_suffix(ribs_def)
+    if ribs_fx != "Stamina -12%, Pain +5%":
+        _fail(failures, "Camp-2.4: cracked_ribs suffix want 'Stamina -12%, Pain +5%' got '%s'" % ribs_fx)
+    else:
+        _pass()
     _free_harness_core_entity(pain_ent)
 
     var day_world: Node2D = _make_world(1)

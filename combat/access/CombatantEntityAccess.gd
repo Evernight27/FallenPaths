@@ -370,18 +370,22 @@ static func get_passive_parry_reaction_time(combatant: Dictionary) -> float:
 	return _get_combat_state().get_passive_parry_reaction_time(combatant)
 
 
-static func apply_armor_sharp_resistance_to_blunt_opts(
-	blunt_opts: Dictionary, defender: Dictionary, part: String
-) -> void:
-	_get_combat_state().apply_armor_sharp_resistance_to_blunt_opts(blunt_opts, defender, part)
-
-
 static func finalize_dead_combatant_if_node_dead(manager: Node, c: Dictionary) -> bool:
 	return _get_combat_state().finalize_dead_combatant_if_node_dead(manager, c)
 
 
 static func get_attacking_arm(combatant: Dictionary) -> String:
 	return _get_combat_state().get_attacking_arm(combatant)
+
+
+## Arm-wound grip factor for the attacking arm (1.0 healthy, <1.0 when the striking arm is wounded).
+static func get_striking_arm_grip_mult(combatant: Dictionary) -> float:
+	return _get_combat_state().get_striking_arm_grip_mult(combatant)
+
+
+## Lead-leg drive functionality (1.0 healthy, <1.0 when the lead leg is wounded/destroyed).
+static func get_lead_leg_functionality(combatant: Dictionary) -> float:
+	return _get_combat_state().get_lead_leg_functionality(combatant)
 
 
 static func retreat_formation_body_damage_warranted(c: Dictionary, manager: Node) -> bool:

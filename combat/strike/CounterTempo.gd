@@ -220,15 +220,15 @@ static func on_attacker_wind_up_started(
 ## favors them and we prefer the safe defer.
 ## Pure probability in [0.0, 0.95] — no RNG. 0.0 means "no trade" (invalid args or no scheduled
 ## incoming strike). Exposed for harness verification and tuning; the roll lives in should_gegenschlag_trade.
-static func gegenschlag_trade_probability(manager: Node, counter_id: int, incoming_attacker_id: int) -> float:
-	if manager == null or counter_id < 0 or incoming_attacker_id < 0:
+static func gegenschlag_trade_probability(manager: Node, counter_id: int, attacker_id: int) -> float:
+	if manager == null or counter_id < 0 or attacker_id < 0:
 		return 0.0
 	var counter: Dictionary = CombatantEntityAccess.manager_get_combatant(manager, counter_id)
 	if counter.is_empty():
 		return 0.0
 	var clock: float = CombatantEntityAccess.combat_clock_float(manager)
 	var our_end: float = clock + counter.get(DataKeys.PA_STATE_DURATION, 0.0)
-	var their_at: float = CombatEventScheduler.get_pending_melee_attack_resolve_at(manager, incoming_attacker_id)
+	var their_at: float = CombatEventScheduler.get_pending_melee_attack_resolve_at(manager, attacker_id)
 	if their_at < 0.0:
 		return 0.0
 	var their_remaining: float = maxf(their_at - clock, 0.01)
@@ -241,8 +241,8 @@ static func gegenschlag_trade_probability(manager: Node, counter_id: int, incomi
 	)
 
 
-static func should_gegenschlag_trade(manager: Node, counter_id: int, incoming_attacker_id: int) -> bool:
-	var prob: float = gegenschlag_trade_probability(manager, counter_id, incoming_attacker_id)
+static func should_gegenschlag_trade(manager: Node, counter_id: int, attacker_id: int) -> bool:
+	var prob: float = gegenschlag_trade_probability(manager, counter_id, attacker_id)
 	if prob <= 0.0:
 		return false
 	return randf() < prob
@@ -366,11 +366,16 @@ static func riposte_chain_windup_mult(manager: Node, attacker: Dictionary, targe
 ## off-balance. Grants a short, modest fast re-commit window against the just-hit target. Kept
 ## deliberately weaker/slower than the blade-catch riposte chain (see grant_riposte_chain): a
 ## completed strike is controlled commitment, not the rapid re-positioning of a parry.
-static func grant_hit_continuation(manager: Node, attacker: Dictionary, target_id: int) -> void:
+static func grant_hit_continuation(manager: Node, attacker: Dictionary, target_id: int, window_s: float = -1.0) -> void:
 	if manager == null or attacker == null or target_id < 0:
 		return
+	# window_s < 0 keeps the default full window (backward-compatible); a caller that passes the
+	# outcome-scaled window lets a glancing graze grant a shorter window and a negligible chip none.
+	var w: float = CombatConstants.HIT_CONTINUATION_WINDOW_S if window_s < 0.0 else window_s
+	if w <= 0.0:
+		return
 	attacker[CombatConstants.COMBATANT_KEY_HIT_CONTINUATION_UNTIL] = (
-		CombatantEntityAccess.combat_clock_float(manager) + CombatConstants.HIT_CONTINUATION_WINDOW_S
+		CombatantEntityAccess.combat_clock_float(manager) + w
 	)
 	attacker[CombatConstants.COMBATANT_KEY_HIT_CONTINUATION_TARGET_ID] = target_id
 

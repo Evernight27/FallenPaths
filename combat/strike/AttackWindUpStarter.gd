@@ -162,9 +162,16 @@ static func start(
 			if mult < 0.0:
 				mult = CombatConstants.PARRY_BIND_RIPOSTE_MULT_FALLBACK
 			wind_up_s *= mult
-	# Leg functionality: longer wind-up when legs injured (harder to get into position to attack).
-	var leg: float = clampf(CombatantEntityAccess.get_leg_functionality(atk_d), CombatConstants.WINDUP_LEG_MIN, 1.0)
+	# Lead-leg drive: the lead leg steps *into* the blow. A compromised lead leg slows the step-in
+	# (drive term uses the lead leg specifically, not the symmetric blend). Longer wind-up when injured.
+	# D001-neutral: healthy lead leg -> 1.0 -> no change.
+	var leg: float = clampf(CombatantEntityAccess.get_lead_leg_functionality(atk_d), CombatConstants.WINDUP_LEG_MIN, 1.0)
 	wind_up_s /= leg
+	# Arm wound: a wounded striking arm accelerates the blade more slowly (grip/shoulder drive
+	# compromised). Scales wind-up duration up. D001-neutral: healthy arm -> grip 1.0 -> mult 1.0.
+	var arm_grip: float = CombatantEntityAccess.get_striking_arm_grip_mult(atk_d)
+	if arm_grip < 0.999:
+		wind_up_s *= CombatConstants.arm_wound_windup_slow_mult(arm_grip)
 	# Pain/consciousness: wounded attackers swing slower
 	var atk_perf_mod: float = CombatantEntityAccess.get_performance_modifier(atk_d)
 	if atk_perf_mod > 0.0:
@@ -202,9 +209,10 @@ static func start(
 	# Knockback / re-stabilizing: a fighter still off-balance (from a hit taken, a whiffed over-extended
 	# swing, or a parry-deflect) is slow to re-commit to a new strike. Distinct from the action-ready
 	# surcharge (decision delay) and parry-capacity reduction (reactive ability): this is the commitment
-	# cost of re-establishing footing before the next swing.
+	# cost of re-establishing footing before the next swing. The slow factor fades as the fighter
+	# re-roots (proportional to off-balance depth).
 	if PassiveParryContext.is_off_balance(atk_d):
-		wind_up_s /= CombatConstants.OFF_BALANCE_WINDUP_SLOW_MULT
+		wind_up_s /= PassiveParryContext.off_balance_penalty_mult(atk_d, CombatConstants.OFF_BALANCE_WINDUP_SLOW_MULT)
 	# Concussion extends attacker windup — motor planning and initiation are impaired per research.
 	wind_up_s = EntityPainConsciousness.apply_attacker_windup_concussion_mult(manager, atk_d, wind_up_s)
 	# Wind-up energy cap: beyond T_optimal (0.4s), the quadratic factor approaches 1.0 and no additional

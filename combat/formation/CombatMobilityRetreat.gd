@@ -67,6 +67,8 @@ static func first_disallowed_retreat_only_move_id(actions: Array) -> String:
 static func resolve_move_allowed_when_cannot_melee(move_id: String, target_id: int, attacker_id: int) -> bool:
     if move_id == CombatConstants.MOVE_ID_WAIT:
         return true
+    if move_id == CombatConstants.MOVE_ID_REGAIN_FOOTING and target_id == attacker_id:
+        return true
     if CombatConstants.is_leader_formation_command_move(move_id) and target_id == attacker_id:
         return true
     return target_id == attacker_id and move_id in [

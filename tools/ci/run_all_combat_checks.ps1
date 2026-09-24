@@ -70,7 +70,10 @@ Invoke-FallenPathsGodotImportWarmup
 Write-Host ""
 
 Write-Host "=== CompanyStateChecks (Camp-1 + XCamp-3.x) ==="
-$companyOut = @(& (Join-Path $Root "tools\ci\run_company_state_checks.ps1") 2>&1 | ForEach-Object { "$_" })
+$swCompany = [System.Diagnostics.Stopwatch]::StartNew()
+$companyOut = @(& (Join-Path $Root "tools\ci\run_company_state_checks.ps1") -SkipWarmup 2>&1 | ForEach-Object { "$_" })
+$swCompany.Stop()
+$lines.Add("TIMING: company_state={0:N0}s" -f $swCompany.Elapsed.TotalSeconds)
 $companyOut | ForEach-Object { Write-Host $_ }
 $companyOk = $companyOut | Where-Object { $_ -match "FP_HARNESS_OK:\s+CompanyStateChecks" } | Select-Object -Last 1
 $companyExit = $LASTEXITCODE
@@ -96,11 +99,40 @@ if (Test-Path $f5LogPath) {
 	$f5BackedUp = Backup-F5SoakHumanPaste $Root
 }
 $allCombatTee = Join-Path $Root ".phase0_all_combat_checks.txt"
+$swAll = [System.Diagnostics.Stopwatch]::StartNew()
 try {
 	Invoke-FallenPathsGodotScript -HarnessMode "all" -TeeLog $allCombatTee *> $null
 } finally {
 	if ($f5BackedUp) {
 		Restore-F5SoakHumanPaste $Root | Out-Null
+	}
+}
+$swAll.Stop()
+$lines.Add("TIMING: all_combat_checks={0:N0}s" -f $swAll.Elapsed.TotalSeconds)
+$regTimingPath = Join-Path $Root ".regression_timing.txt"
+if (Test-Path $regTimingPath) {
+	$regLines = Get-Content $regTimingPath -Encoding utf8 | Where-Object { $_ -match '^\d+\t' } | Select-Object -First 5
+	foreach ($rl in $regLines) {
+		$parts = $rl -split "`t", 2
+		if ($parts.Count -eq 2 -and [int]$parts[0] -gt 2000) {
+			$lines.Add("REGRESS_TOP: $([math]::Round($parts[0]/1000,1))s  $($parts[1])")
+		}
+	}
+}
+$d001TimingPath = Join-Path $Root ".d001_soak_out.txt"
+if (Test-Path $d001TimingPath) {
+	$d001Lines = Get-Content $d001TimingPath -Encoding utf8
+	$presetDurations = @()
+	$currentPreset = ""
+	foreach ($dl in $d001Lines) {
+		if ($dl -match '^\[(\w+)\]') { $currentPreset = $Matches[1] }
+		if ($dl -match '^\s+duration_ms=(\d+)' -and $currentPreset) {
+			$presetDurations += [PSCustomObject]@{ Preset = $currentPreset; Ms = [int]$Matches[1] }
+			$currentPreset = ""
+		}
+	}
+	$presetDurations | Sort-Object Ms -Descending | Select-Object -First 5 | ForEach-Object {
+		$lines.Add("D001_TOP: $([math]::Round($_.Ms/1000,1))s  $($_.Preset)")
 	}
 }
 $exitCode = Get-FallenPathsGodotExitCode
@@ -172,7 +204,10 @@ Write-Host "=== PHASE0 PASS ==="
 
 Write-Host ""
 Write-Host "=== Campaign ship audit tail (Camp-3.4 / Camp-5 headless) ==="
+$swCampaign = [System.Diagnostics.Stopwatch]::StartNew()
 & (Join-Path $Root "tools\ci\run_campaign_ship_audit.ps1") -TailOnly
+$swCampaign.Stop()
+$lines.Add("TIMING: campaign_ship_audit={0:N0}s" -f $swCampaign.Elapsed.TotalSeconds)
 $campaignExit = $LASTEXITCODE
 $auditPath = Join-Path $Root ".campaign_ship_audit.txt"
 if (Test-Path $auditPath) {

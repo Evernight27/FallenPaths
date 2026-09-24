@@ -181,6 +181,10 @@ static func get_arm_functionality(entity: Node, part: String) -> float:
     var grip_penalty: float = 1.0
     if tissue < ARM_GRIP_TISSUE_THRESHOLD:
         grip_penalty = tissue / maxf(ARM_GRIP_TISSUE_THRESHOLD, 0.001)
+    # CAMP-SCAR-1 §9.5: a scarred/contracted/malunited arm grips weaker than the acute-wound
+    # tissue/bone measure captures (elasticity loss + flexion contracture persist after healing).
+    if entity.has_method("_get_scar_part_penalty"):
+        grip_penalty *= float(entity._get_scar_part_penalty(part).get("grip", 1.0))
     var combined: float = clampf(tissue * bone_factor, 0.0, 1.0)
     return clampf(combined * operability / maxf(operability, PART_OPERABILITY_THRESHOLD) * grip_penalty, 0.0, 1.0)
 
@@ -233,6 +237,31 @@ static func get_part_dodge_modifier(entity: Node, part: String) -> float:
 # --- Leg functionality: min of both legs (both needed for gait); geometric mean when both damaged ---
 
 
+## Torso (core) bracing functionality: structural integrity of the chest — the rib cage, sternum and
+## core musculature a fighter braces into when parrying. 1.0 when the core is intact; drops toward 0.0
+## as ribs/core are damaged. Combines the chest part's bone health (ribs/sternum) with its soft-tissue
+## (cutting + blunt) remaining. Distinct from `get_leg_functionality` (base) and `get_arm_functionality`
+## (weapon handling): this is the *center* of the brace. A species whose chest has no bone pool
+## contributes no bone term, so a healthy chest still reads 1.0. D001-neutral at a healthy chest.
+static func get_torso_core_functionality(entity: Node) -> float:
+    var part = BodyPartConstants.PART_CHEST
+    if not part in entity.body_cutting:
+        return 1.0
+    var max_per_type: int = entity.body_max.get(part, 0)
+    var tissue: float = 1.0
+    if max_per_type > 0:
+        var combined_max: float = float(max_per_type * 2)
+        var remaining: float = entity.body_cutting.get(part, 0.0) + entity.body_blunt.get(part, 0.0)
+        tissue = clampf(remaining / combined_max, 0.0, 1.0)
+    var bone: float = 1.0
+    var bmx: int = 0
+    if entity.get("bone_max") != null:
+        bmx = entity.bone_max.get(part, 0)
+    if bmx > 0:
+        bone = get_bone_functionality_factor(entity, part)
+    return clampf(sqrt(bone * tissue), 0.0, 1.0)
+
+
 static func get_leg_functionality(entity: Node) -> float:
     var left_op = is_part_physically_operable(entity, BodyPartConstants.PART_LEFT_LEG)
     var right_op = is_part_physically_operable(entity, BodyPartConstants.PART_RIGHT_LEG)
@@ -259,3 +288,13 @@ static func get_leg_functionality(entity: Node) -> float:
         get_bone_functionality_factor(entity, BodyPartConstants.PART_RIGHT_LEG), LIMB_BONE_FUNCTIONAL_RATIO
     )
     return sqrt(left * right)
+
+
+## Single-leg drive functionality: how well one specific leg can bear weight and step into a blow.
+## A destroyed leg cannot drive at all; an operable leg reports its bone factor floored at the limb
+## ratio (a fractured-but-standing leg still bears partial weight, same floor as the symmetric blend).
+## D001-neutral: a healthy leg is operable with a full bone factor -> 1.0.
+static func get_leg_functionality_for(entity: Node, part: String) -> float:
+    if not is_part_physically_operable(entity, part):
+        return 0.08
+    return maxf(get_bone_functionality_factor(entity, part), LIMB_BONE_FUNCTIONAL_RATIO)

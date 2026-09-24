@@ -284,7 +284,7 @@ func _create_pace_controls() -> void:
 		_pace_speed_buttons.append({"button": b, "mult": int(mult)})
 	_refresh_pace_controls()
 	content_vbox.add_child(row)
-	content_vbox.set_index(row, 0)
+	content_vbox.move_child(row, 0)
 
 
 func _refresh_pace_controls() -> void:

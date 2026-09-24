@@ -263,6 +263,9 @@ static func resolve_bind_press(manager: Node, attacker_id: int, target_id: int) 
     atk_power *= atk_blade_feel_mult
     tgt_power *= tgt_resist_mult
     atk_power *= contest_power_mult(atk, clock)
+    # HEMA: an off-balance presser has a compromised center of gravity and drives the bind less
+    # effectively. Fades with depth like the other off-balance penalties.
+    atk_power *= PassiveParryContext.off_balance_penalty_mult(atk, CombatConstants.OFF_BALANCE_BIND_CONTEST_MULT)
     var roll: float = randf()
     var atk_chance: float = atk_power / maxf(1.0, atk_power + tgt_power)
     var breath: float = CombatantEntityAccess.breath_float(atk)
@@ -516,6 +519,10 @@ static func resolve_bind_wrestle(manager: Node, attacker_id: int, target_id: int
     var atk_power: float = atk_skill * 2.0 + atk_str
     var tgt_power: float = tgt_skill * 2.0 + tgt_str
     atk_power *= contest_power_mult(atk, clock)
+    # HEMA: off-balance weakens the bind on both sides — a wobbly grabber drives less, and a wobbly
+    # target resists less. Fades with depth like the other off-balance penalties.
+    atk_power *= PassiveParryContext.off_balance_penalty_mult(atk, CombatConstants.OFF_BALANCE_BIND_CONTEST_MULT)
+    tgt_power *= PassiveParryContext.off_balance_penalty_mult(tgt, CombatConstants.OFF_BALANCE_BIND_CONTEST_MULT)
     var grab_chance: float = atk_power / maxf(1.0, atk_power + tgt_power)
     var breath: float = CombatantEntityAccess.breath_float(atk)
     atk[DataKeys.COMBATANT_BREATH] = maxf(0.0, breath - CombatConstants.BREATH_BIND_PRESS_COST)
@@ -523,7 +530,18 @@ static func resolve_bind_wrestle(manager: Node, attacker_id: int, target_id: int
     if randf() < grab_chance:
         # Success: the grab lands. The target is unbalanced (strong off-balance window) and the
         # binder's bind ends — control has been achieved, the blade bind is over.
-        tgt[DataKeys.PA_OFF_BALANCE_UNTIL] = clock + CombatConstants.BIND_WRESTLE_TARGET_OFF_BALANCE_S
+        # Orientation: a grapple from the rear unroots the target far more than one face-on — the
+        # target resists a forward pull against their own base of support. Same shared orientation
+        # map as the hit / dodge paths, neutral when face-on (D001 default).
+        var bind_orientation_mult: float = CombatConstants.hit_orientation_stagger_mult(
+            str(tgt.get(DataKeys.PA_ENGAGEMENT_ANGLE, "front"))
+        )
+        var bind_ob_total: float = (
+            CombatConstants.BIND_WRESTLE_TARGET_OFF_BALANCE_S
+            * bind_orientation_mult
+            * PassiveParryContext.off_balance_recovery_mult(tgt)
+        )
+        PassiveParryContext.apply_off_balance_window(tgt, bind_ob_total)
         _clear_bind_state(atk)
         manager.emit_signal(
             "action_resolved", attacker_id, target_id,

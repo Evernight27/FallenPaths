@@ -435,8 +435,21 @@ static func _run_combat_end_enemy_win_stops_manager(failures: PackedStringArray)
 static func _run_duel_auto_end_detection(failures: PackedStringArray) -> void:
     seed(42)
     var mgr: Node = MgrScript.new()
-    mgr.register(_new_entity("SWORD"), "player")
-    mgr.register(_new_entity("SWORD"), "enemy")
+    # A gladiator duel is between trained professionals, not random bandits: both sides are
+    # proficiency-tracked veterans with full weapon/form familiarity and seasoned stat bonuses.
+    # This matches the fixture the auto-end budget was calibrated against — untracked bandits no
+    # longer accrue mid-fight proficiency (write-side gate), so an even 1v1 of untrained fighters
+    # can outlast the budget instead of resolving as a real duel does.
+    var p_ent: CoreEntity = _new_entity("SWORD")
+    var e_ent: CoreEntity = _new_entity("SWORD")
+    for ent in [p_ent, e_ent]:
+        ent._combat_skill_trained = true
+        ent._weapon_proficiency["SWORD"] = EntityProficiency.WEAPON_PROF_VETERAN_MAX
+        ent._form_proficiency[CombatWeaponForm.FORM_BALANCED] = EntityProficiency.FORM_PROF_VETERAN_MAX
+        for stat in EntityStatsUtil.PROFICIENCY_STATS:
+            ent._proficiency_bonus[stat] = 10.0
+    mgr.register(p_ent, "player")
+    mgr.register(e_ent, "enemy")
     mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
     var elapsed: float = 0.0
     const MAX_TICKS := 2400

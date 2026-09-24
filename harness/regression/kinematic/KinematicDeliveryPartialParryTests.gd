@@ -167,7 +167,11 @@ static func _run_kinematic_delivery_compute_damage_strike_ke_and_blunt_contact_e
         "target_effective_mass_kg": WeaponDamageHelper.effective_blunt_target_mass_kg(tgt, "chest"),
     }
     var tgt_n: Node = EntityAccess.scene_node(tgt)
-    EntityAccess.apply_armor_sharp_resistance_to_blunt_opts(blunt_opts, tgt, "chest")
+    # Mirror the production blunt contact-area path (AttackResolver): the wear-aware effective
+    # RHA is folded into blunt_opts only when the defender actually has armor on that part.
+    var armor_rha: float = CombatArmorDoctrine.get_effective_rha_with_degradation(tgt, "chest")
+    if armor_rha > 0.0:
+        blunt_opts["armor_resistance_rha_mm"] = armor_rha
     var bc_want: float = float(
         WeaponDamageHelper.compute_penetration(weapon, ai, WeaponConstants.DAMAGE_TYPE_BLUNT, blunt_opts).get(
             "blunt_contact_cm", -1.0

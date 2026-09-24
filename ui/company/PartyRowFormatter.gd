@@ -287,14 +287,14 @@ static func format_proficiency_bonus_line(member: Dictionary) -> String:
         "strength": "STR", "agility": "AGI", "intelligence": "INT", "endurance": "END", "perception": "PER"
     }
     var pending_total: int = 0
-    for stat in ["strength", "agility", "intelligence", "endurance", "perception"]:
+    for stat in EntityStatsUtil.PROFICIENCY_STATS:
         var bonus_val: float = float(prof.get(stat, 0))
         if bonus_val > 0.0:
             var label: String = prof_labels[stat]
             parts.append("+%s:%d" % [label, int(bonus_val)])
     if "training_pending" in entity:
         var tp: Dictionary = entity.training_pending
-        for stat in ["strength", "agility", "intelligence", "endurance", "perception"]:
+        for stat in EntityStatsUtil.PROFICIENCY_STATS:
             pending_total += int(float(tp.get(stat, 0.0)))
     if parts.is_empty() and pending_total == 0:
         return ""
@@ -323,6 +323,124 @@ static func _proficiency_rank(entity: Node) -> String:
     if best <= float(EntityProficiency.PROFICIENCY_ELITE_MAX):
         return "Elite"
     return "Master"
+
+
+## XCamp-4b: weapon + form mastery, derived combat skill, and rust warning for a party member.
+## e.g. "Sword 12/20 (Veteran) | Ox 8/20 (Proficient) | Combat skill 78 | Rusting 3d".
+## Returns "" when there is no tracked weapon/form proficiency to show.
+static func format_proficiency_mastery_line(member: Dictionary, world: Node2D = null) -> String:
+    var node_ref: Variant = (member as Dictionary).get("node_ref")
+    if not is_instance_valid(node_ref) or not (node_ref is Node):
+        return ""
+    var node: Node = node_ref as Node
+    var entity: Node = CampaignEncounterBridge.health_entity_from_character(node)
+    if entity == null or not (entity is CoreEntity):
+        return ""
+    var weapon_id: String = str(EncounterSpawner.weapon_id_from_entity(entity)).strip_edges()
+    var form: String = CombatWeaponForm.normalize_form(str(member.get("stance_preference", "")).strip_edges())
+    var weapon_val: float = EntityProficiency.weapon_proficiency_value(entity, weapon_id)
+    var form_val: float = EntityProficiency.form_proficiency_value(entity, form)
+    if weapon_val <= 0.0 and form_val <= 0.0:
+        return ""
+    var parts := []
+    if weapon_val > 0.0:
+        parts.append(
+            "%s %.0f/%.0f (%s)"
+            % [
+                str(CompanyGear.WEAPON_SHORT_NAMES.get(weapon_id, weapon_id)),
+                weapon_val,
+                EntityProficiency.WEAPON_PROF_VETERAN_MAX,
+                _proficiency_rank_from_value(weapon_val),
+            ]
+        )
+    if form_val > 0.0:
+        parts.append(
+            "%s %.0f/%.0f (%s)"
+            % [
+                CombatWeaponForm.display_name(form),
+                form_val,
+                EntityProficiency.FORM_PROF_VETERAN_MAX,
+                _proficiency_rank_from_value(form_val),
+            ]
+        )
+    var skill: float = EntityProficiency.melee_skill_for(entity, weapon_id, form)
+    parts.append("Combat skill %d" % int(roundf(skill)))
+    var rust: String = _proficiency_rust_note(entity, world)
+    if not rust.is_empty():
+        parts.append(rust)
+    return " | ".join(parts)
+
+
+## Tier name for a 0—20 weapon/form mastery value (veteran caps at the 20 max).
+static func _proficiency_rank_from_value(value: float) -> String:
+    if value <= float(EntityProficiency.PROFICIENCY_NOVICE_MAX):
+        return "Novice"
+    if value <= float(EntityProficiency.PROFICIENCY_PROFICIENT_MAX):
+        return "Proficient"
+    if value <= float(EntityProficiency.WEAPON_PROF_VETERAN_MAX):
+        return "Veteran"
+    return "Master"
+
+
+## Decay warning: fighter holds a trainable bonus (>10) and has gone N days without combat.
+static func _proficiency_rust_note(entity: Node, world: Node2D) -> String:
+    if world == null:
+        return ""
+    if not CompanyState.read_stub_proficiency_enabled():
+        return ""
+    if not "_proficiency_bonus" in entity:
+        return ""
+    var trainable: bool = false
+    var prof: Dictionary = entity._proficiency_bonus
+    for stat in EntityStatsUtil.PROFICIENCY_STATS:
+        if float(prof.get(stat, 0.0)) > 10.0:
+            trainable = true
+            break
+    # Weapon/form familiarity also rusts above the 10.0 foundational floor (same rule as stats), so a
+    # fighter whose only trained edge is blade mastery still deserves the rust warning.
+    if not trainable:
+        var wp: Dictionary = entity._weapon_proficiency if "_weapon_proficiency" in entity else {}
+        for v in wp.values():
+            if float(v) > 10.0:
+                trainable = true
+                break
+    if not trainable:
+        var fp: Dictionary = entity._form_proficiency if "_form_proficiency" in entity else {}
+        for v in fp.values():
+            if float(v) > 10.0:
+                trainable = true
+                break
+    if not trainable:
+        return ""
+    var last_fought: int = 0
+    if "last_fought_day" in entity:
+        last_fought = int(entity.last_fought_day)
+    elif "_last_fought_day" in entity:
+        last_fought = int(entity.get("_last_fought_day"))
+    if last_fought <= 0:
+        return ""
+    var inactive: int = CompanyState.get_day_index(world) - last_fought
+    if inactive < 1:
+        return ""
+    return "Rusting %dd — fight to hold gains" % inactive
+
+
+## XCamp-5f: career-arc line for a party member -- "Fame: N (TierLabel)". Returns "" while the
+## fighter is a Newcomer (fame 0) so a brand-new roster stays uncluttered; the tier label comes from
+## the single source of truth in CompanyState.
+static func format_fame_line(member: Dictionary) -> String:
+    if not CompanyState.read_stub_fighter_fame_enabled():
+        return ""
+    var node_ref: Variant = (member as Dictionary).get("node_ref")
+    if not is_instance_valid(node_ref) or not (node_ref is Node):
+        return ""
+    var entity: Node = CampaignEncounterBridge.health_entity_from_character(node_ref as Node)
+    if entity == null or not ("fame" in entity):
+        return ""
+    var fame: int = int(entity.fame)
+    if fame <= 0:
+        return ""
+    return "Fame: %d (%s)" % [fame, CompanyState.fame_tier_label(fame)]
 
 
 ## Highest-urgency living member from live party snapshots (or summary fallback rows).

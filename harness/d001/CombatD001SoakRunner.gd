@@ -36,7 +36,9 @@ static func run_all() -> Dictionary:
 	for preset_id in SoakEncounterPresets.D001_PRESET_RUN_ORDER:
 		_OpsLog.clear_capture()
 		seed(_ensure_preset_runner()._preset_seed(preset_id))
+		var t_preset: int = Time.get_ticks_msec()
 		var pr: Dictionary = _ensure_preset_runner()._run_preset(preset_id)
+		pr["duration_ms"] = Time.get_ticks_msec() - t_preset
 		preset_results[preset_id] = pr
 		for line in _OpsLog.get_captured_lines():
 			aggregate_lines.append(line)
@@ -45,38 +47,52 @@ static func run_all() -> Dictionary:
 	_OpsLog.clear_capture()
 	FallenPathsErrorLogger.reset_script_error_count()
 	seed(_ensure_preset_runner()._preset_seed("7v7"))
+	var t_7v7: int = Time.get_ticks_msec()
 	var pr7: Dictionary = _ensure_preset_runner()._run_7v7_brawl()
+	pr7["duration_ms"] = Time.get_ticks_msec() - t_7v7
 	preset_results["7v7"] = pr7
 	for line in _OpsLog.get_captured_lines():
 		aggregate_lines.append(line)
 	if not bool(pr7.get("ok", false)):
 		failures.append("7v7: %s" % str(pr7.get("summary", "failed")))
+	var t_ui: int = Time.get_ticks_msec()
 	var ui_pr: Dictionary = _ensure_preset_runner()._run_ii5c_gauge_label_checks()
+	ui_pr["duration_ms"] = Time.get_ticks_msec() - t_ui
 	preset_results["ii5c"] = ui_pr
 	if not bool(ui_pr.get("ok", false)):
 		failures.append("ii5c: %s" % str(ui_pr.get("summary", "failed")))
 	_OpsLog.clear_capture()
+	var t_ii5a: int = Time.get_ticks_msec()
 	var ii5a_pr: Dictionary = _ensure_preset_runner()._run_ii5a_formation_hint_checks()
+	ii5a_pr["duration_ms"] = Time.get_ticks_msec() - t_ii5a
 	preset_results["ii5a"] = ii5a_pr
 	if not bool(ii5a_pr.get("ok", false)):
 		failures.append("ii5a: %s" % str(ii5a_pr.get("summary", "failed")))
+	var t_ii5b: int = Time.get_ticks_msec()
 	var ii5b_pr: Dictionary = _ensure_preset_runner()._run_ii5b_log_policy_checks(aggregate_lines)
+	ii5b_pr["duration_ms"] = Time.get_ticks_msec() - t_ii5b
 	preset_results["ii5b"] = ii5b_pr
 	if not bool(ii5b_pr.get("ok", false)):
 		failures.append("ii5b: %s" % str(ii5b_pr.get("summary", "failed")))
+	var t_ii1e: int = Time.get_ticks_msec()
 	var ii1e_pr: Dictionary = _ensure_preset_runner()._run_ii1e_engagement_label_checks()
+	ii1e_pr["duration_ms"] = Time.get_ticks_msec() - t_ii1e
 	preset_results["ii1e"] = ii1e_pr
 	if not bool(ii1e_pr.get("ok", false)):
 		failures.append("ii1e: %s" % str(ii1e_pr.get("summary", "failed")))
 	_OpsLog.clear_capture()
+	var t_ii7: int = Time.get_ticks_msec()
 	var ii7_pr: Dictionary = _ensure_preset_runner()._run_ii7_medical_phase_smoke()
+	ii7_pr["duration_ms"] = Time.get_ticks_msec() - t_ii7
 	preset_results["ii7"] = ii7_pr
 	for line in _OpsLog.get_captured_lines():
 		aggregate_lines.append(line)
 	if not bool(ii7_pr.get("ok", false)):
 		failures.append("ii7: %s" % str(ii7_pr.get("summary", "failed")))
 	_OpsLog.clear_capture()
+	var t_fm: int = Time.get_ticks_msec()
 	var fm_pr: Dictionary = _ensure_preset_runner()._run_formation_move_f5_smoke()
+	fm_pr["duration_ms"] = Time.get_ticks_msec() - t_fm
 	preset_results["formation_move_f5"] = fm_pr
 	for line in _OpsLog.get_captured_lines():
 		aggregate_lines.append(line)

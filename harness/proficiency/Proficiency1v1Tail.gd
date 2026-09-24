@@ -17,7 +17,7 @@ static func get_proficiency_snapshot(entity: Node) -> Dictionary:
     if pb == null or typeof(pb) != TYPE_DICTIONARY:
         return {}
     var snapshot: Dictionary = {}
-    for stat in ["strength", "agility", "intelligence", "endurance", "perception"]:
+    for stat in EntityStatsUtil.PROFICIENCY_STATS:
         snapshot[stat] = float(pb.get(stat, 0))
     return snapshot
 
@@ -25,7 +25,7 @@ static func get_proficiency_snapshot(entity: Node) -> Dictionary:
 ## Diff between two proficiency snapshots. Returns {stat: delta}.
 static func get_gains_snapshot(before: Dictionary, after: Dictionary) -> Dictionary:
     var gains := {}
-    for stat in ["strength", "agility", "intelligence", "endurance", "perception"]:
+    for stat in EntityStatsUtil.PROFICIENCY_STATS:
         gains[stat] = after.get(stat, 0.0) - before.get(stat, 0.0)
     return gains
 
@@ -45,6 +45,7 @@ static func setup_1v1(
     var p_ent: Node = _new_entity(weapon_id)
     for stat in player_stats:
         p_ent.set(stat, int(player_stats[stat]))
+    p_ent._combat_skill_trained = true  # Party player -> proficiency tracked.
     mgr.register(p_ent, "player")
 
     var e_ent: Node = _new_entity(weapon_id)
@@ -73,6 +74,7 @@ static func setup_1v1_mixed_weapons(
     var p_ent: Node = _new_entity(player_weapon)
     for stat in player_stats:
         p_ent.set(stat, int(player_stats[stat]))
+    p_ent._combat_skill_trained = true  # Party player -> proficiency tracked.
     mgr.register(p_ent, "player")
 
     var e_ent: Node = _new_entity(enemy_weapon)
@@ -240,12 +242,12 @@ static func format_report(result: Dictionary) -> String:
     var egains: Dictionary = result.get("cumulative_enemy_gains", {})
 
     lines.append("Player cumulative gains:")
-    for stat in ["strength", "agility", "intelligence", "endurance", "perception"]:
+    for stat in EntityStatsUtil.PROFICIENCY_STATS:
         lines.append("  %s: +%.3f" % [stat, pgains.get(stat, 0.0)])
     lines.append("")
 
     lines.append("Enemy cumulative gains:")
-    for stat in ["strength", "agility", "intelligence", "endurance", "perception"]:
+    for stat in EntityStatsUtil.PROFICIENCY_STATS:
         lines.append("  %s: +%.3f" % [stat, egains.get(stat, 0.0)])
     lines.append("")
 
@@ -253,12 +255,12 @@ static func format_report(result: Dictionary) -> String:
     var efinal: Dictionary = result.get("enemy_final", {})
 
     lines.append("Player final bonuses:")
-    for stat in ["strength", "agility", "intelligence", "endurance", "perception"]:
+    for stat in EntityStatsUtil.PROFICIENCY_STATS:
         lines.append("  %s: %.3f" % [stat, pfinal.get(stat, 0.0)])
     lines.append("")
 
     lines.append("Enemy final bonuses:")
-    for stat in ["strength", "agility", "intelligence", "endurance", "perception"]:
+    for stat in EntityStatsUtil.PROFICIENCY_STATS:
         lines.append("  %s: %.3f" % [stat, efinal.get(stat, 0.0)])
 
     return "\n".join(lines)

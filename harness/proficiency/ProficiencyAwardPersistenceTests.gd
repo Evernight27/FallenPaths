@@ -3,7 +3,7 @@ extends CombatRegressionHarnessCore
 const _CombatRegressionHarness := preload("res://harness/regression/CombatRegressionHarness.gd")
 
 ## XCamp-4: use-based stat proficiency system tests.
-## All tests are gated by CompanyState.read_stub_proficiency_enabled() — stub is false by default.
+## All tests are gated by CompanyState.read_stub_proficiency_enabled() — proficiency_enabled defaults to true.
 
 
 ## Read _proficiency_bonus from a CoreEntity.
@@ -39,6 +39,7 @@ static func _setup_proficiency_combat(_failures: PackedStringArray) -> Dictionar
         return {}
     var mgr: Node = CombatManager.new()
     var p_ent: CoreEntity = _new_entity("SWORD")
+    p_ent._combat_skill_trained = true  # Party member -> proficiency tracked; enemy stays untracked.
     mgr.register(p_ent, "player")
     p_ent.strength = 120
     p_ent.agility = 100
@@ -167,6 +168,38 @@ static func _run_copy_core_stats_applies_bonuses_when_on(failures: PackedStringA
     if int(stats.get("endurance", -1)) != 106:
         _fail(
             failures, "stub_on_copy: endurance should be 106 (105+1), got %s" % str(stats.get("endurance"))
+        )
+    HarnessFixtures._free_harness_node(ent)
+
+
+## Fractional proficiency bonuses and the untrained penalty are preserved (not int-truncated) in the
+## combat stats dict, so combat progression matches the core EntityStatsUtil.get_effective_stat read
+## path. Without this, a fighter at +3.7 STR gained only +3 in combat but +3.7 everywhere else.
+static func _run_copy_core_stats_preserves_fractional_bonus(failures: PackedStringArray) -> void:
+    if not CompanyState.read_stub_proficiency_enabled():
+        return
+    var ent: CoreEntity = _new_entity("SWORD")
+    ent.strength = 100
+    ent._combat_skill_trained = true
+    ent._proficiency_bonus["strength"] = 3.7
+    var stats: Dictionary = {}
+    CombatantStatsSync._copy_core_stats(ent, stats)
+    var s: float = float(stats.get("strength", -1))
+    # bonus 3.7 (< 5.0 threshold) -> untrained penalty = (1 - 3.7/5)*5 = 1.3
+    # effective = 100 + 3.7 - 1.3 = 102.4  (int-truncation would give 100 + 3 - 1 = 102)
+    if absf(s - 102.4) > 0.001:
+        _fail(
+            failures,
+            "frac_copy: strength should be 102.4 (100+3.7-1.3), got %s" % str(stats.get("strength"))
+        )
+    # A bonus above the threshold has no penalty: 12.3 -> 112.3 (int-truncation would give 112).
+    ent._proficiency_bonus["strength"] = 12.3
+    CombatantStatsSync._copy_core_stats(ent, stats)
+    var s2: float = float(stats.get("strength", -1))
+    if absf(s2 - 112.3) > 0.001:
+        _fail(
+            failures,
+            "frac_copy: strength should be 112.3 (100+12.3), got %s" % str(stats.get("strength"))
         )
     HarnessFixtures._free_harness_node(ent)
 
@@ -756,10 +789,8 @@ static func _run_combat_hit_awards_proficiency_gains(failures: PackedStringArray
     ProficiencyAwardPersistenceTests._free_proficiency_combat(data)
 
 
-## Combat dodge awards proficiency gains when stub is on.
-
-
-## Combat dodge awards proficiency gains when stub is on.
+## Combat dodge awards the tracked attacker a STR wind-up gain; the untracked defender gains no AGI
+## (write-side gate: enemies stay at baseline).
 static func _run_combat_dodge_awards_proficiency_gains(failures: PackedStringArray) -> void:
     if not CompanyState.read_stub_proficiency_enabled():
         return  # Skip if stub is off.
@@ -769,7 +800,9 @@ static func _run_combat_dodge_awards_proficiency_gains(failures: PackedStringArr
         _fail(failures, "combat_dodge_gains: setup failed")
         return
 
+    var player_ent: Node = data.get("player_ent")
     var enemy_ent: Node = data.get("enemy_ent")
+    var enemy_agi_before: float = float(enemy_ent._proficiency_bonus.get("agility", 0))
 
     # Set up attack on player that will be dodged (low perception).
     var atk: Dictionary = CombatantEntityAccess.manager_get_combatant(data.get("mgr"), data.get("p_id"))
@@ -788,19 +821,26 @@ static func _run_combat_dodge_awards_proficiency_gains(failures: PackedStringArr
     AttackResultApplier.apply_result(data.get("mgr"), data.get("p_id"), result)
 
     if result.get("action", "") == "dodge":
-        var bonus_end: float = float(enemy_ent._proficiency_bonus.get("agility", 0))
-        if bonus_end < 0.1:
+        # Tracked attacker still accrues the wind-up STR gain even when the blow is evaded.
+        var bonus_str: float = float(player_ent._proficiency_bonus.get("strength", 0))
+        if bonus_str < 0.1:
             _fail(
-                failures, "combat_dodge_gains: defender AGI gain too low on dodge (got %.2f)" % bonus_end
+                failures, "combat_dodge_gains: tracked attacker STR gain too low on dodged strike (got %.2f)" % bonus_str
+            )
+        # Untracked defender must NOT accrue AGI — the write-side gate keeps enemies at baseline.
+        var bonus_agi: float = float(enemy_ent._proficiency_bonus.get("agility", 0))
+        if absf(bonus_agi - enemy_agi_before) > 0.001:
+            _fail(
+                failures,
+                "combat_dodge_gains: untracked defender should not gain AGI on dodge (before %.2f, got %.2f)"
+                % [enemy_agi_before, bonus_agi]
             )
 
     ProficiencyAwardPersistenceTests._free_proficiency_combat(data)
 
 
-## Medical action awards proficiency gains when stub is on.
-
-
-## Medical action awards proficiency gains when stub is on.
+## Medical action awards the tracked medic an INT gain; the untracked patient gains no END
+## (write-side gate: enemies stay at baseline).
 static func _run_medical_action_awards_proficiency_gains(failures: PackedStringArray) -> void:
     if not CompanyState.read_stub_proficiency_enabled():
         return  # Skip if stub is off.
@@ -845,9 +885,10 @@ static func _run_medical_action_awards_proficiency_gains(failures: PackedStringA
     if bonus_int < 0.3:
         _fail(failures, "medical_gains: INT gain too low (got %.2f)" % bonus_int)
 
+    # Untracked patient must NOT accrue END — the write-side gate keeps enemies at baseline.
     var bonus_end: float = float(enemy_ent._proficiency_bonus.get("endurance", 0))
-    if bonus_end < 0.1:
-        _fail(failures, "medical_gains: END gain on patient too low (got %.2f)" % bonus_end)
+    if bonus_end > 0.001:
+        _fail(failures, "medical_gains: untracked patient should not gain END (got %.2f)" % bonus_end)
 
     ProficiencyAwardPersistenceTests._free_proficiency_combat(data)
 

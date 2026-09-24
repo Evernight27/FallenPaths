@@ -168,6 +168,8 @@ Canonical status tables: [`LIVE_PATHS#phase-4--new-systems-formal-tracks`](LIVE_
 
 **Rule:** one §9c row per Expand PR + harness + optional `FEATURE_*`. No bleed/BMI / closed IV reopen without ask. WF-1…4 + MS-L5–L7 + most IV **shipped** — maintain.
 
+**Shipped campaign expand:** XCamp-4 gladiator roster (fighter names · recruit quality/cost · gear commerce · XCamp-4f armor buy-ladder · XCamp-4g historical item names · XCamp-4h armor condition display + durability persistence + repair · XCamp-4i wear degrades protection · XCamp-4j armor encumbrance · XCamp-4k/4l material-accurate wear (cut + cushion) · XCamp-4m wear fatigue · XCamp-4n layer-failure trace · XCamp-4o damage-type-accurate wear · XCamp-4p wear-path consistency · XCamp-4q breakthrough crush · XCamp-4r worn deflection · XCamp-4s non-linear deflection wear · XCamp-4t fatigue cliff (wear-rate cliff in the final 25% of a layer's life) · XCamp-4u mail-tier armor for head/arms/legs (mail coif / sleeves / chausses, 4-tier ladder on every part) · XCamp-4v armor consolidation (wear-aware RHA read · condition-scaled sell refund · dead-accessor removal) · **CAMP-INF-1 staged infection/sepsis** (localized→septic + entity-level systemic sepsis: stamina cap, sepsis death path, susceptibility from starvation/fatigue/concussion, source-control resolve + amputation cure, stage-1 dressing clear) · **CAMP-INF-2 infection complications** (gas gangrene §10.1: stage-1→2 arming on gangrene-prone wounds + faster progression + higher death risk; osteomyelitis §10.3: compound-fracture bone infection latches on localizing, halves bone-heal, residual festering dose while treated; tetanus §10.2: entity-level spore load from contaminated deep cut/stab, 3–21 day incubation (wound can heal first), delayed onset roll, 7-day symptomatic window with per-day death roll + perception tell; clean-at-arm onset reduction (TETANUS_ONSET_RISK_TREATED_MULT, a wound dressed/debrided when the spores were seeded germinates less often)) · **CAMP-SCAR-1 wound-derived scars** (mint on wound resolution via `resolved_wounds_this_advance` stash; catalog: scarred_tissue / malunited_bone / ischemic_contracture / post_sepsis_weakness / osteomyelitic_bone / amputated_limb; per-part damage/bleed/heal multipliers read in EntityDamage/EntityWounds/EntityHealing; part-specific §9.5 penalties — scarred leg → move_speed, scarred arm → grip, scarred head → perception, scarred chest → stamina_pool — read at the part-functionality seams; id+part merge deepens a re-wounded scar; §9.3 re-injury severity bump (`SCAR_REINJURY_MULT`, a wound on an already-scarred part lands one band worse via `EntityWounds.severity_from_damage`); amputation scar (a severed limb mints `amputated_limb`: chronic whole-body stamina cost + gait/grip adaptation penalty, idempotent per part); amputation-stump infection realism (a raw severed stump is auto-contaminated — seeding the tetanus spore load and taking the full infection-dose boost — and is a gas-gangrene candidate, the historical stump infection/gangrene/tetanus risk); a severed part skips per-wound remodeling so `amputated_limb` is its sole chronic record; a scarred part severs more easily (`SCAR_SEVERANCE_EASE_BONUS`, scar tissue shears at ~70-80% tensile strength); harness tail `CombatRegressionHarnessScarTail`; gate `read_stub_wound_scars_enabled`) — maintain; canonical APIs [`AGENTS_API`](AGENTS_API.md) · status [`LIVE_PATHS#phase-4`](LIVE_PATHS.md#phase-4--new-systems-formal-tracks) · plan [`plan_infection_scars.md`](plan_infection_scars.md).
+
 <a id="data-contracts"></a>
 
 ## 10. Data contracts
@@ -237,6 +239,7 @@ const MAP_BLEED_POLICY := "warn_eta"
 const MED_BATTLE_MODE := "hybrid"
 const SUPPLY_FACTOR_AT_ZERO_MED := 0.5
 const AFFLICTIONS_ENABLED := true
+const INFECTION_STAGING_ENABLED := true
 const BANKRUPT_MODE := "desertion"
 const PERSISTENCE_MODE := "P2"
 ```
@@ -273,6 +276,8 @@ Closed D-* gates: [user bundle](CAMPAIGN_DECISION_GUIDE.md#user-bundle-2026-05-2
 ```markdown
 - YYYY-MM-DD — D-* (Camp-x.y) → choice — rationale
 ```
+
+- 2026-09-21 — CAMP-INF-1 (Camp) → `INFECTION_STAGING_ENABLED` default `true` — staged infection (localized→septic) with entity-level sepsis, source control, and sepsis death path; plan [`plan_infection_scars.md`](plan_infection_scars.md). Reader `read_stub_infection_staging_enabled()`.
 
 Closed D-* lines are in the 2026-05-22 user bundle; append new gates only.
 

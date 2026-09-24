@@ -57,14 +57,26 @@ static func resolve(manager: Node, attacker_id: int, target_id: int, move_id: St
                 attacker_id,
                 {"outcome": "direct_pressure", "part": part, "dmg": 0, "died": false}
             )
-            # XCamp-4: proficiency gains for self-pressure during receiving care.
+            # XCamp-4: proficiency gains for self-pressure during receiving care. The performer and the
+            # patient are the same entity, so both the INT award and the patient's blood-peril END award
+            # (scaled by how badly they're bleeding, matching MedicalActionStarter / wind-up / batch /
+            # fast-forward) fire here.
             if CompanyState.read_stub_proficiency_enabled():
                 var perf_node := CombatantEntityAccess.get_entity_from_manager(manager, atk)
-                if perf_node != null and perf_node.has("_proficiency_bonus"):
+                if perf_node != null and "_proficiency_bonus" in perf_node and EntityProficiency.is_stat_gain_tracked(perf_node):
                     EntityProficiency.award_stat_gain(
                         perf_node,
                         "intelligence",
                         EntityProficiency.GAIN_MEDICAL_ACTION_BASE * EntityProficiency.GAIN_DIRECT_PRESSURE_INT_MULT
+                    )
+                    EntityProficiency.award_stat_gain(
+                        perf_node,
+                        "endurance",
+                        (
+                            EntityProficiency.GAIN_BLOOD_PERIL_BASE
+                            * EntityProficiency.GAIN_DIRECT_PRESSURE_PATIENT_END_MULT
+                            * EntityProficiency.blood_peril_end_factor(float(perf_node.blood_volume))
+                        )
                     )
             manager.emit_signal("turn_resolved", attacker_id)
             return true
@@ -84,6 +96,23 @@ static func resolve(manager: Node, attacker_id: int, target_id: int, move_id: St
     CombatPlayerTurnHints.clear_formation_listed_turn_hint_on_combatant(atk)
     if move_id == CombatConstants.MOVE_ID_WAIT:
         manager.skip_turn(attacker_id, CombatConstants.SKIP_TURN_LOG_WAIT, "explicit wait move")
+        return true
+    if move_id == CombatConstants.MOVE_ID_REGAIN_FOOTING and target_id == attacker_id:
+        if not PassiveParryContext.is_off_balance(atk):
+            CombatDebug.resolve_action_rejected(manager, attacker_id, move_id, "not off balance")
+            return false
+        var ob_until: float = atk.get(DataKeys.PA_OFF_BALANCE_UNTIL, -1.0)
+        var now: float = CombatTiming.now_seconds()
+        var remaining: float = maxf(0.0, ob_until - now)
+        # Re-root: halve the remaining off-balance window. total is left untouched, so the depth-based
+        # penalty also drops immediately (a deliberate re-root measurably reduces current imbalance).
+        atk[DataKeys.PA_OFF_BALANCE_UNTIL] = now + remaining * 0.5
+        CombatDebug.flow_log_event(
+            "regain_footing id=%d cut=%.2fs" % [attacker_id, remaining * 0.5],
+            "regain_footing:%d" % attacker_id
+        )
+        # Costs the fighter's turn like WAIT (skip_turn resets gauge + schedules re-ready).
+        manager.skip_turn(attacker_id, "regain_footing", "re-root off-balance")
         return true
     if move_id == CombatConstants.MOVE_ID_FLEE and target_id == attacker_id:
         if not _resolve_flee_legal(manager, atk):
@@ -432,6 +461,19 @@ static func _resolve_flee_legal(manager: Node, atk: Dictionary) -> bool:
 ## Resolve-time execute: wind-up-less kill on downed target (coup de grâce / mercy).
 static func _resolve_execute(manager: Node, attacker_id: int, target_id: int, atk: Dictionary, tgt: Dictionary) -> bool:
     if not CombatantEntityAccess.alive_bool(tgt):
+        return false
+    # HEMA realism: a staggered fighter's center of gravity is compromised, so the committed finishing
+    # strike can fumble. Fades with depth (a nearly-settled fighter finishes reliably); on fumble the turn
+    # is consumed but the target stays downed, so the attacker can re-attempt once settled.
+    var exec_fumble_chance: float = PassiveParryContext.off_balance_depth(atk) * CombatConstants.OFF_BALANCE_EXECUTE_FAIL_CHANCE_MAX
+    if exec_fumble_chance > 0.0 and randf() < exec_fumble_chance:
+        var fumble_who: String = CombatantEntityAccess.get_display_name(atk, attacker_id)
+        var fumble_tgt_name: String = CombatantEntityAccess.get_display_name(tgt, target_id)
+        if not OperationalLog.is_play_session_active():
+            CombatDebug.combat_session("%s fumbles the execute on %s (off-balance)" % [fumble_who, fumble_tgt_name])
+        # Consumes the turn like any committed action (skip_turn owns the action_resolved/turn_resolved
+        # signals + gauge reset + re-ready). The target stays downed, so the attacker re-attempts once settled.
+        manager.skip_turn(attacker_id, "execute_fumble", "off-balance fumbled the coup de grâce")
         return false
     var who: String = CombatantEntityAccess.get_display_name(atk, attacker_id)
     var tgt_name: String = CombatantEntityAccess.get_display_name(tgt, target_id)

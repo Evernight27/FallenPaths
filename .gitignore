@@ -29,6 +29,8 @@ docs/__pycache__/
 .medical_phase_harness_out.txt
 .f5_camp_smokes_batch.txt
 .batch_report.txt
+.regression_timing.txt
+.medical_subtest_timing.txt
 
 # CI / local lint venv
 .ci-venv/
@@ -40,6 +42,7 @@ phase0_raw_output*.txt
 phase0_baseline.txt
 phase0_regression.txt
 phase0_status.txt
+phase0_regress_rerun.txt
 regression_debug.txt
 _regression_direct.txt
 /harness_run_output.txt
@@ -48,6 +51,9 @@ _regression_direct.txt
 .f5_soak_in.txt
 .f5_soak_in.f5_backup.txt
 .f5_soak_validation.txt
+
+# F5 / gate scratch captures (.f5_full*, .f5_reg*, .f5_cs_out, .f5_phase0_wu2, ...)
+.f5_*
 
 # Local company / probe tee outputs (repo root)
 /.company_check*

@@ -65,6 +65,11 @@ const WINDUP_LEG_MIN: float = 0.2
 ## leg slows repositioning (duration ∝ 1/speed); the clamp caps the slowdown so a destroyed leg
 ## slows the unit rather than freezing it (total immobilization is handled by cowering).
 const MOVEMENT_LEG_FUNC_MIN: float = 0.25
+## Note: WINDUP_LEG_MIN (0.2) and MOVEMENT_LEG_FUNC_MIN (0.25) are deliberately different. They floor
+## *different physical quantities*: wind-up (0.2) is getting into the *strike posture* — a crippled
+## fighter can still settle into a guarded, weapon-ready stance, so the floor is lower. Formation
+## movement (0.25) is active *repositioning between slots*, which demands more functional legs, so
+## its floor is higher (a slower pace, not a freeze). Do not "normalize" these to one value.
 const RECOVERY_AFTER_MEDICAL_S: float = 0.5
 
 # Power and follow_through (0.5-1.0 each); ensures realistic KE distributions matching HEMA data.

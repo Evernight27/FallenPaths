@@ -78,6 +78,7 @@ static func on_day_tick(world: Node2D) -> void:
     if _get_state().read_stub_provisions_enabled():
         _apply_daily_provisions(world)
     _apply_roster_daily_fatigue(world)
+    _get_state().advance_school_scouts(world)
 
 
 ## Campaign weariness: each day of operations (marching, operating) adds a little fatigue to every member.

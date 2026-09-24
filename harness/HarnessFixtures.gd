@@ -42,7 +42,9 @@ static func get_cached_weapon_melee_range(weapon_id: String) -> float:
 static func get_cached_armor(piece_id: String) -> ArmorPiece:
     if not _cached_armor.has(piece_id):
         _cached_armor[piece_id] = ArmorPiece.create_from_definition(piece_id)
-    return _cached_armor[piece_id] as ArmorPiece
+    # Armor is stateful post-XCamp-4i (durability mutates on hit). Hand out a
+    # clone so one test's wear never leaks into another via the shared cache.
+    return (_cached_armor[piece_id] as ArmorPiece).clone()
 
 
 # -- Node lifecycle --------------------------------------------------------

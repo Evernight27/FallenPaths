@@ -1,0 +1,9 @@
+[gd_scene load_steps=3 format=3 uid="uid://gladiatorschoolx6"]
+
+[ext_resource type="Script" path="res://scenes/gladiator/gladiator.gd" id="1_root"]
+[ext_resource type="PackedScene" path="res://scenes/actors/player.tscn" id="2_player"]
+
+[node name="GladiatorSchool" type="Node2D"]
+script = ExtResource("1_root")
+
+[node name="Character" parent="." instance=ExtResource("2_player")]

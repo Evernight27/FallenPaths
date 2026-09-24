@@ -320,6 +320,14 @@ const DECOMPENSATION_BLOOD_THRESHOLD: float = 56.0  # blood volume % — below t
 ## decompensation threshold. Capped so a single bolus rarely fully restores (camp rest still
 ## governs full recovery).
 const FLUID_RESUSCITATION_DEFICIT_RESTORE_FRACTION: float = 0.4
+## A decompensated patient (blood_volume < DECOMPENSATION_BLOOD_THRESHOLD, ATLS Class III->IV) has a
+## dilated, leaky vascular compartment and responds poorly to a crystalloid bolus — the same bolus
+## restores far less effective circulating volume than in a compensated patient (classic teaching:
+## deep shock needs repeated boluses / blood products, not one push). Multiply the restore fraction
+## by this factor while decompensated so a single bolus rarely pulls a deep Class IV casualty back
+## above the threshold on its own. Mirrors the binary DECOMPENSATION_BLOOD_THRESHOLD tipping point
+## already used by the recovery-suppression path.
+const FLUID_RESUSCITATION_DECOMPENSATED_MULT: float = 0.5
 
 # --- Severity-dependent time-to-decompensation (ATLS Class I-IV progression) — clinical reference ---
 ## Clinically, the time from hemorrhage onset to compensatory collapse depends on bleeding rate and
@@ -567,6 +575,251 @@ const WOUND_INFECTION_ARTERIAL_MULT: float = 1.5
 const WOUND_INFECTION_TREATED_MULT: float = 0.15
 ## Infected wounds heal at this fraction of normal speed (systemic response + tissue damage).
 const WOUND_INFECTION_HEAL_SPEED_MULT: float = 0.5
+## Infected (stage >= 1) wounds bleed at this multiplier of the base rate — inflamed tissue is
+## hyperemic (increased blood flow) and more friable, so it bleeds more readily than clean tissue.
+## Applies per-injury in get_bleeding_rate_for_part, independent of hemostasis status.
+const WOUND_INFECTION_BLEED_MULT: float = 1.15
+
+# --- Staged infection / sepsis (CAMP-INF-1) ---
+# Stage 0 = clean, 1 = localized (what is_infected represents today), 2 = septic.
+# Entity-level: is_septic / sepsis_resolve_progress / _sepsis_dead (CoreEntity).
+
+## Per-day accrual for localized→septic progression on an untreated stage-1 wound.
+## 0.40/day ≈ 2.5 days untreated (SIRS→sepsis 24-72 h, wound_infection_data.md §2).
+const SEPSIS_LOCALIZED_TO_SEPTIC_PER_DAY: float = 0.40
+## Per-day death roll while septic and NOT source-controlled (pre-antibiotic 70-90%).
+const SEPSIS_DEATH_RISK_PER_DAY: float = 0.35
+## Per-day death roll while septic AND source-controlled (bacterial load reduced).
+const SEPSIS_DEATH_RISK_SOURCE_CONTROLLED: float = 0.12
+## Stamina cap multiplier for a septic member (systemic catabolism + CIP/CIM).
+const SEPSIS_STAMINA_MULT: float = 0.70
+## Heal-speed multiplier for a septic part (worse than stage-1 infected).
+const SEPSIS_HEAL_SPEED_MULT: float = 0.25
+## Additional track-(a) resolution duration multiplier for septic tissue (stacks on stage-1 extension).
+const SEPSIS_HEAL_DURATION_MULT: float = 1.50
+## Per-day sepsis resolve accrual while source-controlled; at 1.0 → is_septic = false.
+const SEPSIS_RESOLVE_PER_DAY_TREATED: float = 0.25
+## Sepsis confusion (playable systemic tell).
+const SEPSIS_COMBAT_PERCEPTION_MULT: float = 0.80
+## Sepsis tachycardia/shock: higher stamina drain per action while septic.
+const SEPSIS_COMBAT_STAMINA_DRAIN_MULT: float = 1.30
+## Stage-1 localized infection pain multiplier (cellulitis: warmth, swelling, pain).
+const INFECTION_LOCALIZED_PAIN_MULT: float = 1.10
+
+## Track-(a) resolution duration extension at stage-0→1 flip (one-way; recompute on clear).
+const INFECTION_HEAL_DURATION_MULT: float = 1.75
+
+## Susceptibility multipliers (multiply the per-day infection dose, capped by INFECTION_DAILY_DOSE_CAP).
+const INFECTION_RISK_STARVATION_MULT: float = 1.5  # lerp 1.0 (well-fed) → 1.5 (starving) on nutrition_level
+const INFECTION_RISK_FATIGUE_MAX_MULT: float = 1.25  # lerp 1.0 → 1.25 on campaign_fatigue
+const INFECTION_RISK_CONCUSSION_MULT: float = 1.2  # applied while acute concussion phase active
+const INFECTION_DAILY_DOSE_CAP: float = 0.90  # after all multipliers; worst-case needs ~2 days to infect
+
+## Contamination (dirty/debrised/foreign-body) — auto-flagged by penetration depth.
+const WOUND_INFECTION_CONTAMINATED_MULT: float = 1.75
+const CONTAMINATION_PENETRATION_MM: float = 5.0  # = PENETRATION_DEPTH_SEVERITY_FULL_MM
+
+## Golden-period realism: wound-infection risk is front-loaded in a wound's life — highest while the
+## wound is freshly open (first ~24-72h of clinical onset) and decaying as the wound begins to close.
+## The per-day infection dose is scaled by infection_freshness_factor(wound_age_days): 1.0 when fresh,
+## lerp'ing down to WOUND_INFECTION_FRESHNESS_FLOOR once the wound has aged INFECTION_FRESH_WINDOW_DAYS.
+## A fresh wound (age 0) is unaffected, so the calibrated per-day base rates and the "starving member
+## infects faster" criterion are preserved; only an aging (closing) wound's residual risk is trimmed.
+const INFECTION_FRESH_WINDOW_DAYS: float = 5.0
+const WOUND_INFECTION_FRESHNESS_FLOOR: float = 0.5
+
+
+static func infection_freshness_factor(age_days: float) -> float:
+    return lerpf(1.0, WOUND_INFECTION_FRESHNESS_FLOOR, clampf(age_days / INFECTION_FRESH_WINDOW_DAYS, 0.0, 1.0))
+
+
+## Gas gangrene (Phase A+; gated on is_gas_gangrene wound flag, armed at the stage-1->2 flip).
+const GAS_GANGRENE_PROGRESS_MULT: float = 2.0
+const GAS_GANGRENE_DEATH_RISK_PER_DAY: float = 0.50
+const GAS_GANGRENE_CANDIDATE_BASE_RISK: float = 0.50
+## Cut/stab wounds deeper than this (mm) are deep/penetrating enough to host clostridial growth.
+const GAS_GANGRENE_DEEP_PENETRATION_MM: float = 5.0  # = PENETRATION_DEPTH_SEVERITY_FULL_MM
+
+## Tetanus (Phase A+): delayed spore-borne hazard (plan §10.2). A contaminated deep cut/stab
+## seeds a single entity-level spore load; the wound can heal before the member manifests.
+const TETANUS_INCUBATION_MIN_DAYS: float = 3.0
+const TETANUS_INCUBATION_MAX_DAYS: float = 21.0
+const TETANUS_ONSET_RISK: float = 0.30
+const TETANUS_SYMPTOMATIC_DAYS: float = 7.0
+const TETANUS_DEATH_RISK_PER_DAY: float = 0.12
+const TETANUS_PERCEPTION_MULT: float = 0.85
+## A contaminated wound that is cleanly dressed / debrided (definitive hemostasis) at the moment the
+## spore load is seeded has roughly half the onset probability — debridement removes spores before
+## they germinate (plan §10.2 counter-play). Multiplies TETANUS_ONSET_RISK when tetanus_cleaned_at_arm.
+const TETANUS_ONSET_RISK_TREATED_MULT: float = 0.50
+## Draw a fresh tetanus incubation period (days) in [MIN, MAX] using the global RNG (the same
+## source as the rest of the day-scale code). Called once per seeded spore load.
+static func tetanus_arm_days() -> float:
+    return lerp(TETANUS_INCUBATION_MIN_DAYS, TETANUS_INCUBATION_MAX_DAYS, randf())
+
+## Osteomyelitis (Phase A+): chronic bone infection from an infected compound fracture.
+## While the flag is present the part's bone-heal rate is multiplied by this (halves closure).
+const OSTEOMYELITIS_BONE_HEAL_MULT: float = 0.50
+## A sequestered bone nidus is not cleared by surface dressing: an osteomyelitic, source-controlled
+## wound keeps a small festering daily dose (driving toward systemic) instead of fully stalling.
+## ~25% of SEPSIS_LOCALIZED_TO_SEPTIC_PER_DAY — chronic, not acute.
+const OSTEOMYELITIS_RESIDUAL_DAILY_DOSE: float = 0.10
+
+## Stage-1 dressing clear probability (base; INT-scaled upward, repeatable per day).
+const INFECTION_DRESSING_CLEAR_STAGE1: float = 0.40
+
+# --- Wound-derived scars (CAMP-SCAR-1) ---
+## A wound landing on an already-scarred part starts one severity band higher / +15% severity score.
+## Read in EntityWounds.severity_from_damage to make the stored `part` matter on re-injury.
+const SCAR_REINJURY_MULT: float = 1.15
+## A second severe wound on an already-scarred part deepens the existing scar instead of no-op-ing:
+## the existing damage_mult is multiplied by this on the id+part merge.
+const SCAR_DEEPEN_MULT: float = 1.05
+## Scarred tissue holds ~70-80% of normal tensile strength and shears more readily, so a part
+## carrying a wound-derived scar severs more easily than healthy tissue. Added to the severance
+## ease factor in EntityDamage.get_severance_ease_factor (capped at SEVERANCE_EASE_MAX there).
+## Same research anchor as SCAR_REINJURY_MULT (Wikipedia:Scar — mechanical stress / lost elasticity).
+const SCAR_SEVERANCE_EASE_BONUS: float = 0.10
+
+# --- Wound escalation & hemostasis tuning (CAMP-INF-1 / Phase A+) ---
+## Two or more fractures in the same limb escalate each to a compound fracture (exposed bone).
+const COMPOUND_FRACTURE_THRESHOLD: int = 2
+## Compound fractures bleed 2.5x the base rate — exposed bone, torn periosteum.
+const COMPOUND_FRACTURE_BLEED_MULT: float = 2.5
+## Compound fractures lower the pain-shock threshold by 30% (exposed bone is more sensitive).
+const COMPOUND_FRACTURE_PAIN_THRESHOLD_MULT: float = 0.7
+## Stump bleeding anatomical variance: ±8% around baseline (conservative vs clinical 15–20%).
+const STUMP_BLEED_VARIATION_MIN: float = 0.92
+const STUMP_BLEED_VARIATION_SPAN: float = 0.16
+## Active combat/exertion impairs clotting (movement, adrenaline, trauma reopen clots).
+const EXERTION_CLOTTING_MULT: float = 0.6
+## Active combat increases blood loss rate (heart rate, wound reopening from movement).
+const EXERTION_BLOOD_LOSS_MULT: float = 1.5
+## Pain shock (sympathetic surge) impairs coagulation beyond exertion alone.
+const PAIN_SHOCK_CLOTTING_MULT: float = 0.75
+## Endurance modifier on clotting: END/divisor lerp'd into [min, max] (higher END -> faster clotting).
+const ENDURANCE_CLOTTING_MIN: float = 0.9
+const ENDURANCE_CLOTTING_MAX: float = 1.1
+const ENDURANCE_CLOTTING_DIVISOR: float = 1000.0
+## Below the decompensation threshold, endogenous blood recovery is suppressed to ~5% (near-zero).
+const DECOMPENSATED_RECOVERY_SUPPRESSION: float = 0.05
+## Part intervention threat score weights (triage ordering).
+const THREAT_BLEED_RATE_WEIGHT: float = 3.5
+const THREAT_ARTERIAL_BONUS: float = 2.25
+const THREAT_STUMP_BONUS: float = 4.5
+const THREAT_SEVERITY_CRITICAL_BONUS: float = 1.6
+const THREAT_SEVERITY_SEVERE_BONUS: float = 0.85
+const THREAT_TOURNIQUET_BONUS: float = 1.15
+
+
+## True when a wound is auto-contaminated by depth (cut/stab penetrating to the "full" band).
+## A traumatic amputation stump is a raw, devitalized, open wound (unknown depth) and is always
+## treated as contaminated: it seeds the tetanus spore load (plan §10.2) and takes the full
+## WOUND_INFECTION_CONTAMINATED_MULT infection-dose boost — the historical stump-infection risk.
+static func is_wound_contaminated(injury: Dictionary) -> bool:
+    if bool(injury.get("is_stump", false)):
+        return true
+    # Debridement (plan §10.2 counter-play): a wound cleaned of devitalized tissue + debris by a
+    # successful dressing is no longer contaminated — the depth-qualified contamination is removed,
+    # so the WOUND_INFECTION_CONTAMINATED_MULT dose boost stops. A stump is excluded above (a raw
+    # amputation surface stays the historical infection/tetanus risk even once cleaned).
+    if bool(injury.get("debrided", false)):
+        return false
+    var itype: String = str(injury.get("injury_type", ""))
+    if itype != INJURY_TYPE_CUT and itype != INJURY_TYPE_STAB:
+        return false
+    var pen: float = float(injury.get("penetration_to_tissue_mm", -1.0))
+    return pen >= CONTAMINATION_PENETRATION_MM
+
+
+## True when a wound has an open entry portal that can seed infection. Sepsis needs a tract: a closed
+## contusion (bruise) and a clean (non-compound) fracture have no portal for colonization — the tissue
+## is intact or the damage is internally contained — so their per-day infection dose must be zero.
+## compound_fracture is open (exposed bone); cut/stab/crush breach tissue; internal_bleed keeps the
+## pass-4 boundary. This mirrors the open-wound gate the scar mint uses (CAMP-SCAR-1 §2.3): a closed
+## injury neither gets infected nor remodels into scar tissue. Legacy descriptors ("" — pre-stash-era
+## saves) keep the old dose rule.
+static func injury_has_open_entry(injury: Dictionary) -> bool:
+    if bool(injury.get("is_stump", false)):
+        return true
+    if bool(injury.get("is_compound_fracture", false)):
+        return true
+    var itype: String = str(injury.get("injury_type", ""))
+    return itype.is_empty() or (itype != INJURY_TYPE_BRUISE and itype != INJURY_TYPE_FRACTURE)
+
+
+## Combined susceptibility multiplier (starvation × fatigue × concussion).
+## entity must have: nutrition_level, campaign_fatigue; concussion via EntityPainConsciousness.
+static func infection_susceptibility_mult(entity: Node) -> float:
+    var mult: float = 1.0
+    # Starvation: lerp 1.5 (starving) -> 1.0 (well-fed). nutrition_level is a CoreEntity property (default 1.0).
+    var nutrition: float = 1.0
+    if "nutrition_level" in entity:
+        nutrition = clampf(float(entity.get("nutrition_level")), 0.0, 1.0)
+    mult *= lerp(INFECTION_RISK_STARVATION_MULT, 1.0, nutrition)
+    # Fatigue: lerp 1.0 -> 1.25. campaign_fatigue is a CoreEntity property (default 0.0).
+    var fatigue: float = 0.0
+    if "campaign_fatigue" in entity:
+        fatigue = clampf(float(entity.get("campaign_fatigue")), 0.0, 1.0)
+    mult *= lerp(1.0, INFECTION_RISK_FATIGUE_MAX_MULT, fatigue)
+    # Concussion: acute phase (critical or acute)
+    var conc_info: Dictionary = EntityPainConsciousness.get_concussion_phase_info(entity)
+    var phase: int = int(conc_info.get("phase", 0))
+    if phase == PainConsciousnessConstants.CONCUSSION_PHASE_CRITICAL or phase == PainConsciousnessConstants.CONCUSSION_PHASE_ACUTE:
+        mult *= INFECTION_RISK_CONCUSSION_MULT
+    return mult
+
+
+## Full per-day infection dose for one wound (base × contamination × susceptibility), capped.
+## Replaces the direct `per_day * risk` pattern in EntityHealing when staging is enabled.
+static func wound_infection_daily_dose(entity: Node, injury: Dictionary, treated: bool) -> float:
+    var base: float = wound_infection_daily_risk(injury, treated)
+    if is_wound_contaminated(injury):
+        base *= WOUND_INFECTION_CONTAMINATED_MULT
+    base *= infection_susceptibility_mult(entity)
+    return minf(base, INFECTION_DAILY_DOSE_CAP)
+
+
+## True when a stage-1 (localized) wound is a gas-gangrene candidate (clostridial myonecrosis: anaerobic,
+## deep / devitalized / low-perfusion tissue). Crush and compound-fracture wounds are prime substrates
+## (devitalized muscle / exposed bone); a raw amputation stump qualifies outright (devitalized + open,
+## the historical leading cause of amputation mortality); deep penetrating cut/stab wounds qualify by
+## depth; a part currently under a tourniquet (low perfusion) also qualifies. (plan §10.1)
+static func is_gangrene_candidate(entity: Node, part: String, injury: Dictionary) -> bool:
+    var itype: String = str(injury.get("injury_type", ""))
+    if itype == INJURY_TYPE_CRUSH or itype == INJURY_TYPE_COMPOUND_FRACTURE:
+        return true
+    # A raw amputation stump is devitalized, crushed, open tissue — a prime clostridial substrate even
+    # though its depth is unknown. Historically the leading cause of amputation mortality (plan §10.1).
+    if bool(injury.get("is_stump", false)):
+        return true
+    if itype == INJURY_TYPE_CUT or itype == INJURY_TYPE_STAB:
+        var pen: float = float(injury.get("penetration_to_tissue_mm", -1.0))
+        if pen >= GAS_GANGRENE_DEEP_PENETRATION_MM:
+            return true
+    if entity != null and entity.tourniquet_applied.has(part):
+        return true
+    return false
+
+
+## Per-stage-2 gas-gangrene arming roll: base risk scaled up by severity (worse wounds gangrene more).
+## Never a certainty — returns a probability in (0, 1]. (plan §10.1: "a roll scaled by severity, not a certainty")
+static func gangrene_candidate_roll(injury: Dictionary) -> float:
+    var sev: String = str(injury.get(DataKeys.INJURY_SEVERITY, SEVERITY_MODERATE))
+    var scale: float
+    match sev:
+        SEVERITY_MINOR:
+            scale = 0.5
+        SEVERITY_MODERATE:
+            scale = 0.75
+        SEVERITY_SEVERE:
+            scale = 1.0
+        SEVERITY_CRITICAL:
+            scale = 1.25
+        _:
+            scale = 0.75
+    return clampf(GAS_GANGRENE_CANDIDATE_BASE_RISK * scale, 0.0, 1.0)
+
 
 # --- Active bleeding slows tissue/bone repair ---
 ## Hemorrhage diverts repair resources and impairs local perfusion (hypovolemia): the faster a part bleeds,

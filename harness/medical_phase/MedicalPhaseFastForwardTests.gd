@@ -28,7 +28,7 @@ static func _run_fast_forward_idle_unsticks_waiting_triage(failures: PackedStrin
     var clock_before: float = float(mgr.combat_clock)
     var parts_before: int = MedicalPhaseController.winner_side_untreated_part_count(mgr)
     seed(88206)
-    MedicalPhaseController.instant_complete_on_early_exit(mgr)
+    MedicalPhaseController.instant_complete_on_early_exit(mgr, 15.0)
     seed(_HARNESS_RESTORE_GLOBAL_SEED)
     var clock_after: float = float(mgr.combat_clock)
     var parts_after: int = MedicalPhaseController.winner_side_untreated_part_count(mgr)
@@ -71,7 +71,7 @@ static func _run_fast_forward_stalled_picks_advance_clock(failures: PackedString
         c["gauge"] = 100.0
     var clock_before: float = float(mgr.combat_clock)
     seed(88207)
-    MedicalPhaseController.instant_complete_on_early_exit(mgr)
+    MedicalPhaseController.instant_complete_on_early_exit(mgr, 15.0)
     seed(_HARNESS_RESTORE_GLOBAL_SEED)
     if MedicalPhaseController.medical_fast_forward_active(mgr):
         _fail(failures, "fast_forward_stalled_picks: fast-forward meta should clear after exit")
@@ -323,7 +323,7 @@ static func _run_fast_forward_time_slice_completes_medical_windup(failures: Pack
         HarnessFixtures._free_manager(mgr)
         return
     MedicalActionStarter.start(mgr, healer_id, ally_id, CombatConstants.MOVE_ID_BANDAGE_SELF, "chest")
-    var sim_state: Dictionary = MedicalPhaseController.fast_forward_prepare(mgr, -1.0)
+    var sim_state: Dictionary = MedicalPhaseController.fast_forward_prepare(mgr, 5.0)
     if sim_state.is_empty():
         _fail(failures, "fast_forward_time_slice: prepare should start")
         HarnessFixtures._free_manager(mgr)

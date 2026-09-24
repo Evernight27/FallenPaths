@@ -203,7 +203,7 @@ func show_party(world: Node2D, members: Array) -> void:
                 var care_btns := _build_field_care_buttons(_world, w)
                 if care_btns.get_child_count() > 0:
                     var name_lbl := Label.new()
-                    name_lbl.text = str(w.get("name", "Brother"))
+                    name_lbl.text = _member_display_name(w, "Brother")
                     name_lbl.add_theme_font_size_override("font_size", 12)
                     name_lbl.add_theme_color_override("font_color", Color(0.85, 0.9, 0.95))
                     repair_section.add_child(name_lbl)
@@ -220,11 +220,11 @@ func show_party(world: Node2D, members: Array) -> void:
         var v = VBoxContainer.new()
         var name_lbl = Label.new()
         if triage_row:
-            name_lbl.text = str(m.get("name", "Unknown")) + PartyRowFormatter.format_party_role_suffix(m)
+            name_lbl.text = _member_display_name(m) + PartyRowFormatter.format_party_role_suffix(m)
             name_lbl.add_theme_font_size_override("font_size", 15)
         else:
             name_lbl.text = (
-                str(m.get("name", "Unknown"))
+                _member_display_name(m)
                 + PartyRowFormatter.format_party_role_suffix(m)
                 + "  STR:"
                 + str(m.get("strength", CombatConstants.DEFAULT_STAT_VALUE))
@@ -285,11 +285,29 @@ func show_party(world: Node2D, members: Array) -> void:
             var form_pref: String = str(m.get("stance_preference", "")).strip_edges()
             if not form_pref.is_empty():
                 _append_weapon_form_specialty(v, CombatWeaponForm.normalize_form(form_pref))
-            var armor_summary: Array = m.get("armor_summary", [])
-            if armor_summary.size() > 0:
-                var armor_lbl = Label.new()
-                armor_lbl.text = "Armor: " + ", ".join(armor_summary)
-                v.add_child(armor_lbl)
+            # XCamp-4h: armor summary now shows per-piece condition and is colored by the
+            # worst worn piece, read from the live entity (stale name lists aside).
+            var armor_node: Node = m.get("node_ref")
+            if armor_node != null and is_instance_valid(armor_node):
+                var cond_map: Dictionary = CompanyGear.equipped_armor_condition_map(armor_node)
+                if not cond_map.is_empty():
+                    var armor_bits: PackedStringArray = PackedStringArray()
+                    var worst_cond: float = 100.0
+                    for part in CompanyGear.ARMOR_PART_SALE_ORDER:
+                        if not cond_map.has(part):
+                            continue
+                        var entry: Dictionary = cond_map.get(part, {})
+                        var cond_val: float = float(entry.get("condition", 100.0))
+                        armor_bits.append("%s %d%%" % [str(entry.get("name", "")), roundi(cond_val)])
+                        if cond_val < worst_cond:
+                            worst_cond = cond_val
+                    var armor_lbl = Label.new()
+                    armor_lbl.text = "Armor: " + ", ".join(armor_bits)
+                    if worst_cond < 40.0:
+                        armor_lbl.add_theme_color_override("font_color", Color(0.95, 0.5, 0.4))
+                    elif worst_cond < 70.0:
+                        armor_lbl.add_theme_color_override("font_color", Color(0.95, 0.8, 0.45))
+                    v.add_child(armor_lbl)
             var bc: Dictionary = CombatantEntityAccess.nested_dictionary_read(m, "body_cutting")
             var bb: Dictionary = CombatantEntityAccess.nested_dictionary_read(m, "body_blunt")
             var bm: Dictionary = CombatantEntityAccess.nested_dictionary_read(m, "body_max")
@@ -341,6 +359,20 @@ func show_party(world: Node2D, members: Array) -> void:
             PartyRowFormatter.configure_wrapped_label(prof_lbl)
             prof_lbl.add_theme_color_override("font_color", Color(0.55, 0.85, 0.55))
             v.add_child(prof_lbl)
+        var mastery_line: String = PartyRowFormatter.format_proficiency_mastery_line(m, _world)
+        if not mastery_line.is_empty():
+            var mastery_lbl := Label.new()
+            mastery_lbl.text = mastery_line
+            PartyRowFormatter.configure_wrapped_label(mastery_lbl)
+            mastery_lbl.add_theme_color_override("font_color", Color(0.6, 0.8, 0.9))
+            v.add_child(mastery_lbl)
+        var fame_line: String = PartyRowFormatter.format_fame_line(m)
+        if not fame_line.is_empty():
+            var fame_lbl := Label.new()
+            fame_lbl.text = fame_line
+            PartyRowFormatter.configure_wrapped_label(fame_lbl)
+            fame_lbl.add_theme_color_override("font_color", Color(0.95, 0.78, 0.45))
+            v.add_child(fame_lbl)
         if m.has("company_mood"):
             var mood_val: float = float(m.get("company_mood", CampaignTypes.MOOD_DEFAULT))
             var mood_lbl = Label.new()
@@ -437,10 +469,17 @@ func show_party(world: Node2D, members: Array) -> void:
         )
 
 
+static func _member_display_name(m: Dictionary, fallback: String = "Unknown") -> String:
+    var dn: String = str(m.get("display_name", "")).strip_edges()
+    if not dn.is_empty():
+        return dn
+    return str(m.get("name", fallback))
+
+
 func _append_compact_member_row(parent: VBoxContainer, m: Dictionary) -> void:
     var row := HBoxContainer.new()
     var name_lbl := Label.new()
-    name_lbl.text = "%s%s â€” OK" % [str(m.get("name", "Unknown")), PartyRowFormatter.format_party_role_suffix(m)]
+    name_lbl.text = "%s%s â€” OK" % [_member_display_name(m), PartyRowFormatter.format_party_role_suffix(m)]
     name_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
     PartyRowFormatter.configure_wrapped_label(name_lbl)
     row.add_child(name_lbl)
@@ -617,12 +656,15 @@ func _append_train_row(v: VBoxContainer, node_ref: Node) -> void:
     hdr.add_theme_font_size_override("font_size", 11)
     hdr.add_theme_color_override("font_color", Color(0.6, 0.8, 0.9))
     box.add_child(hdr)
+    var entity: Node = CampaignEncounterBridge.health_entity_from_character(node_ref)
+    var tp: Dictionary = {}
+    if entity != null and entity.has_method("_get_training_pending"):
+        tp = entity._get_training_pending()
     for stat in CompanyCamp.TRAIN_STATS:
-        var tp: Dictionary = node_ref.get("training_pending")
         var pending: int = int(tp.get(stat, 0.0))
         var btn := Button.new()
         btn.text = _stat_short(stat) + (" +%d" % pending if pending > 0 else "")
-        btn.tooltip_text = ("Drill %s: +1 proficiency at next camp rest (%dg)." % [stat, CompanyEconomy.TRAIN_GOLD_COST]) + (" %d pending." % pending if pending > 0 else "")
+        btn.tooltip_text = ("Drill %s: +1 base proficiency at next camp rest (%dg). Gains shrink at higher proficiency (diminishing returns)." % [stat, CompanyEconomy.TRAIN_GOLD_COST]) + (" %d pending." % pending if pending > 0 else "")
         var enabled: bool = CompanyState.can_train_stat(_world, node_ref, stat)
         btn.disabled = not enabled
         var bound_stat: String = stat
@@ -641,13 +683,42 @@ func _on_buy_weapon_pressed(node_ref: Node, weapon_id: String) -> void:
         OperationalLog.play_world("Buy weapon blocked -- %s %s." % [str(node_ref.name), weapon_id])
 
 
-func _on_buy_armor_pressed(node_ref: Node, part: String) -> void:
+func _on_buy_armor_pressed(node_ref: Node, part: String, piece_id: String) -> void:
     if _world == null:
         return
-    if CompanyState.buy_armor(_world, node_ref, part):
+    if CompanyState.buy_armor(_world, node_ref, part, piece_id):
         _refresh_party_view()
     elif OperationalLog.is_play_session_active():
-        OperationalLog.play_world("Buy armor blocked -- %s %s." % [str(node_ref.name), part])
+        OperationalLog.play_world("Buy armor blocked -- %s %s %s." % [str(node_ref.name), part, piece_id])
+
+
+func _on_repair_armor_pressed(node_ref: Node) -> void:
+    if _world == null:
+        return
+    if CompanyState.repair_armor(_world, node_ref):
+        _refresh_party_view()
+    elif OperationalLog.is_play_session_active():
+        OperationalLog.play_world("Repair armor blocked -- %s." % str(node_ref.name))
+
+
+func _on_sell_weapon_pressed(node_ref: Node) -> void:
+    if _world == null:
+        return
+    var value: int = CompanyState.sell_equipped_weapon(_world, node_ref)
+    if value > 0:
+        _refresh_party_view()
+    elif OperationalLog.is_play_session_active():
+        OperationalLog.play_world("Sell weapon blocked -- %s (nothing to sell)." % str(node_ref.name))
+
+
+func _on_sell_armor_pressed(node_ref: Node, part: String) -> void:
+    if _world == null:
+        return
+    var value: int = CompanyState.sell_equipped_armor(_world, node_ref, part)
+    if value > 0:
+        _refresh_party_view()
+    elif OperationalLog.is_play_session_active():
+        OperationalLog.play_world("Sell armor blocked -- %s %s (nothing to sell)." % [str(node_ref.name), part])
 
 
 ## Append the per-member gear buttons (buy weapon + best armor per body part).
@@ -673,8 +744,18 @@ func _append_gear_row(v: VBoxContainer, m: Dictionary, node_ref: Node) -> void:
         var bound_ref: Node = node_ref
         btn.pressed.connect(func() -> void: _on_buy_weapon_pressed(bound_ref, bound_wid))
         weapon_box.add_child(btn)
+    var held_wid: String = CompanyGear.equipped_weapon_id(node_ref)
+    if not held_wid.is_empty():
+        var sell_w_btn := Button.new()
+        var sell_w_label: String = str(CompanyGear.WEAPON_SHORT_NAMES.get(held_wid, held_wid))
+        var sell_w_val: int = CompanyGear.sell_value_for_weapon(held_wid)
+        sell_w_btn.text = "Sell %s +%dg" % [sell_w_label, sell_w_val]
+        sell_w_btn.tooltip_text = "Unequip and sell your %s for +%dg." % [sell_w_label, sell_w_val]
+        var bound_w_ref: Node = node_ref
+        sell_w_btn.pressed.connect(func() -> void: _on_sell_weapon_pressed(bound_w_ref))
+        weapon_box.add_child(sell_w_btn)
     v.add_child(weapon_box)
-    var armor_box := HBoxContainer.new()
+    var armor_box := VBoxContainer.new()
     armor_box.add_theme_constant_override("separation", 4)
     var a_hdr := Label.new()
     a_hdr.text = "Armor:"
@@ -682,20 +763,72 @@ func _append_gear_row(v: VBoxContainer, m: Dictionary, node_ref: Node) -> void:
     a_hdr.add_theme_color_override("font_color", Color(0.6, 0.8, 0.9))
     armor_box.add_child(a_hdr)
     for part in CompanyGear.ARMOR_PART_SALE_ORDER:
-        var piece_id: String = CompanyGear.best_armor_for_part(part)
-        var label: String = str(CompanyGear.PART_LABELS.get(part, part))
-        var price: int = CompanyGear.armor_price_for_part(part)
-        var best_name: String = str(CompanyGear.BEST_ARMOR_DISPLAY.get(piece_id, piece_id))
-        var equipped: bool = CompanyGear.is_best_armor_equipped(node_ref, part)
-        var btn := Button.new()
-        btn.text = label + (" \u2713" if equipped else "")
-        btn.tooltip_text = ("Buy %s for %s (%dg)" % [best_name, label, price]) + (" -- already equipped." if equipped else ".")
-        btn.disabled = not CompanyState.can_buy_armor(_world, node_ref, part)
-        var bound_part: String = part
-        var bound_ref2: Node = node_ref
-        btn.pressed.connect(func() -> void: _on_buy_armor_pressed(bound_ref2, bound_part))
-        armor_box.add_child(btn)
+        var tiers: Array = CompanyGear.armor_tiers_for_part(part)
+        if tiers.is_empty():
+            continue
+        var part_row := HBoxContainer.new()
+        part_row.add_theme_constant_override("separation", 4)
+        var part_label: String = str(CompanyGear.PART_LABELS.get(part, part))
+        var pl := Label.new()
+        pl.text = part_label + ":"
+        pl.add_theme_font_size_override("font_size", 11)
+        pl.add_theme_color_override("font_color", Color(0.7, 0.85, 0.9))
+        part_row.add_child(pl)
+        for tier in tiers:
+            var piece_id: String = str(tier)
+            var name: String = CompanyGear.armor_display_name(piece_id)
+            var price: int = CompanyGear.armor_price(piece_id)
+            var equipped: bool = CompanyGear.is_armor_equipped(node_ref, part, piece_id)
+            var btn := Button.new()
+            btn.text = name + (" \u2713" if equipped else "")
+            btn.tooltip_text = ("Buy %s for %s (%dg)" % [name, part_label, price]) + (" -- already equipped." if equipped else ".")
+            btn.disabled = not CompanyState.can_buy_armor(_world, node_ref, part, piece_id)
+            var bound_piece: String = piece_id
+            var bound_part: String = part
+            var bound_ref2: Node = node_ref
+            btn.pressed.connect(func() -> void: _on_buy_armor_pressed(bound_ref2, bound_part, bound_piece))
+            part_row.add_child(btn)
+        armor_box.add_child(part_row)
+    # XCamp-4h: repair worn armor (cost proportional to lost durability), shown only when something is worn.
+    var repair_cost: int = CompanyState.armor_repair_cost(node_ref)
+    if repair_cost > 0:
+        var repair_btn := Button.new()
+        repair_btn.text = "Repair armor (%dg)" % repair_cost
+        repair_btn.tooltip_text = (
+            "Restore all worn armor to full condition. Cost scales with how far below "
+            + "100% each piece's weakest layer is."
+        )
+        repair_btn.disabled = not CompanyState.can_repair_armor(_world, node_ref)
+        var bound_ref3: Node = node_ref
+        repair_btn.pressed.connect(func() -> void: _on_repair_armor_pressed(bound_ref3))
+        armor_box.add_child(repair_btn)
     v.add_child(armor_box)
+    var sell_arms: Array = []
+    for part in CompanyGear.ARMOR_PART_SALE_ORDER:
+        var pid: String = CompanyGear.equipped_armor_piece_id(node_ref, part)
+        if not pid.is_empty():
+            sell_arms.append([part, pid])
+    if sell_arms.size() > 0:
+        var sell_armor_box := HBoxContainer.new()
+        sell_armor_box.add_theme_constant_override("separation", 4)
+        var sa_hdr := Label.new()
+        sa_hdr.text = "Sell Armor:"
+        sa_hdr.add_theme_font_size_override("font_size", 11)
+        sa_hdr.add_theme_color_override("font_color", Color(0.9, 0.7, 0.4))
+        sell_armor_box.add_child(sa_hdr)
+        for sa in sell_arms:
+            var sa_part: String = sa[0]
+            var sa_pid: String = sa[1]
+            var sa_label: String = str(CompanyGear.PART_LABELS.get(sa_part, sa_part))
+            var sa_val: int = CompanyGear.sell_value_for_piece(sa_pid)
+            var sa_btn := Button.new()
+            sa_btn.text = "%s +%dg" % [sa_label, sa_val]
+            sa_btn.tooltip_text = "Unequip and sell %s for +%dg." % [sa_label, sa_val]
+            var sa_bound_part: String = sa_part
+            var sa_bound_ref: Node = node_ref
+            sa_btn.pressed.connect(func() -> void: _on_sell_armor_pressed(sa_bound_ref, sa_bound_part))
+            sell_armor_box.add_child(sa_btn)
+        v.add_child(sell_armor_box)
 
 
 ## Append a compact weapon-form specialty readout to a member row.
@@ -864,5 +997,17 @@ func _build_field_care_buttons(world: Node2D, m: Dictionary) -> HBoxContainer:
                 )
         )
         care_btns.add_child(btn_r)
+    if MapFieldCare.can_offer_field_amputate(world, m):
+        var btn_a := Button.new()
+        btn_a.text = MapFieldCare.format_field_amputate_button_label(world, m)
+        var member_copy_a: Dictionary = m.duplicate(true)
+        btn_a.pressed.connect(
+            func() -> void:
+                _run_field_care_step(
+                    func() -> bool: return MapFieldCare.try_field_amputate(world, member_copy_a),
+                    "amputate"
+                )
+        )
+        care_btns.add_child(btn_a)
     return care_btns
 

@@ -650,7 +650,9 @@ static func _run_7v7_brawl() -> Dictionary:
     _D001Ii5Ii6Tests._probe_7v7_sparse_formation_hold_hint()
     var form: Dictionary = D001RunnerHelpers._formation_7v7()
     var mgr: Node = _D001Ii5Ii6Tests._start_manager("7v7", 7, 7, form, form)
-    D001RunnerHelpers._simulate_fight(mgr, 120.0, "7v7")
+    ## Soak cap: mandatory 7v7 checks (turn_ready_gauge>=5, tooltip_ok>=3, formation/banner/fight_end)
+    ## all saturate well before 90 sim-seconds; the fight normally ends by elimination before the cap.
+    D001RunnerHelpers._simulate_fight(mgr, 90.0, "7v7")
     var banner: String = D001RunnerHelpers._formation_engagement_banner_line(mgr)
     if not banner.is_empty():
         CombatF5SoakTrace.log_diagram_banner_player(banner)

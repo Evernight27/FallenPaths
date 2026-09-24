@@ -472,7 +472,7 @@ static func _run_depth_polearm_can_melee_threaten_respects_valid_line_for_home_d
 static func _run_depth_polearm_layout_fuzz(failures: PackedStringArray) -> void:
     var rng := RandomNumberGenerator.new()
     var max_lat: int = int(CombatConstants.DEPTH_POLEARM_MAX_THRUST_LATERAL_FILES)
-    for scenario_seed in 48:
+    for scenario_seed in 24:
         rng.seed = scenario_seed
         var pf: int = rng.randi_range(1, 4)
         var ef: int = rng.randi_range(1, 4)

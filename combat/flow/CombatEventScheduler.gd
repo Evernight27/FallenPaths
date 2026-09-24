@@ -265,11 +265,11 @@ static func schedule_action_ready_for_combatant(manager: Node, c: Dictionary, de
 static func action_ready_cooldown(c: Dictionary) -> float:
 	var agi: float = float(CombatantEntityAccess.stats_dict(c).get(DataKeys.ENTITY_AGILITY, CombatConstants.DEFAULT_STAT_VALUE))
 	var cooldown: float = CombatConstants.COOLDOWN_ACTION_READY_BASE * (100.0 / maxf(CombatConstantsMisc.COOLDOWN_MIN_AGI_FLOOR, agi))
-	# Off-balance is an additive footing surcharge: regaining stance is a bounded cost, and stacking it
-	# multiplicatively with stamina/armor/perf penalties inflated late-fight readiness gaps past 13s.
-	var off_until: float = c.get(DataKeys.PA_OFF_BALANCE_UNTIL, -1.0)
-	if off_until > CombatTiming.now_seconds():
-		cooldown += CombatConstantsParry.OFF_BALANCE_ACTION_READY_EXTRA_S
+	# Off-balance is an additive footing surcharge that fades as the fighter re-establishes balance:
+	# the longer the remaining off-balance window, the larger the extra readiness cost.
+	var off_depth: float = PassiveParryContext.off_balance_depth(c)
+	if off_depth > 0.0:
+		cooldown += CombatConstantsParry.OFF_BALANCE_ACTION_READY_EXTRA_S * off_depth
 	var perf_mod: float = CombatantEntityAccess.get_action_bar_performance_modifier(c)
 	if perf_mod > 0.0:
 		cooldown /= maxf(CombatConstants.PERF_MOD_MIN, perf_mod)

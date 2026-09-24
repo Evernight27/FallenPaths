@@ -121,18 +121,23 @@ static func start(
             var perf_entity = CombatantEntityAccess.get_entity_from_manager(manager, c)
             var tgt_entity = CombatantEntityAccess.get_entity_from_manager(manager, target_node)
             if CompanyState.read_stub_proficiency_enabled():
-                EntityProficiency.award_stat_gain(
-                    perf_entity,
-                    "intelligence",
-                    EntityProficiency.GAIN_MEDICAL_ACTION_BASE * EntityProficiency.GAIN_DIRECT_PRESSURE_INT_MULT
-                )
-                if tgt_entity != null and "_proficiency_bonus" in tgt_entity:
+                if perf_entity != null and "_proficiency_bonus" in perf_entity and EntityProficiency.is_stat_gain_tracked(perf_entity):
+                    EntityProficiency.award_stat_gain(
+                        perf_entity,
+                        "intelligence",
+                        EntityProficiency.GAIN_MEDICAL_ACTION_BASE * EntityProficiency.GAIN_DIRECT_PRESSURE_INT_MULT
+                    )
+                if tgt_entity != null and "_proficiency_bonus" in tgt_entity and EntityProficiency.is_stat_gain_tracked(tgt_entity):
+                    # XCamp-4: the patient's blood-peril awareness — how badly they're bleeding is how
+                    # hard they train (blood_peril_end_factor), matching MedicalWindUpHandler /
+                    # MedicalPhaseBatchResolve / MedicalPhaseFastForward.
                     EntityProficiency.award_stat_gain(
                         tgt_entity,
                         "endurance",
                         (
                             EntityProficiency.GAIN_BLOOD_PERIL_BASE
                             * EntityProficiency.GAIN_DIRECT_PRESSURE_PATIENT_END_MULT
+                            * EntityProficiency.blood_peril_end_factor(float(tgt_entity.blood_volume))
                         )
                     )
         CombatFootwork.clear_on_exchange_end(c)
@@ -166,6 +171,10 @@ static func start(
     )
     if assist_div > 1.0:
         duration /= assist_div
+    # HEMA: a medic who is off-balance works slower — hands unsteady, center of gravity off.
+    # Divide by the penalty factor (0.90 -> ~11% slower); fades with depth like the strike wind-up.
+    if PassiveParryContext.is_off_balance(c):
+        duration /= PassiveParryContext.off_balance_penalty_mult(c, CombatConstants.OFF_BALANCE_MEDICAL_WINDUP_SLOW_MULT)
     if not OperationalLog.is_play_session_active():
         CombatDebug.combat_session(
             "medical %s starting %s on part=%s => wind_up=%.1fs" % [who_name, medical_id, target_part, duration]

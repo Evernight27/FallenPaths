@@ -14,9 +14,15 @@ static func _sharp_ke_through_layer(ke: float, pen_rha: float, layer: Dictionary
 
 ## Delegates to ArmorPiece for blunt transmission math  -  single source of truth.
 static func _blunt_ke_through_layer(
-    ke: float, layer: Dictionary, blunt_momentum_per_area: float, blunt_contact_cm: float
+    ke: float,
+    layer: Dictionary,
+    blunt_momentum_per_area: float,
+    blunt_contact_cm: float,
+    blunt_coupling_contact_cm: float = -1.0
 ) -> float:
-    return ArmorPiece.blunt_transmission_math(ke, layer, blunt_momentum_per_area, blunt_contact_cm)
+    return ArmorPiece.blunt_transmission_math(
+        ke, layer, blunt_momentum_per_area, blunt_contact_cm, blunt_coupling_contact_cm
+    )
 
 
 static func account_ke_through_armor(
@@ -25,15 +31,18 @@ static func account_ke_through_armor(
     penetration_sharp_mm: float,
     incoming_is_sharp: bool,
     penetration_blunt_momentum_per_area: float = -1.0,
-    blunt_contact_cm: float = -1.0
+    blunt_contact_cm: float = -1.0,
+    blunt_coupling_contact_cm: float = -1.0
 ) -> Dictionary:
     if armor == null or strike_ke_j <= 0.0:
         return _full_transmission(strike_ke_j)
     var ke_rem: float = strike_ke_j
     var absorbed: float = 0.0
     var sharp_mode: bool = incoming_is_sharp
+    var was_deflected: bool = false
     var pen_rha: float = maxf(0.0, penetration_sharp_mm)
-    for layer in armor.layers:
+    for i in range(armor.layers.size()):
+        var layer: Dictionary = armor.layers[i]
         if not layer is Dictionary or _is_layer_destroyed(layer):
             continue
         var before: float = ke_rem
@@ -41,13 +50,22 @@ static func account_ke_through_armor(
             var sharp_out: Dictionary = _sharp_ke_through_layer(ke_rem, pen_rha, layer)
             ke_rem = float(sharp_out.get("damage", ke_rem))
             absorbed += maxf(0.0, before - ke_rem)
-            armor.apply_joule_durability_loss(layer, before - ke_rem)
+            # XCamp-4p: pass the failure mode so damage-type-accurate wear (4o) applies.
+            armor.apply_joule_durability_loss(layer, before - ke_rem, ArmorConstants.DAMAGE_TYPE_SHARP)
+            # XCamp-4q: breakthrough crush — if this layer just failed, shock the next inner layer.
+            if _is_layer_destroyed(layer):
+                armor.apply_breakthrough_crush(i, maxf(0.0, before - ke_rem), ArmorConstants.DAMAGE_TYPE_SHARP)
             if sharp_out.get("deflected", false):
                 sharp_mode = false
+                was_deflected = true
         else:
-            ke_rem = _blunt_ke_through_layer(ke_rem, layer, penetration_blunt_momentum_per_area, blunt_contact_cm)
+            ke_rem = _blunt_ke_through_layer(
+                ke_rem, layer, penetration_blunt_momentum_per_area, blunt_contact_cm, blunt_coupling_contact_cm
+            )
             absorbed += maxf(0.0, before - ke_rem)
-            armor.apply_joule_durability_loss(layer, before - ke_rem)
+            armor.apply_joule_durability_loss(layer, before - ke_rem, ArmorConstants.DAMAGE_TYPE_BLUNT)
+            if _is_layer_destroyed(layer):
+                armor.apply_breakthrough_crush(i, maxf(0.0, before - ke_rem), ArmorConstants.DAMAGE_TYPE_BLUNT)
     ke_rem = maxf(0.0, ke_rem)
     absorbed = maxf(0.0, strike_ke_j - ke_rem)
     var frac: float = 1.0
@@ -58,6 +76,7 @@ static func account_ke_through_armor(
         "armor_ke_absorbed_j": absorbed,
         "armor_ke_remaining_j": ke_rem,
         "transmitted_ke_fraction": clampf(frac, 0.0, 1.0),
+        "was_deflected": was_deflected,
     }
 
 
@@ -76,7 +95,4 @@ static func _full_transmission(strike_ke_j: float) -> Dictionary:
 
 
 static func _is_layer_destroyed(layer: Dictionary) -> bool:
-    return (
-        float(layer.get(ArmorConstants.ARMOR_LAYER_KEY_DURABILITY, ArmorConstants.DEFAULT_ARMOR_LAYER_DURABILITY))
-        <= 0.0
-    )
+    return ArmorPiece._is_layer_destroyed(layer)

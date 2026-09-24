@@ -83,6 +83,7 @@ static func save_slot(world: Node2D) -> bool:
         "consumed_contract_tiles": get_consumed_contract_tiles(world),
         "remaining_encounters": _serialize_remaining_encounters(world),
         "roster": roster,
+        "gladiator_schools": CompanySchool.state_to_save(world),
         "camp_heal_hint_shown": bool(world.get_meta(WORLD_META_CAMP_HEAL_HINT_SHOWN, false)),
     }
     var text: String = JSON.stringify(payload, "\t")
@@ -147,6 +148,7 @@ static func apply_save(world: Node2D, data: Dictionary, _rng: RandomNumberGenera
     _restore_remaining_encounters(world, data.get("remaining_encounters", []), enemy_scene)
     _restore_player_tile(world, data.get("player_tile", []))
     world.set_meta("camp_tile", CampaignTypes.DEFAULT_CAMP_TILE)
+    CompanySchool.state_from_save(world, data.get("gladiator_schools", {}))
     _get_company_state().attach_to_world(world)
     _get_company_state().refresh_hud(world)
 
@@ -275,16 +277,52 @@ static func _serialize_entity(entity: Node) -> Dictionary:
         # XCamp-4: proficiency data.
         "proficiency_bonus":
         _deep_dup(entity.get("_proficiency_bonus")) if entity.get("_proficiency_bonus") is Dictionary else {},
-        "weapon_proficiency": _deep_dup(entity.get("_weapon_proficiency")) if entity.get("_weapon_proficiency") is Dictionary else {},
-        "form_proficiency": _deep_dup(entity.get("_form_proficiency")) if entity.get("_form_proficiency") is Dictionary else {},
-        "combat_skill_trained": bool(entity.get("_combat_skill_trained")) if "_combat_skill_trained" in entity else false,
+        "weapon_proficiency":
+        _deep_dup(entity.get("_weapon_proficiency")) if entity.get("_weapon_proficiency") is Dictionary else {},
+        "form_proficiency":
+        _deep_dup(entity.get("_form_proficiency")) if entity.get("_form_proficiency") is Dictionary else {},
+        "combat_skill_trained":
+        bool(entity.get("_combat_skill_trained")) if "_combat_skill_trained" in entity else false,
         "training_pending": _deep_dup(entity.training_pending) if "training_pending" in entity else {},
+        # XCamp-6: queued form/weapon camp drills (applied at next camp rest); round-trip so a save
+        # between drill and rest does not lose the pending gain.
+        "form_training_pending": _deep_dup(entity._form_training_pending) if "_form_training_pending" in entity else {},
+        "weapon_training_pending": _deep_dup(entity._weapon_training_pending) if "_weapon_training_pending" in entity else {},
         "last_fought_day": int(entity.last_fought_day) if "last_fought_day" in entity else 0,
+        "last_decay_day": int(entity.last_decay_day) if "last_decay_day" in entity else 0,
         "last_fought_in_combat": bool(entity.last_fought_in_combat) if "last_fought_in_combat" in entity else false,
+        # XCamp-4b: persisted gladiator name so a fighter keeps their name across save/load.
+        "fighter_name": str(entity.fighter_name) if "fighter_name" in entity else "",
+        # XCamp-5f: persisted per-fighter fame (career arc) survives save/load.
+        "fame": int(entity.fame) if "fame" in entity else 0,
         "campaign_fatigue": float(entity.campaign_fatigue) if "campaign_fatigue" in entity else 0.0,
         "weapon_edge_wear": float(entity.weapon_edge_wear) if "weapon_edge_wear" in entity else 0.0,
+        # Health-system clock + systemic infection state (CAMP-INF-1 / Phase A+). _game_time_seconds
+        # drives all age-based wound resolution; without it, every saved wound resets to "fresh"
+        # (negative age) after a load, delaying resolution (and scar minting) a full healing-duration.
+        # Sepsis/tetanus are entity-level and survive the seeding wound resolving, so they must round-trip.
+        "game_time_seconds": float(entity.get("_game_time_seconds")) if "_game_time_seconds" in entity else 0.0,
+        "is_septic": bool(entity.get("is_septic")) if "is_septic" in entity else false,
+        "sepsis_resolve_progress": float(entity.get("sepsis_resolve_progress")) if "sepsis_resolve_progress" in entity else 0.0,
+        "sepsis_recovered": bool(entity.get("sepsis_recovered")) if "sepsis_recovered" in entity else false,
+        "_sepsis_dead": bool(entity.get("_sepsis_dead")) if "_sepsis_dead" in entity else false,
+        "is_tetanus": bool(entity.get("is_tetanus")) if "is_tetanus" in entity else false,
+        "tetanus_incubation_days": float(entity.get("tetanus_incubation_days")) if "tetanus_incubation_days" in entity else -1.0,
+        "tetanus_resolve_progress": float(entity.get("tetanus_resolve_progress")) if "tetanus_resolve_progress" in entity else 0.0,
+        "_tetanus_dead": bool(entity.get("_tetanus_dead")) if "_tetanus_dead" in entity else false,
         "weapon_id": EncounterSpawner.weapon_id_from_entity(entity),
         "armor_by_part": EncounterSpawner.armor_ids_from_entity(entity),
+        "armor_durability_by_part": EncounterSpawner.armor_durability_from_entity(entity),
+        # XCamp-4: individual stat variance. Base stats are re-applied from species on load,
+        # so the rolled per-member values must be saved to survive reload.
+        "base_stats":
+        {
+            "strength": int(entity.strength) if "strength" in entity else 100,
+            "agility": int(entity.agility) if "agility" in entity else 100,
+            "intelligence": int(entity.intelligence) if "intelligence" in entity else 100,
+            "endurance": int(entity.endurance) if "endurance" in entity else 100,
+            "perception": int(entity.perception) if "perception" in entity else 100,
+        },
     }
     if "blood_volume_ml" in entity:
         out["blood_volume_ml"] = float(entity.blood_volume_ml)
@@ -344,7 +382,9 @@ static func _apply_equipment(character: Node, data: Dictionary) -> void:
     var weapon_id: String = data.get("weapon_id", "").strip_edges()
     var armor: Variant = data.get("armor_by_part", {})
     var armor_dict: Dictionary = (armor as Dictionary).duplicate(true) if armor is Dictionary else {}
-    EncounterSpawner.apply_equipment_snapshot(character, weapon_id, armor_dict)
+    var dur: Variant = data.get("armor_durability_by_part", {})
+    var dur_dict: Dictionary = (dur as Dictionary).duplicate(true) if dur is Dictionary else {}
+    EncounterSpawner.apply_equipment_snapshot(character, weapon_id, armor_dict, dur_dict)
 
 
 static func _apply_entity(entity: Node, data: Dictionary) -> void:
@@ -366,7 +406,7 @@ static func _apply_entity(entity: Node, data: Dictionary) -> void:
         entity.tourniquet_applied = _deep_dup(data.get("tourniquet_applied", {}))
     if data.has("campaign_afflictions"):
         var aff: Array[Dictionary] = []
-        for entry in (data.get("campaign_afflictions", []) as Array):
+        for entry in data.get("campaign_afflictions", []) as Array:
             if entry is Dictionary:
                 aff.append(entry.duplicate(true))
         entity.set("campaign_afflictions", aff)
@@ -382,7 +422,7 @@ static func _apply_entity(entity: Node, data: Dictionary) -> void:
         var prof_raw: Variant = entity.get("_proficiency_bonus")
         if prof_raw is Dictionary:
             var prof_dict: Dictionary = prof_raw as Dictionary
-            var prof_keys := ["strength", "agility", "intelligence", "endurance", "perception"]
+            var prof_keys := EntityStatsUtil.PROFICIENCY_STATS
             for key in prof_keys:
                 prof_dict[key] = float(saved_prof.get(key, 0.0))
     if data.has("weapon_proficiency"):
@@ -408,17 +448,58 @@ static func _apply_entity(entity: Node, data: Dictionary) -> void:
         var train_raw: Variant = entity.get("training_pending")
         if train_raw is Dictionary:
             var train_dict: Dictionary = train_raw as Dictionary
-            var prof_keys_p := ["strength", "agility", "intelligence", "endurance", "perception"]
+            var prof_keys_p := EntityStatsUtil.PROFICIENCY_STATS
             for key in prof_keys_p:
                 train_dict[key] = float(saved_train.get(key, 0.0))
+    # XCamp-6: restore queued form/weapon drills (keyed by form/weapon id, so deep-dup without key filtering).
+    if data.has("form_training_pending") and "_form_training_pending" in entity:
+        entity._form_training_pending = (data.get("form_training_pending", {}) as Dictionary).duplicate(true)
+    if data.has("weapon_training_pending") and "_weapon_training_pending" in entity:
+        entity._weapon_training_pending = (data.get("weapon_training_pending", {}) as Dictionary).duplicate(true)
     if data.has("last_fought_day"):
         entity.last_fought_day = data.get("last_fought_day", 0)
+    if data.has("last_decay_day") and "last_decay_day" in entity:
+        entity.last_decay_day = int(data.get("last_decay_day", 0))
     if data.has("last_fought_in_combat"):
         entity.last_fought_in_combat = data.get("last_fought_in_combat", false)
+    # XCamp-4b: restore the persisted gladiator name (stays on the fighter across save/load).
+    if data.has("fighter_name") and "fighter_name" in entity:
+        entity.fighter_name = str(data.get("fighter_name", ""))
+    # XCamp-5f: restore the persisted per-fighter fame (career arc).
+    if data.has("fame") and "fame" in entity:
+        entity.fame = int(data.get("fame", 0))
     if data.has("campaign_fatigue"):
         entity.campaign_fatigue = clampf(float(data.get("campaign_fatigue", 0.0)), 0.0, 1.0)
     if data.has("weapon_edge_wear"):
         entity.weapon_edge_wear = clampf(float(data.get("weapon_edge_wear", 0.0)), 0.0, 1.0)
+    # Health-system clock + systemic infection state (CAMP-INF-1 / Phase A+). Restoring the
+    # clock keeps saved wounds at their true age (otherwise _get_wound_healing_progress reads
+    # a negative age and the wound behaves as freshly made).
+    if data.has("game_time_seconds") and "_game_time_seconds" in entity:
+        entity._game_time_seconds = maxf(0.0, float(data.get("game_time_seconds", 0.0)))
+    if data.has("is_septic") and "is_septic" in entity:
+        entity.is_septic = bool(data.get("is_septic", false))
+    if data.has("sepsis_resolve_progress") and "sepsis_resolve_progress" in entity:
+        entity.sepsis_resolve_progress = clampf(float(data.get("sepsis_resolve_progress", 0.0)), 0.0, 1.0)
+    if data.has("sepsis_recovered") and "sepsis_recovered" in entity:
+        entity.sepsis_recovered = bool(data.get("sepsis_recovered", false))
+    if data.has("_sepsis_dead") and "_sepsis_dead" in entity:
+        entity._sepsis_dead = bool(data.get("_sepsis_dead", false))
+    if data.has("is_tetanus") and "is_tetanus" in entity:
+        entity.is_tetanus = bool(data.get("is_tetanus", false))
+    if data.has("tetanus_incubation_days") and "tetanus_incubation_days" in entity:
+        entity.tetanus_incubation_days = float(data.get("tetanus_incubation_days", -1.0))
+    if data.has("tetanus_resolve_progress") and "tetanus_resolve_progress" in entity:
+        entity.tetanus_resolve_progress = clampf(float(data.get("tetanus_resolve_progress", 0.0)), 0.0, 1.0)
+    if data.has("_tetanus_dead") and "_tetanus_dead" in entity:
+        entity._tetanus_dead = bool(data.get("_tetanus_dead", false))
+    # XCamp-4: restore individual stat variance (per-member base stats rolled at creation).
+    # Species base was just re-applied in _ready(); overwrite with the saved varied values.
+    if data.has("base_stats"):
+        var bs: Dictionary = data.get("base_stats", {})
+        for stat in EntityStatsUtil.PROFICIENCY_STATS:
+            if stat in bs and (stat in entity):
+                entity.set(stat, int(bs[stat]))
     _sync_entity_vitals(entity)
 
 

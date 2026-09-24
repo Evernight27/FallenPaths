@@ -141,8 +141,11 @@ static func _proficiency_snapshot_combat_participation(world: Node2D) -> void:
 		if node.has_method("is_dead") and node.is_dead():
 			continue
 		var entity: Node = health_entity_from_character(node)
-		if entity != null:
-			entity.set("_last_fought_in_combat", true)
+		if entity != null and "last_fought_in_combat" in entity:
+			# Canonical declared property (CoreEntity) — the reader and save/load use this key. The
+			# old underscore write created a separate dynamic property the reader never saw, leaving
+			# the "did this fighter actually fight" flag permanently false.
+			entity.last_fought_in_combat = true
 
 
 ## XCamp-4: record a medic action performed by a specific entity (increments counter for INT floor).
@@ -201,7 +204,8 @@ static func on_return_from_combat(world: Node2D, winner: String) -> void:
 			OperationalLog.play_world(_get_company_state().format_post_fight_field_care_world_log(world))
 
 
-## XCamp-4: post-combat proficiency processing ''"" update fight day, apply decay, medic INT floor.
+## XCamp-4: post-combat proficiency processing ''"" update fight day, apply decay.
+## (Per-action medical INT is awarded on the wind-up path; no post-combat INT floor.)
 static func _proficiency_post_combat(world: Node2D) -> void:
 	if world == null or not _get_company_state().read_stub_proficiency_enabled():
 		return
@@ -228,47 +232,13 @@ static func _proficiency_post_combat(world: Node2D) -> void:
 		elif "_last_fought_in_combat" in entity:
 			fought = bool(entity.get("_last_fought_in_combat"))
 		if fought and "last_fought_day" in entity:
-			entity.last_fought_day = current_day
+			# Clamp to >= 1: 0 is the "never fought" sentinel that apply_decay checks, and campaign
+			# day 0 (DEFAULT_DAY_INDEX) is a valid fight day. Without this, a fighter who fought on
+			# day 0 is recorded with last_fought_day = 0, which the decay reader treats as "never
+			# fought" and silently skips their rusting for the whole layoff.
+			entity.last_fought_day = maxi(current_day, 1)
 		# Apply decay (gated by CompanyState.read_stub_proficiency_enabled).
 		EntityProficiency.apply_decay(entity, current_day)
-
-	# Medic INT floor: only the combatants who actually performed medical actions get a temporary INT boost.
-	var medic_actions_by_entity: Dictionary = (
-		world.get_meta("campaign_medic_actions_by") if world.has_meta("campaign_medic_actions_by") else {}
-	)
-	for entity_key in medic_actions_by_entity.keys():
-		var action_count: int = int(medic_actions_by_entity[entity_key])
-		if action_count <= 0:
-			continue
-		for m in pm.members:
-			if m is not Dictionary:
-				continue
-			var node_ref: Variant = (m as Dictionary).get("node_ref")
-			if not is_instance_valid(node_ref) or not (node_ref is Node):
-				continue
-			var node: Node = node_ref as Node
-			if node.has_method("is_dead") and node.is_dead():
-				continue
-			var member_entity: Node = health_entity_from_character(node)
-			if member_entity == null:
-				continue
-			var key_match: bool = false
-			if entity_key is int:
-				key_match = member_entity.get_instance_id() == int(entity_key)
-			elif entity_key is Object:
-				key_match = member_entity == entity_key
-			if not key_match:
-				continue
-			# Medic INT floor: flat bonus per medical action (not subject to diminishing returns via
-			# award_stat_gain).
-			# This is intentional ''"" the medic floor is a guaranteed baseline reward, not practice-based growth.
-			if "_proficiency_bonus" in member_entity:
-				var prof: Dictionary = member_entity._proficiency_bonus
-				prof["intelligence"] = (
-					float(prof.get("intelligence", 0.0)) + EntityProficiency.GAIN_MEDIC_INT_FLOOR * action_count
-				)
-				member_entity._proficiency_bonus = prof
-			break
 
 
 ## Step onto contract tile: stash contract, spawn enemies, consume marker (R3).
@@ -524,6 +494,11 @@ static func get_fightable_party_nodes(world: Node2D) -> Array:
 		and world.has_meta(SoakEncounterPresets.WORLD_META_PLAYER_LEADER_ONLY)
 		and bool(world.get_meta(SoakEncounterPresets.WORLD_META_PLAYER_LEADER_ONLY))
 	)
+	## XCamp-6: an active school-match bout restricts the party to the single appointed fighter
+	## (see CompanyMatch.WORLD_META_MATCH_SINGLE_FIGHTER).
+	var single_fighter: String = ""
+	if world != null and world.has_meta(CompanyMatch.WORLD_META_MATCH_SINGLE_FIGHTER):
+		single_fighter = str(world.get_meta(CompanyMatch.WORLD_META_MATCH_SINGLE_FIGHTER))
 	var roster: Array = pm.members if "members" in pm else pm.get_members()
 	for member in roster:
 		var node_ref = member.get("node_ref") if member is Dictionary else null
@@ -531,6 +506,13 @@ static func get_fightable_party_nodes(world: Node2D) -> Array:
 			continue
 		if node_ref.has_method("is_dead") and (node_ref as Node).is_dead():
 			continue
+		if not single_fighter.is_empty():
+			var member_name: String = member.get("name", "") if member is Dictionary else ""
+			var node_name: String = (
+				node_ref.get("display_name", "") if "display_name" in node_ref else str(node_ref.name)
+			)
+			if member_name != single_fighter and node_name != single_fighter:
+				continue
 		if leader_only and node_ref.get(DataKeys.COMBATANT_IS_PARTY_LEADER) != true:
 			continue
 		players.append(node_ref)
@@ -717,17 +699,20 @@ static func advance_party_overworld_minute(world: Node2D) -> void:
 				health.process_bleeding(seconds_per_move * bleed_mult)
 			if health.has_method("process_blood_loss"):
 				health.process_blood_loss(seconds_per_move * bleed_mult)
-			if health.has_method("_process_healing"):
-				health._process_healing(seconds_per_move)
 		else:
 			if health.has_method("process_bleeding"):
 				health.process_bleeding(seconds_per_move)
 			if health.has_method("process_blood_loss"):
 				health.process_blood_loss(seconds_per_move)
-			if health.has_method("_process_healing"):
-				health._process_healing(seconds_per_move)
+		# Healing/infection advances exactly once per move (a prior revision called this again inside the
+		# bleed_mult branch, doubling wound healing, infection, tetanus, and scar-mint timing on the map).
+		if health.has_method("_process_healing"):
+			health._process_healing(seconds_per_move)
 		if health.has_method("ensure_consciousness_current"):
 			health.ensure_consciousness_current()
+	# CAMP-SCAR-1: mint scars for any wounds resolved during this advance (no-op when none).
+	if _get_company_state().read_stub_wound_scars_enabled():
+		CampaignAfflictions.mint_from_resolved_wounds(world, resolve_overworld_rng(world))
 
 
 static func entity_has_untreated_wounds(entity: Node) -> bool:

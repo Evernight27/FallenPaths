@@ -92,6 +92,29 @@ const POSITION_ANGLE_OFFSET_DEG_BY_LINE: Dictionary = {
     LINE_HIGH_LEFT: 9.0,
 }
 
+## XCamp-4: the open-line window scales with the commitment of the opening event instead of a
+## flat FEINT_OPEN_LINE_DURATION_S. A heavier strike (higher intensity) leaves the defender more
+## off-line, so the line stays open longer; added on top of the base, bounded by the cap.
+const OPEN_LINE_DURATION_INTENSITY_SCALE_S: float = 1.5
+## A circumscription (verwunden) goes AROUND the committed blade — the compound motion leaves the
+## far side open longer than a same-line follow-up.
+const CIRCUMSCRIPTION_OPEN_LINE_DURATION_EXTRA_S: float = 0.75
+## Hard cap so intensity + circumscription cannot run the window open-ended.
+const OPEN_LINE_DURATION_MAX_S: float = 5.25
+## XCamp-4: shape of the open-line recovery curve. openness = (1 - t)^EASE over the window.
+## 1.0 is linear (the whole window equally open — too forgiving of a slow close). 2.0 (default) is an
+## ease-out: the defender re-balance the acute off-line / blade-commitment quickly, then only the fine
+## blade re-coverage to the exact line lingers, so the opening is most exploitable the instant it
+## appears and closes fastest at the start of the window. Monotonic, preserves the 0/1 endpoints.
+const OPEN_LINE_RECOVERY_EASE: float = 2.0
+## XCamp-4: fraction of the *remaining* open-line window that a partial parry preserves. A full
+## parry onto the open line is a demonstrated re-coverage (clears the window, see
+## close_open_line_on_recover); a partial parry only catches the blade partway, so the line is
+## re-covered only partially — the window shrinks to this fraction of its remaining time instead of
+## disappearing. Holding the stored duration while moving `until` earlier makes the eased openness
+## drop by F^OPEN_LINE_RECOVERY_EASE and end sooner, monotonically (a light follow-up cannot re-open it).
+const OPEN_LINE_PARTIAL_RECOVER_FRACTION: float = 0.5
+
 ## Compact UI labels (gauge / formation diagram) — distinct octants at a glance.
 const LINE_DISPLAY_SHORT: Dictionary = {
     LINE_HIGH: "Hi",
@@ -257,3 +280,131 @@ static func arm_interpose_eval(
     )
     var boost: float = CombatConstants.ARM_INTERPOSE_ALIGNMENT_BOOST * t
     return {"active": true, "arm": arm, "align_boost": boost, "path_index": arm_idx}
+
+
+## XCamp-4: the open-line window length for a given opening event. Base FEINT_OPEN_LINE_DURATION_S
+## plus an intensity-scaled extension (heavier commitment = longer off-line), plus a circumscription
+## extra (the compound cut goes AROUND the committed blade), capped at OPEN_LINE_DURATION_MAX_S.
+## Written to PA_FEINT_OPEN_LINE_DURATION_S at the stamp site and read back by open_line_openness
+## so the decay is computed over the same window the stamp actually opened.
+static func open_line_duration_s(intensity: float, is_circumscription: bool) -> float:
+    var d: float = CombatConstants.FEINT_OPEN_LINE_DURATION_S + clampf(intensity, 0.0, 1.0) * OPEN_LINE_DURATION_INTENSITY_SCALE_S
+    if is_circumscription:
+        d += CIRCUMSCRIPTION_OPEN_LINE_DURATION_EXTRA_S
+    return minf(d, OPEN_LINE_DURATION_MAX_S)
+
+
+## Computes the defender's current open-line exposure level (0.0 = not open, 1.0 = fully open).
+## Returns 0.0 when no live feint/deflect/circumscription open-line window exists on `defender`.
+## Within the window, openness decays over the stamped duration
+## (PA_FEINT_OPEN_LINE_DURATION_S, defaulting to FEINT_OPEN_LINE_DURATION_S) as
+## openness = (1 - t)^OPEN_LINE_RECOVERY_EASE with t = elapsed/duration. The ease-out (EASE=2.0)
+## models the biomechanical recovery: the acute off-line / blade-commitment resolves quickly, so the
+## defender re-covers the most vulnerable portion of the line fast, and only the fine re-coverage to
+## the exact line lingers — the opening is most exploitable the instant it appears and closes fastest
+## at the start of the window (vs. a linear decay that would hold the line uniformly open and
+## overstate late-window vulnerability). Monotonic: no guard-position dependence, so it cannot invert
+## when the post-hit guard happens to sit on the open line; preserves the 1.0 -> 0.0 endpoints.
+## Shared by the offensive AI (CombatAIActionWeights) and the parry model (DefenseChoiceResolver).
+static func open_line_openness(defender: Dictionary) -> float:
+    if defender.is_empty():
+        return 0.0
+    var until: float = float(defender.get(DataKeys.PA_FEINT_OPEN_LINE_UNTIL, -1.0))
+    if until <= 0.0:
+        return 0.0
+    var now: float = CombatTiming.now_seconds()
+    if now >= until:
+        return 0.0
+    var open_line: String = str(defender.get(DataKeys.PA_FEINT_OPEN_LINE, ""))
+    if open_line.is_empty():
+        return 0.0
+    var stored_dur: float = float(defender.get(DataKeys.PA_FEINT_OPEN_LINE_DURATION_S, -1.0))
+    var duration: float = stored_dur if stored_dur > 0.0 else CombatConstants.FEINT_OPEN_LINE_DURATION_S
+    var t: float = clampf((now - (until - duration)) / duration, 0.0, 1.0)
+    return pow(1.0 - t, OPEN_LINE_RECOVERY_EASE)
+
+
+## XCamp-4: stamp the live open-line window on `combatant`. Writes all four open-line keys together
+## so they can never drift apart. Re-opening a line that is already open (a second commitment on the
+## same line while the window is live) does NOT shorten or reset the window: if the existing window
+## already extends at least as far as the new one, it is preserved — a lighter follow-up must not
+## close a heavier opening. Opening a *different* line, or a longer window on the same line,
+## re-stamps fresh (openness back to 1.0, decay restarted from now).
+static func stamp_open_line(combatant: Dictionary, line: String, duration: float, parry_mult: float) -> void:
+    if combatant.is_empty() or line.is_empty() or duration <= 0.0:
+        return
+    var now: float = CombatTiming.now_seconds()
+    var existing_until: float = float(combatant.get(DataKeys.PA_FEINT_OPEN_LINE_UNTIL, -1.0))
+    var existing_line: String = str(combatant.get(DataKeys.PA_FEINT_OPEN_LINE, ""))
+    if (
+        not existing_line.is_empty()
+        and existing_until > now
+        and normalize_line(existing_line) == normalize_line(line)
+        and existing_until >= now + duration
+    ):
+        return
+    combatant[DataKeys.PA_FEINT_OPEN_LINE] = line
+    combatant[DataKeys.PA_FEINT_OPEN_LINE_UNTIL] = now + duration
+    combatant[DataKeys.PA_FEINT_OPEN_LINE_DURATION_S] = duration
+    combatant[DataKeys.PA_FEINT_OPEN_LINE_PARRY_MULT] = parry_mult
+
+
+## XCamp-4: close the defender's open line when they fully re-cover it. A *full* parry into a line
+## the defender was open on is a demonstrated re-coverage: the "you're open on this line" state no
+## longer holds, so the window is cleared immediately rather than left to decay passively. (A
+## *partial* parry only re-covers the line partway — use shrink_open_line_on_partial_recover.)
+## No-op when the defender has no live open line, or it is on a different line (defending elsewhere
+## says nothing about this line).
+static func close_open_line_on_recover(combatant: Dictionary, defended_line: String) -> void:
+    if combatant.is_empty() or defended_line.is_empty():
+        return
+    var open_line: String = str(combatant.get(DataKeys.PA_FEINT_OPEN_LINE, ""))
+    if open_line.is_empty():
+        return
+    var until: float = float(combatant.get(DataKeys.PA_FEINT_OPEN_LINE_UNTIL, -1.0))
+    if until <= CombatTiming.now_seconds():
+        return
+    if normalize_line(open_line) != normalize_line(defended_line):
+        return
+    combatant.erase(DataKeys.PA_FEINT_OPEN_LINE)
+    combatant.erase(DataKeys.PA_FEINT_OPEN_LINE_UNTIL)
+    combatant.erase(DataKeys.PA_FEINT_OPEN_LINE_DURATION_S)
+    combatant.erase(DataKeys.PA_FEINT_OPEN_LINE_PARRY_MULT)
+
+
+## XCamp-4: partially re-cover the defender's open line. A *partial* parry into a line the defender
+## was open on catches the blade partway — the line is re-covered only partially, so the live window
+## shrinks to OPEN_LINE_PARTIAL_RECOVER_FRACTION of its remaining time instead of being cleared (as
+## a full parry does via close_open_line_on_recover). The stored duration is held, so the eased
+## openness (open_line_openness) drops by F^OPEN_LINE_RECOVERY_EASE and the window ends sooner —
+## monotonic, never a jump upward. No-op when there is no live open line, or it is on a different
+## line (defending elsewhere says nothing about this line).
+static func shrink_open_line_on_partial_recover(combatant: Dictionary, defended_line: String) -> void:
+    if combatant.is_empty() or defended_line.is_empty():
+        return
+    var open_line: String = str(combatant.get(DataKeys.PA_FEINT_OPEN_LINE, ""))
+    if open_line.is_empty():
+        return
+    var now: float = CombatTiming.now_seconds()
+    var until: float = float(combatant.get(DataKeys.PA_FEINT_OPEN_LINE_UNTIL, -1.0))
+    if until <= now:
+        return
+    if normalize_line(open_line) != normalize_line(defended_line):
+        return
+    var remaining: float = until - now
+    combatant[DataKeys.PA_FEINT_OPEN_LINE_UNTIL] = now + remaining * OPEN_LINE_PARTIAL_RECOVER_FRACTION
+
+
+## XCamp-4: true when `combatant` has a live open-line window on `line` (line matches after
+## normalization and the stamped window has not yet expired). Used to gate the dodge "deepen"
+## path: only a dodge that actually hits the defender's open line re-commits the body off it.
+static func has_live_open_line(combatant: Dictionary, line: String) -> bool:
+    if combatant.is_empty() or line.is_empty():
+        return false
+    var open_line: String = str(combatant.get(DataKeys.PA_FEINT_OPEN_LINE, ""))
+    if open_line.is_empty():
+        return false
+    if normalize_line(open_line) != normalize_line(line):
+        return false
+    var until: float = float(combatant.get(DataKeys.PA_FEINT_OPEN_LINE_UNTIL, -1.0))
+    return until > CombatTiming.now_seconds()

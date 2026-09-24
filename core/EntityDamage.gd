@@ -120,12 +120,23 @@ static func get_severance_ease_factor(entity: Node, part: String) -> float:
 		if order.find(sev) > order.find(worst_sev):
 			worst_sev = sev
 	var severity_bonus: float = SEVERANCE_EASE_SEVERITY_BONUS.get(worst_sev, 0.0)
+	# A part carrying a wound-derived scar severs more easily — scar tissue shears at ~70-80% of
+	# normal tensile strength (same anchor as SCAR_REINJURY_MULT). One small bonus, capped at
+	# SEVERANCE_EASE_MAX in the sum below. (A severed part returns early in apply_damage_split and
+	# never reaches this, so its amputated_limb scar never feeds here.)
+	var scar_ease: float = 0.0
+	if "campaign_afflictions" in entity:
+		for raw in entity.campaign_afflictions:
+			if raw is Dictionary and str(raw.get("part", "")) == part and part != "":
+				scar_ease = BleedingConstants.SCAR_SEVERANCE_EASE_BONUS
+				break
 	var severance_ease: float = (
 		1.0
 		+ (1.0 - tissue_ratio) * SEVERANCE_EASE_TISSUE_FACTOR
 		+ (1.0 - bone_ratio) * SEVERANCE_EASE_BONE_FACTOR
 		+ wound_factor
 		+ severity_bonus
+		+ scar_ease
 	)
 	return clampf(severance_ease, 1.0, SEVERANCE_EASE_MAX)
 
@@ -211,6 +222,9 @@ static func apply_damage_split(
 	blunt_pre_val *= (1.0 - end_resist)
 	var armor_var: Variant = entity._get_armor_for_part(part)
 	var pen_s: float = penetration_sharp if penetration_sharp >= 0.0 else ArmorConstants.DEFAULT_PENETRATION_SHARP
+	# The weapon's TRUE (uncapped) contact face, for the rigid-plate area-coupling term. Rides in
+	# extras from AttackResolver; -1.0 (absent) makes the coupling fall back to the capped contact.
+	var blunt_coupling_contact_cm: float = extras.get("blunt_coupling_contact_cm", -1.0)
 	var joule_ke: Dictionary = {}
 	var force_joule: bool = extras.get("force_joule_armor_budget", false)
 	var joule_authoritative: bool = false
@@ -222,7 +236,8 @@ static func apply_damage_split(
 		and armor_var.get_script() == ArmorPiece
 	):
 		joule_ke = ArmorJouleBudget.account_ke_through_armor(
-			armor_var, impact_ke, pen_s, cut_pre_val > 0.0, penetration_blunt_momentum_per_area, blunt_contact_cm
+			armor_var, impact_ke, pen_s, cut_pre_val > 0.0, penetration_blunt_momentum_per_area,
+			blunt_contact_cm, blunt_coupling_contact_cm
 		)
 		var ke_frac: float = joule_ke.get("transmitted_ke_fraction", 1.0)
 		cut_pre_val *= ke_frac
@@ -232,6 +247,11 @@ static func apply_damage_split(
 	var final_blunt: float = 0.0
 	var blunt_from_deflection: float = 0.0
 	var blunt_from_direct: float = 0.0
+	# XCamp-4n: capture which armor layers are destroyed BEFORE this hit so a
+	# layer that crosses to 0 during this hit can be traced as a failure event.
+	var armor_fail_before: Array = []
+	if armor_var != null and armor_var.get_script() == ArmorPiece:
+		armor_fail_before = armor_var.destroyed_layer_indices()
 	if armor_var != null and armor_var.get_script() == ArmorPiece:
 		if joule_authoritative:
 			final_cut = cut_pre_val
@@ -259,56 +279,55 @@ static func apply_damage_split(
 		else:
 			var deflected_raw: float = 0.0
 			if cut_pre_val > 0.0:
+				## Pass the weapon's blunt-transmission params so that, when the edge is deflected by a
+				## rigid layer (plate/mail), the deflected shock continues through the inner padding layers
+				## with the correct weapon-specific cushion / area-coupling math (not the -1.0 defaults).
+				## apply_wear stays true: the inner layers wear ONCE here, during this single pass.
 				var result_cut: Dictionary = armor_var.apply_damage(
-					cut_pre_val, CombatConstants.DAMAGE_TYPE_SHARP, pen_s, -1.0, -1.0
+					cut_pre_val,
+					CombatConstants.DAMAGE_TYPE_SHARP,
+					pen_s,
+					penetration_blunt_momentum_per_area,
+					blunt_contact_cm,
+					0,
+					blunt_coupling_contact_cm,
+					true
 				)
 				var d: float = maxf(0.0, result_cut.get("damage", 0.0))
 				var dtype: String = result_cut.get("damage_type", CombatConstants.DAMAGE_TYPE_SHARP)
 				if dtype == CombatConstants.DAMAGE_TYPE_SHARP:
 					final_cut += d
 				else:
+					## `transmitted_blunt_amount` is the deflected shock AFTER it has been carried through
+					## every inner layer (apply_damage continues the loop once a sharp is deflected), so it
+					## is already the final post-armor blunt value — no retransmission is needed.
 					deflected_raw = result_cut.get(
 						"transmitted_blunt_amount", result_cut.get("deflected_blunt_amount", d)
 					)
 					blunt_from_deflection = deflected_raw
 			blunt_from_direct = blunt_pre_val
 			if deflected_raw > 0.0 and blunt_pre_val > 0.0:
-				## Both sharp was deflected AND there is direct blunt — process them through armor separately,
-				## but cap the combined result so total blunt cannot exceed (deflected + direct) before armor.
-				## This prevents armor degradation from creating mech_post_armor > pre_armor on blended hits.
-				var result_deflected: Dictionary = armor_var.apply_damage(
-					deflected_raw,
-					CombatConstants.DAMAGE_TYPE_BLUNT,
-					0.0,
-					penetration_blunt_momentum_per_area,
-					blunt_contact_cm,
-					1
-				)
+				## Both the sharp edge was deflected AND there is a direct blunt component. The deflected
+				## blunt (deflected_raw) is already post-armor — the sharp pass above carried the deflected
+				## shock through every inner layer — so it is used as-is. The direct blunt is a separate
+				## blow that must travel through the whole stack itself.
 				var result_direct: Dictionary = armor_var.apply_damage(
 					blunt_pre_val,
 					CombatConstants.DAMAGE_TYPE_BLUNT,
 					0.0,
 					penetration_blunt_momentum_per_area,
 					blunt_contact_cm,
-					0
+					0,
+					blunt_coupling_contact_cm
 				)
-				var blunt_after_deflected: float = maxf(0.0, result_deflected.get("damage", 0.0))
 				var blunt_after_direct: float = maxf(0.0, result_direct.get("damage", 0.0))
 				## Cap combined blunt so it cannot exceed the sum of pre-armor inputs (physics constraint).
-				## Armor degradation + mechanical resistance can cause additive amplification; this clamp
-				## enforces that post-armor blunt <= pre-armor blunt when both channels are present.
 				var max_allowed_blunt: float = deflected_raw + blunt_pre_val
-				final_blunt = minf(blunt_after_deflected + blunt_after_direct, max_allowed_blunt)
+				final_blunt = minf(deflected_raw + blunt_after_direct, max_allowed_blunt)
 			elif deflected_raw > 0.0:
-				var result_blunt: Dictionary = armor_var.apply_damage(
-					deflected_raw,
-					CombatConstants.DAMAGE_TYPE_BLUNT,
-					0.0,
-					penetration_blunt_momentum_per_area,
-					blunt_contact_cm,
-					1
-				)
-				final_blunt = maxf(0.0, result_blunt.get("damage", 0.0))
+				## Deflected-only: deflected_raw is already the final post-armor value (the sharp pass
+				## carried the deflected shock through every inner layer), so no retransmission is needed.
+				final_blunt = deflected_raw
 			elif blunt_pre_val > 0.0:
 				var result_blunt: Dictionary = armor_var.apply_damage(
 					blunt_pre_val,
@@ -316,32 +335,33 @@ static func apply_damage_split(
 					0.0,
 					penetration_blunt_momentum_per_area,
 					blunt_contact_cm,
-					0
+					0,
+					blunt_coupling_contact_cm
 				)
 				final_blunt = maxf(0.0, result_blunt.get("damage", 0.0))
-			if CombatConstants.combat_debug_active():
-				(
-					CombatDebug
-					. log(
-						(
+				if CombatConstants.combat_debug_active():
+					(
+						CombatDebug
+						. log(
 							(
-                                "[Armor] %s %s: pre cut=%.1f blunt=%.1f | transmitted_raw=%.1f direct_blunt=%.1f | "
-								+ "pen_sharp=%.2f mm RHA | blunt: => post-armor cut=%.1f blunt=%.1f"
+								(
+	                                "[Armor] %s %s: pre cut=%.1f blunt=%.1f | transmitted_raw=%.1f direct_blunt=%.1f | "
+									+ "pen_sharp=%.2f mm RHA | blunt: => post-armor cut=%.1f blunt=%.1f"
+								)
+								% [
+									entity.name,
+									part,
+									cut_pre_val,
+									blunt_pre_val,
+									deflected_raw,
+									blunt_pre_val,
+									pen_s,
+									final_cut,
+									final_blunt,
+								]
 							)
-							% [
-								entity.name,
-								part,
-								cut_pre_val,
-								blunt_pre_val,
-								deflected_raw,
-								blunt_pre_val,
-								pen_s,
-								final_cut,
-								final_blunt,
-							]
 						)
 					)
-				)
 	else:
 		final_cut = cut_pre_val
 		final_blunt = blunt_pre_val
@@ -350,13 +370,20 @@ static func apply_damage_split(
 			CombatDebug.log(
 				"[Armor] %s %s: no armor => post cut=%.1f blunt=%.1f" % [entity.name, part, final_cut, final_blunt]
 			)
+	# XCamp-4n: trace any armor layer that crossed to destroyed during this hit.
+	if armor_var != null and armor_var.get_script() == ArmorPiece:
+		var armor_fail_after: Array = armor_var.destroyed_layer_indices()
+		for idx in armor_fail_after:
+			if not armor_fail_before.has(idx):
+				CombatDebug.combat_session(
+					"ARMOR_LAYER_FAIL %s %s piece=%s layer=%d"
+					% [entity.name, part, str(armor_var.display_name), int(idx)]
+				)
 	# Weapon-type-specific armor interaction (e.g., mace scales UP against armored targets).
-	if weapon_type == "MACE" and armor_var != null:
-		var target_rha: float = 0.0
-		if armor_var is ArmorPiece:
-			target_rha = armor_var.get_outer_layer_sharp_resistance_rha_mm()
-		elif armor_var is Dictionary:
-			target_rha = float(armor_var.get(ArmorConstants.ARMOR_LAYER_KEY_SHARP_RESISTANCE_RHA_MM, 0.0))
+	# armor_var is always ArmorPiece-or-null (EntityEquipment._get_armor_for_part filters to it),
+	# so no Dictionary fallback is needed.
+	if weapon_type == "MACE" and armor_var is ArmorPiece:
+		var target_rha: float = armor_var.get_outer_layer_effective_rha_mm()
 		if target_rha > CombatArmorDoctrine.ARMOR_TIER_NONE_THRESHOLD:
 			var interaction_mult: float = CombatArmorDoctrine.mace_armor_interaction_multiplier(target_rha)
 			final_blunt *= interaction_mult
@@ -460,13 +487,38 @@ static func apply_damage_split(
 	var to_bone: float = alloc.get("to_bone", 0.0)
 	var to_cut: float = alloc.get("to_cut", 0.0)
 	var to_blunt: float = alloc.get("to_blunt", 0.0)
-	# Skull absorption: the dense ~7mm skull blunts a cut's edge before it reaches brain tissue, so a fraction
-	# of the cut TISSUE damage is absorbed. Applied to the allocated cut tissue (to_cut) AFTER the mechanism is
-	# determined, so the weapon's strike classification (sharp/blunt) and bone allocation are unaffected — only
-	# the brain tissue damage is reduced. Prevents a single committed cut from fully lacerating the head in one
-	# blow (see BleedingConstants.HEAD_SKULL_CUT_TRANSMISSION). Cut channel only; blunt/bone skull trauma is unaffected.
-	if part == BodyPartConstants.PART_HEAD and to_cut > 0.0:
-		to_cut *= BleedingConstants.HEAD_SKULL_CUT_TRANSMISSION
+	# CAMP-SCAR-1: a scarred part takes more incoming damage (scarred tissue re-injures / is less elastic).
+	# Applied to the allocated cut+blunt tissue, before the severance-ease cap. Bone untouched.
+	if entity.has_method("_get_scar_damage_mult"):
+		var scar_dm: float = entity._get_scar_damage_mult(part)
+		to_cut *= scar_dm
+		to_blunt *= scar_dm
+	# Skull vault gating for head cuts: the dense ~7mm vault must be breached before a cut can damage the
+	# neurologic/brain TISSUE pool. Breach means the blade reached the vault this hit (sharp tissue
+	# penetration >= HEAD_SKULL_BREACH_PEN_MM or bone damage) or the skull is already broken. Until then
+	# a head cut is a scalp laceration — it bleeds (wound recorded at full magnitude below) but cannot
+	# exhaust the brain pool, so repeated soft scalping can no longer "destroy head tissue" (issue: DAGGER
+	# "head destruction" at 17-29J). A breached cut transmits HEAD_SKULL_CUT_TRANSMISSION of its damage
+	# into the brain pool. Mechanism (sharp/blunt) and skull bone allocation are unaffected.
+	# The gate runs only when the strike is a BLADE deliverer — mechanism sharp or mixed (to_cut > 0 and the
+	# allocation did not classify blunt-dominant). A non-breaching blade must not drain the HEAD-POOL through
+	# its cut channel NOR its accompanying blunt share: a stopped edge rattles the skull (modeled by the
+	# rotational concussion channel / pain-shock, not the brain tissue pool), so both to_cut AND to_blunt are
+	# zeroed. Blunt-dominant strikes (mace/pommel) allocate ONLY a vestigial cut under the 85% blunt share
+	# (e.g. cut=0.08 alongside blunt=10.00) — checking to_cut alone would misfire on them and park their
+	# legitimate crush. Mechanism "blunt" therefore skips the gate and still crushes the head pool without
+	# needing to breach — mace head trauma is preserved.
+	var head_strike_mechanism: String = str(alloc.get("mechanism", "mixed"))
+	var head_cut_wound_value: float = to_cut
+	if part == BodyPartConstants.PART_HEAD and to_cut > 0.0 and head_strike_mechanism != "blunt":
+		var skull_breached_this_hit: bool = (
+			to_bone > 0.0 or pen_to_tissue >= BleedingConstants.HEAD_SKULL_BREACH_PEN_MM
+		)
+		if skull_breached_this_hit or entity.bone_health.get(part, 0.0) <= 0.0:
+			to_cut *= BleedingConstants.HEAD_SKULL_CUT_TRANSMISSION
+		else:
+			to_cut = 0.0
+			to_blunt = 0.0
 	var mechanism_raw: String = str(alloc.get("mechanism", "mixed"))
 	var mfb_mechanism: String = str(mfb_alloc.get("mechanism", mechanism_raw))
 	var applied_mechanism: String = mechanism_raw
@@ -477,6 +529,17 @@ static func apply_damage_split(
 	var cur_blunt: float = entity.body_blunt.get(part, 0.0)
 	var cur_bone: float = entity.bone_health.get(part, 0.0)
 	var allocated_bone: float = to_bone
+	# J-pool authority. The tissue display pools (body_cutting/body_blunt) are a 50/50 DERIVED
+	# VIEW of one shared J reservoir per part (TissueEnergyCapacity). Capping each channel
+	# against its own drained display stops a blunt-dominant weapon (mace) dead after one full
+	# crush while the reservoir still holds ~50% — the 51-80-strike grind. Cap the tissue SUM
+	# against the reservoir's remaining display instead; a drained channel releases its credit
+	# to the sibling channel in the debit below.
+	var energy_pool_force: bool = extras.get("force_tissue_energy_pool", false)
+	var use_energy_pool: bool = (
+		TissueEnergyCapacity.is_active(energy_pool_force)
+		and not extras.get("disable_tissue_energy_pool", false)
+	)
 	# Per-channel ease cap prevents amplification from zeroing multiple channels.
 	# When base allocation already zeros a channel (to_X >= cur_X), use ease=1.0 for that
 	# channel — the hit is lethal regardless of wound factor. Otherwise, dampen the global
@@ -485,24 +548,57 @@ static func apply_damage_split(
 	var cut_ease: float = 1.0 if to_cut >= cur_cut else clampf(1.0 + (severance_ease - 1.0) * SEVERANCE_EASE_CHANNEL_DAMP, 1.0, severance_ease)
 	var blunt_ease: float = 1.0 if to_blunt >= cur_blunt else clampf(1.0 + (severance_ease - 1.0) * SEVERANCE_EASE_CHANNEL_DAMP, 1.0, severance_ease)
 	var bone_ease: float = 1.0 if to_bone >= cur_bone else clampf(1.0 + (severance_ease - 1.0) * SEVERANCE_EASE_CHANNEL_DAMP, 1.0, severance_ease)
-	to_cut = minf(entity._round_tissue(to_cut * cut_ease), cur_cut)
-	to_blunt = minf(entity._round_tissue(to_blunt * blunt_ease), cur_blunt)
+	if use_energy_pool:
+		# The J reservoir (translated back to display points) is the real remaining tissue.
+		# A single shared reservoir authority replaces the per-channel display caps: a mace
+		# (blunt-dominant) can now keep crushing a part instead of parking at the 50% line
+		# once its blunt display half is spent. Channel ease still applies so amplification
+		# doesn't over-spend the reservoir; each channel clamps against the reservoir total.
+		var reservoir_display: float = TissueEnergyCapacity.display_total_from_remaining_j(
+			int(entity.body_max.get(part, 1)),
+			entity.tissue_energy_remaining_j.get(part, 0.0),
+			entity.tissue_energy_capacity_j.get(part, 0.0),
+		)
+		to_cut = entity._round_tissue(to_cut * cut_ease)
+		to_blunt = entity._round_tissue(to_blunt * blunt_ease)
+		var tissue_spend: float = to_cut + to_blunt
+		if tissue_spend > reservoir_display:
+			var spend_scale: float = maxf(0.0, reservoir_display / tissue_spend)
+			to_cut = entity._round_tissue(to_cut * spend_scale)
+			to_blunt = entity._round_tissue(to_blunt * spend_scale)
+	else:
+		to_cut = minf(entity._round_tissue(to_cut * cut_ease), cur_cut)
+		to_blunt = minf(entity._round_tissue(to_blunt * blunt_ease), cur_blunt)
 	to_bone = minf(entity._round_tissue(to_bone * bone_ease), cur_bone)
+	# Channel debit targets. Non-pool path caps each channel against its own display.
+	# Pool path spills overflow into the sibling channel: one shared J reservoir per part,
+	# so a blunt-dominant weapon (mace) that has already spent the blunt display half keeps
+	# crushing the cutting display instead of parking at 50%. Wounds were recorded above
+	# from the raw to_cut/to_blunt, so only the display debit is re-routed.
+	var debit_cut: float = to_cut
+	var debit_blunt: float = to_blunt
+	if use_energy_pool:
+		if debit_blunt > cur_blunt:
+			var blunt_overflow: float = debit_blunt - cur_blunt
+			debit_blunt = cur_blunt
+			debit_cut += blunt_overflow
+		elif debit_cut > cur_cut:
+			var cut_overflow: float = debit_cut - cur_cut
+			debit_cut = cur_cut
+			debit_blunt += cut_overflow
 	var total_damage_this_hit: float = to_cut + to_blunt + to_bone
+	var channel_cut_drain: float = debit_cut
+	var channel_bone_drain: float = to_bone
 	if (
 		total_damage_this_hit < _get_severance_threshold_for_part_entity_aware(entity, part)
-		and (cur_cut - to_cut) <= 0.0
-		and (cur_bone - to_bone) <= 0.0
+		and (cur_cut - channel_cut_drain) <= 0.0
+		and (cur_bone - channel_bone_drain) <= 0.0
 		and cur_bone > 0.0
 	):
 		var bone_floor: float = maxf(0.1, float(entity.bone_max.get(part, 6)) * 0.15)
 		to_bone = maxf(0.0, cur_bone - entity._round_tissue(bone_floor))
-	var force_energy_pool: bool = extras.get("force_tissue_energy_pool", false)
-	var use_energy_pool: bool = (
-		TissueEnergyCapacity.is_active(force_energy_pool) and not extras.get("disable_tissue_energy_pool", false)
-	)
 	if use_energy_pool:
-		TissueEnergyCapacity.apply_tissue_damage_to_entity(entity, part, to_cut, to_blunt)
+		TissueEnergyCapacity.apply_tissue_damage_to_entity(entity, part, debit_cut, debit_blunt)
 		entity.bone_health[part] = entity._round_tissue(maxf(0.0, entity.bone_health.get(part, 0.0) - to_bone))
 	else:
 		entity.body_cutting[part] = entity._round_tissue(maxf(0.0, entity.body_cutting.get(part, 0.0) - to_cut))
@@ -552,11 +648,14 @@ static func apply_damage_split(
 	var wound_extras: Dictionary = {}
 	if weapon_type == "DAGGER":
 		wound_extras["dagger_wound"] = true
-	if to_cut > 0.0:
+	if to_cut > 0.0 or head_cut_wound_value > 0.0:
+		# Head cuts bleed at full scalp magnitude regardless of the skull-vault gating: the vault absorbs
+		# deep-cavity transmission into the brain pool, not the external scalp laceration that hemorrhages.
+		var wound_cut_value: float = head_cut_wound_value if part == BodyPartConstants.PART_HEAD else to_cut
 		var injury_type_for_wound: String = (
 			BleedingConstants.INJURY_TYPE_STAB if contact_type == WeaponConstants.ATTACK_TYPE_STAB else BleedingConstants.INJURY_TYPE_CUT
 		)
-		EntityWounds.add_wound(entity, part, injury_type_for_wound, to_cut, sub_region, "", body_ke_j, wound_pen_mm, wound_extras)
+		EntityWounds.add_wound(entity, part, injury_type_for_wound, wound_cut_value, sub_region, "", body_ke_j, wound_pen_mm, wound_extras)
 		# Torso thrusts can open a slow internal-organ bleed (forensic: stabs penetrate deeper and reach
 		# organs surface cuts miss). A separate unclottable wound so it doesn't merge with the external stab.
 		# Chance scales with penetration depth (a shallow thrust can't reach the organ plane). Dedicated RNG
@@ -696,10 +795,11 @@ static func apply_damage_split(
 					var alpha_head: float = EntityPainConsciousness.head_rotational_accel_rad_s2(transmitted_head_ke)
 					var alpha_thr: Array = EntityPainConsciousness.rotational_alpha_thresholds_for_fracture_anchor(fracture_anchor)
 					EntityPainConsciousness.try_enter_concussion_from_rotation(entity, alpha_head, alpha_thr[0], alpha_thr[1])
-	# Track last hit blunt KE for realistic head trauma classification (Issue: dagger HEAD_TRAUMA at 17J).
-	# Uses body_ke_j (KE reaching the head) so a helmet/plate reduces the classified trauma.
-	if part == BodyPartConstants.PART_HEAD and body_ke_j > 0.0 and to_blunt > 0.0:
-		entity.set_meta("_last_hit_blunt_ke_j", body_ke_j)
+	# Record the mechanism+physics profile of head strikes (replaces the single blunt-KE scalar) so
+	# downstream tuning classification can tell a penetrating sharp wound from blunt TBI and gradual crush.
+	# body_ke_j is the KE reaching the head (a helmet/plate reduces it); bone/penetration flags the breach.
+	if part == BodyPartConstants.PART_HEAD and body_ke_j > 0.0 and (to_cut > 0.0 or to_blunt > 0.0):
+		_record_head_strike_profile(entity, body_ke_j, mfb_mechanism, pen_to_tissue, to_bone)
 	var early_severed: bool = false
 	var part_sever_threshold: float = _get_severance_threshold_for_part_entity_aware(entity, part)
 	if not entity._is_part_severed(part) and total_damage_this_hit >= part_sever_threshold:
@@ -730,10 +830,9 @@ static func apply_damage_split(
 						entity.bone_health[part] = 0.0
 						early_severed = true
 						total_damage_this_hit = to_cut + to_blunt + to_bone
-						# Track last hit blunt KE for head trauma classification even when early severance zeroes the part.
-						# Uses body_ke_j (KE reaching the head) so a helmet/plate reduces the classified trauma.
+						# Keep the head-strike profile current even when early severance zeroes the part.
 						if part == BodyPartConstants.PART_HEAD and body_ke_j > 0.0:
-							entity.set_meta("_last_hit_blunt_ke_j", body_ke_j)
+							_record_head_strike_profile(entity, body_ke_j, mfb_mechanism, pen_to_tissue, to_bone)
 						# Sync J reservoir after early severance zeroing (prevents stale J after display reset).
 						if "tissue_energy_capacity_j" in entity and "tissue_energy_remaining_j" in entity:
 							var body_max_t: int = clampi(int(entity.body_max.get(part, 10)), 1, 999)
@@ -827,11 +926,15 @@ static func apply_damage_split(
 	entity._last_hit_impact = float(total_damage_this_hit)
 	entity._try_enter_pain_shock_from_hit(pain_from_this_hit_raw)
 	entity._update_consciousness()
+	# was_deflected: scalar path flags it when the edge was stopped by a rigid layer
+	# (blunt_from_deflection > 0). The joule path (live) tracks the same sharp->blunt
+	# conversion internally and surfaces it as "was_deflected" in the KE result.
+	var hit_was_deflected: bool = (blunt_from_deflection > 0.0) or bool(joule_ke.get("was_deflected", false))
 	var result: Dictionary = {
 		"final_cut": to_cut,
 		"final_blunt": to_blunt,
 		"final_bone": to_bone,
-		"was_deflected": blunt_from_deflection > 0.0,
+		"was_deflected": hit_was_deflected,
 		"mechanical_post_armor": mechanical_post_armor,
 		"mech_trauma_mult": trauma_mult,
 		"mech_subregion_mult": combat_mult,
@@ -886,3 +989,33 @@ static func _get_severance_threshold_for_part_entity_aware(entity: Node, part: S
 		return base_threshold
 	var scale: float = cur_tissue / ref_tissue
 	return base_threshold * scale
+
+
+## Meta key for the mechanism-aware head-strike profile (see _record_head_strike_profile). Read by
+## tools/combat_tuning/CombatTuningMain._infer_end_cause to classify head deaths by physics + mechanism.
+const HEAD_STRIKE_PROFILE_META: String = "_head_strike_prof"
+
+
+## Records the highest-KE head-strike profile for death-cause classification. Replaces the old single
+## blunt-KE scalar (_last_hit_blunt_ke_j) which could not distinguish a penetrating sharp wound from a
+## blunt TBI or gradual crush. Profile fields: max_ke_j / mechanism / pen_mm / to_bone of the worst-KE
+## strike, skull_breached (true if ANY head strike breached the vault), and sharp_penetrated (true if a
+## sharp/mixed strike breached the vault — a focal-pressure P=F/A kill possible at any KE). body_ke_j is
+## the post-armor KE reaching the head, so helmet/plate armor correctly reduces the classified trauma.
+static func _record_head_strike_profile(
+	entity: Node, body_ke_j: float, mfb_mechanism: String, pen_to_tissue: float, to_bone: float
+) -> void:
+	if entity == null:
+		return
+	var prof: Dictionary = entity.get_meta(HEAD_STRIKE_PROFILE_META, {})
+	var skull_breached_this_hit: bool = to_bone > 0.0 or pen_to_tissue >= BleedingConstants.HEAD_SKULL_BREACH_PEN_MM
+	if skull_breached_this_hit:
+		prof["skull_breached"] = true
+		if mfb_mechanism == "sharp" or mfb_mechanism == "mixed":
+			prof["sharp_penetrated"] = true
+	if float(prof.get("max_ke_j", 0.0)) < body_ke_j:
+		prof["max_ke_j"] = body_ke_j
+		prof["mechanism"] = mfb_mechanism
+		prof["pen_mm"] = pen_to_tissue
+		prof["to_bone"] = to_bone
+	entity.set_meta(HEAD_STRIKE_PROFILE_META, prof)

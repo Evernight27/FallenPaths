@@ -76,6 +76,7 @@ const MEDICAL_ACTION_LABELS_ALLY := {
 
 # Formation actions (player turn-ready log + gauge hints  -  Phase 2 **II-5a**)
 const FORMATION_ACTION_LABELS := {
+    CombatConstants.MOVE_ID_REGAIN_FOOTING: "Regain footing",
     CombatConstants.MOVE_ID_SWAP_RANK: "Swap rank",
     CombatConstants.MOVE_ID_DRAG_BACK: "Drag back (pair)",
     CombatConstants.MOVE_ID_FALL_BACK: "Fall back",

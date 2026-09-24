@@ -182,6 +182,8 @@ static func _proficiency_medical_gains(
         return
     if perf_entity == null or not "_proficiency_bonus" in perf_entity:
         return
+    if not EntityProficiency.is_stat_gain_tracked(perf_entity):
+        return
 
     # Medic INT + patient END: award for completed wind-up (practice / exposure), even when the procedure fails.
 
@@ -201,12 +203,15 @@ static func _proficiency_medical_gains(
     # INT gain for medic performing the action.
     EntityProficiency.award_stat_gain(perf_entity, "intelligence", base_gain)
 
-    # Patient END gain (exposure to blood peril during treatment attempt).
-    if tgt_entity != null and "_proficiency_bonus" in tgt_entity:
+    # Patient END gain (exposure to blood peril during treatment attempt). Scaled by how badly the
+    # patient is bleeding — enduring a deep hemorrhage trains more endurance than a light scratch.
+    if tgt_entity != null and "_proficiency_bonus" in tgt_entity and EntityProficiency.is_stat_gain_tracked(tgt_entity):
         EntityProficiency.award_stat_gain(
             tgt_entity,
             "endurance",
-            EntityProficiency.GAIN_BLOOD_PERIL_BASE * EntityProficiency.GAIN_MEDICAL_PATIENT_END_MULT
+            EntityProficiency.GAIN_BLOOD_PERIL_BASE
+            * EntityProficiency.GAIN_MEDICAL_PATIENT_END_MULT
+            * EntityProficiency.blood_peril_end_factor(float(tgt_entity.blood_volume))
         )
 
     # Record this medic action for post-combat INT floor bonus (per-entity tracking).

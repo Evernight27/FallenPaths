@@ -101,7 +101,12 @@ static func severity_from_damage(
 	var sub_mult: float = 1.0
 	if not CombatConstants.is_feature_subregion_combat_mult_enabled():
 		sub_mult = BleedingConstants.get_severity_modifier(part, sub_region)
-	var effective_damage: float = damage * ke_mult * depth_mult * sub_mult
+	# CAMP-SCAR-1 §9.3: a wound landing on an already-scarred part re-injures worse (lost rete pegs,
+	# reduced elasticity) — SCAR_REINJURY_MULT, applied once per part (binary scarred vs clean).
+	var scar_reinjury: float = 1.0
+	if entity.has_method("_get_scar_reinjury_mult"):
+		scar_reinjury = entity._get_scar_reinjury_mult(part)
+	var effective_damage: float = damage * ke_mult * depth_mult * sub_mult * scar_reinjury
 	var pct: float = effective_damage / max_hp
 	var sev_pct: String = _severity_from_pct(pct)
 	if BleedingConstants.FEATURE_ABSOLUTE_SEVERITY_BANDS:
@@ -181,6 +186,29 @@ static func _try_merge_wound_into_channel(
 # --- Add wound / stump wound ---
 
 
+## CAMP-SCAR-1: the resolution (closure/remodeling) duration for a wound on `part`, scaled by the part's
+## scar heal multiplier — a fresh wound on already-scarred hypovascular tissue closes slower
+## (×1 / scar_heal_mult: ~0.85 → ×1.18 closure time; deepest deepen 0.1 → ×10). This is the single
+## source of the scar slow-down, used both when a wound is created (`add_wound`) and when infection
+## treatment clears a stage-1 focus and recomputes the duration back to its pre-infection baseline
+## (`EntityMedical`): that baseline on a scarred part must include the scar factor, or curing an
+## infection would let a scarred limb heal faster than an identical never-infected scarred wound.
+## Severed parts stay canonical — the limb no longer closes as a wound; its chronic state is the
+## amputated_limb scar, minted on the next advance.
+static func scaled_healing_duration_seconds(
+	entity: Node,
+	part: String,
+	severity: String,
+	injury_type: String
+) -> float:
+	var dur: float = HealingConstants.get_wound_healing_duration_seconds(part, severity, injury_type)
+	if not BodyPartQuery.is_part_severed(entity, part) and entity.has_method("_get_scar_heal_mult"):
+		var scar_h: float = float(entity._get_scar_heal_mult(part))
+		if scar_h > 0.0 and scar_h < 1.0:
+			dur /= scar_h
+	return dur
+
+
 static func add_wound(
 	entity: Node,
 	part: String,
@@ -225,7 +253,7 @@ static func add_wound(
 		base_rate *= BleedingConstants.BLEEDING_TYPE_RATE_MULT[BleedingConstants.BLEEDING_TYPE_ARTERIAL]
 	if entity.wounds.get(part) == null:
 		entity.wounds[part] = []
-	var healing_duration: float = HealingConstants.get_wound_healing_duration_seconds(part, severity, injury_type)
+	var healing_duration: float = scaled_healing_duration_seconds(entity, part, severity, injury_type)
 	if _try_merge_wound_into_channel(
 		entity, part, injury_type, damage, sub_region, severity, base_rate, is_arterial, healing_duration,
 		penetration_to_tissue_mm
@@ -268,7 +296,7 @@ static func _try_escalate_compound_fracture(entity: Node, fracture_part: String)
 		for inj in entity.wounds[lp]:
 			if inj.get("injury_type") == BleedingConstants.INJURY_TYPE_FRACTURE:
 				fracture_count_in_limb += 1
-		if fracture_count_in_limb >= 2:
+		if fracture_count_in_limb >= BleedingConstants.COMPOUND_FRACTURE_THRESHOLD:
 			var new_wounds: Array = []
 			for inj in entity.wounds[lp]:
 				if inj.get("injury_type") == BleedingConstants.INJURY_TYPE_FRACTURE:
@@ -277,11 +305,11 @@ static func _try_escalate_compound_fracture(entity: Node, fracture_part: String)
 					var current_rate: float = compounded.get("current_bleeding_rate", 0.0)
 					var base_rate: float = compounded.get("base_bleeding_rate", 0.0)
 					if base_rate > 0.0:
-						compounded["base_bleeding_rate"] = base_rate * 2.5
-						compounded["current_bleeding_rate"] = current_rate * 2.5
+						compounded["base_bleeding_rate"] = base_rate * BleedingConstants.COMPOUND_FRACTURE_BLEED_MULT
+						compounded["current_bleeding_rate"] = current_rate * BleedingConstants.COMPOUND_FRACTURE_BLEED_MULT
 					compounded["is_compound_fracture"] = true
 					if compounded.has("pain_shock_threshold_mult"):
-						compounded["pain_shock_threshold_mult"] *= 0.7
+						compounded["pain_shock_threshold_mult"] *= BleedingConstants.COMPOUND_FRACTURE_PAIN_THRESHOLD_MULT
 					new_wounds.append(compounded)
 				else:
 					new_wounds.append(inj)
@@ -294,7 +322,7 @@ static func create_stump_wound(entity: Node, part: String, sub_region: String) -
 	var base_rate: float = BleedingConstants.get_stump_bleeding_rate(part, sub_region)
 	## Stump bleeding variation ±8% around baseline — models anatomical variance in vessel size/position.
 	## Clinically, stump hemorrhage rates vary ~15-20% even within same body region; ±8% is conservative.
-	var variation: float = 0.92 + randf() * 0.16
+	var variation: float = BleedingConstants.STUMP_BLEED_VARIATION_MIN + randf() * BleedingConstants.STUMP_BLEED_VARIATION_SPAN
 	base_rate *= variation
 	var arterial_chance: float = (
 		BleedingConstants.get_arterial_chance(
@@ -342,6 +370,21 @@ static func ensure_stump_wound(entity: Node, part: String, sub_region: String = 
 		return
 	if has_stump_wound(entity, part):
 		return
+	# A stump REPLACES the limb's prior wound channel wholesale, so release the old medical state
+	# (tourniquet, dressings, pressure) that belonged to it. Leaving a stale clamp lets the next
+	# healing tick "expire" it against the STUMP and latch had_ischemia onto a limb that is being
+	# severed (a phantom Volkmann grip on an amputated stump at its later resolution), and a stale
+	# dressing/packing reads as definitive hemostasis for a brand-new bleeding stump
+	# (part_has_definitive_hemostasis), starving the stump of care. Shared by both stump-minting
+	# paths -- surgical amputation and combat severance -- the release lives at the mint.
+	if "tourniquet_applied" in entity:
+		EntityMedical._remove_tourniquet(entity, part)
+	if "bandaged_parts" in entity:
+		entity.bandaged_parts.erase(part)
+	if "packed_parts" in entity:
+		entity.packed_parts.erase(part)
+	if "direct_pressure_part" in entity:
+		EntityMedical.release_direct_pressure_on_part(entity, part)
 	entity.wounds[part] = create_stump_wound(entity, part, sub_region)
 
 
@@ -370,8 +413,11 @@ static func get_bleeding_rate_for_part(entity: Node, part: String) -> float:
 	var under_pressure: bool = part_has_active_direct_pressure(entity, part)
 	for injury in entity.wounds[part]:
 		var r: float = injury.get("current_bleeding_rate", 0.0)
+		# CAMP-INF-1: inflamed/infected tissue is hyperemic and bleeds more readily than clean tissue.
+		if int(injury.get("infection_stage", 0)) >= 1 or injury.get("is_infected", false):
+			r *= BleedingConstants.WOUND_INFECTION_BLEED_MULT
 		if BleedingConstants.is_unclottable(str(injury.get("injury_type", ""))):
-			# Internal-organ bleed: external pressure/tourniquet cannot reach it — no reduction.
+			# Internal-organ bleed: external pressure/bandage cannot reach it — no reduction.
 			unclottable_rate += r
 			continue
 		if under_pressure:
@@ -383,6 +429,9 @@ static func get_bleeding_rate_for_part(entity: Node, part: String) -> float:
 		var eff: float = data.get("effectiveness", 1.0)
 		var reduction: float = eff * BleedingConstants.TOURNIQUET_REDUCTION_AT_FULL
 		rate *= (1.0 - reduction)
+	# CAMP-SCAR-1: a scarred part bleeds a touch more on re-injury (hypovascular scar tissue).
+	if entity.has_method("_get_scar_bleed_mult"):
+		rate *= entity._get_scar_bleed_mult(part)
 	return rate + unclottable_rate
 
 
@@ -429,17 +478,17 @@ static func get_part_intervention_threat(entity: Node, part: String) -> float:
 	var bonus: float = 0.0
 	for injury in entity.wounds[part]:
 		if injury.get("is_arterial", false):
-			bonus += 2.25
+			bonus += BleedingConstants.THREAT_ARTERIAL_BONUS
 		if injury.get("is_stump", false):
-			bonus += 4.5
+			bonus += BleedingConstants.THREAT_STUMP_BONUS
 		var sev: String = str(injury.get(DataKeys.INJURY_SEVERITY, BleedingConstants.SEVERITY_MODERATE))
 		if sev == BleedingConstants.SEVERITY_CRITICAL:
-			bonus += 1.6
+			bonus += BleedingConstants.THREAT_SEVERITY_CRITICAL_BONUS
 		elif sev == BleedingConstants.SEVERITY_SEVERE:
-			bonus += 0.85
+			bonus += BleedingConstants.THREAT_SEVERITY_SEVERE_BONUS
 	if EntityMedical._is_tourniquet_indicated_for_part(entity, part):
-		bonus += 1.15
-	return rate * 3.5 + bonus
+		bonus += BleedingConstants.THREAT_TOURNIQUET_BONUS
+	return rate * BleedingConstants.THREAT_BLEED_RATE_WEIGHT + bonus
 
 
 ## Untreated parts highest threat first (map field care + triage ordering).
@@ -523,6 +572,8 @@ static func rebound_bleeding_after_pressure_release(entity: Node, part: String) 
 
 
 static func process_bleeding(entity: Node, delta: float) -> void:
+	if entity != null and entity.has_method("is_dead") and entity.is_dead():
+		return
 	for part in entity.wounds.keys():
 		var under_pressure: bool = part_has_active_direct_pressure(entity, part)
 		var list: Array = entity.wounds[part]
@@ -556,19 +607,21 @@ static func process_bleeding(entity: Node, delta: float) -> void:
 				if under_pressure:
 					clotting = maxf(clotting, BleedingConstants.CLOTTING_RATE_UNDER_DIRECT_PRESSURE)
 				var end_factor: float = clampf(
-					0.9 + EntityWounds.effective_endurance_for_clotting(entity) / 1000.0, 0.9, 1.1
+					BleedingConstants.ENDURANCE_CLOTTING_MIN
+					+ EntityWounds.effective_endurance_for_clotting(entity) / BleedingConstants.ENDURANCE_CLOTTING_DIVISOR,
+					BleedingConstants.ENDURANCE_CLOTTING_MIN, BleedingConstants.ENDURANCE_CLOTTING_MAX
 				)
 				clotting *= end_factor
 				# Active combat reduces clotting effectiveness (lethal triad: movement,
 				# adrenaline, physical trauma reopen clots and impair coagulation)
 				if "exertion_active" in entity and entity.exertion_active:
-					clotting *= 0.6
+					clotting *= BleedingConstants.EXERTION_CLOTTING_MULT
 				# Pain shock causes sympathetic surge that impairs coagulation — clinical
 				# evidence shows acute stress response delays hemostasis beyond exertion alone.
 				if entity.has_method("_pain_shock_until_time") and entity._pain_shock_until_time >= 0.0:
 					var now: float = CombatTiming.now_seconds()
 					if now < entity._pain_shock_until_time:
-						clotting *= 0.75
+						clotting *= BleedingConstants.PAIN_SHOCK_CLOTTING_MULT
 			# Bleed-rate decay is handled by clotting alone (clinical minutes timescale); no separate
 			# vasoconstriction/compensation delay is applied.
 			rate *= exp(-clotting * delta)
@@ -628,7 +681,7 @@ static func process_blood_loss(entity: Node, delta: float) -> void:
 	# increases heart rate, wounds reopen with exertion (~50% faster bleeding)
 	var exertion_active: bool = "exertion_active" in entity and entity.exertion_active
 	if exertion_active:
-		loss_mult *= 1.5
+		loss_mult *= BleedingConstants.EXERTION_BLOOD_LOSS_MULT
 	var blood_pct: float = 100.0
 	if "blood_volume" in entity:
 		blood_pct = clampf(float(entity.blood_volume), 0.0, 100.0)
@@ -639,7 +692,7 @@ static func process_blood_loss(entity: Node, delta: float) -> void:
 	# which FALLS as the patient decompensates, so decompensation does NOT accelerate the wound rate; the
 	# death spiral is carried by this recovery suppression + the blood→consciousness curve, not a rate boost.
 	if recovery_per_s > 0.0 and blood_pct < BleedingConstants.DECOMPENSATION_BLOOD_THRESHOLD:
-		recovery_per_s *= 0.05  # ~95% suppression — only trace replacement while decompensated
+		recovery_per_s *= BleedingConstants.DECOMPENSATED_RECOVERY_SUPPRESSION  # ~95% suppression — only trace replacement while decompensated
 	if BloodVolumeMl.entity_uses_ml(entity):
 		BloodVolumeMl.process_blood_loss_tick(entity, total, delta, loss_mult, recovery_per_s)
 	elif total > 0.0:

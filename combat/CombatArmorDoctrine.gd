@@ -7,21 +7,22 @@ extends RefCounted
 
 
 # Armor tier thresholds (total RHA sharp resistance across all body parts).
+# Derivation: max achievable total RHA = 6 body parts × 3.5 mm plate = 21.0 mm.
+# Thresholds partition that range into meaningful protection tiers:
+#   none   < 2.0  (~10% ceiling — bare/unarmed or single cloth layer)
+#   light  < 8.0  (~38% ceiling — full mail kit ≈ 6 mm, light mixed kit)
+#   medium < 16.0 (~76% ceiling — mixed plate + mail, most combat armor)
+#   heavy  ≥ 16.0 (near-full plate, approaching the 21 mm ceiling)
+const ARMOR_RHA_CEILING_TOTAL := 21.0  # 6 parts × LAYER_PLATE RHA (3.5 mm)
 const ARMOR_TIER_NONE_THRESHOLD := 2.0
 const ARMOR_TIER_LIGHT_THRESHOLD := 8.0
 const ARMOR_TIER_MEDIUM_THRESHOLD := 16.0
-# Armor degradation: protection falls 1.0 -> 0.3 as absorbed damage reaches the part's resistance threshold, then
-# continues to complete failure (0.0) at this multiple of the threshold. Heavily battered armor no longer protects.
-const ARMOR_COMPLETE_FAILURE_ABSORBED_MULT := 2.0
 
 # Armor tier labels for UI/log.
 const TIER_NONE := "none"
 const TIER_LIGHT := "light"
 const TIER_MEDIUM := "medium"
 const TIER_HEAVY := "heavy"
-
-# Doctrine state keys on combatant dict.
-const COMBATANT_KEY_DOCTRINE_DEGRADATION_TRACKING: String = "armor_degradation"
 
 # Form tier mapping — which forms are armor-doctrine forms.
 const _DOCTRINE_FORMS := ["half_sword", "mordhau"]
@@ -38,11 +39,9 @@ static func estimate_armor_rha(combatant: Dictionary) -> float:
 	var total_rha: float = 0.0
 	for part_key in slots.keys():
 		var piece = slots[part_key]
+		# armor_slots holds ArmorPiece-or-null only (EntityEquipment.equip_armor filters to it).
 		if piece is ArmorPiece:
-			total_rha += piece.get_outer_layer_sharp_resistance_rha_mm()
-		elif piece is Dictionary:
-			# Fallback for raw dict-style armor data.
-			total_rha += float(piece.get("sharp_resistance_rha_mm", 0.0))
+			total_rha += piece.get_outer_layer_effective_rha_mm()
 	return total_rha
 
 
@@ -66,6 +65,8 @@ static func is_doctrine_form(form: String) -> bool:
 
 
 ## Identify armor gaps on the opponent — parts with RHA below a threshold (unprotected/exposed).
+## Default max_rha 1.5 sits above the best soft armor (mail 1.0 / cloth 0.9) and below the best
+## rigid armor (plate 3.5), so a part is a "gap" when it carries at most soft-tier protection.
 static func find_armor_gaps(combatant: Dictionary, max_rha: float = 1.5) -> Array:
 	if combatant.is_empty():
 		return []
@@ -77,10 +78,9 @@ static func find_armor_gaps(combatant: Dictionary, max_rha: float = 1.5) -> Arra
 	for part_key in slots.keys():
 		var piece = slots[part_key]
 		var rha: float = 0.0
+		# armor_slots holds ArmorPiece-or-null only (EntityEquipment.equip_armor filters to it).
 		if piece is ArmorPiece:
-			rha = piece.get_outer_layer_sharp_resistance_rha_mm()
-		elif piece is Dictionary:
-			rha = float(piece.get("sharp_resistance_rha_mm", 0.0))
+			rha = piece.get_outer_layer_effective_rha_mm()
 		if rha <= max_rha:
 			gaps.append(part_key)
 	return gaps
@@ -121,74 +121,21 @@ static func apply_armor_bias_to_weights(
 			weights[gap] = weights.get(gap, 1.0) * bonus
 
 
-## Compute armor degradation tracker for a combatant (called during attack resolution).
-## Returns {part: damage_absorbed} dictionary tracking cumulative damage to armor layers.
-static func get_degradation_tracker(combatant: Dictionary) -> Dictionary:
-	if combatant.is_empty():
-		return {}
-	var tracker: Variant = combatant.get(COMBATANT_KEY_DOCTRINE_DEGRADATION_TRACKING, null)
-	if tracker is Dictionary:
-		return tracker
-	return {}
-
-
-## Record armor degradation on a body part (called after damage resolves against armored target).
-static func record_armor_damage(combatant: Dictionary, part: String, absorbed_damage: float) -> void:
-	if combatant.is_empty() or part.is_empty():
-		return
-	var tracker: Dictionary = get_degradation_tracker(combatant)
-	if not tracker.has(part):
-		tracker[part] = 0.0
-	tracker[part] += absorbed_damage
-	combatant[COMBATANT_KEY_DOCTRINE_DEGRADATION_TRACKING] = tracker
-
-
-## Degradation factor from absorbed damage vs the part's resistance threshold. Protection falls 1.0 -> 0.3 as
-## absorbed reaches the threshold, then continues to complete failure (0.0) at ARMOR_COMPLETE_FAILURE_ABSORBED_MULT
-## times the threshold — heavily battered armor no longer protects.
-static func _armor_degradation_factor_from_absorbed(absorbed: float, threshold: float) -> float:
-	if threshold <= 0.0:
-		return 1.0
-	var ratio: float = clampf(absorbed / threshold, 0.0, float(ARMOR_COMPLETE_FAILURE_ABSORBED_MULT))
-	if ratio <= 1.0:
-		return lerpf(1.0, 0.3, ratio)
-	return lerpf(0.3, 0.0, ratio - 1.0)
-
-
-## Get armor degradation factor — how much RHA protection remains based on cumulative absorbed damage.
-## Returns a ratio between 0.0 (failed) and 1.0 (intact), scaled with absorbed damage.
-static func get_armor_degradation_factor(combatant: Dictionary, part: String) -> float:
-	var node = _combatant_node(combatant)
-	if node == null or not node.has_method("_get_armor_for_part"):
-		return 1.0
-	var piece = node._get_armor_for_part(part)
-	if piece is ArmorPiece:
-		var max_resistance: float = piece.get_outer_layer_sharp_resistance_rha_mm() * 2.0
-		var tracker: Dictionary = get_degradation_tracker(combatant)
-		if not tracker.has(part):
-			return 1.0
-		return _armor_degradation_factor_from_absorbed(tracker[part], max_resistance)
-	elif piece is Dictionary:
-		var dur: float = piece.get("durability", ArmorConstants.DEFAULT_ARMOR_LAYER_DURABILITY)
-		var tracker: Dictionary = get_degradation_tracker(combatant)
-		if not tracker.has(part):
-			return 1.0
-		return _armor_degradation_factor_from_absorbed(tracker[part], maxf(dur, 0.01))
-	return 1.0
-
-
-## Get the effective RHA reduction due to armor degradation on a specific part.
+## Get the effective RHA sharp resistance (mm) for a body part, already accounting for
+## material-accurate wear. Delegates to the outer surviving layer's wear-aware value
+## (ArmorPiece.get_outer_layer_effective_rha_mm), the same source the sharp damage math uses —
+## so the blunt/thrust contact-area model and the AI tier/gap reads all agree with how much a
+## worn piece still actually protects. Fresh armor returns the base value bit-identically; a
+## destroyed outer layer falls through to the next surviving layer. Raw dict armor (no wear
+## model) returns its static sharp_resistance_rha_mm.
 static func get_effective_rha_with_degradation(combatant: Dictionary, part: String) -> float:
 	var node = _combatant_node(combatant)
 	if node == null or not node.has_method("_get_armor_for_part"):
 		return 0.0
 	var piece = node._get_armor_for_part(part)
+	# _get_armor_for_part returns ArmorPiece-or-null only.
 	if piece is ArmorPiece:
-		var base_rha: float = piece.get_outer_layer_sharp_resistance_rha_mm()
-		return base_rha * get_armor_degradation_factor(combatant, part)
-	elif piece is Dictionary:
-		var rha: float = float(piece.get("sharp_resistance_rha_mm", 0.0))
-		return rha * get_armor_degradation_factor(combatant, part)
+		return piece.get_outer_layer_effective_rha_mm()
 	return 0.0
 
 

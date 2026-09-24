@@ -66,6 +66,7 @@ static func compute_and_apply_damage(
 	var pen_sharp: float = -1.0
 	var pen_blunt_momentum_per_area: float = -1.0
 	var blunt_contact_cm: float = -1.0
+	var blunt_coupling_contact_cm: float = -1.0
 	var pre_cut: float = 0.0
 	var pre_blunt: float = 0.0
 	var strike_ke_j: float = -1.0
@@ -163,6 +164,7 @@ static func compute_and_apply_damage(
 		)
 		pen_blunt_momentum_per_area = pen_blunt_dict.get(DataKeys.ATK_PENETRATION_BLUNT_MPA, -1.0)
 		blunt_contact_cm = pen_blunt_dict.get(DataKeys.ATK_BLUNT_CONTACT_CM, -1.0)
+		blunt_coupling_contact_cm = pen_blunt_dict.get(DataKeys.ATK_BLUNT_COUPLING_CONTACT_CM, -1.0)
 		# Angle (deflection): oblique impact = less penetration (armor research).
 		var angle_factor: float = penetration_oblique_angle_factor(velocity_override, parry_remaining_ratio, alignment)
 		if angle_factor < 1.0:
@@ -268,9 +270,10 @@ static func compute_and_apply_damage(
 	var commit_quality_shared: float = 1.0
 	var commit_quality_cut: float = 1.0
 	# HEMA: an off-balance attacker strikes from a compromised center — weight transfer through the
-	# weapon is reduced. Symmetric with the defensive parry-capacity penalty.
+	# weapon is reduced. Symmetric with the defensive parry-capacity penalty. Penalty fades as the
+	# attacker re-establishes balance (proportional to off-balance depth).
 	if PassiveParryContext.is_off_balance(atk):
-		commit_quality_shared *= CombatConstants.OFF_BALANCE_ATTACK_DMG_MULT
+		commit_quality_shared *= PassiveParryContext.off_balance_penalty_mult(atk, CombatConstants.OFF_BALANCE_ATTACK_DMG_MULT)
 	# HEMA B3: voiding outside an opponent's strong side leaves their bracing misaligned to the line
 	# you take — the voider's strike against the voided target lands with a modest positional bonus.
 	# Scoped to the specific voided opponent (a third combatant on the other side is not affected).
@@ -354,6 +357,11 @@ static func compute_and_apply_damage(
 	var eff_atk_line: String = pa.get(DataKeys.ATTACK_EFFECTIVE_ATTACK_LINE, "")
 	if not eff_atk_line.is_empty():
 		dmg_extras["attack_line"] = eff_atk_line
+	# Weapon's TRUE (uncapped) contact face, for the rigid-plate area-coupling term. Rides in
+	# extras so the armor math sees the mace's full head (coupling 1.0) rather than the capped
+	# pressure-face (2.5 cm) — see ArmorPiece.blunt_transmission_math coupling.
+	if blunt_coupling_contact_cm >= 0.0:
+		dmg_extras[DataKeys.ATK_BLUNT_COUPLING_CONTACT_CM] = blunt_coupling_contact_cm
 	var take_result: Dictionary = tgt_n.take_damage_split(
 		pre_cut, pre_blunt, part, pen_sharp, pen_blunt_momentum_per_area, blunt_contact_cm, dmg_extras
 	)
@@ -401,11 +409,6 @@ static func compute_and_apply_damage(
 				if outcome == "negligible":
 					outcome = "glancing"
 					glancing_severity = clampf(tissue_dmg / maxf(low_ke_floor * CombatConstants.GLANCING_DAMAGE_RATIO, CombatConstants.GLANCING_DAMAGE_ABSOLUTE_FLOOR), 0.0, 1.0)
-
-	## Record armor degradation on target — absorbed damage contributes to layer wear.
-	var absorbed_armor_damage: float = maxf(0.0, pre_armor - total_physical)
-	if absorbed_armor_damage > 0.0:
-		CombatArmorDoctrine.record_armor_damage(tgt, part, absorbed_armor_damage)
 
 	var tgt_entity: Node = CombatantEntityAccess.get_health_entity_from_node(manager, tgt_n)
 	if tgt_entity == null:
@@ -492,6 +495,7 @@ static func compute_and_apply_damage(
 		"was_deflected": take_result.get(DataKeys.ATTACK_WAS_DEFLECTED, false),
 		"was_glancing": outcome == "glancing",
 		"was_negligible": outcome == "negligible",
+		"strike_ke_j": strike_ke_j,
 		"mechanical_post_armor": take_result.get(DataKeys.RESULT_MECHANICAL_POST_ARMOR, 0.0),
 		"mech_trauma_mult": take_result.get("mech_trauma_mult", 1.0),
 		"mech_subregion_mult": take_result.get("mech_subregion_mult", 1.0),
@@ -582,7 +586,9 @@ static func stamp_resolve_angle_geometry_on_pa(
 		return
 	var var_ctx: Dictionary = {}
 	var_ctx[DataKeys.VAR_CTX_STAMINA_RATIO] = CombatantEntityAccess.stamina_ratio(atk)
-	var_ctx[DataKeys.VAR_CTX_OFF_BALANCE] = PassiveParryContext.is_off_balance(atk)
+	# Store off-balance depth (0.0-1.0) so angle variance fades proportionally as the attacker
+	# re-establishes balance. A bool here would keep the full +35% scatter for the whole window.
+	var_ctx[DataKeys.VAR_CTX_OFF_BALANCE] = PassiveParryContext.off_balance_depth(atk)
 	var atk_weapon = CombatantEntityAccess.get_weapon(atk)
 	var_ctx[DataKeys.VAR_CTX_WEAPON_MASS_KG] = (
 		float(atk_weapon.mass)
@@ -594,6 +600,21 @@ static func stamp_resolve_angle_geometry_on_pa(
 	pa[DataKeys.ATTACK_ATTACK_ANGLE_DEG] = CombatFootwork.apply_offset_to_angle_deg(pa[DataKeys.ATTACK_ATTACK_ANGLE_DEG], atk)
 	pa[DataKeys.PA_POSITION_ANGLE_OFFSET_DEG] = CombatFootwork.get_attacker_offset_deg(atk)
 	pa[DataKeys.PA_ARC_SPAN_DEG] = CombatConstants.angle_diff_deg(arc_start_deg, pa[DataKeys.ATTACK_ATTACK_ANGLE_DEG])
+
+
+## Representative swing kinetic energy (J) for a committed swing, from the swing's intensity-derived
+## velocity and the weapon's strike mass. Used to scale the attacker's own off-balance on a whiff: a
+## heavier/faster swing over-extends the body more than a light probe. Intentionally omits the
+## closing-speed/fatigue/economy modifiers the hit path layers on — for a bounded whiff penalty the
+## base swing energy is a clean, monotonic proxy. Returns -1.0 when no KE is derivable so the impulse
+## multiplier stays neutral (never fabricates a discount or extension).
+static func _swing_kinetic_energy_j(weapon, intensity: float, archetype: Dictionary, move_id: String) -> float:
+	if weapon == null:
+		return -1.0
+	var wi: RefCounted = AttackInstance.new(move_id, intensity)
+	wi.archetype = archetype
+	wi.velocity_m_s = WeaponDamageHelper.velocity_m_s_from_intensity(intensity, archetype, weapon, move_id)
+	return WeaponDamageHelper.compute_kinetic_energy_j(weapon, wi)
 
 
 static func resolve_attack(manager: Node, attacker_id: int) -> Dictionary:
@@ -742,7 +763,11 @@ static func resolve_attack(manager: Node, attacker_id: int) -> Dictionary:
 		dist_hit_mult = CombatConstants.CLOSE_RANGE_HIT_MULT
 	elif distance_band == "mid":
 		dist_hit_mult = CombatConstants.MID_RANGE_HIT_MULT
-	var effective_hit_chance: float = (1.0 - CombatConstants.MISS_CHANCE_BASE) * perf_mod * perception_factor * melee_skill_factor * measure_hit_mult * dist_hit_mult
+	var off_bal_mult: float = PassiveParryContext.off_balance_penalty_mult(atk, CombatConstants.OFF_BALANCE_HIT_CHANCE_MULT)
+	# Mirror: a wobbly target is a looser, slower-to-recover one — the attacker's clean-hit rate rises
+	# with the target's off-balance depth. Neutral when the target is settled (D001).
+	var tgt_off_bal_mult: float = PassiveParryContext.off_balance_penalty_mult(tgt, CombatConstants.OFF_BALANCE_TARGET_HIT_CHANCE_MULT)
+	var effective_hit_chance: float = (1.0 - CombatConstants.MISS_CHANCE_BASE) * perf_mod * perception_factor * melee_skill_factor * measure_hit_mult * dist_hit_mult * off_bal_mult * tgt_off_bal_mult
 	effective_hit_chance = maxf(effective_hit_chance, CombatConstants.HIT_CHANCE_MIN_CAP)
 	var miss_chance: float = 1.0 - effective_hit_chance
 	var miss_roll: float = randf()
@@ -755,7 +780,8 @@ static func resolve_attack(manager: Node, attacker_id: int) -> Dictionary:
 			perf_mod,
 			atk_stats.get(DataKeys.ENTITY_AGILITY, CombatConstants.DEFAULT_STAT_VALUE)
 		)
-		return {"action": "miss", "target_id": target_id, "recovery_duration": rec_dur}
+		var miss_ke_j: float = _swing_kinetic_energy_j(atk_wep, intensity, archetype, attack_type)
+		return {"action": "miss", "target_id": target_id, "recovery_duration": rec_dur, DataKeys.RESULT_STRIKE_KE_J: miss_ke_j}
 	CombatDebug.log("hit_roll %s->%s roll=%.3f" % [atk_name, tgt_name, miss_roll])
 
 	# Angle-based: store attack_angle_deg for continuous trajectory (deflection, alignment, damage).
@@ -774,6 +800,13 @@ static func resolve_attack(manager: Node, attacker_id: int) -> Dictionary:
 		tgt[DataKeys.PA_ENGAGEMENT_ANGLE] = "flank"
 	else:
 		tgt[DataKeys.PA_ENGAGEMENT_ANGLE] = "front"
+
+	# Tier 3.1 persistent facing: a flank/rear resolve leaves the defender turned toward the threat
+	# for a beat. Stamp a decaying facing-turn window that piles on when already turned (capped);
+	# front-on resolves (incl. D001) never stamp.
+	if CombatConstants.is_feature_persistent_facing_enabled():
+		var ft_angle: String = str(tgt[DataKeys.PA_ENGAGEMENT_ANGLE])
+		PassiveParryContext.apply_facing_turn(tgt, ft_angle)
 
 	TacticalCombat.stamp_surround_threat_on_pa(manager, tgt, pa)
 	pa[DataKeys.PA_TACTICAL_AMBUSH_MULT] = TacticalCombat.ambush_defense_multiplier(manager, tgt)

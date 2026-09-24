@@ -249,7 +249,18 @@ static func _resolve_dodge(
 				CombatantEntityAccess.form_str(tgt),
 				CombatantEntityAccess.get_weapon(tgt)
 			)
-			return {"action": "dodge", "target_id": target_id, "recovery_duration": rec_dur}
+			# Swing KE: the incoming blow's energy, so the applier can scale the attacker's
+			# over-extension by impulse (mirrors the miss-path plumb in AttackResolver). A dodged
+			# swing is the same over-extended commitment as a whiff, regardless of why it missed.
+			var dodge_ke_j: float = AttackResolver._swing_kinetic_energy_j(
+				CombatantEntityAccess.get_weapon(atk), intensity, archetype, attack_type
+			)
+			return {
+				"action": "dodge",
+				"target_id": target_id,
+				"recovery_duration": rec_dur,
+				DataKeys.RESULT_STRIKE_KE_J: dodge_ke_j,
+			}
 		if dodge_roll < effective_dodge_chance:
 			var partial_range: float = effective_dodge_chance * (1.0 - CombatConstants.DODGE_FULL_THRESHOLD)
 			var t: float = (
@@ -405,7 +416,10 @@ static func _resolve_parry(
 		var atk_perf: float = CombatantEntityAccess.get_performance_modifier(atk)
 		var contact_type_for_outcome: String = contact_type_full_stop
 		# Guard transition cost: parry pushes blade to attack line; repositioning to a different guard costs extra time.
-		var guard_trans_cost: float = CombatTiming.compute_guard_transition_cost_s(guard_line, attack_line)
+		# A staggered attacker has less blade control while recovering from the parry.
+		var guard_trans_cost: float = CombatTiming.compute_guard_transition_cost_s(guard_line, attack_line) \
+			* CombatConstants.guard_transition_off_balance_mult(PassiveParryContext.off_balance_depth(atk)) \
+			* CombatConstants.guard_transition_fatigue_mult(CombatMuscleFatigue.limb_fatigue(atk, CombatMuscleFatigue.dominant_strike_limb(atk)))
 		var rec_dur: float = CombatTiming.recovery_duration_with_form(
 			parry_intensity,
 			"full_stop",
@@ -503,7 +517,9 @@ static func _resolve_parry(
 	if edge_deflect:
 		var parry_intensity_edge: float = pa.get(CombatConstants.PA_KEY_INTENSITY, CombatConstants.PA_DEFAULT_INTENSITY)
 		var atk_perf_edge: float = CombatantEntityAccess.get_performance_modifier(atk)
-		var guard_trans_cost_edge: float = CombatTiming.compute_guard_transition_cost_s(guard_line, attack_line)
+		var guard_trans_cost_edge: float = CombatTiming.compute_guard_transition_cost_s(guard_line, attack_line) \
+			* CombatConstants.guard_transition_off_balance_mult(PassiveParryContext.off_balance_depth(atk)) \
+			* CombatConstants.guard_transition_fatigue_mult(CombatMuscleFatigue.limb_fatigue(atk, CombatMuscleFatigue.dominant_strike_limb(atk)))
 		var rec_dur_edge: float = CombatTiming.recovery_duration_with_form(
 			parry_intensity_edge,
 			"full_stop",
@@ -609,7 +625,9 @@ static func _resolve_parry(
 	if remaining_ratio <= 0.0:
 		var parry_intensity_zero: float = pa.get(CombatConstants.PA_KEY_INTENSITY, CombatConstants.PA_DEFAULT_INTENSITY)
 		var atk_perf_zero: float = CombatantEntityAccess.get_performance_modifier(atk)
-		var guard_trans_cost_zero: float = CombatTiming.compute_guard_transition_cost_s(guard_line, attack_line)
+		var guard_trans_cost_zero: float = CombatTiming.compute_guard_transition_cost_s(guard_line, attack_line) \
+			* CombatConstants.guard_transition_off_balance_mult(PassiveParryContext.off_balance_depth(atk)) \
+			* CombatConstants.guard_transition_fatigue_mult(CombatMuscleFatigue.limb_fatigue(atk, CombatMuscleFatigue.dominant_strike_limb(atk)))
 		var rec_dur_zero: float = CombatTiming.recovery_duration_with_form(
 			parry_intensity_zero,
 			"full_stop",

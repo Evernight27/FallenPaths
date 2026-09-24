@@ -119,6 +119,16 @@ static func get_test_functions() -> Array:
     tests.append(Callable(ArmWoundDegradationTests, "_run_arm_wound_grip_sub_region_and_severity_ordering"))
     tests.append(Callable(ArmWoundDegradationTests, "_run_arm_wound_attack_modifier_and_parry_ease"))
     tests.append(Callable(ArmWoundDegradationTests, "_run_two_handed_weapon_offhand_arm_degradation"))
+    tests.append(Callable(LeadLegFunctionalityTests, "_run_lead_leg_functionality_symmetric_vs_lead"))
+    tests.append(Callable(LeadLegFunctionalityTests, "_run_lead_leg_destroyed_drive_floor"))
+    tests.append(Callable(LeadLegFunctionalityTests, "_run_lead_leg_close_advance_drive"))
+    tests.append(Callable(LeadLegFunctionalityTests, "_run_lead_leg_correlates_with_dominant_hand"))
+    tests.append(Callable(PersistentFacingTests, "run_facing_turn_window_s"))
+    tests.append(Callable(PersistentFacingTests, "run_facing_turn_no_window_neutral"))
+    tests.append(Callable(PersistentFacingTests, "run_facing_turn_stamp_dips_parry_capacity"))
+    tests.append(Callable(PersistentFacingTests, "run_facing_turn_expired_neutral"))
+    tests.append(Callable(PersistentFacingTests, "run_facing_turn_pile_on_extends"))
+    tests.append(Callable(PersistentFacingTests, "run_facing_turn_pile_on_capped"))
     tests.append(Callable(WoundedDefenderCautionTests, "_run_wounded_defender_caution_scaling"))
     tests.append(Callable(WoundedDefenderCautionTests, "_run_thrust_internal_bleed"))
     tests.append(Callable(WoundedDefenderCautionTests, "_run_head_skull_ko_gate"))
@@ -132,6 +142,9 @@ static func get_test_functions() -> Array:
     tests.append(Callable(KinematicDeliveryStaminaFormationTests, "_run_weapon_blade_strong_fraction"))
     tests.append(Callable(CombatRegressionHarnessFleeTail, "run"))
     tests.append(Callable(CombatRegressionHarnessMedicalMobilityTail, "run"))
+    tests.append(Callable(CombatRegressionHarnessInfectionStagingTail, "run"))
+    tests.append(Callable(CombatRegressionHarnessTetanusTail, "run"))
+    tests.append(Callable(CombatRegressionHarnessScarTail, "run"))
     tests.append(Callable(WeaponAfterblowGuardTests, "_run_ai_attrition_offense_mult_duel_vs_line"))
     tests.append(Callable(WeaponAfterblowGuardTests, "_run_wind_up_duration_bounded_for_move"))
     tests.append(Callable(WeaponAfterblowGuardTests, "_run_kinematic_delivery_blunt_slip_momentum_mult_sword_v11"))
@@ -371,13 +384,40 @@ static func run_all() -> Dictionary:
 
     ## Run selected test functions sequentially in a single Godot process.
     ## FP_HARNESS_TESTS (unset = all) narrows the run to matching class/method names.
+    var timing_rows: PackedStringArray = PackedStringArray()
     for tf in selected:
         if tf is Callable:
+            var t0: int = Time.get_ticks_msec()
             tf.call(failures)
+            timing_rows.append("%d\t%s" % [Time.get_ticks_msec() - t0, _callable_label(tf as Callable)])
         seed(_HARNESS_RESTORE_GLOBAL_SEED)
 
+    _write_timing_report(selected, timing_rows)
     flush_harness_live_nodes()
     return {"ok": failures.is_empty(), "failures": failures}
+
+
+## Per-test durations (ms, desc) for `.regression_timing.txt` — which regression tail dominates.
+static func _write_timing_report(selected: Array, timing_rows: PackedStringArray) -> void:
+    var rows: Array = []
+    for i in selected.size():
+        var parts: PackedStringArray = timing_rows[i].split("\t")
+        if parts.size() < 2:
+            continue
+        rows.append({"ms": int(parts[0]), "label": str(parts[1])})
+    rows.sort_custom(func(a, b): return int(a.ms) > int(b.ms))
+    var out: PackedStringArray = PackedStringArray()
+    out.append("--- FP_REGRESSION_TIMING —")
+    var total_ms: int = 0
+    for r in rows:
+        total_ms += int(r.ms)
+        out.append("%d\t%s" % [int(r.ms), str(r.label)])
+    out.append("--- TOTAL_MS=%d tests=%d —" % [total_ms, rows.size()])
+    var root: String = ProjectSettings.globalize_path("res://")
+    var f: FileAccess = FileAccess.open(root.path_join(".regression_timing.txt"), FileAccess.WRITE)
+    if f != null:
+        f.store_string("\n".join(out) + "\n")
+        f.close()
 
 
 ## All registered regression test labels (ClassName.method, lowercased).

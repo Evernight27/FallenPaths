@@ -143,6 +143,12 @@ static func _get_action_weight(
 		wait_w *= mood_wait_mult
 		wait_w *= CombatMuscleFatigue.wait_recovery_weight_mult(c)
 		return wait_w
+	if mid == CombatConstants.MOVE_ID_REGAIN_FOOTING and a.get(DataKeys.ACTION_TARGET_ID, -1) == combatant_id:
+		# Only meaningful while off-balance; fade with depth so a nearly-settled fighter no longer
+		# prefers it over striking.
+		if PassiveParryContext.is_off_balance(c):
+			return CombatConstants.REGAIN_FOOTING_AI_WEIGHT * PassiveParryContext.off_balance_depth(c)
+		return 0.0
 	if CombatConstants.is_focus_line_move(mid):
 		return CombatAIActionWeights._focus_line_action_weight(mid, combatant_id, manager, c, all_actions)
 	if CombatConstants.is_leader_formation_command_move(mid):
@@ -604,7 +610,9 @@ static func _compute_attack_weight_components(
 ## Exception: if the defender's guard was just committed/displaced on a line by a feint
 ## (live PA_FEINT_OPEN_LINE window), that line is NOT guarded — the defense model already
 ## discounts parry on it, so the offensive bias must not treat it as "on the guard line"
-## either (doing so would cancel the feint_open_line_m press). Treated as fully open.
+## either (doing so would cancel the feint_open_line_m press). The discount scales with
+## live open-line openness (CombatGuardLines.open_line_openness: eased time decay over the
+## window), so the guarded discount re-earns itself as the open-line window closes.
 ## Depends on line alignment + feint-open-line state; never on defender footwork/off-balance
 ## (locked by the feint_list settled/recov footwork harness invariants; the open-line
 ## window is absent in those fixtures, so the invariants are untouched).
@@ -624,12 +632,15 @@ static func open_guard_line_weight_mult(
 	var align: float = CombatConstants.get_line_alignment(atk_line, guard_line)
 	# A line the defender's guard was just committed/displaced on (feint open-line window)
 	# is not actually guarded: the defense model already discounts parry on it, so treat it
-	# as fully open here. This keeps the offensive open/guarded bias consistent with the
-	# defensive parry model and stops the guarded-line discount from eating the
-	# feint_open_line_m press. Fresh fixtures have no live open-line, so invariants hold.
+	# as open here. This keeps the offensive open/guarded bias consistent with the defensive
+	# parry model and stops the guarded-line discount from eating the feint_open_line_m press.
+	# The discount is scaled by live openness (eased time decay over the window): at the moment
+	# the line was opened it reads fully open; as the off-balance/stagger window closes the guarded
+	# discount gradually returns. Fresh fixtures have no live open-line, so invariants hold.
 	var open_now: String = _defender_live_feint_open_line(defender)
 	if not open_now.is_empty() and CombatGuardLines.normalize_line(atk_line) == open_now:
-		align = 0.0
+		var openness: float = CombatGuardLines.open_line_openness(defender)
+		align = align * (1.0 - openness)
 	return lerpf(
 		CombatConstantsAIWeights.AI_OPEN_LINE_MULT,
 		CombatConstantsAIWeights.AI_GUARDED_LINE_MULT,
@@ -706,20 +717,19 @@ static func _defender_live_feint_open_line(defender: Dictionary) -> String:
 ## Feint open-line follow-up: when a feint just landed and the target's guard is still
 ## displaced on a line for the PA_FEINT_OPEN_LINE window, boost striking that same line —
 ## press the opening the feint drew. Mirrors the defensive reader
-## (DefenseChoiceResolver._feint_open_line_parry_mult): same TTL, same normalize_line
-## match, but turns the stored open-line strength into a weight boost instead of a parry
-## penalty. Gated to honest strikes only at the call site (a feint on an already-open
-## line is inert). Mild and windowed by design: nudges the just-opened line toward the
-## top pick for ~3s without overpowering stamina/timing.
+## (DefenseChoiceResolver._feint_open_line_parry_mult): same normalize_line match, but turns
+## the live open-line openness (CombatGuardLines.open_line_openness: eased time decay over
+## the window) into a weight boost instead of a parry penalty. Gated to honest strikes only at
+## the call site (a feint on an already-open line is inert). Mild and windowed by design:
+## the press peaks right after the feint and decays linearly as the window closes, without
+## overpowering stamina/timing.
 static func _feint_open_line_mult(defender: Dictionary, candidate_line: String) -> float:
 	if candidate_line.is_empty():
 		return 1.0
 	var open_now: String = _defender_live_feint_open_line(defender)
 	if open_now.is_empty() or CombatGuardLines.normalize_line(candidate_line) != open_now:
 		return 1.0
-	var stored_mult: Variant = defender.get(DataKeys.PA_FEINT_OPEN_LINE_PARRY_MULT, null)
-	var open_mult: float = float(stored_mult) if stored_mult != null else CombatConstants.FEINT_OPEN_LINE_PARRY_MULT
-	var openness: float = clampf(1.0 - open_mult, 0.0, 1.0)
+	var openness: float = CombatGuardLines.open_line_openness(defender)
 	return lerpf(1.0, CombatConstantsAIWeights.AI_FEINT_OPEN_LINE_FOLLOWUP_TOP_MULT, openness)
 
 

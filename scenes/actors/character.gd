@@ -195,10 +195,6 @@ func _get_armor_for_part(part: String) -> Resource:
     return _combat_body._get_armor_for_part(part) if _combat_body else null
 
 
-func _get_armor_sharp_resistance_for_part(part: String) -> float:
-    return _combat_body._get_armor_sharp_resistance_for_part(part) if _combat_body else 0.0
-
-
 func _get_armor_slots() -> Dictionary:
     return _combat_body._get_armor_slots() if _combat_body else {}
 

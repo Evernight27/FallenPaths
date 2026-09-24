@@ -57,6 +57,11 @@ static func start_combat(world: Node2D, enemies: Array):
 	battle.parent_scene = current
 	world.get_tree().root.add_child(battle)
 	world.set_meta("_combat_enemies", enemies)
+	# XCamp-5f: capture the strongest opponent's effective strength now, while the enemy scene
+	# nodes are still valid (they are freed at settlement). Untracked fighters carry no
+	# proficiency bonus / untrained penalty, so their combat strength equals their base strength.
+	# Consumed by per-fighter fame awarding (desirable difficulty).
+	world.set_meta(CampaignTypes.WORLD_META_FOE_STRENGTH, _capture_foe_strength(enemies))
 
 	await world.get_tree().process_frame
 	if not is_instance_valid(world) or not world.is_inside_tree():
@@ -178,6 +183,21 @@ static func resume_overworld_after_soft_defeat(world: Node2D, lost_contract: Dic
 	_get_company_state().try_autosave(world)
 
 
+## XCamp-5f: strongest opponent's effective strength among the enemy combatant scene nodes.
+## 0.0 when no readable enemy strength (fame then falls back to the neutral difficulty reference).
+static func _capture_foe_strength(enemies: Array) -> float:
+	var max_str: float = 0.0
+	for e in enemies:
+		if not (e is Node):
+			continue
+		var ent: Node = CampaignEncounterBridge.health_entity_from_character(e as Node)
+		if ent == null:
+			continue
+		if "strength" in ent:
+			max_str = maxf(max_str, float(ent.strength))
+	return max_str
+
+
 static func _apply_last_fought_day_to_roster(world: Node2D):
 	if not _get_company_state().read_stub_proficiency_enabled():
 		return
@@ -185,7 +205,9 @@ static func _apply_last_fought_day_to_roster(world: Node2D):
 	for n in CampaignEncounterBridge.get_fightable_party_nodes(world):
 		var entity: Node = CampaignEncounterBridge.health_entity_from_character(n)
 		if entity != null and entity.has_method("_get_training_pending"):
-			entity.last_fought_day = day_index
+			# Clamp to >= 1: 0 is the "never fought" sentinel that apply_decay checks, and campaign
+			# day 0 is a valid fight day (see _proficiency_post_combat for the full rationale).
+			entity.last_fought_day = maxi(day_index, 1)
 
 
 ## Campaign weariness: a fought battle tires the whole roster (lower stamina cap next fight). Not gated on

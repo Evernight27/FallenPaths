@@ -74,9 +74,11 @@ static func _try_merge_training_pending(world: Node2D) -> void:
             and entity.has_method("_set_training_pending_value")
         ):
             EntityProficiency.merge_training_pending(entity)
+            EntityProficiency.merge_form_training_pending(entity)
+            EntityProficiency.merge_weapon_training_pending(entity)
 
 
-const TRAIN_STATS: Array = ["strength", "agility", "intelligence", "endurance", "perception"]
+const TRAIN_STATS: Array = EntityStatsUtil.PROFICIENCY_STATS
 
 
 static func can_train_stat(world: Node2D, node_ref: Node, stat: String) -> bool:
@@ -106,8 +108,78 @@ static func train_stat(world: Node2D, node_ref: Node, stat: String) -> bool:
     _get_state().refresh_hud(world)
     if OperationalLog.is_play_session_active():
         OperationalLog.play_world(
-            "train_stat %s %s pending=%.1f gold_left=%d"
-            % [str(node_ref.name), stat, current + 1.0, _get_economy().get_gold(world)]
+        "train_stat %s %s pending=%.1f gold_left=%d"
+        % [str(node_ref.name), stat, current + 1.0, _get_economy().get_gold(world)]
+    )
+    return true
+
+
+## XCamp-6: can a fighting form be drilled for a party member? (proficiency on, form non-empty, gold covers the drill)
+static func can_train_form(world: Node2D, node_ref: Node, form: String) -> bool:
+    if not _get_state().read_stub_proficiency_enabled():
+        return false
+    if not form or not str(form).strip_edges():
+        return false
+    if node_ref == null or not is_instance_valid(node_ref):
+        return false
+    return _get_economy().get_gold(world) >= _get_economy().TRAIN_GOLD_COST
+
+
+## XCamp-6: drills a fighting form for a party member: charges gold, queues +1 into _form_training_pending.
+## The queued gain is applied to _form_proficiency at next camp rest (merge_form_training_pending).
+static func train_form(world: Node2D, node_ref: Node, form: String) -> bool:
+    if not can_train_form(world, node_ref, form):
+        return false
+    if not _get_economy().consume_gold(world, _get_economy().TRAIN_GOLD_COST):
+        return false
+    var entity: Node = CampaignEncounterBridge.health_entity_from_character(node_ref)
+    if entity == null or not entity.has_method("_set_form_training_pending_value"):
+        _get_economy().add_gold(world, _get_economy().TRAIN_GOLD_COST)
+        return false
+    var form_id: String = str(form).strip_edges()
+    var pending: Dictionary = entity._get_form_training_pending()
+    var current: float = float(pending.get(form_id, 0.0))
+    entity._set_form_training_pending_value(form_id, current + 1.0)
+    _get_state().refresh_hud(world)
+    if OperationalLog.is_play_session_active():
+        OperationalLog.play_world(
+            "train_form %s %s pending=%.1f gold_left=%d"
+            % [str(node_ref.name), form_id, current + 1.0, _get_economy().get_gold(world)]
+        )
+    return true
+
+
+## XCamp-6: can a weapon type be drilled for a party member?
+static func can_train_weapon(world: Node2D, node_ref: Node, weapon_id: String) -> bool:
+    if not _get_state().read_stub_proficiency_enabled():
+        return false
+    if not weapon_id or not str(weapon_id).strip_edges():
+        return false
+    if node_ref == null or not is_instance_valid(node_ref):
+        return false
+    return _get_economy().get_gold(world) >= _get_economy().TRAIN_GOLD_COST
+
+
+## XCamp-6: drills a weapon type for a party member: charges gold, queues +1 into _weapon_training_pending.
+## Applied to _weapon_proficiency at next camp rest (merge_weapon_training_pending).
+static func train_weapon(world: Node2D, node_ref: Node, weapon_id: String) -> bool:
+    if not can_train_weapon(world, node_ref, weapon_id):
+        return false
+    if not _get_economy().consume_gold(world, _get_economy().TRAIN_GOLD_COST):
+        return false
+    var entity: Node = CampaignEncounterBridge.health_entity_from_character(node_ref)
+    if entity == null or not entity.has_method("_set_weapon_training_pending_value"):
+        _get_economy().add_gold(world, _get_economy().TRAIN_GOLD_COST)
+        return false
+    var wid: String = str(weapon_id).strip_edges()
+    var pending: Dictionary = entity._get_weapon_training_pending()
+    var current: float = float(pending.get(wid, 0.0))
+    entity._set_weapon_training_pending_value(wid, current + 1.0)
+    _get_state().refresh_hud(world)
+    if OperationalLog.is_play_session_active():
+        OperationalLog.play_world(
+            "train_weapon %s %s pending=%.1f gold_left=%d"
+            % [str(node_ref.name), wid, current + 1.0, _get_economy().get_gold(world)]
         )
     return true
 
@@ -383,6 +455,10 @@ static func _advance_party_healing(world: Node2D, seconds: float, multiplier: fl
                 entity._process_healing(effective)
         if n.has_method("ensure_consciousness_current"):
             n.ensure_consciousness_current()
+    # CAMP-SCAR-1: mint scars for any wounds resolved during this advance (world-owned;
+    # reads each member's resolved_wounds_this_advance and clears the stash).
+    if _get_state().read_stub_wound_scars_enabled():
+        CampaignAfflictions.mint_from_resolved_wounds(world, CampaignEncounterBridge.resolve_overworld_rng(world))
 
 
 ## Rest quality (0..1) from current provisions: a well-fed company (enough food for the roster) rests

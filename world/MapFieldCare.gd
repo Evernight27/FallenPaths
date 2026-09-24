@@ -464,6 +464,63 @@ static func try_field_resuscitation(world: Node2D, member: Dictionary) -> bool:
     return ok
 
 
+# --- Surgical amputation (sepsis source control, plan §10.5) ---
+## A stage-2 (septic) focus cannot be cleared by dressings; amputation removes it. Offer only for
+## limb parts (you cannot amputate a head or chest) that are not already severed. Picks the worst
+## septic limb focus by sepsis_progress. A gangrene focus is always stage-2, so it is covered.
+static func field_amputate_part(member: Dictionary) -> String:
+    var entity: Node = _entity_for_member(member)
+    if entity == null:
+        return ""
+    var best_part: String = ""
+    var best_progress: float = -1.0
+    for p in entity._get_body_part_list():
+        if not BodyPartQuery.is_limb(p):
+            continue
+        if BodyPartQuery.is_part_severed(entity, p):
+            continue
+        var progress: float = 0.0
+        var septic: bool = false
+        for injury in entity.wounds.get(p, []):
+            if int(injury.get("infection_stage", 0)) == 2:
+                septic = true
+                progress = maxf(progress, float(injury.get("sepsis_progress", 0.0)))
+        if septic and progress > best_progress:
+            best_progress = progress
+            best_part = p
+    return best_part
+
+
+static func can_offer_field_amputate(_world: Node2D, member: Dictionary) -> bool:
+    return not field_amputate_part(member).is_empty()
+
+
+static func format_field_amputate_button_label(_world: Node2D, member: Dictionary) -> String:
+    var part: String = field_amputate_part(member)
+    if part.is_empty():
+        return "Amputate limb (sepsis source control)"
+    return "Amputate %s (sepsis source control)" % _format_part_label(part)
+
+
+## Deterministic: a committed surgical decision, not a roll. Succeeds whenever the part is
+## severable; the permanent cost is the limb itself (amputated_limb scar, chronic stamina penalty).
+static func try_field_amputate(world: Node2D, member: Dictionary) -> bool:
+    var part: String = field_amputate_part(member)
+    if part.is_empty():
+        return false
+    var entity: Node = _entity_for_member(member)
+    if entity == null or not entity.has_method("amputate_part"):
+        return false
+    if not entity.amputate_part(part):
+        _log_field_care_failure(world, "amputate", part, member, "part not severable")
+        return false
+    if entity.has_method("ensure_consciousness_current"):
+        entity.ensure_consciousness_current()
+    _get_company_state().refresh_hud(world)
+    _log_field_care_success(world, "amputate", part, member)
+    return true
+
+
 static func _advance_field_care_time(entity: Node) -> void:
     # Advance bleeding/blood_loss only, no healing
     if entity.has_method("process_bleeding"):
