@@ -52,11 +52,15 @@ static func append_medical_phase_winner_actions(
 ) -> void:
 	if manager == null or c.is_empty():
 		return
+	if bool(manager.get("is_arena_duel")):
+		# Gladiator duels never enter a post-victory triage phase (belt-and-suspenders guard).
+		return
 	if not CombatantEntityAccess.is_on_side(c, medical_phase_winner):
 		return
 	if not CombatantEntityAccess.scene_can_apply_direct_pressure_api(c):
 		return
 	var immediate_peril: bool = CombatantEntityAccess.is_in_immediate_peril(manager, c)
+	var may_full_tccc: bool = MedicalPhaseController.may_perform_full_tccc(manager, c)
 	for ally in combatants:
 		if not CombatantEntityAccess.is_living_same_side(c, ally) or CombatantEntityAccess.scene_node(ally) == null:
 			continue
@@ -79,6 +83,12 @@ static func append_medical_phase_winner_actions(
 			for act in MedicalPhaseController.get_ally_medical_actions(manager, c, ally, part):
 				if act is not Dictionary:
 					continue
+				if not may_full_tccc:
+					# Buddy-assist for non-surgeons: hold/stack pressure for allies, never self-treatment.
+					if tgt_id == CombatantEntityAccess.id_int(c):
+						continue
+					if act.get("move_id", "") != CombatConstants.MOVE_ID_APPLY_DIRECT_PRESSURE:
+						continue
 				(
 					actions
 					. append(
@@ -180,6 +190,9 @@ static func append_mid_fight_ally_medical_actions(
 	manager: Node, c: Dictionary, combatants: Array, actions: Array
 ) -> void:
 	if manager == null or c.is_empty():
+		return
+	if bool(manager.get("is_arena_duel")):
+		# Gladiator matches never list mid-fight self/ally triage — a competitor tends to fighting, not wounds.
 		return
 	if not CombatConstants.is_feature_ms_mid_infight_med_enabled():
 		return

@@ -210,6 +210,9 @@ static func _run_daily_desertion_pass(world: Node2D) -> void:
             continue
         if (node_ref as Node).get(DataKeys.COMBATANT_IS_PARTY_LEADER) == true:
             continue
+        # XSurgeon: the dedicated surgeon node is not freed on desertion (would break future hires).
+        if PlayerCompanionSetup.member_is_surgeon(node_ref as Node):
+            continue
         var mood: float = float(m.get("company_mood", _get_mood().MOOD_DEFAULT))
         if mood > _get_mood().MOOD_ANGRY_THRESHOLD:
             continue

@@ -405,6 +405,9 @@ static func part_weights_for_ai_pick(
     var preferred_mult: float = lerpf(
         CombatConstants.AI_PICK_NOVICE_PREFERRED_MULT, CombatConstants.PREFERRED_PART_BONUS_MULT, intel_tier
     )
+    # XCamp-6 (gladiator): the school fighter's scouted tendency names the body part it
+    # favors; boost that part's pick weight so the tendency shows up in the target mix.
+    var tend_part: String = str(CombatConstantsAIWeights.school_tendency_dict(attacker).get("target_part", "")).strip_edges()
     for p in path_segment:
         var w: float = BodyPartConstants.BODY_PART_TARGET_WEIGHTS.get(p, 1.0)
         var wid_mult: float = BodyPartConstants.weapon_part_target_mult(weapon_id, p, contact_type)
@@ -442,6 +445,8 @@ static func part_weights_for_ai_pick(
             if pg == attack_line or str(CombatConstants.LINE_TO_DEFAULT_PART.get(pg, "")) == p:
                 w *= CombatConstants.AI_FOCUS_LINE_FORM_PREFERRED_MULT
                 break
+        if not tend_part.is_empty() and p == tend_part:
+            w *= CombatConstantsAIWeights.SCHOOL_TENDENCY_TARGET_PART_MULT
         weights[p] = maxf(w, 0.001)
     # D3: Armor doctrine — boost gap targets when using half_sword/mordhau against armored opponent.
     CombatArmorDoctrine.apply_armor_bias_to_weights(attacker, defender, weights, contact_type)

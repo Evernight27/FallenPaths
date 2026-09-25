@@ -21,6 +21,10 @@ const WORLD_META_COMPANY_HUD: String = "company_hud"
 ## XCamp-5f: strongest opponent's effective strength, captured at combat start. Enemy nodes are
 ## freed at settlement, so this is the only reliable source for per-fighter fame (desirable difficulty).
 const WORLD_META_FOE_STRENGTH: String = "last_battle_foe_strength"
+## Party members who actually entered this battle (member names), captured at combat start.
+## Only these names qualify for per-fighter fame — a duel fought by one fighter must not award the
+## whole bench. Consumed by build_last_battle_summary, which records them as "participants".
+const WORLD_META_LAST_BATTLE_PARTICIPANTS: String = "last_battle_participants"
 ## XCamp-5f: "Name: OldTier → NewTier" notes for fighters who climbed a career tier on the last
 ## paid win. Re-set by each fame award; the settlement panel shows it (empty = no promotions).
 const WORLD_META_LAST_FAME_PROMOTIONS: String = "last_fame_promotions"

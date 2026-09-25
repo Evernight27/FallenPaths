@@ -142,6 +142,10 @@ static func count_desertion_risk_roster(world: Node) -> int:
             continue
         if (node_ref as Node).get(DataKeys.COMBATANT_IS_PARTY_LEADER) == true:
             continue
+        # XSurgeon: the surgeon is exempt from desertion (see CompanyDayCycle), so a low-mood
+        # surgeon is not an actual risk and must not be counted as one.
+        if PlayerCompanionSetup.member_is_surgeon(node_ref as Node):
+            continue
         if float(m.get("company_mood", MOOD_DEFAULT)) <= MOOD_ANGRY_THRESHOLD:
             at_risk += 1
     return at_risk

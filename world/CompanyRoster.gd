@@ -117,6 +117,110 @@ static func try_hire_rookie(world: Node2D, rng: RandomNumberGenerator = null, fr
     return true
 
 
+static func find_living_surgeon(world: Node) -> Node:
+    if world == null:
+        return null
+    var pm: Variant = world.get_meta("party_manager") if world.has_meta("party_manager") else null
+    if pm == null:
+        return null
+    var roster: Array = pm.members if "members" in pm else (pm.get_members() if pm.has_method("get_members") else [])
+    for member in roster:
+        if member is not Dictionary:
+            continue
+        var node_ref: Variant = (member as Dictionary).get("node_ref")
+        if not is_instance_valid(node_ref) or not (node_ref is Node):
+            continue
+        if (node_ref as Node).has_method("is_dead") and (node_ref as Node).is_dead():
+            continue
+        if PlayerCompanionSetup.member_is_surgeon(node_ref as Node):
+            return node_ref as Node
+    return null
+
+
+static func has_surgeon(world: Node) -> bool:
+    return find_living_surgeon(world) != null
+
+
+## XSurgeon: a company may hold one surgeon at a time (a second hire would be a redundant medical
+## slot). The surgeon is a separate, non-roster slot (dedicated Character/Surgeon node), so the hire
+## needs no fighter roster room and no vacant companion slot -- a full ROSTER_MAX_LIVING roster can
+## still hire a surgeon. Cost is flat (no renown payoff), unlike a fighter hire.
+static func can_offer_surgeon_hire(world: Node2D, from_party_menu: bool = false) -> bool:
+    if world == null:
+        return false
+    if has_surgeon(world):
+        return false
+    if _get_state().get_gold(world) < surgeon_hire_cost():
+        return false
+    var entry: String = _get_state().read_stub_hire_entry()
+    if entry == "party_menu":
+        return true
+    if from_party_menu and entry == "both":
+        return true
+    if entry == "tile" or entry == "both":
+        return _get_state()._player_on_camp_tile(world)
+    return false
+
+
+static func surgeon_hire_cost() -> int:
+    return _get_economy().SURGEON_HIRE_GOLD_COST
+
+
+static func format_surgeon_hire_block_reason(world: Node2D, from_party_menu: bool = false) -> String:
+    if world == null:
+        return "Hire surgeon (unavailable)"
+    if has_surgeon(world):
+        return "Hire surgeon (a surgeon already serves the company)"
+    if _get_state().get_gold(world) < surgeon_hire_cost():
+        return "Hire surgeon (need %dg / have %dg)" % [surgeon_hire_cost(), _get_state().get_gold(world)]
+    if can_offer_surgeon_hire(world, from_party_menu):
+        return "Hire surgeon (-%dg)" % surgeon_hire_cost()
+    if _get_state().read_stub_hire_entry() == "tile" and not _get_state()._player_on_camp_tile(world):
+        return "Hire surgeon (stand on camp tile)"
+    return "Hire surgeon (unavailable)"
+
+
+static func format_surgeon_hire_tooltip(world: Node2D, from_party_menu: bool = false) -> String:
+    if world == null:
+        return ""
+    if can_offer_surgeon_hire(world, from_party_menu):
+        return (
+            "Hire medical staff (-%dg). The surgeon never fights; they ride into campaign battles "
+            + "and unlock full field TCCC in the post-victory medical phase (separate slot, no roster cost)."
+        ) % surgeon_hire_cost()
+    return format_surgeon_hire_block_reason(world, from_party_menu)
+
+
+## XSurgeon: hire medical staff. Mirrors `try_hire_rookie` (gold-before rollback if spawn fails).
+static func try_hire_surgeon(world: Node2D, rng: RandomNumberGenerator = null, from_party_menu: bool = false) -> bool:
+    if not can_offer_surgeon_hire(world, from_party_menu):
+        return false
+    var gold_before: int = _get_state().get_gold(world)
+    if not _get_state().consume_gold(world, surgeon_hire_cost()):
+        return false
+    var roll: RandomNumberGenerator = rng if rng != null else RandomNumberGenerator.new()
+    if rng == null:
+        roll.randomize()
+    var hired: Node = _get_party_setup().spawn_surgeon_member(world, roll)
+    if hired == null:
+        _get_state().set_gold(world, gold_before)
+        return false
+    _get_state().refresh_hud(world)
+    _get_state().try_autosave(world)
+    if OperationalLog.is_play_session_active():
+        OperationalLog.play_world(
+            (
+                "hire_surgeon name=%s gold=%d living=%d"
+                % [
+                    PlayerCompanionSetup.resolve_fighter_display_name(hired),
+                    _get_state().get_gold(world),
+                    _get_state().count_living_roster(world),
+                ]
+            )
+        )
+    return true
+
+
 static func set_active_contract(world: Node, contract: Dictionary) -> void:
     if world == null:
         return
@@ -222,6 +326,15 @@ static func award_fame_for_victory(world: Node) -> int:
     var members: Variant = summary.get("members", [])
     if not (members is Array) or (members as Array).is_empty():
         return 0
+    # XCamp-6 fix: only party members who actually entered this battle earn fight fame. A match
+    # duel (single-fighter lock) or leader-only fight enters only a subset; the bench must not
+    # level up by spectating. Falls back to "all members" when no participant list was captured
+    # (test fixtures / summary hand-built without going through CombatFlow.start_combat).
+    var participant_set: Dictionary = {}
+    var participants: Variant = summary.get("participants", [])
+    if participants is PackedStringArray or participants is Array:
+        for p in participants:
+            participant_set[str(p)] = true
     # Strongest opponent's effective strength, captured at combat start (enemies are freed by
     # settlement, so the meta is the only reliable source). Falls back to the neutral reference.
     var foe_str: float = _get_foe_strength(world)
@@ -251,7 +364,10 @@ static func award_fame_for_victory(world: Node) -> int:
     for mem in members:
         if not (mem is Dictionary):
             continue
-        var ent: Node = by_name.get(str((mem as Dictionary).get("name", "")), null)
+        var mem_name: String = str((mem as Dictionary).get("name", ""))
+        if not participant_set.is_empty() and not participant_set.has(mem_name):
+            continue
+        var ent: Node = by_name.get(mem_name, null)
         if ent == null:
             continue
         var snap_raw: Variant = (mem as Dictionary).get("snapshot", {})

@@ -83,7 +83,7 @@ static func effective_stamina_refill_rate(combatant: Dictionary) -> float:
 static func _get_respiratory_compromise_modifier(combatant: Dictionary) -> float:
     if combatant.is_empty():
         return 1.0
-    var entity: Node = CombatantEntityAccess.scene_node(combatant)
+    var entity: Node = CombatantEntityAccess.combat_body(combatant)
     if entity == null or not entity.has_method("get_wounded_parts"):
         return 1.0
     var chest_wounds: Array = []
@@ -196,7 +196,7 @@ static func decision_quality_mult(combatant: Dictionary) -> float:
     var ms: float = combatant.get(CombatConstantsStamina.COMBATANT_KEY_METABOLIC_STRESS, 0.0)
     var metabolic_m: float = CombatConstantsStamina.metabolic_stress_decision_mult(ms)
     # Concussion overrides decision quality — head trauma degrades cognition regardless of metabolic state.
-    var entity_node = CombatantEntityAccess.scene_node(combatant)
+    var entity_node = CombatantEntityAccess.combat_body(combatant)
     if entity_node != null and entity_node.has_method("get_decision_quality_mult"):
         return minf(metabolic_m, EntityPainConsciousness.get_decision_quality_mult(entity_node))
     return metabolic_m

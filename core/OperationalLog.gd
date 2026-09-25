@@ -506,7 +506,10 @@ static func write_d001_headless_signoff(run_ok: bool, preset_results: Dictionary
     lines.append("policy=headless_only")
     lines.append("validator_ok=%s" % str(validator_ok).to_lower())
     var SoakPresets := preload("res://world/SoakEncounterPresets.gd")
-    for track_id in ["ii2b", "ii5a", "ii5b", "ii5c", "ii4d"]:
+    var track_ids: PackedStringArray = CombatD001TrackSpecs.mandatory_signoff_tracks()
+    if not track_ids.has(CombatD001TrackSpecs.TRACK_II4D):
+        track_ids.append(CombatD001TrackSpecs.TRACK_II4D)
+    for track_id in track_ids:
         var pr: Dictionary = {}
         if track_id == "ii4d":
             pr = preset_results.get(SoakPresets.PRESET_II4D_EXHAUSTION, {}) as Dictionary

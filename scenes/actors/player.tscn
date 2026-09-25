@@ -137,3 +137,21 @@ color = Color(0.3, 0.5, 1, 1)
 
 [node name="CombatBody" type="Node2D" parent="Companion6"]
 script = ExtResource("3_entity")
+
+[node name="Surgeon" type="CharacterBody2D" parent="."]
+visible = false
+script = ExtResource("1_char")
+species = ExtResource("2_species")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Surgeon"]
+shape = SubResource("RectangleShape2D_1")
+
+[node name="ColorRect" type="ColorRect" parent="Surgeon"]
+offset_left = -30.0
+offset_top = -30.0
+offset_right = 30.0
+offset_bottom = 30.0
+color = Color(0.4, 0.9, 0.4, 1)
+
+[node name="CombatBody" type="Node2D" parent="Surgeon"]
+script = ExtResource("3_entity")

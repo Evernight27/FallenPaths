@@ -20,6 +20,32 @@ const FallenPathsErrorLogger := preload("res://core/FallenPathsErrorLogger.gd")
 static var _preset_runner_cls: Variant = null
 
 
+## True when the harness runs the gladiator **1v1** scope (default); set **`FP_HARNESS_SCOPE=full`**
+## to run every D-001 check (including the 7v7 brawl, ii5a 4v4 formation, formation-move, and the
+## group presets ii3 2v4 / ii8 4v4 / ii_envelop 7v3).
+static func scope_is_1v1() -> bool:
+	var s: String = OS.get_environment("FP_HARNESS_SCOPE").strip_edges().to_lower()
+	return s != "full"
+
+
+static func _preset_is_1v1(preset_id: String) -> bool:
+	var p: String = preset_id.to_lower()
+	return p == "ii2b" or p == "ii4d" or p == "ii5" or p == "ii6"
+
+
+## Preset run order under the current scope: the full `D001_PRESET_RUN_ORDER` in `full`, otherwise only
+## the solo-duel presets (**ii2b** _sword duel_, **ii4d** _exhaustion solo_, **ii5**, **ii6**).
+static func _scope_preset_ids() -> PackedStringArray:
+	var ids: PackedStringArray = SoakEncounterPresets.D001_PRESET_RUN_ORDER as PackedStringArray
+	if not scope_is_1v1():
+		return ids
+	var out: PackedStringArray = PackedStringArray()
+	for pid in ids:
+		if _preset_is_1v1(pid):
+			out.append(pid)
+	return out
+
+
 static func _ensure_preset_runner() -> Variant:
 	if _preset_runner_cls == null:
 		_preset_runner_cls = load("res://harness/d001/D001PresetRunnerTests.gd")
@@ -33,7 +59,7 @@ static func run_all() -> Dictionary:
 	_OpsLog.begin_play_session("headless://d001-soak", "")
 	CombatConstants.set_feature_ambient_pain_shock(true)
 	CombatConstants.set_feature_flurry_bind_exchange_load(true)
-	for preset_id in SoakEncounterPresets.D001_PRESET_RUN_ORDER:
+	for preset_id in _scope_preset_ids():
 		_OpsLog.clear_capture()
 		seed(_ensure_preset_runner()._preset_seed(preset_id))
 		var t_preset: int = Time.get_ticks_msec()
@@ -44,30 +70,39 @@ static func run_all() -> Dictionary:
 			aggregate_lines.append(line)
 		if not bool(pr.get("ok", false)):
 			failures.append("%s: %s" % [preset_id, str(pr.get("summary", "failed"))])
-	_OpsLog.clear_capture()
-	FallenPathsErrorLogger.reset_script_error_count()
-	seed(_ensure_preset_runner()._preset_seed("7v7"))
-	var t_7v7: int = Time.get_ticks_msec()
-	var pr7: Dictionary = _ensure_preset_runner()._run_7v7_brawl()
-	pr7["duration_ms"] = Time.get_ticks_msec() - t_7v7
-	preset_results["7v7"] = pr7
-	for line in _OpsLog.get_captured_lines():
-		aggregate_lines.append(line)
-	if not bool(pr7.get("ok", false)):
-		failures.append("7v7: %s" % str(pr7.get("summary", "failed")))
+	if scope_is_1v1():
+		print(
+			(
+				"=== CombatD001SoakRunner: FP_HARNESS_SCOPE=1v1 - "
+				+ "skipped 7v7 brawl, ii5a (4v4 formation), formation_move_f5, ii3 (2v4), ii8 (4v4), ii_envelop (7v3) ==="
+			)
+		)
+	else:
+		_OpsLog.clear_capture()
+		FallenPathsErrorLogger.reset_script_error_count()
+		seed(_ensure_preset_runner()._preset_seed("7v7"))
+		var t_7v7: int = Time.get_ticks_msec()
+		var pr7: Dictionary = _ensure_preset_runner()._run_7v7_brawl()
+		pr7["duration_ms"] = Time.get_ticks_msec() - t_7v7
+		preset_results["7v7"] = pr7
+		for line in _OpsLog.get_captured_lines():
+			aggregate_lines.append(line)
+		if not bool(pr7.get("ok", false)):
+			failures.append("7v7: %s" % str(pr7.get("summary", "failed")))
 	var t_ui: int = Time.get_ticks_msec()
 	var ui_pr: Dictionary = _ensure_preset_runner()._run_ii5c_gauge_label_checks()
 	ui_pr["duration_ms"] = Time.get_ticks_msec() - t_ui
 	preset_results["ii5c"] = ui_pr
 	if not bool(ui_pr.get("ok", false)):
 		failures.append("ii5c: %s" % str(ui_pr.get("summary", "failed")))
-	_OpsLog.clear_capture()
-	var t_ii5a: int = Time.get_ticks_msec()
-	var ii5a_pr: Dictionary = _ensure_preset_runner()._run_ii5a_formation_hint_checks()
-	ii5a_pr["duration_ms"] = Time.get_ticks_msec() - t_ii5a
-	preset_results["ii5a"] = ii5a_pr
-	if not bool(ii5a_pr.get("ok", false)):
-		failures.append("ii5a: %s" % str(ii5a_pr.get("summary", "failed")))
+	if not scope_is_1v1():
+		_OpsLog.clear_capture()
+		var t_ii5a: int = Time.get_ticks_msec()
+		var ii5a_pr: Dictionary = _ensure_preset_runner()._run_ii5a_formation_hint_checks()
+		ii5a_pr["duration_ms"] = Time.get_ticks_msec() - t_ii5a
+		preset_results["ii5a"] = ii5a_pr
+		if not bool(ii5a_pr.get("ok", false)):
+			failures.append("ii5a: %s" % str(ii5a_pr.get("summary", "failed")))
 	var t_ii5b: int = Time.get_ticks_msec()
 	var ii5b_pr: Dictionary = _ensure_preset_runner()._run_ii5b_log_policy_checks(aggregate_lines)
 	ii5b_pr["duration_ms"] = Time.get_ticks_msec() - t_ii5b
@@ -89,15 +124,16 @@ static func run_all() -> Dictionary:
 		aggregate_lines.append(line)
 	if not bool(ii7_pr.get("ok", false)):
 		failures.append("ii7: %s" % str(ii7_pr.get("summary", "failed")))
-	_OpsLog.clear_capture()
-	var t_fm: int = Time.get_ticks_msec()
-	var fm_pr: Dictionary = _ensure_preset_runner()._run_formation_move_f5_smoke()
-	fm_pr["duration_ms"] = Time.get_ticks_msec() - t_fm
-	preset_results["formation_move_f5"] = fm_pr
-	for line in _OpsLog.get_captured_lines():
-		aggregate_lines.append(line)
-	if not bool(fm_pr.get("ok", false)):
-		failures.append("formation_move_f5: %s" % str(fm_pr.get("summary", "failed")))
+	if not scope_is_1v1():
+		_OpsLog.clear_capture()
+		var t_fm: int = Time.get_ticks_msec()
+		var fm_pr: Dictionary = _ensure_preset_runner()._run_formation_move_f5_smoke()
+		fm_pr["duration_ms"] = Time.get_ticks_msec() - t_fm
+		preset_results["formation_move_f5"] = fm_pr
+		for line in _OpsLog.get_captured_lines():
+			aggregate_lines.append(line)
+		if not bool(fm_pr.get("ok", false)):
+			failures.append("formation_move_f5: %s" % str(fm_pr.get("summary", "failed")))
 	_OpsLog.clear_capture()
 	_ensure_preset_runner()._probe_wf_controlling_close_turn_hint()
 	for line in _OpsLog.get_captured_lines():
@@ -125,9 +161,10 @@ static func run_all() -> Dictionary:
 	_OpsLog.write_d001_headless_signoff(ok, preset_results, bool(val_r.get("ok", false)))
 	CombatF5SoakLogValidator.write_report(val_r)
 	if ok:
-		_OpsLog.harness_ok(
-			RUNNER_NAME, "presets=%d+7v7+ii5a+ii5b+ii5c+ii7+ii1e" % SoakEncounterPresets.D001_PRESET_RUN_ORDER.size()
-		)
+		var detail: String = "presets=%d+7v7+ii5a+ii5b+ii5c+ii7+ii1e" % SoakEncounterPresets.D001_PRESET_RUN_ORDER.size()
+		if scope_is_1v1():
+			detail = "presets=%d+ii5b+ii5c+ii7+ii1e (FP_HARNESS_SCOPE=1v1)" % preset_results.size()
+		_OpsLog.harness_ok(RUNNER_NAME, detail)
 	else:
 		_OpsLog.harness_fail(RUNNER_NAME, failures)
 	_OpsLog.end_play_session()

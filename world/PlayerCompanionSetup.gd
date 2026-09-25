@@ -33,6 +33,20 @@ const FIGHTER_NAMES: Array[String] = [
 ]
 const PLAYER_FIGHTER_NAME: String = "Ash"
 
+## Medical-staff hire name pool. A surgeon rides along as a non-combatant, so these are distinct
+## from the fighter pool (a fighter and a surgeon never share a name).
+const SURGEON_NAMES: Array[String] = [
+    "Galen",
+    "Ione",
+    "Mira",
+    "Senni",
+    "Orbis",
+    "Talvi",
+    "Runa",
+    "Yara",
+]
+const SURGEON_ROLE: String = "surgeon"
+
 ## XCamp-4: per-stat proficiency bonus cap (bounds the profile-scaled rookie bonus in
 ## _profile_scaled_rookie_bonus).
 const ROOKIE_PROFICIENCY_CAP: float = 10.0
@@ -296,6 +310,49 @@ static func setup_hired_companion(
     # XCamp-4b: green-recruit baseline + a name that does not collide with a living member's name.
     _setup_rookie_proficiency_hire(companion, renown)
     var nm: String = _roll_name(used_names, rng)
+    if nm.is_empty():
+        nm = fighter_display_name(str(companion.name))
+    _assign_fighter_name(companion, nm)
+
+
+## Medical-staff identity: true when the node's entity carries the "surgeon" role tag.
+static func member_is_surgeon(character: Node) -> bool:
+    if character == null:
+        return false
+    var entity: Node = character
+    if character.has_method("_get_medical_entity"):
+        var e: Variant = character._get_medical_entity()
+        entity = e if e is Node else character
+    if entity == null or not "fighter_role" in entity:
+        return false
+    return str(entity.get("fighter_role")).strip_edges() == SURGEON_ROLE
+
+
+## XSurgeon: a fresh medical-staff hire on a vacant companion slot. Medical staff carry no weapon
+## (randomize_equipment=false), take no fighter name, and are tagged for the surgeon role; they are
+## excluded from lineups but ride into campaign battles to unlock the TCCC door.
+static func setup_surgeon_member(
+    companion: Node,
+    rng: RandomNumberGenerator,
+    slot_index: int = 0,
+    used_names: PackedStringArray = PackedStringArray(),
+) -> void:
+    if companion == null or rng == null:
+        return
+    companion.is_party_leader = false
+    if companion.has_method("set_process_input"):
+        companion.set_process_input(false)
+    _setup_character(companion, rng, false, slot_index, 0)
+    var entity: Node = CampaignEncounterBridge.health_entity_from_character(companion)
+    if entity != null and "fighter_role" in entity:
+        entity.fighter_role = SURGEON_ROLE
+    var free: PackedStringArray = PackedStringArray()
+    for n in SURGEON_NAMES:
+        if not used_names.has(n):
+            free.append(n)
+    var nm: String = ""
+    if not free.is_empty():
+        nm = free[rng.randi_range(0, free.size() - 1)]
     if nm.is_empty():
         nm = fighter_display_name(str(companion.name))
     _assign_fighter_name(companion, nm)

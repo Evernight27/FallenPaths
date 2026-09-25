@@ -358,7 +358,16 @@ static func _get_action_weight(
 		all_actions
 	)
 	var post_strike_mult: float = CombatAIActionWeights._post_strike_weight_mult(c, a, manager)
-	return comps.weight * CombatAIActionWeights._salience_offense_weight_mult(c, manager) * post_strike_mult
+	# XCamp-6 (gladiator): a school fighter's scouted aggression tendency scales its attack
+	# commitment (all-in fighters weigh offense higher; cautious ones lower). 1.0 when the
+	# combatant carries no tendency, so campaign/arena/D001 picks are unchanged.
+	var school_tend_aggr_m: float = CombatConstantsAIWeights.school_tendency_aggression_mult(c)
+	return (
+		comps.weight
+		* CombatAIActionWeights._salience_offense_weight_mult(c, manager)
+		* post_strike_mult
+		* school_tend_aggr_m
+	)
 
 
 ## Extracted from **`_get_action_weight`** for auditability. Returns `{weight, ...}` dictionary.

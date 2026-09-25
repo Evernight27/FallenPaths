@@ -852,7 +852,7 @@ static func apply_result(manager: Node, attacker_id: int, result: Dictionary) ->
 				var deflection_ratio: float = clampf(remaining_ratio - CombatConstants.PARRY_REMAINING_DEFLECT_THRESHOLD, 0.0, CombatConstants.PARRY_DEFLECTION_RATIO_MAX) / CombatConstants.PARRY_DEFLECTION_RATIO_MAX
 				var momentum_transfer: float = strike_momentum * deflection_ratio * WeaponConstants.PARRY_DEFLECTION_MOMENTUM_FRACTION
 				var base_deflect_dmg: float = momentum_transfer * WeaponConstants.IMPULSE_DAMAGE_SCALE
-				var node_tgt: Node = CombatantEntityAccess.scene_node(tgt)
+				var node_tgt: Node = CombatantEntityAccess.combat_body(tgt)
 				if node_tgt != null and node_tgt.has_method("_get_vital_parts"):
 					var right_pain: float = EntityPainConsciousness._get_effective_pain_for_region(node_tgt, BodyPartConstants.PART_RIGHT_ARM)
 					var left_pain: float = EntityPainConsciousness._get_effective_pain_for_region(node_tgt, BodyPartConstants.PART_LEFT_ARM)
@@ -1161,8 +1161,8 @@ static func notify_proficiency_gains_from_resolve(
 	var weapon_id: String = CombatantEntityAccess.weapon_type_id(atk)
 	var form_str: String = CombatantEntityAccess.form_str(atk)
 
-	var attacker_entity: Node = CombatantEntityAccess.scene_node(atk)
-	var target_entity: Node = CombatantEntityAccess.scene_node(tgt) if not tgt.is_empty() else null
+	var attacker_entity: Node = CombatantEntityAccess.combat_body(atk)
+	var target_entity: Node = CombatantEntityAccess.combat_body(tgt) if not tgt.is_empty() else null
 	var atk_tracked: bool = attacker_entity != null and EntityProficiency.is_stat_gain_tracked(attacker_entity)
 	var tgt_tracked: bool = not tgt.is_empty() and target_entity != null and EntityProficiency.is_stat_gain_tracked(target_entity)
 	# XCamp-4: physical stat training (striking / dodging / absorbing / parrying) is gated by how

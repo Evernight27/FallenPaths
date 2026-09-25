@@ -19,6 +19,9 @@ const DEFAULT_RENOWN: int = 0
 const DEFAULT_DAY_INDEX: int = 0
 ## Hire cost per mercenary — ~13 days of a single merc's wages; acts as soft gate on rapid roster expansion.
 const HIRE_GOLD_COST: int = 200
+## Hire cost for medical staff (the company surgeon). Flat so the door is a deliberate, stable spend;
+## a surgeon never fights, so recruit quality / renown payoff does not apply.
+const SURGEON_HIRE_GOLD_COST: int = 175
 ## Gold cost to bury fallen mercenaries (respect mechanic; prevents morale/renown penalties from unburied dead).
 const BURIAL_GOLD_COST: int = 25
 ## Gold cost to drill one stat for one party member (queues +1 proficiency, applied at next camp rest).
@@ -257,6 +260,10 @@ static func count_living_roster(world: Node) -> int:
         if not is_instance_valid(node_ref) or not (node_ref is Node):
             continue
         if (node_ref as Node).has_method("is_dead") and (node_ref as Node).is_dead():
+            continue
+        # XSurgeon: the surgeon is a separate, non-roster slot (dedicated node) -- it does not
+        # consume a fighter slot, draw wages, or eat provisions, so it is excluded from the count.
+        if PlayerCompanionSetup.member_is_surgeon(node_ref as Node):
             continue
         living += 1
     return living

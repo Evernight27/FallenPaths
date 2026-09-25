@@ -175,7 +175,7 @@ static func update_combatant_row(ctrl: Dictionary, c: Dictionary, manager: Node 
         ctrl.consciousness_label.text = (
             "Pain: %.1f | Consc: %d%% | Perf: %d%%" % [pain, int(clampf(consc, 0.0, 100.0)), int(roundf(perf * 100.0))]
         )
-    if "body_bars" in ctrl and ctrl.body_bars:
+    if ctrl.get("body_diagram"):
         var body_stats: Dictionary = PartyRowFormatter.read_body_stat_dicts(s_row)
         var bc: Dictionary = body_stats["body_cutting"]
         var bb: Dictionary = body_stats["body_blunt"]
@@ -183,17 +183,17 @@ static func update_combatant_row(ctrl: Dictionary, c: Dictionary, manager: Node 
         var bone_h: Dictionary = body_stats["bone_health"]
         var bone_m: Dictionary = body_stats["bone_max"]
         for part in BodyPartConstants.BODY_PARTS:
-            if part in ctrl.body_bars:
-                var bar: ProgressBar = ctrl.body_bars[part]
-                var c_cur: float = bc.get(part, 0.0)
-                var b_cur: float = bb.get(part, 0.0)
-                var mx = max(1, bm.get(part, 1))
-                var worst: float = minf(c_cur, b_cur)
-                bar.max_value = float(mx)
-                bar.value = worst
-                bar.visible = mx > 0
-                if part in CombatantEntityAccess.nested_dictionary_read(ctrl, "body_labels"):
-                    ctrl.body_labels[part].text = PartyRowFormatter.format_body_part_compact(
-                        part, bc, bb, bm, bone_h, bone_m
-                    )
-                    ctrl.body_labels[part].visible = mx > 0
+            var mx = max(1, int(bm.get(part, 1)))
+            var c_cur: float = bc.get(part, 0.0)
+            var b_cur: float = bb.get(part, 0.0)
+            # Region ratio reflects the worst of tissue and bone: a fractured bone shows damage even
+            # when soft tissue is fine, and a deep cut (tissue at 0) shows immediately.
+            var tissue_frac: float = clampf(minf(c_cur, b_cur) / float(mx), 0.0, 1.0)
+            var bone_mx = max(1, int(bone_m.get(part, 1)))
+            var bone_frac: float = clampf(bone_h.get(part, 0.0) / float(bone_mx), 0.0, 1.0)
+            ctrl.body_diagram.set_part_health(part, minf(tissue_frac, bone_frac))
+            if ctrl.get("body_labels") and part in ctrl.body_labels:
+                ctrl.body_labels[part].text = PartyRowFormatter.format_body_part_compact(
+                    part, bc, bb, bm, bone_h, bone_m
+                )
+                ctrl.body_labels[part].visible = mx > 0

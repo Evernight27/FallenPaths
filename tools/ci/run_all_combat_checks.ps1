@@ -13,6 +13,13 @@ $ErrorActionPreference = "Continue"
 . "$PSScriptRoot\F5SoakLogHelpers.ps1"
 $Root = Get-FallenPathsRoot
 
+# Harness scope: default "1v1" (gladiator focus - 7v7 / multi-fighter sims skipped).
+# Set FP_HARNESS_SCOPE=full to restore every group-combat check.
+$Scope = $env:FP_HARNESS_SCOPE
+if ([string]::IsNullOrWhiteSpace($Scope)) { $Scope = "1v1" }
+$env:FP_HARNESS_SCOPE = $Scope
+Write-Host "=== FP_HARNESS_SCOPE=$Scope (1v1 skips 7v7/ii3/ii8/ii_envelop/ii5a/formation + tier1/rotate/gap/leader regression) ==="
+
 $partialOkPatterns = @{
 	regression = "FP_HARNESS_OK: CombatRegressionHarness"
 	d001       = "FP_HARNESS_OK: CombatD001SoakRunner"

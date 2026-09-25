@@ -141,7 +141,7 @@ static func apply_save(world: Node2D, data: Dictionary, _rng: RandomNumberGenera
     if consumed is Array:
         world.set_meta(WORLD_META_CONSUMED_CONTRACT_TILES, consumed.duplicate(true))
     world.set_meta(WORLD_META_CAMP_HEAL_HINT_SHOWN, data.get("camp_heal_hint_shown", false))
-    _apply_roster(world, data.get("roster", []))
+    _apply_roster(world, data.get("roster", []), _rng)
     var pf: Variant = data.get("party_formation", {})
     if pf is Dictionary and not pf.is_empty():
         world.set_meta("party_formation", pf.duplicate(true))
@@ -293,6 +293,8 @@ static func _serialize_entity(entity: Node) -> Dictionary:
         "last_fought_in_combat": bool(entity.last_fought_in_combat) if "last_fought_in_combat" in entity else false,
         # XCamp-4b: persisted gladiator name so a fighter keeps their name across save/load.
         "fighter_name": str(entity.fighter_name) if "fighter_name" in entity else "",
+        # XSurgeon: persisted medical-staff role tag ("", or "surgeon") survives save/load.
+        "fighter_role": str(entity.fighter_role) if "fighter_role" in entity else "",
         # XCamp-5f: persisted per-fighter fame (career arc) survives save/load.
         "fame": int(entity.fame) if "fame" in entity else 0,
         "campaign_fatigue": float(entity.campaign_fatigue) if "campaign_fatigue" in entity else 0.0,
@@ -331,7 +333,7 @@ static func _serialize_entity(entity: Node) -> Dictionary:
     return out
 
 
-static func _apply_roster(world: Node2D, roster: Variant) -> void:
+static func _apply_roster(world: Node2D, roster: Variant, rng: RandomNumberGenerator) -> void:
     if world == null or roster is not Array:
         return
     var pm: Variant = world.get_meta("party_manager") if world.has_meta("party_manager") else null
@@ -341,6 +343,22 @@ static func _apply_roster(world: Node2D, roster: Variant) -> void:
     for entry in roster:
         if entry is Dictionary:
             saved_by_name[entry.get("name", "")] = entry
+    # XSurgeon: the dedicated Surgeon node is not added by setup_party, so a saved surgeon must be
+    # re-spawned and re-registered before the per-member apply loop below.
+    var saved_surgeon: Variant = saved_by_name.get("Surgeon", null)
+    if saved_surgeon is Dictionary:
+        var surgeon_node: Node = world.get_node_or_null("Character/Surgeon")
+        if surgeon_node != null and is_instance_valid(surgeon_node):
+            var already_registered: bool = false
+            for m in pm.members:
+                if m is Dictionary and m.get("node_ref") == surgeon_node:
+                    already_registered = true
+                    break
+            if not already_registered:
+                PlayerCompanionSetup.setup_surgeon_member(
+                    surgeon_node, rng, 0, PlayerCompanionSetup.gather_living_fighter_names(world)
+                )
+                pm.add_member(surgeon_node)
     var to_remove: Array = []
     for member in pm.members:
         if member is not Dictionary:
@@ -465,6 +483,9 @@ static func _apply_entity(entity: Node, data: Dictionary) -> void:
     # XCamp-4b: restore the persisted gladiator name (stays on the fighter across save/load).
     if data.has("fighter_name") and "fighter_name" in entity:
         entity.fighter_name = str(data.get("fighter_name", ""))
+    # XSurgeon: restore the persisted medical-staff role tag ("", or "surgeon").
+    if data.has("fighter_role") and "fighter_role" in entity:
+        entity.fighter_role = str(data.get("fighter_role", ""))
     # XCamp-5f: restore the persisted per-fighter fame (career arc).
     if data.has("fame") and "fame" in entity:
         entity.fame = int(data.get("fame", 0))

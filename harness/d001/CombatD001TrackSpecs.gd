@@ -14,6 +14,12 @@ const PROFILE_PRESET_II4D := "preset_ii4d"
 const PROFILE_PRESET_II_ENVELOP := "preset_ii_envelop"
 const PROFILE_CAMP_EA := "camp_ea"
 
+const TRACK_II2B := "ii2b"
+const TRACK_II4D := "ii4d"
+const TRACK_II5A := "ii5a"
+const TRACK_II5B := "ii5b"
+const TRACK_II5C := "ii5c"
+
 const NEEDLE_SOAK_FIGHT_END := "soak_fight_end winner="
 const NEEDLE_TURN_READY_GAUGE := "turn_ready_gauge"
 const NEEDLE_TOOLTIP_OK := "tooltip_match=ok"
@@ -621,9 +627,26 @@ static func ii2b_worksheet_prefill_text(stats: Dictionary, headless_signed: bool
 
 
 ## Mandatory **D-001** tracks satisfied by headless runner (no F5).
+
+
+## True when the harness runs the gladiator **1v1** scope (default): 7v7 / multi-fighter formation,
+## surround, and wing sims are skipped. Set **`FP_HARNESS_SCOPE=full`** to restore all group combat.
+static func scope_is_1v1() -> bool:
+    var s: String = OS.get_environment("FP_HARNESS_SCOPE").strip_edges().to_lower()
+    return s != "full"
+
+
+## Headless D-001 sign-off tracks required by the active scope. The gladiator-1v1 scope drops the
+## 4v4 formation-hint (**`ii5a`**) track; **`FP_HARNESS_SCOPE=full`** requires it again.
+static func mandatory_signoff_tracks() -> PackedStringArray:
+    if scope_is_1v1():
+        return PackedStringArray([TRACK_II2B, TRACK_II5B, TRACK_II5C])
+    return PackedStringArray([TRACK_II2B, TRACK_II5A, TRACK_II5B, TRACK_II5C])
+
+
 static func headless_mandatory_signoff_failures(preset_results: Dictionary) -> PackedStringArray:
     var failures: PackedStringArray = PackedStringArray()
-    for track_id in ["ii2b", "ii5a", "ii5b", "ii5c"]:
+    for track_id in mandatory_signoff_tracks():
         var pr: Dictionary = preset_results.get(track_id, {}) as Dictionary
         if pr.is_empty():
             failures.append("%s: missing preset_results" % track_id)

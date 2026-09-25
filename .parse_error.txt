@@ -1,5 +1,0 @@
-﻿
-SCRIPT ERROR: Parse Error: Could not resolve class "CombatRegressionHarnessMuscleFatigueTail", because of a parser 
-error.
-
-

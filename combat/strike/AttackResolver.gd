@@ -706,9 +706,9 @@ static func resolve_attack(manager: Node, attacker_id: int) -> Dictionary:
 	var perf_mod: float = CombatantEntityAccess.get_hit_chance_performance_modifier(atk)
 	# Apply cumulative pain degradation — sustained multi-region pain causes progressive cognitive decline.
 	if not atk.is_empty():
-		var node: Node = CombatantEntityAccess.scene_node(atk)
-		if node != null and node.has_method("_get_vital_parts"):
-			var pain_deg: float = EntityPainConsciousness.get_cumulative_pain_degradation(node)
+		var entity: Node = CombatantEntityAccess.combat_body(atk)
+		if entity != null and entity.has_method("_get_vital_parts"):
+			var pain_deg: float = EntityPainConsciousness.get_cumulative_pain_degradation(entity)
 			# Cumulative pain degrades hit chance by up to 15% at maximum sustained pain.
 			perf_mod *= maxf(CombatConstants.PERF_MOD_MIN, 1.0 - pain_deg * CombatConstants.PAIN_HIT_CHANCE_DEGRADATION_MAX)
 	var perception_factor: float = clampf(

@@ -243,7 +243,8 @@ static func get_cumulative_pain_degradation(combatant: Dictionary) -> float:
     var node = node_variant(combatant)
     if node == null or not node.has_method("_get_vital_parts"):
         return 0.0
-    return EntityPainConsciousness.get_cumulative_pain_degradation(node)
+    var entity: Node = CombatantEntityAccess.combat_body(combatant)
+    return EntityPainConsciousness.get_cumulative_pain_degradation(entity if entity != null else node)
 
 
 ## Limb crippling modifier for a specific part (1.0 = functional, <1.0 = impaired).
@@ -251,7 +252,8 @@ static func get_limb_crippling_modifier(combatant: Dictionary, limb_part: String
     var node = node_variant(combatant)
     if node == null or not node.has_method("_get_vital_parts"):
         return 1.0
-    return EntityPainConsciousness.get_limb_crippling_modifier(node, limb_part)
+    var entity: Node = CombatantEntityAccess.combat_body(combatant)
+    return EntityPainConsciousness.get_limb_crippling_modifier(entity if entity != null else node, limb_part)
 
 
 ## Cumulative penalty from all damaged limbs (0-1).
@@ -259,7 +261,8 @@ static func get_cumulative_limb_penalty(combatant: Dictionary) -> float:
     var node = node_variant(combatant)
     if node == null or not node.has_method("_get_vital_parts"):
         return 0.0
-    return EntityPainConsciousness.get_cumulative_limb_penalty(node)
+    var entity: Node = CombatantEntityAccess.combat_body(combatant)
+    return EntityPainConsciousness.get_cumulative_limb_penalty(entity if entity != null else node)
 
 
 static func has_passive_parry_reaction_time(combatant: Dictionary) -> bool:
@@ -439,7 +442,10 @@ static func get_dodge_chance_with_windup(combatant: Dictionary, attacker_windup_
     var node = node_variant(combatant)
     if node == null or not node.has_method("_get_dodge_chance"):
         return 0.0
-    return EntityPainConsciousness.get_dodge_chance_with_windup(node, attacker_windup_override)
+    var entity: Node = CombatantEntityAccess.combat_body(combatant)
+    return EntityPainConsciousness.get_dodge_chance_with_windup(
+        entity if entity != null else node, attacker_windup_override
+    )
 
 
 ## Returns blood volume 0 - 100 from node. Default 100.0 if unavailable.

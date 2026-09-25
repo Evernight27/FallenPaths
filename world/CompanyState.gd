@@ -766,6 +766,37 @@ static func try_hire_rookie(world: Node2D, rng: RandomNumberGenerator = null, fr
 	return CompanyRoster.try_hire_rookie(world, rng, from_party_menu)
 
 
+## === XSurgeon: medical-staff hire (delegated to CompanyRoster) ===
+
+
+static func find_living_surgeon(world: Node) -> Node:
+	return CompanyRoster.find_living_surgeon(world)
+
+
+static func has_surgeon(world: Node) -> bool:
+	return CompanyRoster.has_surgeon(world)
+
+
+static func can_offer_surgeon_hire(world: Node2D, from_party_menu: bool = false) -> bool:
+	return CompanyRoster.can_offer_surgeon_hire(world, from_party_menu)
+
+
+static func surgeon_hire_cost() -> int:
+	return CompanyRoster.surgeon_hire_cost()
+
+
+static func format_surgeon_hire_block_reason(world: Node2D, from_party_menu: bool = false) -> String:
+	return CompanyRoster.format_surgeon_hire_block_reason(world, from_party_menu)
+
+
+static func format_surgeon_hire_tooltip(world: Node2D, from_party_menu: bool = false) -> String:
+	return CompanyRoster.format_surgeon_hire_tooltip(world, from_party_menu)
+
+
+static func try_hire_surgeon(world: Node2D, rng: RandomNumberGenerator = null, from_party_menu: bool = false) -> bool:
+	return CompanyRoster.try_hire_surgeon(world, rng, from_party_menu)
+
+
 ## === Burial / Casualties (delegated to CompanyRoster) ===
 
 

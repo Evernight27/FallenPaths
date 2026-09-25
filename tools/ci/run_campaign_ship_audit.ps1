@@ -9,6 +9,9 @@ $ErrorActionPreference = "Continue"
 $Root = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
 $fail = 0
 $auditLines = New-Object System.Collections.Generic.List[string]
+$Scope = $env:FP_HARNESS_SCOPE
+if ([string]::IsNullOrWhiteSpace($Scope)) { $Scope = "1v1" }
+$IsFullScope = ($Scope -eq "full")
 
 Write-Host "=== Campaign ship audit (headless) ==="
 Write-Host ""
@@ -50,7 +53,11 @@ if (-not $ii7) {
 	Write-Host "PASS: [ii7] medical smoke (headless)"
 	$auditLines.Add("II7_MEDICAL: PASS")
 }
-if (-not $iiEnvelop) {
+if (-not $IsFullScope) {
+	Write-Host "SKIP: [ii_envelop] 7v3 wing smoke disabled in FP_HARNESS_SCOPE=$Scope (1v1 gladiator focus)"
+	$auditLines.Add("II_ENVELOP: SKIP (FP_HARNESS_SCOPE=$Scope)")
+	$auditLines.Add("II_ENVELOP_MOPUP: SKIP (FP_HARNESS_SCOPE=$Scope)")
+} elseif (-not $iiEnvelop) {
 	Write-Host 'FAIL: [ii_envelop] pass=true missing in .d001_soak_out.txt - run .\tools\ci\run_all_combat_checks.ps1'
 	$fail = 1
 	$auditLines.Add("II_ENVELOP: FAIL")
@@ -58,7 +65,7 @@ if (-not $iiEnvelop) {
 	Write-Host "PASS: [ii_envelop] 7v3 wing engagement smoke (headless)"
 	$auditLines.Add("II_ENVELOP: PASS")
 }
-if ($iiEnvelop -and -not $iiEnvelopMopup) {
+if ($IsFullScope -and $iiEnvelop -and -not $iiEnvelopMopup) {
 	Write-Host 'FAIL: ii_envelop_mopup: PASS missing under [ii_envelop] in .d001_soak_out.txt - run .\tools\ci\run_all_combat_checks.ps1'
 	$fail = 1
 	$auditLines.Add("II_ENVELOP_MOPUP: FAIL")

@@ -198,7 +198,7 @@ static func can_appoint_match(world: Node, school_id: String, member_names: Arra
 ## Appoints the lineup and snapshots the match. Returns true on success.
 ## `match_day` (-1 by default) schedules the match for a future arena day: bouts stay locked until
 ## that day arrives. -1 keeps the legacy open-immediately behaviour (school harness path).
-static func appoint_match(world: Node, school_id: String, member_names: Array, match_day: int = -1) -> bool:
+static func appoint_match(world: Node, school_id: String, member_names: Array, sched_day: int = -1) -> bool:
 	if not can_appoint_match(world, school_id, member_names).get("ok", false):
 		return false
 	var lineup: Array = []
@@ -212,8 +212,8 @@ static func appoint_match(world: Node, school_id: String, member_names: Array, m
 		"opponent_wins": 0,
 		"state": MATCH_STATE_APPOINTED,
 	}
-	if match_day >= 0:
-		block["match_day"] = match_day
+	if sched_day >= 0:
+		block["match_day"] = sched_day
 	set_active_match(world, block)
 	if OperationalLog.is_play_session_active():
 		OperationalLog.play_world(

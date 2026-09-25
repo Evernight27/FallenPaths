@@ -112,6 +112,26 @@ static func spawn_hire_companion(world: Node2D, rng: RandomNumberGenerator) -> N
     return companion
 
 
+## XSurgeon: hire medical staff onto the dedicated Surgeon node (separate from the fighter roster).
+## The surgeon never enters a lineup but rides into campaign battles so the post-victory medical
+## phase can register them. Does not consume a companion slot or count toward roster capacity.
+static func spawn_surgeon_member(world: Node2D, rng: RandomNumberGenerator) -> Node:
+    if world == null or rng == null:
+        return null
+    var surgeon: Node = world.get_node_or_null("Character/Surgeon")
+    if surgeon == null or not is_instance_valid(surgeon):
+        return null
+    var pm: Variant = world.get_meta("party_manager") if world.has_meta("party_manager") else null
+    if pm == null or not pm.has_method("add_member"):
+        return null
+    var used_names: PackedStringArray = PlayerCompanionSetup.gather_living_fighter_names(world)
+    PlayerCompanionSetup.setup_surgeon_member(surgeon, rng, 0, used_names)
+    if "visible" in surgeon:
+        surgeon.visible = false
+    pm.add_member(surgeon)
+    return surgeon
+
+
 static func _companion_node_name(index: int) -> String:
     return "Companion" + ("" if index == 1 else str(index))
 

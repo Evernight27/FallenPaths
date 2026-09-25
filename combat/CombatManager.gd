@@ -18,6 +18,50 @@ var medical_phase: bool = false
 var medical_phase_winner: String = ""
 ## Set on enemy-win `stop()` / `finish_battle()`; blocks duplicate `phase_end` when harness calls `_process()` manually.
 var combat_resolution_closed: bool = false
+## Arena/cage duels (e.g. `CombatFlow.start_duel`): the bout ends the moment it resolves — no post-victory medical
+## phase, no mid-fight self/ally triage. Stamped from world meta `WORLD_META_IS_ARENA_DUEL` by `BattleScene.start`.
+var is_arena_duel: bool = false
+## Roster-driven: when the company has a dedicated surgeon hire, only that surgeon performs wind-up/dressing TCCC
+## during the medical phase; other winners keep direct-pressure buddy-assist only (never self-treat). Identified via
+## `is_surgeon_combatant(cid)`. Defaults false so battles without a surgeon behave exactly as before.
+var is_surgeon_present: bool = false
+var _surgeon_combatant_id: int = -1
+## World-side surgeon node handed to the manager by `BattleScene.start` (meta stamped by
+## `CombatFlow.start_combat`). Never a combatant during the fight itself; registered into
+## `combatants` when the post-victory medical phase begins.
+var _surgeon_node: Node = null
+
+
+## True when `cid` is the designated field surgeon for this battle (docking point for the surgeon hire feature).
+func is_surgeon_combatant(cid: int) -> bool:
+	return is_surgeon_present and cid >= 0 and cid == _surgeon_combatant_id
+
+
+## XSurgeon: hand the medical-staff node to the manager (called by `BattleScene.start` when the
+## world stamped `WORLD_META_IS_SURGEON_PRESENT`). No combatant is registered here — the surgeon
+## only enters `combatants` at medical-phase start so the fight itself is untouched.
+func register_surgeon(surgeon_node: Node) -> void:
+	if surgeon_node == null:
+		return
+	_surgeon_node = surgeon_node
+
+
+## XSurgeon: register the surgeon into `combatants` as a player-side, non-fighting combatant so the
+## medical phase can route full TCCC to them (`is_surgeon_combatant(cid)`). Called once, on a player
+## win, before the medical phase is entered. No-op when absent, dead, or already registered.
+func _register_surgeon_for_medical_phase() -> void:
+	if _surgeon_node == null or _surgeon_combatant_id >= 0:
+		return
+	var surgeon_entity: Node = CombatantEntityAccess.get_health_entity_from_node(self, _surgeon_node)
+	if surgeon_entity == null or (surgeon_entity.has_method("is_dead") and surgeon_entity.is_dead()):
+		return
+	var surgeon_id: int = register(_surgeon_node, CombatConstantsMisc.SIDE_PLAYER)
+	_surgeon_combatant_id = surgeon_id
+	is_surgeon_present = true
+	if not OperationalLog.is_play_session_active():
+		CombatDebug.combat_session(
+			"surgeon registered id=%d medical_phase_winner=%s" % [surgeon_id, medical_phase_winner]
+		)
 # Event queue (min-heap), combat clock, encounter, formations.
 # Hybrid: signals (`formation_changed`, `turn_resolved`,  - ) decide when to schedule; heap runs events at `resolve_at`.
 var event_queue: Array[Dictionary] = []
@@ -198,6 +242,11 @@ func register(node: Node, side: String) -> int:
 			id, node, side, stats, camp_stamina, morale_c, stance_pref, leader_flags
 		)
 	)
+	# XCamp-6 (gladiator): a school fighter carries its hidden combat tendency (aggression /
+	# parry_bias / target_part) as a node meta (set by CompanyMatch.stamp_bout_enemy); hand it to
+	# the AI weight seams so the opponent actually fights to its scouted tendency.
+	if node != null and node.has_meta("school_tendency"):
+		combatants[id]["school_tendency"] = node.get_meta("school_tendency")
 	CombatMuscleFatigue.seed_combatant_if_enabled(combatants[id] as Dictionary, entity)
 	CombatWeaponForm.seed_combatant_form(self, combatants[id] as Dictionary)
 	CombatMuscleFatigue.seed_combatant_if_enabled(combatants[id] as Dictionary, entity)
@@ -579,6 +628,10 @@ func skip_turn(combatant_id: int, log_outcome: String = "pass", flow_reason: Str
 		delay = CombatConstants.READY_DELAY_SKIP_BACK_RANK_S
 		if CombatDepthPolearm.depth_polearm_lane_open(self, c):
 			delay = CombatConstants.READY_DELAY_SKIP_BACK_RANK_DEPTH_LANE_S
+	elif medical_phase:
+		# Medical phase: idle fighters with nothing to do (care moved to the doctor / buddy-assist) skip
+		# quietly on the long cadence instead of spamming a pass every 0.5s while triage completes.
+		delay = CombatConstants.READY_DELAY_SKIP_BACK_RANK_S
 	_schedule_action_ready(combatant_id, delay)
 
 
@@ -631,12 +684,24 @@ func _end_combat_phase(winner: String, defeated_node: Node) -> void:
 		medical_phase_winner = winner
 		combat_resolution_closed = true
 	else:
+		if fresh_medical and is_arena_duel:
+			# Gladiator duels resolve outright: no post-victory medical phase, no arena-floor triage.
+			if not OperationalLog.is_play_session_active():
+				CombatDebug.combat_session("arena duel won => combat_ended (no medical phase)")
+			medical_phase_winner = winner
+			combat_resolution_closed = true
+			combat_ended.emit(winner, defeated_node)
+			stop()
+			return
 		if fresh_medical:
 			if not OperationalLog.is_play_session_active():
 				CombatDebug.combat_session("player won => medical_phase enemies_eliminated")
 			CombatF5SoakTrace.note_medical_phase_intro()
 		elif not OperationalLog.is_play_session_active():
 			CombatDebug.combat_session("player won => medical_phase refresh (teardown)")
+		# XSurgeon: on the first player win, register the surgeon as a player-side combatant so the
+		# medical phase can route full TCCC to them. Must happen before medical_phase flips true.
+		_register_surgeon_for_medical_phase()
 		medical_phase = true
 		medical_phase_winner = winner
 		combat_resolution_closed = true

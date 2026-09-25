@@ -122,7 +122,7 @@ static func choose_defense(
 	var dodge_chance: float = CombatantEntityAccess.get_dodge_chance(tgt, atk_windup)
 	# Apply graduated limb impairment to dodge — damaged legs reduce movement speed and reaction.
 	if not tgt.is_empty():
-		var node: Node = CombatantEntityAccess.scene_node(tgt)
+		var node: Node = CombatantEntityAccess.combat_body(tgt)
 		if node != null:
 			if node.has_method("_get_vital_parts"):
 				var limb_impairment: Dictionary = EntityPainConsciousness.get_limb_impairment_multiplier(node)
@@ -250,6 +250,9 @@ static func choose_defense(
 				parry_off_balance = PassiveParryContext.is_off_balance(tgt)
 				var v_par_diff_mult: float = _parry_velocity_difficulty_mult(v_intent if v_intent > 0 else WeaponConstants.VELOCITY_MAX_M_S * 0.7, pa)
 				parry_c_d *= parry_capacity_mult * pr_base * v_par_diff_mult
+				# XCamp-6 (gladiator): a school fighter's scouted parry_bias raises its parry
+				# capacity (a defensive fighter reads and catches more). 1.0 when no tendency.
+				parry_c_d *= CombatConstantsAIWeights.school_tendency_parry_mult(tgt)
 				# Positional feint open-line: a defender who just failed to parry a feint on a specific
 				# line is still displaced on that line — the next attack on the same line finds reduced
 				# parry capacity (they are re-committing their guard, not fully re-established).
@@ -258,7 +261,7 @@ static func choose_defense(
 				# Limb crippling (structural arm damage) degrades weapon handling / parry absorption.
 				# Distinct from arm PAIN (already in get_parry_capacity_modifier) and consciousness
 				# (already in get_performance_modifier applied via _compute_parry_c_d).
-				var node_p: Node = CombatantEntityAccess.scene_node(tgt)
+				var node_p: Node = CombatantEntityAccess.combat_body(tgt)
 				if node_p != null and node_p.has_method("_get_vital_parts"):
 					parry_c_d *= EntityPainConsciousness.get_limb_impairment_multiplier(node_p).get("parry_mult", 1.0)
 				# Leg-wound bracing: a compromised base weakens the platform a parry braces into.
@@ -404,10 +407,12 @@ static func choose_defense(
 				parry_c_d = _compute_parry_c_d(def_weapon, tgt, contact_type_late)
 				c_d_raw = parry_c_d
 				parry_c_d *= CombatConstants.PARRY_LATE_CAPACITY_FLOOR
+				# XCamp-6 (gladiator): parry_bias on the late/reflexive path too (same lever).
+				parry_c_d *= CombatConstantsAIWeights.school_tendency_parry_mult(tgt)
 				# Limb crippling (structural arm damage) degrades parry absorption — mirrors the on-time
 				# path. Distinct from arm PAIN (already in get_parry_capacity_modifier) and consciousness
 				# (already in get_performance_modifier applied via _compute_parry_c_d).
-				var node_l: Node = CombatantEntityAccess.scene_node(tgt)
+				var node_l: Node = CombatantEntityAccess.combat_body(tgt)
 				if node_l != null and node_l.has_method("_get_vital_parts"):
 					parry_c_d *= EntityPainConsciousness.get_limb_impairment_multiplier(node_l).get("parry_mult", 1.0)
 				# Leg-wound bracing (late path): mirrors the on-time path above.
@@ -947,10 +952,10 @@ static func _compute_parry_c_d(def_weapon, tgt: Dictionary, contact_type: String
 	c_d_full *= clampf(agi_d / 100.0, CombatConstants.RECOVERY_AGILITY_MIN, CombatConstants.RECOVERY_AGILITY_MAX)
 	# Full parry capacity modifier: includes pain, consciousness, blood, concussion, and limb crippling
 	# (get_parry_capacity_modifier already incorporates get_performance_modifier internally).
-	var def_parry_mod: float = EntityPainConsciousness.get_parry_capacity_modifier(
-		CombatantEntityAccess.scene_node(tgt)
-	) if CombatantEntityAccess.scene_node(tgt) != null and \
-	   CombatantEntityAccess.scene_node(tgt).has_method("_get_vital_parts") else 1.0
+	var def_entity: Node = CombatantEntityAccess.combat_body(tgt) if not tgt.is_empty() else null
+	var def_parry_mod: float = (
+		EntityPainConsciousness.get_parry_capacity_modifier(def_entity)
+	) if def_entity != null and def_entity.has_method("_get_vital_parts") else 1.0
 	c_d_full *= maxf(CombatConstants.PERF_MOD_MIN, def_parry_mod)
 	c_d_full *= arm_wound_parry_capacity_mult(
 		maxf(0.1, CombatantEntityAccess.get_attack_damage_modifier(tgt))

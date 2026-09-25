@@ -445,7 +445,7 @@ Mapped opposition · Skirmish compact/rotate · L4+close · mop-up **3e**. Track
 | Doc-9 parry counterstrike | ☑ `FEATURE_PARRY_COUNTERSTRIKE_WINDOW` — partial-parry bind grants riposte-chain window |
 | HEMA measure-damage | ☑ `FEATURE_MEASURE_DAMAGE_COMMIT` — out-of-measure strike (over/under reach) deals reduced damage |
 | XCamp-4 gladiator roster | ☑ fighter names · recruit quality/cost · gear commerce — [`AGENTS_API`](AGENTS_API.md) |
-| XCamp-6 gladiatorial schools | ☑ playable — `scenes/gladiator/` screen: scout/dispatch dossier · appoint match + arena-day booking (scheduled bouts lock until the day arrives) · live 1v1 bouts via `CompanyMatch.build_current_bout_encounter` · purse/renown/fame + match-victory reward (`CompanyGladiator`) (⊘ combat-side tendency hook) — [`AGENTS_ENTRY`](AGENTS_ENTRY.md) |
+| XCamp-6 gladiatorial schools | ☑ playable — `scenes/gladiator/` screen: scout/dispatch dossier · appoint match + arena-day booking (scheduled bouts lock until the day arrives) · live 1v1 bouts via `CompanyMatch.build_current_bout_encounter` · purse/renown/fame + match-victory reward (`CompanyGladiator`) (☑ combat-side tendency hook) — [`AGENTS_ENTRY`](AGENTS_ENTRY.md) |
 
 Open queue: [`EXPANSION_PLAN`](EXPANSION_PLAN.md). Policy: [`SHIP_PLAN` §9c](SHIP_PLAN.md#combat-expand-registry).
 

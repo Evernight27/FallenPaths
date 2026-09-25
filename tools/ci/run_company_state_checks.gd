@@ -73,6 +73,7 @@ func _run_harness() -> void:
     CompanyChecksGladiatorTests._run_xcamp_4s_wear_curve_shape(failures)
     CompanyChecksGladiatorTests._run_xcamp_4t_wear_rate_cliff(failures)
     CompanyChecksGladiatorTests._run_xcamp_4u_wear_aware_rha(failures)
+    CompanyChecksGladiatorTests._run_xsurgeon_hire_and_medical_phase(failures)
     CompanyChecksSchoolTests._run_xcamp_6_profile_reveal(failures)
     CompanyChecksSchoolTests._run_xcamp_6_profile_roundtrip(failures)
     CompanyChecksSchoolTests._run_xcamp_6_counter_recommendations(failures)

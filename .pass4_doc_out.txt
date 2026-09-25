@@ -1,3 +1,0 @@
-﻿DOC_LINKS: PASS (55 files, 0 tombstones checked)
-CONSTANTS_PARITY: PASS (13 checks, 3 forbidden patterns)
-RES_PATHS: PASS (193 unique res:// paths)

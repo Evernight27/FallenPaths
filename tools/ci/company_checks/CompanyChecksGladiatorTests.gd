@@ -1854,3 +1854,221 @@ static func _run_xcamp_4u_wear_aware_rha(failures: PackedStringArray) -> void:
         )
     else:
         _pass()
+
+
+## XSurgeon: medical-staff hire end-to-end — flat cost, "surgeon" role tag + pool name, one-surgeon
+## rule, exclusion from fightable party nodes, P2 persistence roundtrip of the role tag, and the
+## CombatManager medical-phase registration that unlocks full TCCC.
+static func _run_xsurgeon_hire_and_medical_phase(failures: PackedStringArray) -> void:
+    # --- Hire: cost, role, pool name, one-surgeon rule ---
+    var world: Node2D = _instantiate_main_hire_world(true)
+    _trim_party_to_leader(world)
+    CompanyState.set_renown(world, 0)
+    var cost: int = CompanyState.surgeon_hire_cost()
+    if cost <= 0:
+        _fail(failures, "XSurgeon: surgeon_hire_cost must be positive, got " + str(cost))
+    else:
+        _pass()
+    CompanyState.set_gold(world, 300)
+    var rng := RandomNumberGenerator.new()
+    rng.seed = 11
+    var hired: bool = CompanyState.try_hire_surgeon(world, rng, true)
+    if not hired:
+        _fail(failures, "XSurgeon: hire surgeon on a renown-0 leader party should succeed")
+    else:
+        _pass()
+    if CompanyState.get_gold(world) != 300 - cost:
+        _fail(failures, "XSurgeon: gold after hire want %d got %d" % [300 - cost, CompanyState.get_gold(world)])
+    else:
+        _pass()
+    var surgeon: Node = CompanyState.find_living_surgeon(world)
+    if surgeon == null:
+        _fail(failures, "XSurgeon: find_living_surgeon should resolve the hired surgeon")
+    else:
+        _pass()
+    var surgeon_ent: Node = CampaignEncounterBridge.health_entity_from_character(surgeon)
+    if surgeon_ent == null or str(surgeon_ent.get("fighter_role")) != PlayerCompanionSetup.SURGEON_ROLE:
+        _fail(failures, "XSurgeon: hired surgeon entity should carry fighter_role='surgeon'")
+    else:
+        _pass()
+    var sname: String = PlayerCompanionSetup.resolve_fighter_display_name(surgeon)
+    if sname.is_empty() or not PlayerCompanionSetup.SURGEON_NAMES.has(sname):
+        _fail(failures, "XSurgeon: surgeon display name '%s' should come from the surgeon pool" % sname)
+    else:
+        _pass()
+    if not CompanyState.has_surgeon(world):
+        _fail(failures, "XSurgeon: has_surgeon should be true after hiring")
+    else:
+        _pass()
+    CompanyState.set_gold(world, 900)
+    if CompanyState.try_hire_surgeon(world, rng, true):
+        _fail(failures, "XSurgeon: a second surgeon hire must be refused (one-surgeon rule)")
+    else:
+        _pass()
+    # --- Lineup exclusion: surgeon never enters fightable party nodes ---
+    var fighters: Array = CampaignEncounterBridge.get_fightable_party_nodes(world)
+    var surgeon_leaked: bool = false
+    for f in fighters:
+        if f == surgeon:
+            surgeon_leaked = true
+            break
+    if surgeon_leaked:
+        _fail(failures, "XSurgeon: surgeon must be excluded from fightable party nodes")
+    else:
+        _pass()
+    if fighters.is_empty():
+        _fail(failures, "XSurgeon: the leader should still be fightable alongside the surgeon")
+    else:
+        _pass()
+    # --- CombatManager medical-phase registration (surgeon becomes a player-side combatant) ---
+    var mgr: CombatManager = CombatManager.new()
+    mgr.register_surgeon(surgeon)
+    mgr.call("_register_surgeon_for_medical_phase")
+    if not mgr.is_surgeon_present:
+        _fail(failures, "XSurgeon: medical-phase registration should set is_surgeon_present")
+    else:
+        _pass()
+    if not mgr.is_surgeon_combatant(int(mgr._surgeon_combatant_id)):
+        _fail(failures, "XSurgeon: the designated surgeon cid should be is_surgeon_combatant")
+    else:
+        _pass()
+    if mgr.is_surgeon_combatant(9999):
+        _fail(failures, "XSurgeon: an unrelated cid must not be the surgeon")
+    else:
+        _pass()
+    mgr.free()
+    _release_harness_world(world)
+
+    # --- P2 roundtrip: fighter_role survives save/load/apply ---
+    CampaignPersistence.clear_slot()
+    var round_world: Node2D = _instantiate_main_hire_world(true)
+    var round_comp: Node = round_world.get_node_or_null("Character/Companion")
+    var round_ent: Node = CampaignEncounterBridge.health_entity_from_character(round_comp)
+    if round_ent == null:
+        _fail(failures, "XSurgeon P2: could not resolve companion entity")
+        CampaignPersistence.clear_slot()
+        _release_harness_world(round_world)
+        return
+    round_ent.fighter_role = PlayerCompanionSetup.SURGEON_ROLE
+    round_ent.fighter_name = "Galen"
+    if not CampaignPersistence.save_slot(round_world):
+        _fail(failures, "XSurgeon P2: save_slot failed")
+        CampaignPersistence.clear_slot()
+        _release_harness_world(round_world)
+        return
+    _pass()
+    var loaded: Dictionary = CampaignPersistence.load_save()
+    if not CampaignPersistence.is_valid_save(loaded):
+        _fail(failures, "XSurgeon P2: loaded save should be valid")
+        CampaignPersistence.clear_slot()
+        _release_harness_world(round_world)
+        return
+    _pass()
+    var fresh: Node2D = _instantiate_main_hire_world(true)
+    var rng2 := RandomNumberGenerator.new()
+    rng2.seed = 99
+    CampaignPersistence.apply_save(fresh, loaded, rng2, null)
+    var f_ent: Node = CampaignEncounterBridge.health_entity_from_character(
+        fresh.get_node_or_null("Character/Companion")
+    )
+    if f_ent == null or str(f_ent.get("fighter_role")) != PlayerCompanionSetup.SURGEON_ROLE:
+        _fail(failures, "XSurgeon P2: fighter_role should survive roundtrip")
+    else:
+        _pass()
+    if str(f_ent.get("fighter_name")) != "Galen":
+        _fail(failures, "XSurgeon P2: surgeon fighter_name should survive roundtrip")
+    else:
+        _pass()
+    CampaignPersistence.clear_slot()
+    _release_harness_world(round_world)
+    _release_harness_world(fresh)
+
+    # --- P3: separate slot -- a full fighter roster can still hire a surgeon; it does not
+    # consume a companion slot, does not raise the living-roster count (wages/food/cap),
+    # and lives on the dedicated Character/Surgeon node ---
+    var full_world: Node2D = _instantiate_main_hire_world(true)
+    var full_count: int = CompanyState.count_living_roster(full_world)
+    if full_count != CompanyState.ROSTER_MAX_LIVING:
+        _fail(failures, "XSurgeon P3: fresh roster should be at fighter capacity %d, got %d" % [CompanyState.ROSTER_MAX_LIVING, full_count])
+    else:
+        _pass()
+    if CompanyState.roster_has_hire_room(full_world):
+        _fail(failures, "XSurgeon P3: a full fighter roster should have no fighter hire room")
+    else:
+        _pass()
+    CompanyState.set_gold(full_world, 300)
+    var full_rng := RandomNumberGenerator.new()
+    full_rng.seed = 3
+    if not CompanyState.try_hire_surgeon(full_world, full_rng, true):
+        _fail(failures, "XSurgeon P3: surgeon hire must succeed on a full fighter roster (separate slot)")
+    else:
+        _pass()
+    var full_surgeon: Node = CompanyState.find_living_surgeon(full_world)
+    if full_surgeon == null:
+        _fail(failures, "XSurgeon P3: find_living_surgeon should resolve on a full roster")
+    elif str(full_surgeon.name) != "Surgeon":
+        _fail(failures, "XSurgeon P3: surgeon should live on the dedicated 'Surgeon' node, got '%s'" % str(full_surgeon.name))
+    else:
+        _pass()
+    var count_after: int = CompanyState.count_living_roster(full_world)
+    if count_after != full_count:
+        _fail(failures, "XSurgeon P3: surgeon must not raise the living-roster count (want %d got %d)" % [full_count, count_after])
+    else:
+        _pass()
+    if CompanyState.roster_has_hire_room(full_world):
+        _fail(failures, "XSurgeon P3: hiring a surgeon must not free a fighter slot (roster still full)")
+    else:
+        _pass()
+    _release_harness_world(full_world)
+
+    # --- P4: dedicated-slot save/load roundtrip ---
+    CampaignPersistence.clear_slot()
+    var r_world: Node2D = _instantiate_main_hire_world(true)
+    CompanyState.set_gold(r_world, 300)
+    var r_rng := RandomNumberGenerator.new()
+    r_rng.seed = 77
+    if not CompanyState.try_hire_surgeon(r_world, r_rng, true):
+        _fail(failures, "XSurgeon P4: hire surgeon should succeed")
+        CampaignPersistence.clear_slot()
+        _release_harness_world(r_world)
+        return
+    _pass()
+    var r_node: Node = CompanyState.find_living_surgeon(r_world)
+    var r_ent: Node = CampaignEncounterBridge.health_entity_from_character(r_node)
+    var r_name: String = str(r_ent.get("fighter_name")) if r_ent != null else ""
+    if r_ent == null or str(r_ent.get("fighter_role")) != PlayerCompanionSetup.SURGEON_ROLE:
+        _fail(failures, "XSurgeon P4: hired surgeon should carry the role tag before save")
+        CampaignPersistence.clear_slot()
+        _release_harness_world(r_world)
+        return
+    _pass()
+    if not CampaignPersistence.save_slot(r_world):
+        _fail(failures, "XSurgeon P4: save_slot failed")
+        CampaignPersistence.clear_slot()
+        _release_harness_world(r_world)
+        return
+    _pass()
+    var r_loaded: Dictionary = CampaignPersistence.load_save()
+    var r_fresh: Node2D = _instantiate_main_hire_world(true)
+    var r_rng2 := RandomNumberGenerator.new()
+    r_rng2.seed = 55
+    CampaignPersistence.apply_save(r_fresh, r_loaded, r_rng2, null)
+    var r_restored: Node = CompanyState.find_living_surgeon(r_fresh)
+    if r_restored == null:
+        _fail(failures, "XSurgeon P4: find_living_surgeon should resolve after save/load (dedicated slot restore)")
+    else:
+        _pass()
+    var r_r_ent: Node = CampaignEncounterBridge.health_entity_from_character(r_restored) if r_restored != null else null
+    if r_r_ent == null or str(r_r_ent.get("fighter_role")) != PlayerCompanionSetup.SURGEON_ROLE:
+        _fail(failures, "XSurgeon P4: fighter_role should survive the roundtrip on the dedicated slot")
+    elif str(r_r_ent.get("fighter_name")) != r_name:
+        _fail(failures, "XSurgeon P4: fighter_name should survive the roundtrip (want '%s' got '%s')" % [r_name, str(r_r_ent.get("fighter_name"))])
+    else:
+        _pass()
+    if r_restored != null and str(r_restored.name) != "Surgeon":
+        _fail(failures, "XSurgeon P4: restored surgeon should live on the dedicated 'Surgeon' node, got '%s'" % str(r_restored.name))
+    else:
+        _pass()
+    CampaignPersistence.clear_slot()
+    _release_harness_world(r_world)
+    _release_harness_world(r_fresh)

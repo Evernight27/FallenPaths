@@ -70,7 +70,7 @@ static func get_passive_parry_readiness(c: Dictionary) -> float:
 static func wound_caution_parry_readiness_mult(c: Dictionary) -> float:
     if not CombatConstants.is_feature_wounded_defender_caution_enabled():
         return 1.0
-    var entity: Node = CombatantEntityAccess.scene_node(c)
+    var entity: Node = CombatantEntityAccess.combat_body(c)
     if entity == null or not entity.has_method("get_wounded_parts"):
         return 1.0
     # Pain component: normalized pain (NRS-like, ref ~6.0) ramping to full caution at severe pain.
@@ -270,10 +270,10 @@ static func off_balance_recovery_mult(c: Dictionary) -> float:
     if timing < 0.999:
         m /= maxf(timing, CombatConstantsParry.OFF_BALANCE_RECOVERY_EXHAUSTION_FLOOR)
     # Concussion: impaired balance (balance_mult < 1 while concussed, 1.0 otherwise) slows re-rooting.
-    var node: Node = CombatantEntityAccess.scene_node(c)
-    if node != null:
+    var entity: Node = CombatantEntityAccess.combat_body(c)
+    if entity != null:
         var balance: float = float(
-            EntityPainConsciousness.get_concussion_phase_info(node).get("balance_mult", 1.0)
+            EntityPainConsciousness.get_concussion_phase_info(entity).get("balance_mult", 1.0)
         )
         if balance < 0.999:
             m /= balance

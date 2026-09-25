@@ -30,6 +30,7 @@ static func start_combat(world: Node2D, enemies: Array):
 	if enemies.is_empty():
 		CampaignEncounterBridge.abort_contract_encounter_entry(world)
 		return
+	CampaignEncounterBridge.stamp_combat_participants(world, players)
 	if OperationalLog.is_play_session_active():
 		var roster: PackedStringArray = PackedStringArray()
 		for p in players:
@@ -57,6 +58,20 @@ static func start_combat(world: Node2D, enemies: Array):
 	battle.parent_scene = current
 	world.get_tree().root.add_child(battle)
 	world.set_meta("_combat_enemies", enemies)
+	# XSurgeon: medical staff ride along into campaign (non-arena, non-bout) fights only. The meta is
+	# copied to the manager by `BattleScene.start`, which hands the node over via `register_surgeon`.
+	world.set_meta(CombatConstants.WORLD_META_IS_SURGEON_PRESENT, false)
+	world.set_meta(CombatConstants.WORLD_META_SURGEON_PRESENT_NODE, null)
+	var render_arena_duel_flag: bool = (
+		world.has_meta(CombatConstants.WORLD_META_IS_ARENA_DUEL)
+		and bool(world.get_meta(CombatConstants.WORLD_META_IS_ARENA_DUEL))
+	)
+	var render_bout_flag: bool = world.has_meta(CompanyMatch.WORLD_META_MATCH_SINGLE_FIGHTER)
+	if not render_arena_duel_flag and not render_bout_flag:
+		var surgeon: Node = _get_company_state().find_living_surgeon(world)
+		if surgeon != null:
+			world.set_meta(CombatConstants.WORLD_META_IS_SURGEON_PRESENT, true)
+			world.set_meta(CombatConstants.WORLD_META_SURGEON_PRESENT_NODE, surgeon)
 	# XCamp-5f: capture the strongest opponent's effective strength now, while the enemy scene
 	# nodes are still valid (they are freed at settlement). Untracked fighters carry no
 	# proficiency bonus / untrained penalty, so their combat strength equals their base strength.
@@ -296,5 +311,6 @@ static func start_duel(world: Node2D) -> bool:
 		return false
 	if OperationalLog.is_play_session_active():
 		OperationalLog.play_world("start_duel ii2b sword duel entering combat")
+	world.set_meta(CombatConstants.WORLD_META_IS_ARENA_DUEL, true)
 	start_combat(world, enemies)
 	return true

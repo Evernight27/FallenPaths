@@ -105,3 +105,12 @@ const COMBATANT_KEY_COUNTER_READ_COMMITTED_UNTIL: String = "counter_read_committ
 const ENCOUNTER_PROTECTION_CIRCLE_ACTIVE := "protection_circle_active"
 const ENCOUNTER_AMBUSHED_SIDE := "ambushed_side"
 const WORLD_META_COMBAT_ENCOUNTER := "combat_encounter"
+## Stamped on the arena/cage world by `CombatFlow.start_duel`; `BattleScene.start` copies it to
+## `CombatManager.is_arena_duel` so gladiator bouts resolve without a post-victory medical phase.
+const WORLD_META_IS_ARENA_DUEL := "is_arena_duel"
+## Stamped on the world by `CombatFlow.start_combat` when a live surgeon staff member rides along
+## into a campaign (non-arena, non-bout) fight. `BattleScene.start` copies it to the manager so the
+## post-victory medical phase registers the surgeon as a combatant and unlocks full TCCC.
+const WORLD_META_IS_SURGEON_PRESENT := "is_surgeon_present"
+## Companion node reference for the above (set alongside WORLD_META_IS_SURGEON_PRESENT).
+const WORLD_META_SURGEON_PRESENT_NODE := "surgeon_present_node"

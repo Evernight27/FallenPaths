@@ -25,6 +25,12 @@ const II8_CHECKS: Array = [
 ]
 
 
+## True unless **`FP_HARNESS_SCOPE`** is set to `1v1` (gladiator focus) - 1v1 skips the **ii8** 4v4
+## formation diagram audit (its D-001 preset is not simulated in 1v1 scope).
+static func _scope_is_full() -> bool:
+    return OS.get_environment("FP_HARNESS_SCOPE").strip_edges().to_lower() == "full"
+
+
 static func run_headless() -> int:
     CombatConstants.set_headless_harness_quiet(true)
     OperationalLog.harness_begin(RUNNER_NAME)
@@ -36,7 +42,12 @@ static func run_headless() -> int:
     boundary_fail = _append_q2(lines) or boundary_fail
     boundary_fail = _append_q3_ii5(lines) or boundary_fail
     boundary_fail = _append_q3_ii4d(lines) or boundary_fail
-    boundary_fail = _append_q4_ii8(lines) or boundary_fail
+    if _scope_is_full():
+        boundary_fail = _append_q4_ii8(lines) or boundary_fail
+    else:
+        lines.append("[Q4 ii8 formation diagram]")
+        lines.append("  skipped (FP_HARNESS_SCOPE=1v1 - 4v4 formation)")
+        lines.append("")
     boundary_fail = _append_q1_research_feel(lines) or boundary_fail
 
     var text: String = "\n".join(lines) + "\n"

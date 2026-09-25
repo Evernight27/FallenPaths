@@ -77,7 +77,7 @@ func _ready() -> void:
 
 	_build_ui()
 	# Keep the roster/status panels honest when the shared Party manager popup closes.
-	var pm: Variant = get_meta("party_manager") if has_meta("party_manager") else null
+	var _pm: Variant = get_meta("party_manager") if has_meta("party_manager") else null
 	var menu: Variant = get_meta("party_menu") if has_meta("party_menu") else null
 	if menu is PopupPanel:
 		(menu as PopupPanel).popup_hide.connect(rebuild_all)
@@ -144,6 +144,7 @@ func _build_left_column(left: VBoxContainer) -> void:
 	var company_buttons := HBoxContainer.new()
 	left.add_child(company_buttons)
 	company_buttons.add_child(_mk_button("Hire rookie", _on_hire))
+	company_buttons.add_child(_mk_button("Hire surgeon", _on_hire_surgeon))
 	company_buttons.add_child(_mk_button("Manage company", _on_manage_company))
 
 	var day_buttons := HBoxContainer.new()
@@ -196,7 +197,7 @@ func _refresh_status() -> void:
 	var living: int = CompanyState.count_living_roster(self)
 	var wage: int = CompanyState.compute_next_wage_bill(self)
 	var food: int = CompanyState.get_food_supplies(self)
-	var food_days: int = (food / living) if living > 0 else 0
+	var food_days: int = int(float(food) / float(living)) if living > 0 else 0
 	_status_label.text = (
 		"[color=#e8e6e0]Day %d[/color]\n"
 		+ "[color=#d9c27a]Gold %d[/color]  (wages %d/day)\n"
@@ -421,9 +422,9 @@ func _build_school_card(summary: Dictionary) -> Control:
 			vbox.add_child(_mk_label(" ".join(line), 12, Color(0.72, 0.7, 0.66)))
 
 	var scouts: Dictionary = CompanyState.scouting_candidates(self)
-	var ready: Array = scouts.get(school_id, [])
+	var ready_scouts: Array = scouts.get(school_id, [])
 	var scout_row := HBoxContainer.new()
-	if ready.is_empty():
+	if ready_scouts.is_empty():
 		var fully: bool = bool(summary.get("fully_revealed", false))
 		var scout_note := _mk_label(
 			"Fully scouted" if fully else "No one free to scout",
@@ -433,7 +434,7 @@ func _build_school_card(summary: Dictionary) -> Control:
 		scout_row.add_child(scout_note)
 	else:
 		var scout_menu := OptionButton.new()
-		for member in ready:
+		for member in ready_scouts:
 			scout_menu.add_item(str(member))
 		scout_menu.selected = 0
 		var scout_btn := _mk_button(
@@ -516,6 +517,22 @@ func _on_hire() -> void:
 		_log("Hired a rookie (%dg)." % gained)
 	else:
 		_log("Cannot hire: %s" % CompanyState.format_hire_block_reason(self, true))
+	rebuild_all()
+
+
+func _on_hire_surgeon() -> void:
+	if _busy:
+		return
+	var gold_before: int = CompanyState.get_gold(self)
+	if CompanyState.try_hire_surgeon(self, rng, true):
+		var gained: int = gold_before - CompanyState.get_gold(self)
+		var surgeon: Node = CompanyState.find_living_surgeon(self)
+		_log(
+			"Hired a surgeon, %s (%dg). They ride along to field-TCCC campaign battles."
+			% [PlayerCompanionSetup.resolve_fighter_display_name(surgeon), gained]
+		)
+	else:
+		_log("Cannot hire: %s" % CompanyState.format_surgeon_hire_block_reason(self, true))
 	rebuild_all()
 
 
@@ -611,11 +628,9 @@ func _on_enter_bout() -> void:
 		_log("Bout entry rolled back (no fighter spawned).")
 		rebuild_all()
 		return
+	# Keep the school screen hidden and _busy set for the whole bout; CombatFlow adds the
+	# full-screen battle UI on the root, and _on_battle_ended restores the school screen.
 	await CombatFlow.start_combat(self, enemies)
-	_busy = false
-	if _ui_layer != null:
-		_ui_layer.visible = true
-	rebuild_all()
 
 
 func _on_cancel_match() -> void:

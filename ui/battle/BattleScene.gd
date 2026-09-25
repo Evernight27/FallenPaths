@@ -24,7 +24,7 @@ var parent_scene: Node = null
 
 # manager & combat ids
 var manager: Node = null
-var id_to_controls := {}  # map combatant id -> {row, name, body_bars, body_labels, gauge, gauge_label, node}
+var id_to_controls := {}  # map combatant id -> {row, name, body_diagram, body_labels, gauge, gauge_label, node}
 var combat_log: RichTextLabel = null
 var combat_log_scroll: ScrollContainer = null
 var end_battle_button: Button = null
@@ -151,6 +151,18 @@ func start(
 			encounter_src = (em as Dictionary).duplicate(true)
 	if not encounter_src.is_empty():
 		manager.encounter = encounter_src
+	# Gladiator/cage duels (world meta stamped by `CombatFlow.start_duel`): banner + manager flag so the bout
+	# resolves without a post-victory medical phase.
+	if parent_scene != null and parent_scene.has_meta(CombatConstants.WORLD_META_IS_ARENA_DUEL):
+		manager.is_arena_duel = bool(parent_scene.get_meta(CombatConstants.WORLD_META_IS_ARENA_DUEL))
+	# XSurgeon: medical staff ride along into campaign fights (meta stamped by `CombatFlow.start_combat`).
+	# The surgeon is registered as a combatant only when the post-victory medical phase begins, so the
+	# fight itself is untouched.
+	if parent_scene != null and parent_scene.has_meta(CombatConstants.WORLD_META_IS_SURGEON_PRESENT):
+		if bool(parent_scene.get_meta(CombatConstants.WORLD_META_IS_SURGEON_PRESENT)):
+			var surgeon_node: Variant = parent_scene.get_meta(CombatConstants.WORLD_META_SURGEON_PRESENT_NODE, null)
+			if surgeon_node is Node and is_instance_valid(surgeon_node):
+				manager.register_surgeon(surgeon_node as Node)
 	# Start manager (builds formations, assigns rank/file; merges encounter defaults)
 	manager.start(_player_preset, _enemy_preset)
 	_create_pace_controls()
@@ -525,9 +537,14 @@ func _format_engagement_line(form: Dictionary, formation_id: String) -> String:
 	var mode_disp: String = "—"
 	if manager != null:
 		mode_disp = CombatEngagementMode.mode_display_name(CombatEngagementMode.engagement_mode(manager))
-	var posture: String = str(form.get("engagement_posture", "—"))
-	var coh: float = form.get("line_cohesion", 0.0)
-	var line: String = "%s · %s · cohesion %d%%" % [mode_disp, posture.capitalize(), int(roundf(coh * 100.0))]
+	# True 1v1 duel: a single fighter per side has no line to cohere and posture is always "Duel",
+	# so the banner shows the mode only — cohesion/posture are formations-of-many concepts.
+	var duel: bool = manager != null and CombatFormationRout.is_true_duel(manager)
+	var line: String = mode_disp
+	if not duel:
+		var posture: String = str(form.get("engagement_posture", "—"))
+		var coh: float = form.get("line_cohesion", 0.0)
+		line = "%s · %s · cohesion %d%%" % [mode_disp, posture.capitalize(), int(roundf(coh * 100.0))]
 	if manager != null:
 		var cas_pct: int = CombatFormationRout.casualty_percent_for_formation(manager, formation_id)
 		if cas_pct > 0:

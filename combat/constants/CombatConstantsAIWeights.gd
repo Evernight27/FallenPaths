@@ -136,6 +136,48 @@ const SWAP_RANK_AI_MIN_FITNESS_GAP := 0.20
 
 const SWAP_RANK_AI_URGENT_MIN_GAP := 0.10
 
+## XCamp-6 (gladiator): school-fighter tendency multipliers. A school fighter's hidden tendency
+## (aggression / parry_bias / target_part, from OpponentFighterProfile) is stamped onto the
+## combatant dict as "school_tendency" by CombatManager.register (meta set by
+## CompanyMatch.stamp_bout_enemy). The AI reads it so a scouted fighter actually fights to its
+## tendency instead of the generic profile. All multipliers are 1.0 when the key is absent, so
+## non-school combat (campaign, arena duel, D001) is bit-identical.
+const SCHOOL_TENDENCY_AGGRESSION_MIN := 0.75  # aggression 0.0 (cautious) -> attacks at 0.75x weight
+const SCHOOL_TENDENCY_AGGRESSION_MAX := 1.25  # aggression 1.0 (all-in)   -> attacks at 1.25x weight
+const SCHOOL_TENDENCY_PARRY_MIN := 0.80       # parry_bias 0.0 -> parry capacity at 0.80x
+const SCHOOL_TENDENCY_PARRY_MAX := 1.30       # parry_bias 1.0 -> parry capacity at 1.30x
+const SCHOOL_TENDENCY_TARGET_PART_MULT := 1.5  # scouted preferred target part gets 1.5x pick weight
+
+
+## The tendency dict on a combatant ({} when absent / non-dict).
+static func school_tendency_dict(c: Dictionary) -> Dictionary:
+    var raw: Variant = c.get("school_tendency", {})
+    return raw as Dictionary if raw is Dictionary else {}
+
+
+## Attack-weight multiplier from a combatant's aggression tendency (1.0 when absent).
+static func school_tendency_aggression_mult(c: Dictionary) -> float:
+    var d: Dictionary = school_tendency_dict(c)
+    if not d.has("aggression"):
+        return 1.0
+    return lerpf(
+        SCHOOL_TENDENCY_AGGRESSION_MIN,
+        SCHOOL_TENDENCY_AGGRESSION_MAX,
+        clampf(float(d["aggression"]), 0.0, 1.0)
+    )
+
+
+## Parry-capacity multiplier from a combatant's parry_bias tendency (1.0 when absent).
+static func school_tendency_parry_mult(c: Dictionary) -> float:
+    var d: Dictionary = school_tendency_dict(c)
+    if not d.has("parry_bias"):
+        return 1.0
+    return lerpf(
+        SCHOOL_TENDENCY_PARRY_MIN,
+        SCHOOL_TENDENCY_PARRY_MAX,
+        clampf(float(d["parry_bias"]), 0.0, 1.0)
+    )
+
 
 static func ai_offense_stamina_weight_mult(stamina_ratio: float) -> float:
     if stamina_ratio >= AI_STAMINA_ENGAGE_FLOOR_RATIO:

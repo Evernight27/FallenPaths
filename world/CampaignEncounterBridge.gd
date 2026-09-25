@@ -168,6 +168,12 @@ static func clear_transient_combat_meta(world: Node2D) -> void:
 	SoakEncounterPresets.clear_world_soak_meta(world)
 	if world.has_meta(CombatConstants.WORLD_META_COMBAT_ENCOUNTER):
 		world.remove_meta(CombatConstants.WORLD_META_COMBAT_ENCOUNTER)
+	if world.has_meta(CombatConstants.WORLD_META_IS_ARENA_DUEL):
+		world.remove_meta(CombatConstants.WORLD_META_IS_ARENA_DUEL)
+	if world.has_meta(CombatConstants.WORLD_META_IS_SURGEON_PRESENT):
+		world.remove_meta(CombatConstants.WORLD_META_IS_SURGEON_PRESENT)
+	if world.has_meta(CombatConstants.WORLD_META_SURGEON_PRESENT_NODE):
+		world.remove_meta(CombatConstants.WORLD_META_SURGEON_PRESENT_NODE)
 	if world.has_meta(META_ENEMY_FORMATION):
 		world.remove_meta(META_ENEMY_FORMATION)
 	if world.has_meta("campaign_map_bleed_mult"):
@@ -375,6 +381,27 @@ static func untreated_wound_part_names(entity: Node) -> PackedStringArray:
 	return out
 
 
+## XCamp-5f: record which party members actually entered combat. `player_nodes` is the fightable
+## party handed to `CombatFlow.start_combat` — for a leader-only duel or a single-fighter match lock
+## that is a subset of the roster, and only that subset may earn fight fame. Stored as member names
+## (the same keys `award_fame_for_victory` matches against the summary, so identity is consistent).
+## Cleared/overwritten by the next battle's stamp, so it holds exactly the last fight's participants.
+static func stamp_combat_participants(world: Node2D, player_nodes: Array) -> void:
+	var names: PackedStringArray = PackedStringArray()
+	if world != null:
+		var pm = world.get_meta("party_manager", null) if world.has_meta("party_manager") else null
+		if pm != null and "members" in pm:
+			for member in pm.members:
+				if member is not Dictionary:
+					continue
+				var node_ref: Variant = (member as Dictionary).get("node_ref")
+				if not is_instance_valid(node_ref) or not (node_ref is Node):
+					continue
+				if player_nodes.has(node_ref as Node):
+					names.append(str((member as Dictionary).get("name", "")))
+	world.set_meta(CampaignTypes.WORLD_META_LAST_BATTLE_PARTICIPANTS, names)
+
+
 static func build_last_battle_summary(world: Node2D, battle_winner: String = CombatConstants.SIDE_PLAYER) -> void:
 	if world == null:
 		return
@@ -417,9 +444,17 @@ static func build_last_battle_summary(world: Node2D, battle_winner: String = Com
 	var contract: Dictionary = _get_company_state().get_active_contract(world)
 	if not _get_company_state().defeat_should_end_company_run(contract):
 		_get_company_state().apply_battle_death_witness_mood(world, deaths.size())
+	var participants: PackedStringArray = PackedStringArray()
+	if world.has_meta(CampaignTypes.WORLD_META_LAST_BATTLE_PARTICIPANTS):
+		var raw: Variant = world.get_meta(CampaignTypes.WORLD_META_LAST_BATTLE_PARTICIPANTS)
+		if raw is PackedStringArray:
+			participants = raw
+		elif raw is Array:
+			for v in raw:
+				participants.append(str(v))
 	world.set_meta(
 		CampaignTypes.WORLD_META_LAST_BATTLE_SUMMARY,
-		{"deaths": deaths, "members": members, "winner": str(battle_winner)}
+		{"deaths": deaths, "members": members, "winner": str(battle_winner), "participants": participants}
 	)
 
 
@@ -505,6 +540,9 @@ static func get_fightable_party_nodes(world: Node2D) -> Array:
 		if not is_instance_valid(node_ref):
 			continue
 		if node_ref.has_method("is_dead") and (node_ref as Node).is_dead():
+			continue
+		# XSurgeon: medical staff never enter a lineup (they ride along and unlock field TCCC).
+		if PlayerCompanionSetup.member_is_surgeon(node_ref):
 			continue
 		if not single_fighter.is_empty():
 			var member_name: String = member.get("name", "") if member is Dictionary else ""

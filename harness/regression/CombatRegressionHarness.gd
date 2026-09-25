@@ -364,26 +364,43 @@ static func run_all() -> Dictionary:
 
     var all: Array = get_test_functions()
     var patterns: PackedStringArray = _resolve_test_filter_patterns()
-    var selected: Array = all
-    if not patterns.is_empty():
-        selected = []
-        for tf in all:
-            if tf is Callable and _matches_filter(tf as Callable, patterns):
-                selected.append(tf)
-        if selected.is_empty():
-            return {
-                "ok": false,
-                "failures": PackedStringArray(
-                    [
-                        "FP_HARNESS_TESTS=\"%s\" matched 0 of %d tests; none ran (check the patterns)"
-                        % [", ".join(patterns), all.size()]
-                    ]
-                ),
-            }
-        print("=== CombatRegressionHarness: FP_HARNESS_TESTS=\"%s\" selected %d/%d ===" % [", ".join(patterns), selected.size(), all.size()])
+    var skip_patterns: PackedStringArray = _resolve_test_skip_patterns()
+    var selected: Array = []
+    for tf in all:
+        if tf is not Callable:
+            continue
+        if not patterns.is_empty() and not _matches_filter(tf as Callable, patterns):
+            continue
+        if _matches_skip(tf as Callable, skip_patterns):
+            continue
+        selected.append(tf)
+    if selected.is_empty():
+        return {
+            "ok": false,
+            "failures": PackedStringArray(
+                [
+                    (
+                        "FP_HARNESS_TESTS=\"%s\" / scope skips matched 0 of %d tests; "
+                        + "none ran (check the patterns or set FP_HARNESS_SCOPE=full)"
+                    )
+                    % [", ".join(patterns), all.size()]
+                ]
+            ),
+        }
+    var scope_label: String = "1v1" if scope_is_1v1() else "full"
+    var skip_note: String = ""
+    if not skip_patterns.is_empty():
+        skip_note = "; skip=\"%s\"" % ", ".join(skip_patterns)
+    print(
+        (
+            "=== CombatRegressionHarness: FP_HARNESS_SCOPE=%s selected %d/%d%s ==="
+            % [scope_label, selected.size(), all.size(), skip_note]
+        )
+    )
 
     ## Run selected test functions sequentially in a single Godot process.
     ## FP_HARNESS_TESTS (unset = all) narrows the run to matching class/method names.
+    ## FP_HARNESS_SKIP / gladiator-1v1 scope removes matching group-combat modules.
     var timing_rows: PackedStringArray = PackedStringArray()
     for tf in selected:
         if tf is Callable:
@@ -442,6 +459,49 @@ static func _resolve_test_filter_patterns() -> PackedStringArray:
         if not p.is_empty():
             out.append(p)
     return out
+
+
+## Group-combat regression modules skipped by the gladiator-1v1 scope (default): multi-fighter
+## formation/engagement engines (tier-1 surround/mop-up/wings, rotate-file + swap ranks/vacancy plugs,
+## gap-column topology, and leader/commander order + IV-12 distraction + IV-13 ZOC targeting).
+## Set **`FP_HARNESS_SCOPE=full`** to restore them.
+const GLADIATOR_1V1_SKIP_PATTERNS: PackedStringArray = [
+    "tier1tail",
+    "rotatefiledoctrinetests",
+    "iv9gapcolumntests",
+    "iv11leadertargetingtests",
+]
+
+
+## True when the harness runs the gladiator **1v1** scope (default); set **`FP_HARNESS_SCOPE=full`**
+## to run every regression test (including all group-combat modules).
+static func scope_is_1v1() -> bool:
+    var s: String = OS.get_environment("FP_HARNESS_SCOPE").strip_edges().to_lower()
+    return s != "full"
+
+
+## Skip patterns = gladiator-1v1 scope defaults + user **`FP_HARNESS_SKIP`** substrings. A test matching
+## any pattern never runs (applied after **`FP_HARNESS_TESTS`** include filtering).
+static func _resolve_test_skip_patterns() -> PackedStringArray:
+    var out: PackedStringArray = PackedStringArray()
+    if scope_is_1v1():
+        out.append_array(GLADIATOR_1V1_SKIP_PATTERNS)
+    var raw: String = OS.get_environment("FP_HARNESS_SKIP").strip_edges()
+    if raw.is_empty():
+        return out
+    for part in raw.split(","):
+        var p: String = part.strip_edges().to_lower()
+        if not p.is_empty() and p not in out:
+            out.append(p)
+    return out
+
+
+static func _matches_skip(tf: Callable, skip_patterns: PackedStringArray) -> bool:
+    var label: String = _callable_label(tf)
+    for p in skip_patterns:
+        if label.contains(p):
+            return true
+    return false
 
 
 static func _matches_filter(tf: Callable, patterns: PackedStringArray) -> bool:

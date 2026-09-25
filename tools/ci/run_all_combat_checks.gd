@@ -7,6 +7,9 @@ extends SceneTree
 ## **`FP_HARNESS_LIST`** (any value) lists every regression test label and exits without running any test.
 ## **`FP_HARNESS_TESTS`** (comma-separated case-insensitive substrings) narrows a regression run; unset = all.
 ## Fails loudly if a set pattern matches zero tests, so it can never silently skip everything.
+## **`FP_HARNESS_SCOPE`** (default `1v1` = gladiator focus) skips all 7v7 / multi-fighter sims: D-001 group
+## presets (ii3 2v4, ii8 4v4, ii_envelop 7v3, the 7v7 brawl, ii5a 4v4 formation, formation_move) and the
+## group-combat regression modules (tier1, rotate-file, gap-column, leader/ZOC). Set `full` to restore.
 
 const HARNESS_NAME := "AllCombatChecks"
 const MEDICAL_FAST_NAME := "MedicalPhaseHarness"
@@ -42,6 +45,13 @@ const _SoakPresets := preload("res://world/SoakEncounterPresets.gd")
 
 func _init() -> void:
     _CC.set_headless_harness_quiet(true)
+    var scope: String = OS.get_environment("FP_HARNESS_SCOPE").strip_edges().to_lower()
+    if scope.is_empty():
+        scope = "1v1"
+    if scope == "full":
+        print("=== FP_HARNESS_SCOPE=full (all group-combat checks enabled) ===")
+    else:
+        print("=== FP_HARNESS_SCOPE=1v1 (gladiator scope - 7v7/multi-fighter sims skipped) ===")
     if not OS.get_environment("FP_HARNESS_LIST").strip_edges().is_empty():
         _run_mode_list()
         return

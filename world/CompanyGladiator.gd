@@ -47,7 +47,7 @@ static func bout_win_purse(world: Node) -> int:
 
 ## Gold a match-losing school still has to pay: a draw steps down to the base purse, a loss pays
 ## nothing extra (the downed fighter recovers at camp).
-static func match_loss_purse(world: Node) -> int:
+static func match_loss_purse(_world: Node) -> int:
 	return 0
 
 

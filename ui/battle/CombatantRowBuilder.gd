@@ -103,40 +103,33 @@ static func create_row(id: int, node: Node, list: Control, id_to_controls: Dicti
         PartyRowFormatter.configure_wrapped_label(equip_lbl)
         equip_lbl.custom_minimum_size = Vector2(0, 0)
         row.add_child(equip_lbl)
-    var bars_hbox = HBoxContainer.new()
-    bars_hbox.add_theme_constant_override("separation", 8)
-    var body_bars := {}
+    # Fallout-style free human silhouette colored by per-part health, with a compact numeric
+    # readout (cut|blunt|bone) beside it. The diagram replaces the old six per-part progress bars.
+    var body_hbox = HBoxContainer.new()
+    body_hbox.add_theme_constant_override("separation", 8)
+    var body_diagram = BodyDiagramView.new()
+    body_hbox.add_child(body_diagram)
     var body_labels := {}
     for column_parts in BodyPartConstants.BODY_BAR_COLUMNS:
         var col_vbox = VBoxContainer.new()
         col_vbox.add_theme_constant_override("separation", 2)
         for part in column_parts:
-            var cell = VBoxContainer.new()
-            cell.custom_minimum_size = Vector2(BattleUIConstants.BODY_BAR_CELL_WIDTH, 0)
             var lbl = Label.new()
             lbl.name = "lbl_%s" % part
-            lbl.text = BodyPartConstants.BODY_LABELS.get(part, part) + " 0/0"
+            lbl.text = BodyPartConstants.BODY_LABELS.get(part, part)
+            lbl.custom_minimum_size = Vector2(BattleUIConstants.BODY_BAR_CELL_WIDTH, 0)
+            lbl.add_theme_font_size_override("font_size", 9)
             lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-            cell.add_child(lbl)
+            col_vbox.add_child(lbl)
             body_labels[part] = lbl
-            var bar = ProgressBar.new()
-            bar.min_value = 0.0
-            bar.max_value = 1.0
-            bar.value = 1.0
-            bar.custom_minimum_size = Vector2(BattleUIConstants.BODY_BAR_CELL_WIDTH, BattleUIConstants.BODY_BAR_HEIGHT)
-            bar.show_percentage = false
-            bar.add_theme_stylebox_override("background", BattleUIConstants.progress_bar_background_style())
-            cell.add_child(bar)
-            body_bars[part] = bar
-            col_vbox.add_child(cell)
-        bars_hbox.add_child(col_vbox)
-    row.add_child(bars_hbox)
+        body_hbox.add_child(col_vbox)
+    row.add_child(body_hbox)
     if list != null:
         list.add_child(row)
     id_to_controls[id] = {
         "row": row,
         "name": name_lbl,
-        "body_bars": body_bars,
+        "body_diagram": body_diagram,
         "body_labels": body_labels,
         "gauge": gauge,
         "gauge_label": gauge_lbl,

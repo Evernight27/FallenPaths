@@ -500,3 +500,89 @@ static func _run_gap7_wounded_vitals_exploit(failures: PackedStringArray) -> voi
             "gap7_wounded_vitals: wounded head picks %d should exceed pristine %d" % [wounded_head, pristine_head]
         )
     HarnessFixtures._free_manager(mgr)
+
+
+## XCamp-6 (gladiator): school-fighter tendency hook — aggression/parry multipliers + target-part boost.
+static func _run_xcamp6_school_tendency_hook(failures: PackedStringArray) -> void:
+    # Aggression multiplier: absent -> 1.0, 0.0 -> 0.75, 0.5 -> 1.0, 1.0 -> 1.25
+    if absf(CombatConstantsAIWeights.school_tendency_aggression_mult({}) - 1.0) > 0.001:
+        _fail(failures, "xcamp6_tendency: no-tendency aggression mult should be 1.0")
+    if absf(CombatConstantsAIWeights.school_tendency_aggression_mult({"school_tendency": {"aggression": 1.0}}) - 1.25) > 0.001:
+        _fail(failures, "xcamp6_tendency: aggression=1.0 should give 1.25x, got %f" % CombatConstantsAIWeights.school_tendency_aggression_mult({"school_tendency": {"aggression": 1.0}}))
+    if absf(CombatConstantsAIWeights.school_tendency_aggression_mult({"school_tendency": {"aggression": 0.0}}) - 0.75) > 0.001:
+        _fail(failures, "xcamp6_tendency: aggression=0.0 should give 0.75x, got %f" % CombatConstantsAIWeights.school_tendency_aggression_mult({"school_tendency": {"aggression": 0.0}}))
+    if absf(CombatConstantsAIWeights.school_tendency_aggression_mult({"school_tendency": {"aggression": 0.5}}) - 1.0) > 0.001:
+        _fail(failures, "xcamp6_tendency: aggression=0.5 should give 1.0x (midpoint)")
+    # Parry multiplier: absent -> 1.0, 0.0 -> 0.80, 1.0 -> 1.30
+    if absf(CombatConstantsAIWeights.school_tendency_parry_mult({}) - 1.0) > 0.001:
+        _fail(failures, "xcamp6_tendency: no-tendency parry mult should be 1.0")
+    if absf(CombatConstantsAIWeights.school_tendency_parry_mult({"school_tendency": {"parry_bias": 1.0}}) - 1.30) > 0.001:
+        _fail(failures, "xcamp6_tendency: parry_bias=1.0 should give 1.30x, got %f" % CombatConstantsAIWeights.school_tendency_parry_mult({"school_tendency": {"parry_bias": 1.0}}))
+    if absf(CombatConstantsAIWeights.school_tendency_parry_mult({"school_tendency": {"parry_bias": 0.0}}) - 0.80) > 0.001:
+        _fail(failures, "xcamp6_tendency: parry_bias=0.0 should give 0.80x, got %f" % CombatConstantsAIWeights.school_tendency_parry_mult({"school_tendency": {"parry_bias": 0.0}}))
+    # Plumbing: node meta -> combatant dict copy in register() (the seam
+    # CompanyMatch.stamp_bout_enemy depends on), and the key survives start()'s
+    # clear loop. A non-school node (no meta) must NOT gain the key.
+    var mgr_plumb: Node = CombatManager.new()
+    var ent_school: Node = _new_entity("SWORD")
+    ent_school.set_meta("school_tendency", {"aggression": 1.0, "parry_bias": 0.0})
+    mgr_plumb.register(_new_entity("SWORD"), "player")
+    var id_school: int = mgr_plumb.register(ent_school, "enemy")
+    mgr_plumb.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+    var c_school: Dictionary = mgr_plumb.combatants[id_school]
+    var c_plain: Dictionary = mgr_plumb.combatants[0]
+    if not c_school.has("school_tendency"):
+        _fail(failures, "xcamp6_tendency: register should copy the school_tendency node meta onto the combatant dict")
+    elif absf(float(c_school["school_tendency"].get("aggression", -1.0)) - 1.0) > 0.001:
+        _fail(failures, "xcamp6_tendency: copied tendency should keep its values (aggression 1.0)")
+    elif absf(CombatConstantsAIWeights.school_tendency_aggression_mult(c_school) - 1.25) > 0.001:
+        _fail(failures, "xcamp6_tendency: aggression mult should read 1.25 from the combatant dict")
+    elif absf(CombatConstantsAIWeights.school_tendency_parry_mult(c_school) - 0.80) > 0.001:
+        _fail(failures, "xcamp6_tendency: parry mult should read 0.80 from the combatant dict")
+    if c_plain.has("school_tendency"):
+        _fail(failures, "xcamp6_tendency: a node without the meta must not gain school_tendency on its combatant dict")
+    elif CombatConstantsAIWeights.school_tendency_aggression_mult(c_plain) != 1.0:
+        _fail(failures, "xcamp6_tendency: meta-less combatant should read a neutral 1.0 aggression mult")
+    HarnessFixtures._free_manager(mgr_plumb)
+    # Target-part boost: the favored part should get a >= 1.4x weight boost (1.5x before any blending).
+    var mgr: Node = CombatManager.new()
+    mgr.register(_new_entity("SWORD"), "player")
+    mgr.register(_new_entity("SWORD"), "enemy")
+    mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
+    var atk: Dictionary = mgr.combatants[0]
+    var enm: Dictionary = mgr.combatants[1]
+    CombatDoctrine.evaluate_automatic_doctrine(mgr)
+    for c in mgr.combatants:
+        if c is Dictionary:
+            CombatWeaponForm.assign_form(mgr, c as Dictionary, CombatWeaponForm.FORM_BALANCED, "xcamp6_tend")
+    var move_def: Dictionary = WeaponConstants.get_move("overhead_chop")
+    var atk_line: String = move_def.get("attack_line", "high")
+    var guard_line: String = enm.get("guard_line", CombatConstants.GUARD_DEFAULT)
+    var targetable: Array = CombatantEntityAccess.get_targetable_parts(enm)
+    var segment: Array = AttackPathResolver.path_segment_for_strike(atk_line, guard_line, targetable, 0.9, {})
+    if segment.is_empty():
+        HarnessFixtures._free_manager(mgr)
+        return
+    var head_part: String = BodyPartConstants.PART_HEAD
+    if not segment.has(head_part):
+        HarnessFixtures._free_manager(mgr)
+        return
+    var weights_base: Dictionary = AttackPathResolver.part_weights_for_ai_pick(
+        segment, atk_line, move_def, atk, enm, CombatantEntityAccess.id_int(atk), "overhead_chop", true
+    )
+    var head_base: float = weights_base.get(head_part, 0.0)
+    if head_base <= 0.0:
+        HarnessFixtures._free_manager(mgr)
+        return
+    atk["school_tendency"] = {"target_part": head_part}
+    var weights_tend: Dictionary = AttackPathResolver.part_weights_for_ai_pick(
+        segment, atk_line, move_def, atk, enm, CombatantEntityAccess.id_int(atk), "overhead_chop", true
+    )
+    var head_tend: float = weights_tend.get(head_part, 0.0)
+    if head_tend < head_base * 1.4:
+        _fail(
+            failures,
+            "xcamp6_tendency: target_part boost expected >=1.4x head weight (base=%.4f got=%.4f)"
+            % [head_base, head_tend]
+        )
+    HarnessFixtures._free_manager(mgr)

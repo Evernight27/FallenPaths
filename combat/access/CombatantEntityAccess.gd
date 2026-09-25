@@ -703,6 +703,18 @@ static func scene_entity(combatant: Dictionary) -> CoreEntity:
 	return _get_medical().scene_entity(combatant)
 
 
+## CoreEntity for a combatant without a manager. Player Characters forward via node._get_medical_entity()
+## (their _combat_body); enemy/harness nodes ARE the CoreEntity (_get_medical_entity returns self).
+static func combat_body(combatant: Dictionary) -> Node:
+	var node: Node = scene_node(combatant)
+	if node == null:
+		return null
+	if node.has_method("_get_medical_entity"):
+		var e: Node = node._get_medical_entity()
+		return e if e != null else node
+	return node
+
+
 ## Derived combat skill for hit chance / bind contests. Untracked fighters (enemies, test entities)
 ## return MELEE_SKILL_BASELINE (100); proficiency-tracked party fighters span untrained → veteran.
 static func melee_skill_value(combatant: Dictionary) -> float:

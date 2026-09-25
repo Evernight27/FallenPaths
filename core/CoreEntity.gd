@@ -42,6 +42,11 @@ var last_decay_day: int = 0
 ## get re-rolled for a new hire into the same slot). Empty = fall back to slot-derived name.
 var fighter_name: String = ""
 
+## Medical-staff role tag. Empty = combatant. "surgeon" = hired medical staff who never enter a
+## lineup (excluded from fightable party nodes) but ride into campaign fights and unlock full TCCC
+## in the post-victory medical phase (see `CombatManager.register_surgeon`). Persisted like fighter_name.
+var fighter_role: String = ""
+
 ## XCamp-5f: per-fighter fame. A personal brand distinct from company renown: accrues on each
 ## victory scaled by how hard that fighter made it (opponent difficulty) plus kill bonuses.
 ## Drives the sponsor payout and career-tier label on the gladiator. Persisted like fighter_name.
@@ -682,7 +687,7 @@ func _get_death_reason() -> String:
 		return "tetanus (tetanospasmin)"
 	var death_thresh: float = _get_blood_loss_death_threshold()
 	if blood_volume <= death_thresh:
-		return "blood_loss (volume=%.1f < threshold %.1f)" % [blood_volume, death_thresh]
+		return "blood_loss (remaining=%.1f at/below fatal floor %.1f)" % [blood_volume, death_thresh]
 	return "unknown"
 
 

@@ -185,19 +185,14 @@ static func halt_losing_side_combat(manager: Node) -> void:
 
 ## True when no one on the winning side is in medical danger AND all wounds are comprehensively treated; plus (post-
 ## victory) no unresolved losing-side downed combatants — each must be executed or stabilized as a prisoner.
+## Danger/untreated wounds only block while present care can actually act on them: a winner-side need that no
+## performer can treat (e.g. no functional arm and no capable buddy, or exhausted battle supplies) no longer locks
+## the phase — otherwise the sim cycles "no available actions" passes forever.
 static func can_end_medical_phase(manager: Node) -> bool:
     if not manager.medical_phase:
         return false
-    for c in manager.combatants:
-        if (
-            not CombatantEntityAccess.is_living_on_side(c, str(manager.medical_phase_winner))
-            or CombatantEntityAccess.scene_node(c) == null
-        ):
-            continue
-        if is_in_medical_danger(manager, c):
-            return false
-        if has_untreated_wounds(manager, c):
-            return false
+    if winner_has_actionable_care(manager):
+        return false
     # Stage-2: losing-side downed must all be resolved (dead or stabilized). A living opponent that hasn't left the
     # battlefield and isn't standing needs treatment first.
     var winner_side: String = str(manager.medical_phase_winner)
@@ -217,10 +212,10 @@ static func can_end_medical_phase(manager: Node) -> bool:
     return true
 
 
-## Stage-1 complete: winner-side fighters need no more medical care. This gates the appearance of prisoner triage
-## actions (execute / spare-stabilize) before requiring all downed enemies are resolved.
-static func winner_triage_complete(manager: Node) -> bool:
-    if not manager.medical_phase:
+## True while any living winner-side fighter needs care that present performers can actually deliver (self-care or
+## buddy-care, TCCC-menu non-empty for at least one wounded part).
+static func winner_has_actionable_care(manager: Node) -> bool:
+    if manager == null or not manager.medical_phase:
         return false
     for c in manager.combatants:
         if (
@@ -228,11 +223,38 @@ static func winner_triage_complete(manager: Node) -> bool:
             or CombatantEntityAccess.scene_node(c) == null
         ):
             continue
-        if is_in_medical_danger(manager, c):
-            return false
-        if has_untreated_wounds(manager, c):
-            return false
-    return true
+        if is_in_medical_danger(manager, c) or has_untreated_wounds(manager, c):
+            if _care_actionable_for_winner(manager, c):
+                return true
+    return false
+
+
+## Any winner-side performer (self included) that can list at least one TCCC action for one of `target`'s wounded
+## parts makes that care actionable.
+static func _care_actionable_for_winner(manager: Node, target: Dictionary) -> bool:
+    var entity: Node = CombatantEntityAccess.get_entity_from_manager(manager, target)
+    if entity == null:
+        return false
+    for part in EntityWounds.sorted_untreated_part_names(entity):
+        if part.is_empty():
+            continue
+        for perf in manager.combatants:
+            if not CombatantEntityAccess.is_living_on_side(perf, str(manager.medical_phase_winner)):
+                continue
+            if CombatantEntityAccess.scene_node(perf) == null:
+                continue
+            if not get_ally_medical_actions(manager, perf, target, part).is_empty():
+                return true
+    return false
+
+
+## Stage-1 complete: winner-side fighters need no more medical care (actionable care specifically — untreatable
+## residual needs don't block). This gates the appearance of prisoner triage actions (execute / spare-stabilize)
+## before requiring all downed enemies are resolved.
+static func winner_triage_complete(manager: Node) -> bool:
+    if not manager.medical_phase:
+        return false
+    return not winner_has_actionable_care(manager)
 
 
 ## True while any living winner-side fighter is mid-triage (procedure, gauge fill, or turn-ready with work left).
@@ -576,7 +598,7 @@ static func get_ally_medical_actions(manager: Node, performer: Dictionary, ally:
             manager, performer, ally, part, has_pressure, actively_bleeding, out
         )
         out.append({"move_id": CombatConstants.MOVE_ID_APPLY_TOURNIQUET, "target_part": part})
-        return CombatMedicalCoordination.filter_ally_medical_actions(manager, performer, ally, out)
+        return _filter_pressure_assist_for_non_medic(manager, performer, ally, out)
 
     # Junctional (head/chest): hold pressure before packing cavity.
     if (
@@ -609,7 +631,37 @@ static func get_ally_medical_actions(manager: Node, performer: Dictionary, ally:
         out.append({"move_id": CombatConstants.MOVE_ID_PACK_WOUND, "target_part": part})
     if tq_can and tq_indicated:
         out.append({"move_id": CombatConstants.MOVE_ID_APPLY_TOURNIQUET, "target_part": part})
-    return CombatMedicalCoordination.filter_ally_medical_actions(manager, performer, ally, out)
+    return _filter_pressure_assist_for_non_medic(manager, performer, ally, out)
+
+
+## Buddy-assist: when a designated surgeon is present, non-surgeon winners may only hold/stack direct pressure for
+## allies — never perform wind-up dressings, never treat themselves (the listing layer handles the self-target skip;
+## here we drop every non-pressure move so coordination stays consistent).
+static func _filter_pressure_assist_for_non_medic(
+    manager: Node, performer: Dictionary, ally: Dictionary, actions: Array
+) -> Array:
+    if may_perform_full_tccc(manager, performer):
+        return CombatMedicalCoordination.filter_ally_medical_actions(manager, performer, ally, actions)
+    var pressure_only: Array = []
+    for raw in actions:
+        if raw is not Dictionary:
+            continue
+        var act: Dictionary = raw
+        if act.get("move_id", "") == CombatConstants.MOVE_ID_APPLY_DIRECT_PRESSURE:
+            pressure_only.append(act)
+    return CombatMedicalCoordination.filter_ally_medical_actions(manager, performer, ally, pressure_only)
+
+
+## True when `performer` may carry out the full TCCC menu (bandage/pack/stabilize/tourniquet). False only when a
+## designated surgeon is present and this combatant is not that surgeon (buddy-assist pressure only).
+static func may_perform_full_tccc(manager: Node, performer: Dictionary) -> bool:
+    if manager == null or performer.is_empty():
+        return true
+    if not bool(manager.get("is_surgeon_present")):
+        return true
+    if manager.has_method("is_surgeon_combatant"):
+        return bool(manager.call("is_surgeon_combatant", CombatantEntityAccess.id_int(performer)))
+    return true
 
 
 ## TCCC escalation ladder for a wound part. Returns the ordered list of valid medical actions
