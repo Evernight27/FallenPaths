@@ -156,7 +156,7 @@ static func create_from_definition(weapon_id: String) -> Weapon:
     return w
 
 
-## Resolved impact speed band (m/s) for Tier A - C model. contact_type: stab | cut | blunt.
+## Resolved impact speed band (m/s) for Tier A–C model. contact_type: stab | cut | blunt.
 func get_impact_velocity_band_m_s(contact_type: String) -> Vector2:
     return ImpactVelocityModel.resolve_band_m_s(self, contact_type)
 

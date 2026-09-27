@@ -101,7 +101,7 @@ const ARMOR_WEAR_DEFLECT_PENALTY: float = 0.5
 const ARMOR_WEAR_CURVE_EXPONENT: float = 0.7
 
 # --- Generic layer stats (cloth, leather, mail, plate only) ---
-# Sharp resistance: mm RHA equivalent. Nonlinear pen = (KE/55)^0.6 - -  area_factor (Williams).
+# Sharp resistance: mm RHA equivalent. Nonlinear pen = (KE/55)^0.6 × area_factor (Williams).
 # Blunt: transmission-only (no penetration check). Durability uses sharp_resistance_rha_mm and blunt_transmission.
 # Sharp deflect transmission: fraction of damage that becomes blunt when sharp is stopped by layer (plate transmits
 # more, cloth absorbs).
@@ -142,7 +142,7 @@ const LAYER_CLOTH: Dictionary = {
     "mass_kg": 0.45
 }
 
-# Leather: buff coat, boiled leather. Williams: buff 30 J, cuir-bouilli 20 - 30 J. pen=(30/55)^0.6 ' 0.6 mm.
+# Leather: buff coat, boiled leather. Williams: buff 30 J, cuir-bouilli 20–30 J. pen=(30/55)^0.6 ≈ 0.6 mm.
 # NOTE: leather (0.6) reads as LESS cut-resistant than cloth (0.9) only because the cloth value models a 16-layer
 # gambeson (thick) while leather models a single buff coat (thin). At equivalent thickness leather (denser, tougher)
 # stops cuts better than linen — the ordering reflects thickness, not material quality.
@@ -156,7 +156,7 @@ const LAYER_LEATHER: Dictionary = {
     "mass_kg": 1.05
 }
 
-# Mail: chainmail + jack. Williams: 80 - 120 J. pen=(120/55)^0.6 ' 1.5 mm.
+# Mail: chainmail + jack. Williams: 80–120 J. pen=(120/55)^0.6 ≈ 1.5 mm.
 ## Adjusted to ~1.0 RHA equiv — historical chainmail (~1mm rings) is more vulnerable than plate suggests; sword thrusts
 ## and glancing cuts penetrate more readily than the old 1.5 value implied (experimental HEMA armor penetration tests).
 const LAYER_MAIL: Dictionary = {

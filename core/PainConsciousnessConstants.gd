@@ -3,7 +3,7 @@ extends RefCounted
 
 ## Pain scale multipliers by body part and sub-region; consciousness thresholds.
 
-# Pain and consciousness (Combat Extended - style), adjusted for fallen-paths action-bar combat.
+# Pain and consciousness (Combat Extended–style), adjusted for fallen-paths action-bar combat.
 # Used by CoreEntity and CombatManager for gauge fill, hit chance, and incapacitation.
 
 # --- Pain normalization: Method A (reference-based) vs Method B (normalized) ---
@@ -12,7 +12,7 @@ extends RefCounted
 const USE_NORMALIZED_PAIN: bool = true  # Method B = canonical implementation
 
 # --- Method A: Reference-based thresholds (when USE_NORMALIZED_PAIN = false) ---
-# PAIN_REFERENCE = typical pain from 1 moderate hit. Thresholds = NRS - -  PAIN_PER_NRS. Update when damage scale
+# PAIN_REFERENCE = typical pain from 1 moderate hit. Thresholds = NRS × PAIN_PER_NRS. Update when damage scale
 # changes.
 const PAIN_REFERENCE_MODERATE_HIT: float = 6.0
 const PAIN_MODERATE: float = PAIN_REFERENCE_MODERATE_HIT * 2.0  # ~12: ~2 moderate hits
@@ -68,7 +68,7 @@ const INCAPACITATION_CONSCIOUSNESS_THRESHOLD: float = 5.0
 # Leg functionality below this threshold triggers cowering (both legs destroyed).
 # Single-leg destruction returns ~0.35-0.55, above this threshold — fighter can still hobble and fight.
 const LEG_COWER_THRESHOLD: float = 0.15
-# Leg functionality below this '**' cannot walk for formation retreat (flee / fall_back). Tier 6.1.
+# Leg functionality below this ⇒ cannot walk for formation retreat (flee / fall_back). Tier 6.1.
 const MOBILITY_FLEE_THRESHOLD: float = 0.2
 
 # --- Blood -> consciousness (ATLS-aligned: effect starts at Class II, max at death threshold). ---

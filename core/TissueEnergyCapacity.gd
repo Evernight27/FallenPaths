@@ -1,7 +1,7 @@
 class_name TissueEnergyCapacity
 extends RefCounted
 
-## M6: J-internal tissue capacity '??" display `body_cutting` / `body_blunt` (production on).
+## M6: J-internal tissue capacity ↔ display `body_cutting` / `body_blunt` (production on).
 ## One J reservoir per part; cut and blunt displays debit independently (severance parity with HP path).
 
 

@@ -56,7 +56,7 @@ static func clear_combatant_doctrine_commitment(c: Dictionary) -> void:
     c[DataKeys.CLOSE_BLOCK_UNTIL_BY_TARGET_ID] = {}
 
 
-## True when the **opposing** formation--'"'s front rank has a **hollow center**: middle file(s) empty with at least one
+## True when the **opposing** formation's front rank has a **hollow center**: middle file(s) empty with at least one
 ## living rank-0 on both wings (`files >= 3`). Rank-0 on **`combatant_on_zone_geometry_fid`**. Used for automatic pinch
 ## doctrine; exposed for harness.
 static func enemy_line_hollow_center_for_pinch(manager: Node, our_formation_id: String) -> bool:

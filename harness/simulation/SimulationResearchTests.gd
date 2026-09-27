@@ -2,7 +2,7 @@ class_name SimulationResearchTests
 extends CombatRegressionHarnessCore
 const _CombatRegressionHarness := preload("res://harness/regression/CombatRegressionHarness.gd")
 
-## Simulation realism track (S1 - S10): `_run_sim_*`  -  docs/LIVE_PATHS.md#harness-prefixes.
+## Simulation realism track (S1—S10): `_run_sim_*`  -  docs/LIVE_PATHS.md#harness-prefixes.
 
 const HumanSpecies := preload("res://resources/species/human.tres")
 const GoblinSpecies := preload("res://resources/species/goblin.tres")
@@ -624,7 +624,7 @@ static func _run_research_derived_limb_species_flags(failures: PackedStringArray
 static func _run_research_blunt_ke_budget_reduces_bone(failures: PackedStringArray) -> void:
     if not BleedingConstants.FEATURE_BLUNT_TISSUE_KE_GATE:
         SimulationCombatTests._fail(failures, "research_blunt_ke: FEATURE_BLUNT_TISSUE_KE_GATE must be on")
-    # Crush-capacity model (blunt_ke_reaching_bone = max(0, ke - budget)): at committed oberhau
+    # Crush-capacity model (blunt_ke_reaching_bone = max(0, ke—budget)): at committed oberhau
     # (~111 J) the 22 J arm budget soaks a full 22 J, so the budget meaningfully reduces bone load.
     # Its core protective property is that it creates a fracture threshold — a sub-anchor KE yields
     # ke_to_bone below the bone anchor (and a blow at/below the budget transmits nothing). Verify that.

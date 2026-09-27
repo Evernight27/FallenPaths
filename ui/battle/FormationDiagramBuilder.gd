@@ -1,8 +1,8 @@
 class_name FormationDiagramBuilder
 extends RefCounted
 
-## Builds a compact visual formation diagram: rankÃ - file grid with per-unit health bars + names.
-## Cell label suffix order (footing): optional footwork Ã¢â ' **`[HiL]`** guard Ã¢â ' **`[Wrath]`** form —
+## Builds a compact visual formation diagram: rank×file grid with per-unit health bars + names.
+## Cell label suffix order (footing): optional footwork → **`[HiL]`** guard → **`[Wrath]`** form —
 ## `_cell_label_with_footwork`. LIVE_PATHS **`#battle-ui`** · **`#wf-soak-audit-status`** · **`#wf-footing-doc-map`**.
 ## Shows Front (rank 0) and Back (rank 1+) so formation changes (swap rank, etc.) are trackable.
 ## Canonical: PartyRowFormatter.total_body_health_ratio / body_functionality_ratio for bar fill + tint.

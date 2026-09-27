@@ -1,8 +1,8 @@
 class_name CampaignPersistence
 extends RefCounted
 
-## D-persistence P2 ''"" single-slot autosave on settlement continue and **`CompanyState.try_advance_day`** (day tick).
-## Atomic write: user://fallen_paths_slot0.json.tmp f''' ' slot0.json
+## D-persistence P2 — single-slot autosave on settlement continue and **`CompanyState.try_advance_day`** (day tick).
+## Atomic write: user://fallen_paths_slot0.json.tmp → slot0.json
 ## Canonical: `save_slot` . `apply_save` . `normalize_marker_kind_for_restore` . `begin_harness_isolated_save` (headless
 ## harness).
 
@@ -14,7 +14,7 @@ const WORLD_META_CAMP_HEAL_HINT_SHOWN := "camp_heal_hint_shown"
 ## Headless harness: isolated slot so editor / parallel Godot do not lock production `user://` path.
 static var _harness_save_path: String = ""
 
-# Runtime preload ''" circular dependency (CompanyState preloads CampaignPersistence).
+# Runtime preload — circular dependency (CompanyState preloads CampaignPersistence).
 static var _company_state: Variant = null
 
 
@@ -49,7 +49,7 @@ static func has_save() -> bool:
     return FileAccess.file_exists(active_save_path())
 
 
-## Pre-`marker_kind` saves may still carry removed `practice` markers ''"" map to tutorial or paid contract.
+## Pre-`marker_kind` saves may still carry removed `practice` markers — map to tutorial or paid contract.
 static func normalize_marker_kind_for_restore(marker_kind: String, encounter_config: Dictionary) -> String:
     var kind: String = marker_kind.strip_edges()
     if kind == "practice":

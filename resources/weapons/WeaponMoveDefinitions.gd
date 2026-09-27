@@ -2,7 +2,7 @@ class_name WeaponMoveDefinitions
 extends RefCounted
 
 ## Per-weapon move defs + Expand WF spawn keys: **`default_form`** / **`allowed_forms[]`** feed
-## **`CombatWeaponForm.seed_combatant_form`** (resolution step 4). LIVE_PATHS **`#spawn--reset-path-wf-1a`** ??
+## **`CombatWeaponForm.seed_combatant_form`** (resolution step 4). LIVE_PATHS **`#spawn→reset-path-wf-1a`**.
 ## **`#wf-assign-form-contract`**.
 
 # Damage types (also in CombatConstants; defined here to avoid circular preload)
@@ -21,7 +21,7 @@ const BASELINE_MASS_KG: float = 1.0
 
 
 static func _move_definitions_build() -> Dictionary:
-    # attack_line: Liechtenauer 4 lines - high (0°), low (180°), left (270°), right (90°) + compound octants
+    # attack_line: Liechtenauer 4 lines—high (0°), low (180°), left (270°), right (90°) + compound octants
     # high_left, high_right, low_left. Blade path, not body target.
     # angle_variance_deg: optional ~3deg human error; heavier/awkward moves have more variance.
     # angle_offset_deg: optional bias from base line (e.g. off_line_thrust angled toward flank).

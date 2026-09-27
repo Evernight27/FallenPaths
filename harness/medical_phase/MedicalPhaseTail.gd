@@ -182,7 +182,7 @@ static func run(failures: PackedStringArray) -> void:
     CombatF5SoakTrace.prepare_fight_end_log()
 
 
-## Per-subtest durations (ms, desc) for `.medical_subtest_timing.txt` â€” which medical subtests dominate.
+## Per-subtest durations (ms, desc) for `.medical_subtest_timing.txt` — which medical subtests dominate.
 static func _write_subtest_timing(section: String, rows: PackedStringArray) -> void:
     var data: Array = []
     for r in rows:

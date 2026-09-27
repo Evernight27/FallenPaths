@@ -3,7 +3,7 @@ extends RefCounted
 
 ## Listing: **`CombatantEntityAccess`** + **`CombatMedicalCoordination`** +
 ## **`MedicalPhaseController.get_ally_medical_actions`**.
-## **Read order:** receiving-care pressure --'' ' medical-phase winner scan --'' ' ally part menu --'' ' MS-MID
+## **Read order:** receiving-care pressure → medical-phase winner scan → ally part menu.
 ## mid-fight peril allies.
 ## Move IDs: **`CombatConstants.MOVE_ID_*`** . membership via **`CombatConstants.is_medical_move`**.
 ## Post-victory prisoner triage (plan §3 hook 7): when Stage-1 winner triage is done, append execute / stabilize

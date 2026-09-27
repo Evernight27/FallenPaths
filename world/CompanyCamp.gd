@@ -14,7 +14,7 @@ const CAMP_HEAL_SECONDS: float = HealingConstants.SECONDS_PER_DAY
 ## CAMP_HEAL_MULTIPLIER.
 const CAMP_HEAL_MULTIPLIER: float = 1.0
 ## FIELD_CARE_MARCH_CHAIN.
-const FIELD_CARE_MARCH_CHAIN: String = "pressure (free) -- bandage/pack/TQ"
+const FIELD_CARE_MARCH_CHAIN: String = "pressure (free) → bandage/pack/TQ"
 
 # Runtime preload -- circular dependency (CompanyState preloads CompanyCamp).
 static var _company_state_cache: Variant = null

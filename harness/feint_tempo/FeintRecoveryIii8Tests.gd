@@ -51,12 +51,12 @@ static func _run_feint_move_listing_incoming_contact_stab_feint_dampens_vs_cut_f
 
 
 ## Tier 4.2: **`CombatAIActionPicker._get_action_weight`**  -  feint listing defender readiness matches
-## **`CombatConstants.defender_passive_readiness_stamina_mult_from_ratio`** after passive - -  incoming
+## **`CombatConstants.defender_passive_readiness_stamina_mult_from_ratio`** after passive ×  incoming
 ## **`contact_type`** ( **`w_feint_lo` / `w_feint_hi` == read_m ratio**; attacker stamina full).
 
 
 ## Tier 4.2: **`CombatAIActionPicker._get_action_weight`**  -  feint listing defender readiness matches
-## **`CombatConstants.defender_passive_readiness_stamina_mult_from_ratio`** after passive - -  incoming
+## **`CombatConstants.defender_passive_readiness_stamina_mult_from_ratio`** after passive ×  incoming
 ## **`contact_type`** ( **`w_feint_lo` / `w_feint_hi` == read_m ratio**; attacker stamina full).
 static func _run_feint_move_listing_defender_low_stamina_scales_read_m_vs_full_stamina(
     failures: PackedStringArray
@@ -131,11 +131,11 @@ static func _run_feint_move_listing_defender_low_stamina_scales_read_m_vs_full_s
     HarnessFixtures._free_manager_restore_global_rng(mgr)
 
 
-## Tier 4.2: defender low stamina on feint **`read_m`** - -  attacker low stamina on **`AI_FEINT_LISTING_STAMINA_*`**
+## Tier 4.2: defender low stamina on feint **`read_m`** ×  attacker low stamina on **`AI_FEINT_LISTING_STAMINA_*`**
 ## multiply independently (**`w_ll/w_ml` == `w_lm/w_mm`** for **`oberhau_feint`**).
 
 
-## Tier 4.2: defender low stamina on feint **`read_m`** - -  attacker low stamina on **`AI_FEINT_LISTING_STAMINA_*`**
+## Tier 4.2: defender low stamina on feint **`read_m`** ×  attacker low stamina on **`AI_FEINT_LISTING_STAMINA_*`**
 ## multiply independently (**`w_ll/w_ml` == `w_lm/w_mm`** for **`oberhau_feint`**).
 static func _run_feint_move_listing_defender_and_attacker_stamina_multiply_orthogonally(
     failures: PackedStringArray

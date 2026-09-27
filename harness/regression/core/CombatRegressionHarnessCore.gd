@@ -2,7 +2,7 @@ class_name CombatRegressionHarnessCore
 extends RefCounted
 ## Manual / editor-invoked checks for Tier 1.5 - 1.9 (morale cohesion, engagement classifier, depth polearm, ZoC).
 ## CombatWeaponForm harness baseline: **`_harness_reset_combatants_form_balanced`** -> **`assign_form(...,
-## harness_baseline)`**  -  home guard + **`form_str`** for parity rows; LIVE_PATHS **`#spawn--reset-path-wf-1a`** .
+## harness_baseline)`**  -  home guard + **`form_str`** for parity rows; LIVE_PATHS **`#spawn→reset-path-wf-1a`** .
 ## **`#wf-soak-audit-status`**.
 ## Tier 4.2: **`_run_feint_commitment_fraction_shortens_effective_wind_up_for_late_parry`**,
 ## **`_run_feint_commitment_fraction_shortens_effective_wind_up_for_late_parry_thrust`**,

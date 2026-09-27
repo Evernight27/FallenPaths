@@ -67,7 +67,7 @@ const LITERATURE_DE_LEVA_HEAD_PCT_TOLERANCE: float = 4.0
 const LITERATURE_FOREARM_ARTERIAL_MULT_MIN: float = 1.1
 ## Post-S11 full production gate id (mirrors CombatCalibrationAudit.material_failure_headless_gate_line).
 const LITERATURE_HEADLESS_GATE_FULL: String = "p3b_full_including_energy_pool_joule_armor_and_literal_blood_ml"
-## M6 arm anchor: body_max 12 '??" design KE arm slot (`CombatDesignAnchors`).
+## M6 arm anchor: body_max 12 ≈ design KE arm slot (`CombatDesignAnchors`).
 const LITERATURE_ARM_TISSUE_CAPACITY_J: float = CombatDesignAnchors.DESIGN_KE_ARM_J
 const LITERATURE_ARM_CAPACITY_J_TOLERANCE: float = 5.0
 const LITERATURE_ARM_DISPLAY_HALF_J: float = 10.0
@@ -222,11 +222,11 @@ static func derived_blood_loss_multiplier_for_ttd(target_ttd_s: float) -> float:
     return buffer / denom
 
 
-## Implied mL/s from abstract HP/s bleed via percent'??"mL bridge (`BloodVolumeMl`).
+## Implied mL/s from abstract HP/s bleed via percent→mL bridge (`BloodVolumeMl`).
 ## Not a clinical flow-rate claim  -  **TTD** (120 - 300 s band) is the calibrated outcome.
 
 
-## Implied mL/s from abstract HP/s bleed via percent'??"mL bridge (`BloodVolumeMl`).
+## Implied mL/s from abstract HP/s bleed via percent→mL bridge (`BloodVolumeMl`).
 ## Not a clinical flow-rate claim  -  **TTD** (120 - 300 s band) is the calibrated outcome.
 static func reference_uncontrolled_implied_ml_per_second(
     reference_mass_kg: float = CombatDesignAnchors.REFERENCE_ADULT_MASS_KG, loss_mult: float = 1.0

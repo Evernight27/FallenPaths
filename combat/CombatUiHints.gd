@@ -2,10 +2,10 @@ class_name CombatUiHints
 extends RefCounted
 
 ## Shared UI hint resolution for snapshot rows and live combatant dicts.
-## Gauge suffix order (footing): Step (PA) ->''--''''' ' Grd/Atk (guard line) ->''--''''' ' Form '
+## Gauge suffix order (footing): Step (PA) → ' Grd/Atk (guard line) → ' Form '
 ## **`BattleUIUpdater._compose_waiting_gauge_label`**. LIVE_PATHS **`#battle-ui`** '. **`#wf-1c--ui-surfacing`** '.
 ## **`#wf-tier-44-pa`** (Step) '. soak **`#wf-soak-audit-status`**.
-## **`active_line_for_ui`**: wind-up ->''--''''' ' **`pending_attack`** line; else **`guard_line`** ' does **not** read
+## **`active_line_for_ui`**: wind-up → **`pending_attack`** line; else **`guard_line`** — does **not** read **`weapon_form`** or PA offset.
 ## **`weapon_form`** or PA offset.
 ## Diagram: guard **`[short]`** then form **`[Ox]`** ' **`FormationDiagramBuilder._cell_label_with_footwork`**.
 ## LIVE_PATHS **`#wf-footing-guards-stances`** '. **`#wf-guard-writers`** (L3 drift).
@@ -280,7 +280,7 @@ static func _guard_line_ui_states() -> Array:
     ]
 
 
-## L3 moment line for gauge/diagram ' wind-up ->''--''''' ' **`pending_attack`** line; else **`guard_line`**. Does
+## L3 moment line for gauge/diagram ' wind-up → ' **`pending_attack`** line; else **`guard_line`**. Does
 ## **not** read **`weapon_form`** or PA offset. LIVE_PATHS **`#wf-guard-writers`** '. **`#battle-ui`**.
 static func active_line_for_ui(c: Dictionary) -> String:
     if not CombatConstants.is_feature_hema_eight_guard_lines_enabled() or c.is_empty():
@@ -459,7 +459,7 @@ static func counter_tempo_gauge_label(tempo_hint: String) -> String:
     if tempo_hint == "counter_ready":
         return "Counter!"
     if tempo_hint == "counter_winding":
-        return "Seize tempo'f''s'|"
+        return "Seize tempo'f→s'|"
     return ""
 
 
@@ -579,8 +579,7 @@ static func gauge_tooltip_lines(c: Dictionary, manager: Node = null) -> PackedSt
         tips.append(
             (
                 (
-                    "Formation move ' heavy hits (intensity ->''--'''''degf''s'' %.0f) may cancel; lighter hits extend "
-                    + "duration."
+                "Formation move — heavy hits (intensity ≥ %.0f) may cancel; lighter hits extend duration."
                 )
                 % CombatConstants.FORMATION_HIT_CANCEL_INTENSITY
             )

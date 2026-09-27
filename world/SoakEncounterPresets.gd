@@ -1,7 +1,7 @@
 class_name SoakEncounterPresets
 extends RefCounted
 
-## F5 soak encounter markers  -  docs/LIVE_PATHS.md#headless-gate-authoritative (editor-only convenience).
+## F5 soak encounter markers — docs/LIVE_PATHS.md#headless-gate-authoritative (editor-only convenience).
 ## **`emit_f5_soak_guide`** prints **`FP_COMBAT: soak_guide`** lines at session start (grep **`soak_guide`** in Output).
 
 const PRESET_II2B_SWORD_DUEL := "ii2b"
@@ -25,7 +25,7 @@ const D001_PRESET_RUN_ORDER: PackedStringArray = [
 
 ## World meta: **`CampaignEncounterBridge.get_fightable_party_nodes`** sends only **`is_party_leader`**.
 const WORLD_META_PLAYER_LEADER_ONLY := "soak_player_leader_only"
-## Cap fightable roster (leader first, then companions)  -  **ii6** expects **`party_entering_combat count=2`**.
+## Cap fightable roster (leader first, then companions) — **ii6** expects **`party_entering_combat count=2`**.
 const WORLD_META_SOAK_PARTY_FIGHTER_CAP := "soak_party_fighter_cap"
 ## Set when **ii5** destroys leader arms; cleared + restored on non-soak **`clear_world_soak_meta`**.
 const WORLD_META_SOAK_LEADER_ARMS_DESTROYED := "soak_leader_arms_destroyed"
@@ -229,7 +229,7 @@ static func _general_soak_guide_lines() -> PackedStringArray:
                 + "soak_validate_hint | FP_ERROR | SCRIPT_ERROR"
             ),
             (
-                "II-0 general  -  walk any encounter tile (2- - 7v7 on grid) or set scenes/campaign/main.tscn "
+                "II-0 general — walk any encounter tile (2-7v7 on grid) or set scenes/campaign/main.tscn "
                 + "dev_soak_encounter=ii2b|ii4d|ii3|ii5|ii6|ii8|ii_envelop"
             ),
             (
@@ -251,7 +251,7 @@ static func _general_soak_guide_lines() -> PackedStringArray:
     )
 
 
-## Human-only **D-001** rows  -  printed every F5 session (grep **`soak_guide human`**).
+## Human-only **D-001** rows — printed every F5 session (grep **`soak_guide human`**).
 static func _emit_d001_human_blocker_checklist(active_preset: String) -> void:
     if not OS.has_feature("editor"):
         return
@@ -293,7 +293,7 @@ static func _preset_soak_guide_lines(preset_id: String, marker_tile: Variant) ->
                 "unknown preset '%s'  -  valid: ii2b ii4d ii3 ii5 ii6 ii8 ii_envelop" % preset_id,
             ]
         )
-    var tile_s: String = "walk cyan marker on 3- - 3 grid"
+    var tile_s: String = "walk cyan marker on 3×3 grid"
     if marker_tile is Vector2i:
         tile_s = "cyan marker tile=%s" % str(marker_tile)
     match preset_id:
@@ -356,7 +356,7 @@ static func _preset_soak_guide_lines(preset_id: String, marker_tile: Variant) ->
             return PackedStringArray(
                 [
                     "preset=ii5  -  II-0 #5 cowering -> fall_back | %s" % tile_s,
-                    "setup: leader armless (cowering); loose 2- - 3 party formation",
+                    "setup: leader armless (cowering); loose 2-3 party formation",
                     "grep: cowering_fall_back listed | cowering_fall_back executed | ui_hint No arms",
                     "play: on your turn pick fall_back when listed (not flee-only path)",
                     (

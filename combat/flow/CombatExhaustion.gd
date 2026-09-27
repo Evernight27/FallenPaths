@@ -2,7 +2,7 @@ class_name CombatExhaustion
 extends RefCounted
 
 ## MXm: cumulative fight exhaustion (0—1) on combatant dict; gain on stamina spend; recovery in WAITING.
-## MXm-2: **`performance_mult_for_combatant`** --'' ' parry readiness, wind-up, surround awareness.
+## MXm-2: **`performance_mult_for_combatant`** → parry readiness, wind-up, surround awareness.
 ## MXm-3: **`effective_stamina_max`** / **`effective_stamina_refill_rate`** -- central fatigue + blood cap burst pool.
 
 const _FP_COMBAT_BANDS: Array[float] = [0.25, 0.5, 0.75]
@@ -33,7 +33,7 @@ static func apply_exertion_from_stamina_spend(manager: Node, combatant: Dictiona
     clamp_stamina_to_effective_max(combatant)
 
 
-## Hypovolemia reduces peak burst power (O--''s''s delivery to working muscle).
+## Hypovolemia reduces peak burst power (O₂ delivery to working muscle).
 static func blood_stamina_cap_mult(combatant: Dictionary) -> float:
     if combatant.is_empty():
         return 1.0

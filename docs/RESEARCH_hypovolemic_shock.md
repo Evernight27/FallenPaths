@@ -1,4 +1,4 @@
-﻿# Hypovolemic Shock Cascade: Research-Backed Data for Game Implementation
+# Hypovolemic Shock Cascade: Research-Backed Data for Game Implementation
 
 **Compiled for:** Fallen Paths tactical combat game  
 **Purpose:** Game constants - precise numerical values derived from ATLS trauma guidelines, military surgery literature (TCCC/TECC), and clinical emergency medicine.

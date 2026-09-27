@@ -1,4 +1,4 @@
-﻿# Expansion plan — open queue (post-EA)
+# Expansion plan — open queue (post-EA)
 
 **Expand registry:** [`SHIP_PLAN#combat-expand-registry`](SHIP_PLAN.md#combat-expand-registry) · **Combat map:** [`LIVE_PATHS#phase-4--new-systems-formal-tracks`](LIVE_PATHS.md#phase-4--new-systems-formal-tracks)
 

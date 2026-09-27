@@ -2,8 +2,8 @@ class_name KinematicDeliveryClosingDefenseTests
 extends CombatRegressionHarnessCore
 const _CombatRegressionHarness := preload("res://harness/regression/CombatRegressionHarness.gd")
 
-## Tier 5.1 (optional long-tail): rear **`engagement_angle`** - -  **`afterblow_damage_mult`** compose on **`v`**.
-## -> **`strike_ke_j`** (~**(cls - -  sqrtab)2**).
+## Tier 5.1 (optional long-tail): rear **`engagement_angle`** ×  **`afterblow_damage_mult`** compose on **`v`**.
+## -> **`strike_ke_j`** (~**(cls ×  sqrtab)2**).
 const HumanSpecies := preload("res://resources/species/human.tres")
 
 
@@ -36,7 +36,7 @@ static func _run_kinematic_delivery_rear_afterblow_compose_on_strike_ke(failures
         CombatRegressionHarness._fail(
             failures,
             (
-                "kin_compose: ke ratio %.4f want (cls- - sqrtab)2 %.4f (cls front=%.4f rear=%.4f)"
+                "kin_compose: ke ratio %.4f want (cls×sqrtab)² %.4f (cls front=%.4f rear=%.4f)"
                 % [ratio_ke, ratio_want, cls_front, cls_rear]
             )
         )
@@ -863,11 +863,11 @@ static func _kin_result_split_fields_sample(
 
 
 ## Tier 5.1 (optional long-tail): weapon path  -  **`afterblow_damage_mult`** scales **`pre_cut_applied`** by
-## **`sqrt(mult)`** (**`v`** - -  sqrtmult -> **`pre_cut`** ~ sqrtKE).
+## **`sqrt(mult)`** (**`v`** ×  sqrtmult -> **`pre_cut`** ~ sqrtKE).
 
 
 ## Tier 5.1 (optional long-tail): weapon path  -  **`afterblow_damage_mult`** scales **`pre_cut_applied`** by
-## **`sqrt(mult)`** (**`v`** - -  sqrtmult -> **`pre_cut`** ~ sqrtKE).
+## **`sqrt(mult)`** (**`v`** ×  sqrtmult -> **`pre_cut`** ~ sqrtKE).
 static func _run_kinematic_delivery_afterblow_scales_pre_cut_integration(failures: PackedStringArray) -> void:
     var vo_pin: float = 11.0
     var ab_mult: float = 0.6

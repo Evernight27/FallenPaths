@@ -892,6 +892,7 @@ static func apply_result(manager: Node, attacker_id: int, result: Dictionary) ->
 		manager.emit_signal("action_resolved", target_id, attacker_id, partial_emit)
 		# Follow-through gate: skip strike execution when parry absorbed >=90% of energy (remaining <= 0.3). Tuning fix
 		if remaining_ratio > CombatConstants.PARRY_FOLLOW_THROUGH_THRESHOLD:
+			partial_emit[DataKeys.PA_PARRY_PARTIAL_FOLLOW_THROUGH] = true
 			manager._execute_attack(attacker_id)
 		return
 	if action == "hit":

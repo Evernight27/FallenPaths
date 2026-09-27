@@ -152,14 +152,14 @@ static func _get_rout() -> GDScript:
 ## Centralized access to combatant node/entity for weapon, armor, performance, etc.
 ## Reduces repeated node.has_method("get_weapon") patterns across AttackResolver, DefenseChoiceResolver, etc.
 ## Footing: **`form_str`** is canonical L2 id for picker/UI/close  -  not **`guard_line`** or PA offset. LIVE_PATHS
-## **`#wf-assign-form-contract`** f''s'. **`#wf-footing-doc-map`**.
+## **`#wf-assign-form-contract`** f→s'. **`#wf-footing-doc-map`**.
 
 ## Scene `node` on the combatant dict (e.g. Character); null if missing.
 
 ## Centralized access to combatant node/entity for weapon, armor, performance, etc.
 ## Reduces repeated node.has_method("get_weapon") patterns across AttackResolver, DefenseChoiceResolver, etc.
 ## Footing: **`form_str`** is canonical L2 id for picker/UI/close  -  not **`guard_line`** or PA offset. LIVE_PATHS
-## **`#wf-assign-form-contract`** f''s'. **`#wf-footing-doc-map`**.
+## **`#wf-assign-form-contract`** f→s'. **`#wf-footing-doc-map`**.
 
 
 ## Scene `node` on the combatant dict (e.g. Character); null if missing.

@@ -41,7 +41,7 @@ static func opposition_file_offset(manager: Node, side: String) -> int:
     return int(_offset_dict(manager).get(str(side), 0))
 
 
-## Mapped file gap for reach/bands when Track A opposition applies (wings use nearest, not raw `|fA1/2--?file|`).
+## Mapped file gap for reach/bands when Track A opposition applies (wings use nearest, not raw `|Δ--?file|`).
 static func mapped_opposition_file_distance(manager: Node, actor: Dictionary, opp: Dictionary) -> int:
     if manager == null or actor.is_empty() or opp.is_empty():
         return absi(CombatantEntityAccess.file_int(actor) - CombatantEntityAccess.file_int(opp))
@@ -135,7 +135,7 @@ static func wing_lacks_mapped_opposition(
     return true
 
 
-## Mapped rank-0 at **LONG** when weapon reach does not cover assigned foe --'''s'--? bind close before strikes.
+## Mapped rank-0 at **LONG** when weapon reach does not cover assigned foe →'s'--? bind close before strikes.
 static func rank0_needs_bind_close_at_long(manager: Node, c: Dictionary) -> bool:
     if manager == null or c.is_empty() or CombatantEntityAccess.rank_int(c) != 0:
         return false

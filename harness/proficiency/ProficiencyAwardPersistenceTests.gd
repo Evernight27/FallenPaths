@@ -91,7 +91,7 @@ static func _run_stub_gating_off(failures: PackedStringArray) -> void:
             )
         )
     if ent._proficiency_bonus.get("strength", 0) == 0 and stats.get("strength") == 120:
-        pass  # Stub effectively zeroed bonuses â€” expected when off or when entity has no bonus dict entries.
+        pass  # Stub effectively zeroed bonuses — expected when off or when entity has no bonus dict entries.
     elif not CompanyState.read_stub_proficiency_enabled():
         _fail(
             failures, "stub_off: bonus should be zero but got strength=%s" % str(stats.get("strength"))

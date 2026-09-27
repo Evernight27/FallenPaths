@@ -1,7 +1,7 @@
 class_name CombatQTrackAudits
 extends RefCounted
 
-## Headless Track **Q** proxies (Q1 - Q4) vs **`.d001_soak_out.txt`**  -  writes **`.q_track_audits.txt`**.
+## Headless Track **Q** proxies (Q1—Q4) vs **`.d001_soak_out.txt`**  -  writes **`.q_track_audits.txt`**.
 ## Q4 **ii8** (`II8_CHECKS`): formation trace gates + WF **` . Form`** / **`[Ox]`** / suffix-order content from D-001
 ## report  -  LIVE_PATHS **`#wf-soak-audit-status`** . **`#battle-ui`**.
 ## Entry: **`run_all_combat_checks.gd`** (`FP_HARNESS_MODE=q_track`) . **`run_q_feel.ps1 -Headless`**.
@@ -25,7 +25,7 @@ const II8_CHECKS: Array = [
 ]
 
 
-## True unless **`FP_HARNESS_SCOPE`** is set to `1v1` (gladiator focus) - 1v1 skips the **ii8** 4v4
+## True unless **`FP_HARNESS_SCOPE`** is set to `1v1` (gladiator focus)—1v1 skips the **ii8** 4v4
 ## formation diagram audit (its D-001 preset is not simulated in 1v1 scope).
 static func _scope_is_full() -> bool:
     return OS.get_environment("FP_HARNESS_SCOPE").strip_edges().to_lower() == "full"

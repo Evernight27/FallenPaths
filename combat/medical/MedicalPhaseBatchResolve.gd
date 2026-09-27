@@ -12,7 +12,7 @@ const INSTANT_FAST_FORWARD_MAX_ITERATIONS: int = 100000
 const INSTANT_FAST_FORWARD_MIN_STEP_S: float = 0.001
 ## Idle tick when queue has no resolve_at but triage work remains (avoids sim_s=0 stall).
 const INSTANT_FAST_FORWARD_IDLE_STEP_S: float = 1.0
-## Campaign contract early exit: best-effort dress passes (fighters ->'f??' ->->''''A!f??' -> -  wounds); not used for
+## Campaign contract early exit: best-effort dress passes (fighters ->'f??' ->→→A!f??' -> -  wounds); not used for
 ## soak tick-replay.
 const CAMPAIGN_BATCH_DRESS_MAX_ROUNDS: int = 256
 
@@ -26,7 +26,7 @@ const POST_VICTORY_BLOCKED_EVENT_TYPES: Array[String] = [
     CombatConstants.EVENT_ROTATE_FILE_RESOLVE,
 ]
 
-# AI / phase gating ->''--''''A!''--'''s''?" ATLS bands in BleedingConstants (docs/LIVE_PATHS.md#bleeding-units).
+# AI / phase gating →→→A!→→'s→?" ATLS bands in BleedingConstants (docs/LIVE_PATHS.md#bleeding-units).
 const MEDICAL_DANGER_BLOOD_THRESHOLD: float = BleedingConstants.MEDICAL_TRIAGE_DANGER_BLOOD_REMAINING
 const MEDICAL_DANGER_SECONDS: float = BleedingConstants.MEDICAL_TRIAGE_DANGER_SECONDS
 const IMMEDIATE_PERIL_BLOOD_THRESHOLD: float = BleedingConstants.MEDICAL_TRIAGE_PERIL_BLOOD_REMAINING
@@ -50,17 +50,17 @@ const MEDICAL_AI_WEIGHT_FAILED_PART_RETRY: float = 2.8
 ## Out of immediate peril: prefer definitive dressings (bandage/pack) over stabilize-only holds.
 const MEDICAL_AI_WEIGHT_STABILIZE_OUT_OF_PERIL: float = 0.32
 const MEDICAL_AI_WEIGHT_DRESSING_OUT_OF_PERIL: float = 2.6
-## Listing/resolve overlap guard ->''--''''A!''--'''s''?" redundant pressure or another
-## medic->''--''''A!''--'''s''?->'f''s''->''''A!--'''s'...3/4->''''A!f''s''s wind-up on the same part.
+## Listing/resolve overlap guard →→→A!→→'s→?" redundant pressure or another
+## medic→→→A!→→'s→?->'f→s→→→A!→'s'...3/4's wind-up on the same part.
 const MEDICAL_AI_WEIGHT_COORDINATION_BLOCKED: float = 0.001
 ## Second pair of hands on an ally-held wound (stack assist only; no takeover).
 const MEDICAL_AI_WEIGHT_TREATMENT_ASSIST_PRESSURE: float = 3.5
 
 ## Medical phase queries: danger, urgency, untreated wounds, end-of-phase, ally medical actions, campaign
 ## **`batch_resolve_on_campaign_exit`**.
-## Footing: halting wind-up on phase entry ->'f??' ->->''''A!f''s''->'f''s''->''''A!--''''A!''->''''A!f''s' '
-## **`CombatFootwork.clear_on_exchange_end`** per combatant ->''''A!f''s'. **`return_to_waiting`** on idle reset
-## ->''--''''A!''--'''s''?" LIVE_PATHS **`#wf-tier-44-pa`** (clear). Does **not** change **`weapon_form`** / home guard.
+## Footing: halting wind-up on phase entry ->'f??' ->→→A!f→s→->'f→s→→→A!→→A!→→→A!f→s' '
+## **`CombatFootwork.clear_on_exchange_end`** per combatant →→A!f→s'. **`return_to_waiting`** on idle reset
+## →→→A!→→'s→?" LIVE_PATHS **`#wf-tier-44-pa`** (clear). Does **not** change **`weapon_form`** / home guard.
 ## Manager must have: combatants (Array), medical_phase (bool), medical_phase_winner (String), get_health_entity(node)
 ## -> Node (or use CombatantEntityAccess).
 
@@ -76,7 +76,7 @@ static func _get_company_state() -> GDScript:
     return MedicalPhaseBatchResolve._company_state
 
 
-# Runtime preload --'''s'''''? circular dependency (CounterTempo preloads MedicalPhaseController).
+# Runtime preload →'s→→'? circular dependency (CounterTempo preloads MedicalPhaseController).
 
 
 static func _get_counter_tempo() -> GDScript:

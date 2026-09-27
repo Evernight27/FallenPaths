@@ -1,7 +1,7 @@
 class_name OperationalLog
 extends RefCounted
 
-## Stable stdout tags for grep  -  copy Godot **Output** after F5; search `FP_COMBAT` `FP_ERROR` `SCRIPT ERROR`.
+## Stable stdout tags for grep — copy Godot **Output** after F5; search `FP_COMBAT` `FP_ERROR` `SCRIPT ERROR`.
 ## Headless harness also writes `.harness_out.txt` (long runs, no editor UI to copy from).
 
 const TAG_ERROR := "FP_ERROR"
@@ -233,7 +233,7 @@ static func play_combat_start(
     play_encounter_context(encounter)
 
 
-## Contract/tutorial bleed and kind  -  grep **`encounter_context`** on F5 paste.
+## Contract/tutorial bleed and kind — grep **`encounter_context`** on F5 paste.
 static func play_encounter_context(enc: Dictionary) -> void:
     if not _play_session_active or enc.is_empty():
         return
@@ -256,7 +256,7 @@ static func play_encounter_context(enc: Dictionary) -> void:
 static func play_combat_manager_started(
     player_count: int, enemy_count: int, formation_doctrine: Dictionary, _encounter: Dictionary
 ) -> void:
-    # Encounter blob is on the prior **`encounter_begin`** line  -  avoid repeating it here.
+    # Encounter blob is on the prior **`encounter_begin`** line — avoid repeating it here.
     play_combat("manager_started combatants=%d/%d doctrine=%s" % [player_count, enemy_count, str(formation_doctrine)])
 
 
@@ -533,7 +533,7 @@ static func write_d001_headless_signoff(run_ok: bool, preset_results: Dictionary
         print(tag_line(TAG_HARNESS_OK, "D001HeadlessSignoff mandatory=ii2b+ii5a+ii5b+ii5c"))
 
 
-## Headless D-001 aggregate in F5 paste shape  -  re-run **`validate_f5_soak_log.ps1`** without editor Output.
+## Headless D-001 aggregate in F5 paste shape — re-run **`validate_f5_soak_log.ps1`** without editor Output.
 static func write_f5_soak_capture(combat_lines: PackedStringArray) -> void:
     var out: PackedStringArray = PackedStringArray()
     out.append(

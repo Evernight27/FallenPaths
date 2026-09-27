@@ -65,11 +65,11 @@ func _ready() -> void:
 
 ## Start battle. Optional p_player_formation and p_enemy_formation: { files, ranks, density, optional
 ## **`CombatConstants.FORMATION_PRESET_KEY_DOCTRINE`** or **`FORMATION_PRESET_KEY_DOCTRINE_ALT`**, optional
-## **`CombatConstants.FORMATION_PRESET_KEY_DEPTH_POLEARM_AI_MULTS`**, —Â¦ }.
+## **`CombatConstants.FORMATION_PRESET_KEY_DEPTH_POLEARM_AI_MULTS`**, … }.
 ## When omitted, uses world meta "party_formation" / "enemy_formation" or defaults from count.
 ## Optional p_encounter: merged into **`CombatManager.encounter`** before **`manager.start()`** (same keys as
 ## **`CombatManager.start`** default_enc — doctrine, **`depth_polearm_ai_doctrine_mults_*`**,
-## **`ENCOUNTER_KEY_FLEE_*`**, posture deltas, —Â¦). Preset dicts may set **`FORMATION_PRESET_KEY_FLEE_*`** rout
+## **`ENCOUNTER_KEY_FLEE_*`**, posture deltas, …). Preset dicts may set **`FORMATION_PRESET_KEY_FLEE_*`** rout
 ## overrides per side. If empty, reads **`parent_scene`** meta **`CombatConstants.WORLD_META_COMBAT_ENCOUNTER`** when
 ## present (**`CombatFlow.start_combat`** can set it on the world).
 func start(

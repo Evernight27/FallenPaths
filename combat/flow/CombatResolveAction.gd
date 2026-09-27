@@ -458,7 +458,7 @@ static func _resolve_flee_legal(manager: Node, atk: Dictionary) -> bool:
     return true
 
 
-## Resolve-time execute: wind-up-less kill on downed target (coup de grâce / mercy).
+## Resolve-time execute: wind-up-less kill on downed target (coup de gràce / mercy).
 static func _resolve_execute(manager: Node, attacker_id: int, target_id: int, atk: Dictionary, tgt: Dictionary) -> bool:
     if not CombatantEntityAccess.alive_bool(tgt):
         return false
@@ -473,12 +473,12 @@ static func _resolve_execute(manager: Node, attacker_id: int, target_id: int, at
             CombatDebug.combat_session("%s fumbles the execute on %s (off-balance)" % [fumble_who, fumble_tgt_name])
         # Consumes the turn like any committed action (skip_turn owns the action_resolved/turn_resolved
         # signals + gauge reset + re-ready). The target stays downed, so the attacker re-attempts once settled.
-        manager.skip_turn(attacker_id, "execute_fumble", "off-balance fumbled the coup de grâce")
+        manager.skip_turn(attacker_id, "execute_fumble", "off-balance fumbled the coup de gràce")
         return false
     var who: String = CombatantEntityAccess.get_display_name(atk, attacker_id)
     var tgt_name: String = CombatantEntityAccess.get_display_name(tgt, target_id)
     if not OperationalLog.is_play_session_active():
-        CombatDebug.combat_session("%s executes %s (coup de grâce / mercy)" % [who, tgt_name])
+        CombatDebug.combat_session("%s executes %s (coup de gràce / mercy)" % [who, tgt_name])
     var tid: int = CombatantEntityAccess.id_int(tgt)
     var ledger_raw: Variant = atk.get(DataKeys.COMBATANT_DAMAGE_DEALT_BY_ID, null)
     var ledger: Dictionary = {}

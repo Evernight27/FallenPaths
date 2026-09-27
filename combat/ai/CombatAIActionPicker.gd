@@ -12,18 +12,18 @@ extends RefCounted
 ## pressure favors lower skill.
 ## Pending retry: strongly prefer retrying the failed part when target is still in peril.
 ## For attacks: adds target_part from path when pathway allows (unguarded bonus). Counter-tempo listing
-## (**`ACTION_KEY_COUNTER_TEMPO`**) ->'' -  **`CounterTempo.counter_tempo_listing_weight_mult`**
-## (**`AI_COUNTER_TEMPO_*`**). **`is_feint`** moves get **`CombatConstants.AI_IS_FEINT_MOVE_LISTING_WEIGHT_MULT`** ->''
-## -  defender-readiness lerp (**`PassiveParryContext.get_passive_parry_readiness`** ->'' -
-## **`CombatConstants.passive_parry_readiness_incoming_contact_mult`** for this move'"—''s **`contact_type`** ->'' -
-## **`CombatConstants.defender_passive_readiness_stamina_mult_from_ratio`** on the defender ->'' -
+## (**`ACTION_KEY_COUNTER_TEMPO`**) →  **`CounterTempo.counter_tempo_listing_weight_mult`**
+## (**`AI_COUNTER_TEMPO_*`**). **`is_feint`** moves get **`CombatConstants.AI_IS_FEINT_MOVE_LISTING_WEIGHT_MULT`** →
+## -  defender-readiness lerp (**`PassiveParryContext.get_passive_parry_readiness`** → -
+## **`CombatConstants.passive_parry_readiness_incoming_contact_mult`** for this move'"—→s **`contact_type`** → -
+## **`CombatConstants.defender_passive_readiness_stamina_mult_from_ratio`** on the defender → -
 ## **`CombatConstants.ai_feint_listing_defender_readiness_spacing_mult`** from defender **`distance_to[attacker]`** '""
-## same curve as **`DefenseChoiceResolver`** reported readiness, not attacker stamina) ->'' -  attacker
-## **`CombatWeaponForm.mod(form_str, "ai_feint_listing")`** ->'' -  defender footwork state mult
+## same curve as **`DefenseChoiceResolver`** reported readiness, not attacker stamina) →  attacker
+## **`CombatWeaponForm.mod(form_str, "ai_feint_listing")`** →  defender footwork state mult
 ## (**`AI_FEINT_LISTING_DEFENDER_OFF_BALANCE_MULT`** when off-balance; elif **`STATE_RECOVERING`**,
 ## **`AI_FEINT_LISTING_DEFENDER_RECOVERING_FOOTWORK_MULT`**; elif settled **`STATE_WAITING`**,
-## **`AI_FEINT_LISTING_DEFENDER_SETTLED_FOOTWORK_MULT`**) ->'' -  optional low-stamina feint dampening ->'' -  formation
-## doctrine **`probing`** / **`pinch_center`** / **`hold_lane`** (**`AI_FEINT_LISTING_DOCTRINE_*_MULT`**) ->'' -
+## **`AI_FEINT_LISTING_DEFENDER_SETTLED_FOOTWORK_MULT`**) →  optional low-stamina feint dampening →  formation
+## doctrine **`probing`** / **`pinch_center`** / **`hold_lane`** (**`AI_FEINT_LISTING_DOCTRINE_*_MULT`**) → -
 ## short-horizon boost after that defender **`parry_deflect`**
 ## (**`COMBATANT_KEY_AI_FEINT_OPP_LAST_PARRY_DEFLECT_TICK`**, **`AI_FEINT_LISTING_OPP_PARRY_DEFLECT_*`**) (Tier 4.2).
 ## Feint **listing** applies **`DefenseChoiceResolver._feint_readiness_reveal_mult`** when the attacker has live
@@ -185,7 +185,7 @@ static func resolve_picked_turn_or_skip(
 ## Shared swap-rank fitness gate: `disengage` = front yields to fitter rear; relief = rear replaces exhausted front.
 
 
-## True when front->''--''''' 'back disengage swap is tactically justified (matches high-weight rules in
+## True when front→back disengage swap is tactically justified (matches high-weight rules in _get_action_weight).
 ## _get_action_weight).
 ## Plug-forward (incapacitated partner) is handled separately in `CombatFormationMoveListing`.
 ## `manager`: required for body-damage / peril gate (fatigue alone must not justify retreat).

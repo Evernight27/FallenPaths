@@ -10,7 +10,9 @@ const COMBAT_FLOW_LOG_SUPPRESS_REPEATED := true
 const COMBAT_VACANCY_RECONCILE_DIRTY_ONLY := true
 const COMBAT_VACANCY_DIRTY_SAFETY_EVERY_N_FRAMES := 0
 const COMBAT_FORMATION_INVARIANT_DEBUG := false
+const COMBAT_LOG_VERBOSE_DETAIL := false
 static var _combat_dev_verbose_override: int = -1
+static var _combat_log_verbose_detail_override: int = -1
 static var _headless_harness_quiet: bool = false
 static var _play_session_diagnostic: bool = false
 static var _combat_hit_summary_override: int = -1
@@ -62,6 +64,22 @@ static func combat_dev_verbose_active() -> bool:
     if _combat_dev_verbose_override >= 0:
         return _combat_dev_verbose_override != 0
     return COMBAT_DEV_VERBOSE
+
+
+static func set_combat_log_verbose_detail_override(on: bool) -> void:
+    _combat_log_verbose_detail_override = 1 if on else 0
+
+
+static func clear_combat_log_verbose_detail_override() -> void:
+    _combat_log_verbose_detail_override = -1
+
+
+static func combat_log_verbose_detail_active() -> bool:
+    if _combat_log_verbose_detail_override >= 0:
+        return _combat_log_verbose_detail_override != 0
+    if _headless_harness_quiet:
+        return false
+    return COMBAT_LOG_VERBOSE_DETAIL
 
 
 static func combat_debug_active() -> bool:

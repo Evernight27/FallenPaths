@@ -3,7 +3,7 @@ extends RefCounted
 
 ## Post-victory settlement (Camp-1.5). Pay, wound summary, roster cleanup (Camp-1.8 K3).
 
-# Runtime preload Ã¢â‚¬â€ circular dependency (CompanyState preloads CombatFlow Ã¢â€ â€™ SettlementPanel).
+# Runtime preload — circular dependency (CompanyState preloads CombatFlow → SettlementPanel).
 static var _company_state_cache: Variant = null
 
 
@@ -228,7 +228,7 @@ static func format_settlement_supplies_line(world: Node2D) -> String:
     var med_n: int = _get_company_state().get_medical_supplies(world)
     var med_suffix: String = _get_company_state().format_hud_triage_suffix(world)
     var line: String = (
-        "Supplies: %d med%s Ã‚Â· %d tools Ã‚Â· %d food"
+        "Supplies: %d med%s · %d tools · %d food"
         % [
             med_n,
             med_suffix,
@@ -237,7 +237,7 @@ static func format_settlement_supplies_line(world: Node2D) -> String:
         ]
     )
     if _get_company_state().should_show_next_provisions_hint(world):
-        line += " (rations short Ã¢â‚¬â€ mood -1 at next day end)"
+        line += " (rations short — mood −1 at next day end)"
     return line
 
 
@@ -247,7 +247,7 @@ static func format_settlement_continue_button_label() -> String:
     return "Continue"
 
 
-## F5 ÃƒÆ’Ã‚â€šÃƒâ€šÃ‚Â§8 step 3: settlement Continue button world log (paid win path).
+## F5 §8 step 3: settlement Continue button world log (paid win path).
 static func format_settlement_continue_log(world: Node2D, contract: Dictionary, pay: int) -> String:
     var autosave_bit: String = ""
     if _get_company_state().persistence_uses_disk_autosave():

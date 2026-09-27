@@ -20,7 +20,7 @@ const TUTORIAL_TEMPLATE: Dictionary = {
     CombatConstants.ENCOUNTER_KEY_ENEMY_DEFAULT_WEAPON_FORM: "balanced",
 }
 
-## ÃƒÂ‚Ã‚Â§18 SHIP_PLAN â€”" EA paid deck (two jobs per run).
+## §18 SHIP_PLAN — EA paid deck (two jobs per run).
 const CONTRACT_TEMPLATES: Array = [
     {
         "contract_type": "skirmish",
@@ -36,7 +36,7 @@ const CONTRACT_TEMPLATES: Array = [
         CombatConstants.ENCOUNTER_KEY_PLAYER_DEFAULT_WEAPON_FORM: "ox",
         CombatConstants.ENCOUNTER_KEY_ENEMY_DEFAULT_WEAPON_FORM: "wrath",
     },
-    # Escort: Formation-mode 7v5 â€”" 5-wide front + depth (not 7-wide Skirmish like Border Skirmish).
+    # Escort: Formation-mode 7v5 —" 5-wide front + depth (not 7-wide Skirmish like Border Skirmish).
     {
         "contract_type": "escort",
         "contract_title": "Escort Duty",
@@ -54,7 +54,7 @@ const CONTRACT_TEMPLATES: Array = [
     },
 ]
 
-# Runtime preload â€” circular dependency (CompanyState preloads CombatFlow/CampaignPersistence which preload
+# Runtime preload — circular dependency (CompanyState preloads CombatFlow/CampaignPersistence which preload
 # ContractSpawner).
 static var _company_state: Variant = null
 
@@ -112,7 +112,7 @@ static func format_settlement_deck_refresh_hint(parent: Node2D) -> String:
         return ""
     if count_paid_contract_markers(parent) > 0:
         return ""
-    return "No paid contracts remain on the map â€” new jobs spawn when you continue."
+    return "No paid contracts remain on the map — new jobs spawn when you continue."
 
 
 ## XCamp-3.3: when the paid deck is cleared, spawn another wave on free tiles.
@@ -268,9 +268,9 @@ static func _format_player_formation_hint(template: Dictionary) -> String:
     var front: int = int(template.get(CombatConstants.ENCOUNTER_KEY_PLAYER_FRONT_COUNT, 0))
     match front:
         7:
-            return " Â· 7-wide skirmish line"
+            return " · 7-wide skirmish line"
         5:
-            return " Â· 5-wide formation"
+            return " · 5-wide formation"
         _:
             return ""
 
@@ -290,7 +290,7 @@ static func _format_combat_flavor_hint(template: Dictionary) -> String:
         bits.append("depth spears")
     if bits.is_empty():
         return ""
-    return "\n" + " Â· ".join(bits)
+    return "\n" + " · ".join(bits)
 
 
 static func build_enemy_formation_for_template(template: Dictionary) -> Dictionary:

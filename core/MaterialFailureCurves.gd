@@ -25,7 +25,7 @@ static func cut_tissue_ultimate_pen_mm() -> float:
     return CombatDesignAnchors.cut_tissue_ultimate_pen_mm()
 
 
-## Shallow/deep branch  -  single delegate to `BleedingConstants` (no fork).
+## Shallow/deep branch — single delegate to `BleedingConstants` (no fork).
 static func penetration_depth_mult(penetration_to_tissue_mm: float) -> float:
     return BleedingConstants.penetration_depth_severity_mult(penetration_to_tissue_mm)
 

@@ -8,7 +8,7 @@ const VACANCY_LATERAL_EDGE_META := "_vacancy_lateral_edges"
 const VACANCY_PLUG_RESERVED_DONORS_META := "_vacancy_plug_reserved_donors"
 
 
-## Rank-0 hole only: best **rear** donor on **any other** file (rank '''deg' 1) who can occupy the front slot in one
+## Rank-0 hole only: best **rear** donor on **any other** file (rank ≥ 1) who can occupy the front slot in one
 ## plug.
 ## Deeper ranks preferred as donors first (then shallower); ties prefer smaller |file 'I??' hole| then lower file index.
 ## Proximity for scoring includes file distance so farther sidesteps lose to nearer fit reserves before front-rank

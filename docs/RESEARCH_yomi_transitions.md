@@ -1,4 +1,4 @@
-﻿# Conditional Pattern Detection for Yomi - Markov Chain / Transition Tracking
+# Conditional Pattern Detection for Yomi - Markov Chain / Transition Tracking
 
 **Status:** Research specification (pre-implementation)
 **Owner stream:** Combat (`combat/CombatAttention.gd`)

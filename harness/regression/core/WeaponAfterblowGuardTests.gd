@@ -91,7 +91,7 @@ static func _run_weapon_parts_mass_sum(failures: PackedStringArray) -> void:
 ## Tier 3.2 (weapon audit): sharpness -> effective sharp contact width is physically grounded. A sharp edge has a
 ## NARROW apex (small bearing width -> high pressure); a dull edge is capped at the FULL blade width (the cutting
 ## edge can never be wider than the blade). Locks the corrected saturating map (the old hyperbolic formula gave a
-## dull edge 5x the blade width - physically impossible).
+## dull edge 5x the blade width—physically impossible).
 static func _run_weapon_sharpness_effective_contact_width(failures: PackedStringArray) -> void:
     var all_moves := WeaponMoveDefinitions._move_definitions_build()
     var wnames: Array[String] = ["SWORD", "AXE", "DAGGER", "SPEAR"]

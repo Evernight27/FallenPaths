@@ -1,11 +1,11 @@
 class_name CampaignEncounterBridge
 extends RefCounted
 
-## Overworld f''' " combat glue: encounter meta, living party gather, formation refresh, vitality on the map.
+## Overworld → combat glue: encounter meta, living party gather, formation refresh, vitality on the map.
 ## Canonical: `overworld_tile_from_position` . `overworld_tile_center` . `place_player_on_overworld_tile`.
 
 const META_ENEMY_FORMATION := "enemy_formation"
-# Runtime preload ''" circular dependency (CompanyState preloads CampaignEncounterBridge).
+# Runtime preload — circular dependency (CompanyState preloads CampaignEncounterBridge).
 static var _company_state_cache: Variant = null
 static var _contract_spawner_cache: Variant = null
 
@@ -16,7 +16,7 @@ static func _get_company_state() -> GDScript:
 	return _company_state_cache
 
 
-# Runtime preload ''" circular dependency (ContractSpawner preloads CampaignEncounterBridge).
+# Runtime preload — circular dependency (ContractSpawner preloads CampaignEncounterBridge).
 
 
 static func _get_contract_spawner() -> GDScript:
@@ -197,7 +197,7 @@ static func on_return_from_combat(world: Node2D, winner: String) -> void:
 	_get_company_state().mark_tutorial_completed(world)
 	build_last_battle_summary(world)
 
-	# XCamp-4: proficiency ''"" update _last_fought_day and apply decay for party members.
+	# XCamp-4: proficiency — update _last_fought_day and apply decay for party members.
 	_proficiency_post_combat(world)
 
 	clear_transient_combat_meta(world)
@@ -210,7 +210,7 @@ static func on_return_from_combat(world: Node2D, winner: String) -> void:
 			OperationalLog.play_world(_get_company_state().format_post_fight_field_care_world_log(world))
 
 
-## XCamp-4: post-combat proficiency processing ''"" update fight day, apply decay.
+## XCamp-4: post-combat proficiency processing — update fight day, apply decay.
 ## (Per-action medical INT is awarded on the wind-up path; no post-combat INT floor.)
 static func _proficiency_post_combat(world: Node2D) -> void:
 	if world == null or not _get_company_state().read_stub_proficiency_enabled():
@@ -305,7 +305,7 @@ static func apply_campaign_mood_stance_preferences(world: Node2D) -> void:
 
 
 ## XCamp-3.9 (MS-CAMP): stamp fight-entry campaign mood bias from average company mood into encounter meta.
-## Enemy side reads `enemy_mood_bias` from encounter config (0''""100; default 50 = neutral).
+## Enemy side reads `enemy_mood_bias` from encounter config (0–100; default 50 = neutral).
 static func apply_campaign_mood_bias_to_encounter(world: Node2D) -> void:
 	if world == null or not world.has_meta(CombatConstants.WORLD_META_COMBAT_ENCOUNTER):
 		return
@@ -338,7 +338,7 @@ static func begin_contract_encounter(world: Node2D, encounter: Node, rng: Random
 	return enemies
 
 
-## Spawn failed or combat aborted after `prepare_combat_from_encounter` ''"" keep map marker, drop stale meta.
+## Spawn failed or combat aborted after `prepare_combat_from_encounter` — keep map marker, drop stale meta.
 static func abort_contract_encounter_entry(world: Node2D) -> void:
 	if world == null:
 		return
@@ -353,7 +353,7 @@ static func abort_contract_encounter_entry(world: Node2D) -> void:
 	_get_company_state().clear_active_contract(world)
 
 
-## Camp-2.2 row: blood, bleed, untreated parts, worst ATLS class (1''""4).
+## Camp-2.2 row: blood, bleed, untreated parts, worst ATLS class (1–4).
 static func member_battle_summary_entry(snap: Dictionary, entity: Node) -> Dictionary:
 	var blood_pct: float = snap.get("blood_volume", 100.0)
 	var bleed_rate: float = snap.get("total_bleeding_rate", 0.0)
@@ -458,7 +458,7 @@ static func build_last_battle_summary(world: Node2D, battle_winner: String = Com
 	)
 
 
-## On defeat, party nodes may not yet report `is_dead()`  -  honor battle kill log for roster names.
+## On defeat, party nodes may not yet report `is_dead()` — honor battle kill log for roster names.
 static func _merge_roster_kill_log_deaths(world: Node2D, pm: Node, deaths: Array) -> void:
 	if world == null or pm == null or not world.has_meta(CampaignTypes.WORLD_META_BATTLE_KILL_LOG):
 		return
@@ -659,7 +659,7 @@ static func resolve_enemy_scene(world: Node) -> PackedScene:
 	return null
 
 
-## Overworld grid math ''"" delegates to **`OverworldMap`** (not per-world `_tile_coords` hooks).
+## Overworld grid math — delegates to **`OverworldMap`** (not per-world `_tile_coords` hooks).
 static func overworld_tile_from_position(pos: Vector2) -> Vector2i:
 	return OverworldMap.tile_coords_from_pos(pos)
 

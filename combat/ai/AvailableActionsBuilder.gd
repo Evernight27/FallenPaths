@@ -26,7 +26,7 @@ static func build(manager: Node, combatant_id: int) -> Array:
         if bool(_counter_tempo().call("can_act", manager, c)):
             counter_tempo = true
         elif not manager.medical_phase and CombatMeleeListing.downed_opponent_in_reach(manager, c, manager.combatants):
-            # Mercy/execute: a beaten-down opponent in reach keeps the coup de grâce listed even at partial gauge.
+            # Mercy/execute: a beaten-down opponent in reach keeps the coup de gràce listed even at partial gauge.
             pass
         else:
             return []

@@ -1,10 +1,10 @@
 class_name WeaponSwingPhysics
 extends RefCounted
 
-## Discrete rigid-body swing model: parts[] ordered **tip â grip** (index 0 furthest from hands).
-## Inertia about grip: inertia_kg_m2 = Î£ m_i d_iÂ². Strike lever r = max(gripâstriking COM, ImpactVelocityModel
+## Discrete rigid-body swing model: parts[] ordered **tip → grip** (index 0 furthest from hands).
+## Inertia about grip: inertia_kg_m2 = Σ m_i d_i². Strike lever r = max(grip→striking COM, ImpactVelocityModel
 ## strike radius)
-## so Ï = v_band / r stays aligned with band calibration. WeaponDamageHelper uses full rotational inertia for KE.
+## so ω = v_band / r stays aligned with band calibration. WeaponDamageHelper uses full rotational inertia for KE.
 const MIN_LEVER_M := 0.12
 const MIN_INERTIA_KG_M2 := 0.001
 
@@ -17,7 +17,7 @@ static func _total_length_m_from_parts(parts: Array) -> float:
     return maxf(s, 0.05)
 
 
-## Distance from grip to part COM (m). `parts` tipâgrip; `part_index` indexes into `parts`.
+## Distance from grip to part COM (m). `parts` tip→grip; `part_index` indexes into `parts`.
 static func com_distance_from_grip_m(parts: Array, part_index: int) -> float:
     if part_index < 0 or part_index >= parts.size():
         return MIN_LEVER_M
@@ -69,7 +69,7 @@ static func _striking_part_index(weapon: Object, contact_type: String) -> int:
     return 0 if parts.size() > 0 else -1
 
 
-## Lever arm (m): max(gripâstriking-part COM, ImpactVelocityModel strike radius) so Ï = v/r matches band tuning.
+## Lever arm (m): max(grip→striking-part COM, ImpactVelocityModel strike radius) so ω = v/r matches band tuning.
 static func strike_lever_arm_m(weapon: Object, contact_type: String) -> float:
     var r_geom: float = maxf(MIN_LEVER_M, ImpactVelocityModel.strike_radius_m(weapon, contact_type))
     if weapon == null or not weapon.has_method("has_parts") or not weapon.has_parts():
@@ -81,7 +81,7 @@ static func strike_lever_arm_m(weapon: Object, contact_type: String) -> float:
     return maxf(r_com, r_geom)
 
 
-## Moment of inertia about grip (kg·mÂ²), point-mass segments at each part's COM.
+## Moment of inertia about grip (kg·m²), point-mass segments at each part's COM.
 static func inertia_about_grip_kg_m2(weapon: Object) -> float:
     if weapon == null:
         return MIN_INERTIA_KG_M2
@@ -131,7 +131,7 @@ static func inertia_from_parts_kg_m2(parts: Array, total_mass: float) -> float:
     return maxf(MIN_INERTIA_KG_M2, inertia_kg_m2)
 
 
-## Rotational kinetic energy at angular velocity Ï (rad/s).
+## Rotational kinetic energy at angular velocity ω (rad/s).
 static func rotational_ke_j(inertia_kg_m2: float, omega_rad_s: float) -> float:
     return 0.5 * maxf(MIN_INERTIA_KG_M2, inertia_kg_m2) * omega_rad_s * omega_rad_s
 

@@ -93,13 +93,13 @@ static func _run_kinematic_delivery_pre_armor_cut_sqrt_ke_ratio_and_blunt_rises_
 
 
 ## Tier 5.1: **`compute_penetration`**  -  **SHARP** **`penetration_sharp`** scales as **`(KE /
-## J_BASE)^PENETRATION_EXPONENT`** - -  area factor (same move, pinned **`velocity_m_s`**) on **SWORD** **`oberhau`**,
+## J_BASE)^PENETRATION_EXPONENT`** ×  area factor (same move, pinned **`velocity_m_s`**) on **SWORD** **`oberhau`**,
 ## **AXE** **`diagonal_chop`**, **DAGGER** **`quick_slash`** (swing); **BLUNT** returns
 ## **`penetration_blunt_momentum_per_area`** increasing with pinned **`v`** on **MACE** **`direct_blow`**.
 
 
 ## Tier 5.1: **`compute_penetration`**  -  **SHARP** **`penetration_sharp`** scales as **`(KE /
-## J_BASE)^PENETRATION_EXPONENT`** - -  area factor (same move, pinned **`velocity_m_s`**) on **SWORD** **`oberhau`**,
+## J_BASE)^PENETRATION_EXPONENT`** ×  area factor (same move, pinned **`velocity_m_s`**) on **SWORD** **`oberhau`**,
 ## **AXE** **`diagonal_chop`**, **DAGGER** **`quick_slash`** (swing); **BLUNT** returns
 ## **`penetration_blunt_momentum_per_area`** increasing with pinned **`v`** on **MACE** **`direct_blow`**.
 static func _run_kinematic_delivery_penetration_sharp_ke_exponent_and_blunt_mpa_rises(

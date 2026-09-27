@@ -1862,7 +1862,7 @@ static func _run_weapon_form_attempt_gains_tracked_only(failures: PackedStringAr
     var player_ent: Node = data.get("player_ent")
     var enemy_ent: Node = data.get("enemy_ent")
 
-    # Execute a strike - any outcome (miss/dodge/hit/parry) should build player weapon prof.
+    # Execute a strike—any outcome (miss/dodge/hit/parry) should build player weapon prof.
     var atk: Dictionary = CombatantEntityAccess.manager_get_combatant(mgr, p_id)
     if atk.is_empty():
         _fail(failures, "wp_attempt: no player combatant")
@@ -1887,7 +1887,7 @@ static func _run_weapon_form_attempt_gains_tracked_only(failures: PackedStringAr
             "wp_attempt: tracked player should accrue weapon proficiency on a strike attempt (got %.3f)" % player_wp,
         )
 
-    # Enemy (untracked) must have zero weapon proficiency - the write-side gate excludes them.
+    # Enemy (untracked) must have zero weapon proficiency—the write-side gate excludes them.
     var enemy_wp: float = 0.0
     if "_weapon_proficiency" in enemy_ent:
         for v in (enemy_ent._weapon_proficiency as Dictionary).values():

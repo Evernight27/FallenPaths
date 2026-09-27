@@ -20,7 +20,7 @@ extends RefCounted
 ## `get_available_actions` marks all lines then reconciles (full pass); `CombatProcessTick` reconciles dirty formations
 ## only.
 ## **Plug priority (rank-0 hole, after same-column vertical):** **rear infill** from **any** other file (`rear_infill`:
-## rank --''deg'' 1 steps into the empty front slot when the hole column is passable) before **front-rank lateral**
+## rank ≥ 1 steps into the empty front slot when the hole column is passable) before **front-rank lateral**
 ## (same-rank neighbor slide). Cross-file rear uses `prox` = rank depth + |f"file| so closer reserves win; lateral is
 ## last resort.
 ## Front lateral at rank 0 only when `_rank0_lateral_slide_allowed` (hole column has no promotable native deeper).
@@ -93,7 +93,7 @@ static func _rotate_file_cooldown_active(manager: Node, c: Dictionary) -> bool:
     return CombatantEntityAccess.combatant_cooldown_active(manager, c, "formation_rotate_file_cooldown_until", -1.0)
 
 
-## Tier 1.3 P4: after rank/file changes from plugs or formation moves, keep `lane_offset` bounded (f''Sec4.2 repack).
+## Tier 1.3 P4: after rank/file changes from plugs or formation moves, keep `lane_offset` bounded (f→Sec4.2 repack).
 ## Intruders keep seam bias; line fighters reset to column center.
 static func repack_lane_offset_after_rank_file_change(c: Dictionary) -> void:
     if c.is_empty():

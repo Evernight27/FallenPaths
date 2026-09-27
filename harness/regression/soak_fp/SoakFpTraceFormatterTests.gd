@@ -26,12 +26,12 @@ static func _run_combat_log_formatter_negligible(failures: PackedStringArray) ->
             "health_after": 10
         }
     )
-    if not line.contains("Graze") or not line.contains("rounds to 0"):
+    if not line.contains("Graze") or not line.contains("too light"):
         _fail(failures, "combat_log_negligible: expected graze reason in line: %s" % line)
     var row_neg: String = CombatLogFormatter.format_last_hit_on_target_row(
         {"outcome": "negligible", "part": "head", "total_physical": 0.2, "dmg": 0}
     )
-    if not row_neg.begins_with("Graze:") or not row_neg.contains("rounds to 0"):
+    if not row_neg.begins_with("Graze:") or not row_neg.contains("too light"):
         _fail(failures, "combat_log_negligible_row: expected graze reason on row, got: %s" % row_neg)
     var line_deflect: String = CombatLogFormatter.format_action_line(
         "Ally", "player", "Foe", "enemy", {"outcome": "deflected", "part": "chest", "dmg": 0, "total_physical": 0.0}

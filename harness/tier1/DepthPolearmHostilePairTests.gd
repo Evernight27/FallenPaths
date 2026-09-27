@@ -40,13 +40,13 @@ static func _run_ai_targeting_stance_mult_ordering(failures: PackedStringArray) 
         )
 
 
-## Tier 1.6: `hostile_pair_targeting_weight_mult` - -  **`AI_TARGETING_INCAP_HOSTILE_MULT`** vs incapacitated opponent
+## Tier 1.6: `hostile_pair_targeting_weight_mult` ×  **`AI_TARGETING_INCAP_HOSTILE_MULT`** vs incapacitated opponent
 ## (`CoreEntity` consciousness below threshold; dirty flag off so value sticks).
 ## Rank-0 pair must **not** be file-opposed (equal-width off-file slots; mapped offset 0)  -  incap mult is isolated
 ## from file-opposed hedge.
 
 
-## Tier 1.6: `hostile_pair_targeting_weight_mult` - -  **`AI_TARGETING_INCAP_HOSTILE_MULT`** vs incapacitated opponent
+## Tier 1.6: `hostile_pair_targeting_weight_mult` ×  **`AI_TARGETING_INCAP_HOSTILE_MULT`** vs incapacitated opponent
 ## (`CoreEntity` consciousness below threshold; dirty flag off so value sticks).
 ## Rank-0 pair must **not** be file-opposed (equal-width off-file slots; mapped offset 0)  -  incap mult is isolated
 ## from file-opposed hedge.

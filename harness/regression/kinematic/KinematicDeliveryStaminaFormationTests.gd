@@ -113,10 +113,10 @@ static func _harness_restore_limb(entity: CoreEntity, part: String) -> void:
     Fixtures._harness_restore_limb(entity, part)
 
 
-## Tier 6.1: cumulative effective pain scales pain-shock **chance** (0.8- -  - 1.2- - ); hit pain remains primary.
+## Tier 6.1: cumulative effective pain scales pain-shock **chance** (0.8×  - 1.2× ); hit pain remains primary.
 
 
-## Tier 6.1: cumulative effective pain scales pain-shock **chance** (0.8- -  - 1.2- - ); hit pain remains primary.
+## Tier 6.1: cumulative effective pain scales pain-shock **chance** (0.8×  - 1.2× ); hit pain remains primary.
 static func _run_medical_pain_shock_susceptibility_mult_from_effective_pain(failures: PackedStringArray) -> void:
     var low: float = PainConsciousnessConstants.get_pain_shock_susceptibility_mult(3.0)
     var at_first: float = PainConsciousnessConstants.get_pain_shock_susceptibility_mult(
@@ -365,7 +365,7 @@ static func _run_tier7_stamina_depletion_sustained_exchange_sim(failures: Packed
             stamina = maxf(0.0, stamina - attack_cost)
             next_attack += 3.0
         else:
-            # Exponential (first-order) refill: rate proportional to the deficit (MAX - stamina).
+            # Exponential (first-order) refill: rate proportional to the deficit (MAX—stamina).
             stamina = minf(
                 CombatConstants.STAMINA_MAX,
                 stamina + CombatConstants.STAMINA_REFILL_RATE * (CombatConstants.STAMINA_MAX - stamina) * dt

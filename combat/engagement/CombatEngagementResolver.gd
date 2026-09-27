@@ -5,7 +5,7 @@ extends RefCounted
 ## envelop) so melee can threaten.
 ## Footing: reads **`form_str`** for close/evasion pressure only — not **`guard_line`** or Tier 4.4 PA. LIVE_PATHS
 ## **`#wf-pick-vs-strike`** . **`#wf-assign-form-contract`**.
-## Listing: `CombatMeleeListing`; resolve: `CombatResolveAction` --'' ' `CombatManager._resolve_close_attempt`.
+## Not line-crash / breach fiction (removed D-008). Listing: `CombatMeleeListing`; resolve: `CombatResolveAction` → `CombatManager._resolve_close_attempt`.
 
 
 static func _finish_close_attempt_turn(manager: Node, atk: Dictionary, attacker_id: int) -> void:

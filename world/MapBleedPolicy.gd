@@ -2,7 +2,7 @@ class_name MapBleedPolicy
 extends RefCounted
 
 ## Camp-2.1 map bleed policy (D-bleed B + tutorial block until first win).
-## Uses `PartyRowFormatter` / `BleedingConstants` triage bands  -  do not retune bleed constants here.
+## Uses `PartyRowFormatter` / `BleedingConstants` triage bands — do not retune bleed constants here.
 
 const POLICY_WARN_ETA := "warn_eta"
 const POLICY_BLOCK := "block"
@@ -69,7 +69,7 @@ static func on_overworld_step(world: Node2D) -> void:
         if CampaignEncounterBridge.party_has_untreated_wounds(world):
             var parts: int = CampaignEncounterBridge.party_untreated_part_count(world)
             var msg_clot: String = (
-                "Wounds undressed on map  -  %d part(s) need dressing in Party (%s)."
+                "Wounds undressed on map — %d part(s) need dressing in Party (%s)."
                 % [parts, _get_company_state().format_field_care_march_chain()]
             )
             msg_clot += _med_budget_step_suffix(world)
@@ -80,7 +80,7 @@ static func on_overworld_step(world: Node2D) -> void:
         return
     var line: String = str(summary.get("triage_line", ""))
     var msg: String = (
-        "Bleeding on map  -  %s: %s. Open Party for field care or finish treatment."
+        "Bleeding on map — %s: %s. Open Party for field care or finish treatment."
         % [
             str(summary.get("name", "ally")),
             line,
@@ -89,7 +89,7 @@ static func on_overworld_step(world: Node2D) -> void:
     if CampaignEncounterBridge.party_has_untreated_wounds(world):
         var parts: int = CampaignEncounterBridge.party_untreated_part_count(world)
         msg = (
-            "Bleeding on map  -  %s: %s. %d part(s) need dressing in Party (%s)."
+            "Bleeding on map — %s: %s. %d part(s) need dressing in Party (%s)."
             % [
                 str(summary.get("name", "ally")),
                 line,
@@ -108,14 +108,14 @@ static func map_move_blocked_message(world: Node2D) -> String:
     if CampaignEncounterBridge.party_has_untreated_wounds(world) and not _party_has_active_bleed(world):
         var parts: int = CampaignEncounterBridge.party_untreated_part_count(world)
         return (
-            "Dress wounds in Party  -  %d part(s) need %s before moving on the map."
+            "Dress wounds in Party — %d part(s) need %s before moving on the map."
             % [parts, _get_company_state().format_field_care_march_chain()]
         )
     var summary: Dictionary = worst_triage_summary(world)
     if summary.is_empty():
         return "Stabilize bleeding in Party before moving on the map."
     return (
-        "Stabilize first  -  %s: %s (Party --'??'' field care or camp)."
+        "Stabilize first — %s: %s (Party → field care or camp)."
         % [
             str(summary.get("name", "ally")),
             str(summary.get("triage_line", "")),
@@ -129,16 +129,16 @@ static func hud_bleed_hint(world: Node2D) -> String:
     var dress_parts: int = CampaignEncounterBridge.party_untreated_part_count(world)
     if dress_parts > 0 and not _party_has_active_bleed(world):
         return (
-            "Dress wounds  -  %d part(s) '. Party '. %s"
+            "Dress wounds — %d part(s) · Party · %s"
             % [dress_parts, _get_company_state().format_field_care_march_chain()]
         )
     var summary: Dictionary = worst_triage_summary(world)
     if summary.is_empty():
-        return "Bleeding  -  open Party"
+        return "Bleeding — open Party"
     var line: String = str(summary.get("triage_line", "open Party"))
     if dress_parts > 0:
-        return "Bleeding  -  %s '. %d part(s) to dress" % [line, dress_parts]
-    return "Bleeding  -  %s" % line
+        return "Bleeding — %s · %d part(s) to dress" % [line, dress_parts]
+    return "Bleeding — %s" % line
 
 
 static func _med_budget_step_suffix(world: Node2D) -> String:

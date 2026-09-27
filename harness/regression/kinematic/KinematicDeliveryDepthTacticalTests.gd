@@ -1,4 +1,4 @@
-﻿class_name KinematicDeliveryDepthTacticalTests
+class_name KinematicDeliveryDepthTacticalTests
 extends CombatRegressionHarnessCore
 const _CombatRegressionHarness := preload("res://harness/regression/CombatRegressionHarness.gd")
 
@@ -895,12 +895,12 @@ static func _run_kinematic_delivery_move_def_angle_variance_wider_than_bare_line
         )
 
 
-## Tier 5.1 (optional long-tail): **`DefenseChoiceResolver.choose_defense`**  -  **`parry_p_a`** = **`m_a - -  v_intent
-## - -  velocity_curve_factor(progress)`** with **`v_intent`** from **`WeaponDamageHelper.get_effective_velocity_m_s`**.
+## Tier 5.1 (optional long-tail): **`DefenseChoiceResolver.choose_defense`**  -  **`parry_p_a`** = **`m_a ×  v_intent
+## ×  velocity_curve_factor(progress)`** with **`v_intent`** from **`WeaponDamageHelper.get_effective_velocity_m_s`**.
 
 
-## Tier 5.1 (optional long-tail): **`DefenseChoiceResolver.choose_defense`**  -  **`parry_p_a`** = **`m_a - -  v_intent
-## - -  velocity_curve_factor(progress)`** with **`v_intent`** from **`WeaponDamageHelper.get_effective_velocity_m_s`**.
+## Tier 5.1 (optional long-tail): **`DefenseChoiceResolver.choose_defense`**  -  **`parry_p_a`** = **`m_a ×  v_intent
+## ×  velocity_curve_factor(progress)`** with **`v_intent`** from **`WeaponDamageHelper.get_effective_velocity_m_s`**.
 static func _run_kinematic_delivery_choose_defense_parry_p_a_matches_v_intent_formula(
     failures: PackedStringArray
 ) -> void:
@@ -966,5 +966,5 @@ static func _run_kinematic_delivery_choose_defense_parry_p_a_matches_v_intent_fo
         )
     CombatRegressionHarness._free_manager(mgr)
 
-## Tier 5.1 (optional long-tail): rear **`engagement_angle`** - -  **`afterblow_damage_mult`** compose on assembled
-## **`v`** -> **`strike_ke_j`** (~**(cls - -  sqrtab)2**).
+## Tier 5.1 (optional long-tail): rear **`engagement_angle`** ×  **`afterblow_damage_mult`** compose on assembled
+## **`v`** -> **`strike_ke_j`** (~**(cls ×  sqrtab)2**).

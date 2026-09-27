@@ -1,4 +1,4 @@
-﻿class_name DataKeys
+class_name DataKeys
 extends RefCounted
 
 ## Canonical dictionary string keys used across armor, combat, entity state, and persistence.
@@ -235,6 +235,7 @@ const ALIGNMENT_ATTACK_ANGLE_DEG: String = "attack_angle_deg"
 const ALIGNMENT_GUARD_ANGLE_DEG: String = "guard_angle_deg"
 # Shared line-based guard alignment stamped at resolve; consumed by DefenseChoiceResolver parry resolution.
 const PA_GUARD_ALIGNMENT: String = "pa_guard_alignment"
+const PA_PARRY_PARTIAL_FOLLOW_THROUGH: String = "pa_parry_partial_follow_through"
 
 # --- Weapon template data keys (def.get() in Weapon.from_dict) ---
 const WEAPON_MASS: String = "mass"
@@ -432,7 +433,7 @@ const ARCHETYPE_WEAPON_EXTENSION_COMMIT_FRACTION: String = "weapon_extension_com
 # --- Entity stat dict keys (combatant stats_dict) ---
 const ENTITY_MELEE_SKILL: String = "melee_skill"
 
-# --- Movement policy dict keys (CombatEngagementMode.movement_policy â†’ CombatResolveAction/CombatFormationMoveListing) ---
+# --- Movement policy dict keys (CombatEngagementMode.movement_policy → CombatResolveAction/CombatFormationMoveListing) ---
 const MOVE_POLICY_ALLOW_SWAP_RANK: String = "allow_swap_rank"
 const MOVE_POLICY_ALLOW_DRAG_BACK: String = "allow_drag_back"
 const MOVE_POLICY_ALLOW_FALL_BACK: String = "allow_fall_back"

@@ -1214,7 +1214,7 @@ static func _run_xcamp_4i_armor_wear_protection(failures: PackedStringArray) -> 
     else:
         _pass()
 
-    # --- Blunt: no momentum (uses base_tx * (1 - cushion)) ---
+    # --- Blunt: no momentum (uses base_tx * (1—cushion)) ---
     var blunt_fresh: float = ArmorPiece.blunt_transmission_math(incoming, fresh, -1.0, -1.0)
     var blunt_worn: float = ArmorPiece.blunt_transmission_math(incoming, worn, -1.0, -1.0)
     var blunt_dead: float = ArmorPiece.blunt_transmission_math(incoming, dead, -1.0, -1.0)
@@ -1652,7 +1652,7 @@ static func _run_xcamp_4r_armor_worn_deflect(failures: PackedStringArray) -> voi
     else:
         _pass()
 
-    # Worn plate (50%): prot=0.5; 4s convex wear_frac = 1 - pow(0.5, exp). Transmission rises
+    # Worn plate (50%): prot=0.5; 4s convex wear_frac = 1—pow(0.5, exp). Transmission rises
     # above fresh (a dented bevel leaks more) but the convex curve keeps it below the old linear value.
     var worn: Dictionary = ArmorConstants.LAYER_PLATE.duplicate()
     worn["durability"] = 50.0
@@ -1674,7 +1674,7 @@ static func _run_xcamp_4r_armor_worn_deflect(failures: PackedStringArray) -> voi
 
 
 ## XCamp-4s: non-linear (cliff-edge) deflection wear. The 4r wear_frac is shaped convexly
-## (1 - pow(prot, exp), exp < 1), so a worn bevel stays clean through most of a layer's life
+## (1—pow(prot, exp), exp < 1), so a worn bevel stays clean through most of a layer's life
 ## and the deflected transmission degrades sharply only near failure. Pins, white-box via
 ## pen_rha = 0 (proximity 0 -> deflected transmission equals the base value exactly):
 ##   (1) fresh = base exactly (bit-identical, no penalty);
@@ -1797,7 +1797,7 @@ static func _run_xcamp_4t_wear_rate_cliff(failures: PackedStringArray) -> void:
 ## CUIRASS piece (outer = plate 3.5mm / rigidity 1.0, inner = cloth 0.9mm):
 ##   (1) fresh armor effective == base (bit-identical, no wear);
 ##   (2) a worn outer layer's effective RHA drops below base and matches the 4k formula
-##       (base * pow(prot, 1 - rigidity*shield), prot=0.5 -> base * pow(0.5, 0.4));
+##       (base * pow(prot, 1—rigidity*shield), prot=0.5 -> base * pow(0.5, 0.4));
 ##   (3) a destroyed outer layer falls through to the next surviving layer's effective RHA;
 ##   (4) monotonic: more wear -> lower effective RHA (fresh > 75 > 50 > 25).
 static func _run_xcamp_4u_wear_aware_rha(failures: PackedStringArray) -> void:

@@ -12,7 +12,7 @@ extends RefCounted
 ##
 ## Zone geometry API (home **`formation_id`** only):
 ## - **`zone_geometry_fid_str`** / **`formation_for_combatant_cached`**
-## - One resolve: **`zone_geometry_line_context`** --'??'' **`zone_geometry_fid_from_pack`** /
+## - One resolve: **`zone_geometry_line_context`** → **`zone_geometry_fid_from_pack`** / **`zone_geometry_formation_from_pack`**
 ## **`zone_geometry_formation_from_pack`**
 ## - Per-pass cache: **`zone_geometry_line_context_by_combatant_id`**
 ## - Pair: **`zone_geometry_for_pair`** + **`zone_geometry_*_from_pair_pack`**
@@ -24,7 +24,7 @@ const ZONE_RIGHT_FLANK := "right_flank"
 const ZONE_REAR := "rear"
 ## Same value as CombatConstants.ENCOUNTER_PROTECTION_CIRCLE_ACTIVE (encounter dict key).
 const _ENCOUNTER_PROTECTION_CIRCLE_KEY := "protection_circle_active"
-# Runtime preload ''''" circular dependency (EngagementOpposition preloads ZoneOfControl).
+# Runtime preload →→" circular dependency (EngagementOpposition preloads ZoneOfControl).
 static var _opposition_cache: Variant = null
 
 
@@ -412,8 +412,8 @@ static func format_zone_control_line(manager: Node, _side: String) -> String:
 
 
 ## Formation vs formation (both files >= 2): ZoC-based flank/rear parry mult on defender.
-## Otherwise pack-style fallback: effective file spacing (wedge/lane_offset-aware) --'''deg''
-## `PARRY_FLANK_EFFECTIVE_FILES_MIN`, else |fA1/2'"file| --'''deg'' 2 (Tier 3.1).
+## Otherwise pack-style fallback: effective file spacing (wedge/lane_offset-aware) →'deg→
+## `PARRY_FLANK_EFFECTIVE_FILES_MIN`, else |Δ'"file| →'deg→ 2 (Tier 3.1).
 static func get_engagement_parry_multiplier(manager: Node, attacker_id: int, defender_id: int) -> float:
     var atk: Dictionary = CombatantEntityAccess.manager_get_combatant(manager, attacker_id)
     var tgt: Dictionary = CombatantEntityAccess.manager_get_combatant(manager, defender_id)
@@ -463,7 +463,7 @@ static func _engagement_parry_mult_pack_fallback(
     formation_def_cache: Variant = null
 ) -> float:
     if manager != null:
-        # Runtime load ''''" circular dependency (CombatPairGeometry preloads ZoneOfControl).
+        # Runtime load →→" circular dependency (CombatPairGeometry preloads ZoneOfControl).
         var pg: Variant = load("res://combat/engagement/CombatPairGeometry.gd")
         if pg != null:
             var eff: float = pg.effective_pair_file_spacing_equivalent(
@@ -553,7 +553,7 @@ static func mid_reach_files(
 
 
 ## Phase 5: Swap rank / fall-back duration  -  lane clarity (bodies, density). See
-## MEDIEVAL_FORMATION_MOVEMENT_SWITCHING_INVESTIGATION f''s'Sec2.3.
+## MEDIEVAL_FORMATION_MOVEMENT_SWITCHING_INVESTIGATION f→s'Sec2.3.
 static func get_swap_lane_duration_multiplier(manager: Node, fid: String, file: int) -> float:
     var formation: Dictionary = FormationSlots.formation_record_for_manager(manager, fid)
     if formation.is_empty():
@@ -586,7 +586,7 @@ static func get_swap_lane_duration_multiplier(manager: Node, fid: String, file: 
 
 
 ## Phase 5: Opponent pressure on this formation  -  aggressive front line slows disengage. See investigation
-## f''s'Sec2.4.
+## f→s'Sec2.4.
 static func _opponent_front_rank_pressure_scan(manager: Node, fid: String) -> Dictionary:
     var out: Dictionary = {
         "front_count": 0,
@@ -673,12 +673,12 @@ static func get_footing_duration_multiplier(manager: Node, fid: String, file: in
     return lerpf(CombatConstants.FOOTING_STEP_OVER_MIN, CombatConstants.FOOTING_STEP_OVER_MAX, t)
 
 
-## Lane - -  footing (pressure applied in CombatManager). Used for swap / fall back / rotate duration.
+## Lane × footing (pressure applied in CombatManager). Used for swap / fall back / rotate duration.
 static func get_lane_and_footing_duration_multiplier(manager: Node, fid: String, file: int) -> float:
     return get_swap_lane_duration_multiplier(manager, fid, file) * get_footing_duration_multiplier(manager, fid, file)
 
 
-## MS-L9: positional awareness  -  check if a combatant is surrounded by hostiles on --'''deg''2 directions.
+## MS-L9: positional awareness  -  check if a combatant is surrounded by hostiles on →'deg→2 directions.
 ## Front + (left_flank OR right_flank) = surrounded. Rear excluded by design.
 ## All hostile combatants are treated as front-line pressure (rank-0 assumption for cross-formation).
 ## Same-fid intruders count as front pressure (they've breached our line).
@@ -711,12 +711,12 @@ static func is_combatant_surrounded(manager: Node, combatant_id: int) -> bool:
             var my_files: int = int(my_formation.get(DataKeys.FORMATION_FILES, 1))
             var other_file: int = CombatantEntityAccess.file_int(o)
             var mapped_file: int = other_file + opp_offset
-            # Flank pressure only when formation has --'''deg''2 files.
+            # Flank pressure only when formation has →'deg→2 files.
             if my_files >= 2:
-                # If mapped file is at or beyond our left edge --'??'' left flank pressure.
+                # If mapped file is at or beyond our left edge → left flank pressure.
                 if mapped_file <= 0:
                     hostile_zones[1] = true
-                # If mapped file is at or beyond our right edge --'??'' right flank pressure.
+                # If mapped file is at or beyond our right edge → right flank pressure.
                 elif mapped_file >= my_files - 1:
                     hostile_zones[2] = true
                 # Otherwise hostile is in front band.

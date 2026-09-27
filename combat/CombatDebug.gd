@@ -1,12 +1,12 @@
 class_name CombatDebug
 extends RefCounted
 
-## Log tiers: `COMBAT_EVENT_DEBUG` alone --'' ' `flow_log_turn` lists actions + pick. With `COMBAT_EVENT_DEBUG_VERBOSE`,
+## Log tiers: `COMBAT_EVENT_DEBUG` alone → `flow_log_turn` lists actions + pick. With `COMBAT_EVENT_DEBUG_VERBOSE`,
 ## `get_available_actions` logs the action list once; `flow_log_turn` logs pick + count only (no duplicate list).
 ## `flow_log`: skip_turn, afterblow, close contest, incursion, formation rejects, resolve edge cases.
-## `COMBAT_DEBUG` --'' ' per-hit / armor / wind-up (`CombatDebug.log`, EntityDamage traces).
+## `COMBAT_DEBUG` → per-hit / armor / wind-up (`CombatDebug.log`, EntityDamage traces).
 ## Unconditional `[Combat]` lines stay for phase boundaries, deaths, and UI-adjacent events (see grep print("[Combat")).
-## Play session (editor F5): **`combat_session`** / **`world_session`** --'' ' `FP_COMBAT` / `FP_WORLD` on stdout (copy
+## Play session (editor F5): **`combat_session`** / **`world_session`** → `FP_COMBAT` / `FP_WORLD` on stdout (copy Godot Output).
 ## Godot Output).
 ## Invariant / logic faults: **`operational_warn`** (`FP_WARN`; always on).
 ## Conditional combat logging. Only logs when CombatConstants.COMBAT_DEBUG is true.

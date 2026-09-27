@@ -2,7 +2,7 @@ class_name CombatMoraleCohesion
 extends RefCounted
 
 ## Tier 1.5 (P6): drives `formations[fid].morale_cohesion_factor` before line cohesion each recompute.
-## Priority: encounter per-side override |' mean of combatant `morale_cohesion` (alive, not incapacitated) |' 1.0.
+## Priority: encounter per-side override → mean of combatant `morale_cohesion` (alive, not incapacitated) → 1.0.
 ## Flee / rout reads **`line_cohesion`** + casualty ratio via **`CombatFormationRout`** (not this factor directly).
 ## MS-L5 cohesion modifier: `_compute_cohesion_modifier(combatant_id, manager)` returns float [0.5–1.5] based on
 ## ally proximity and banner carrier presence; applied as bonus/malus to plug action weights.

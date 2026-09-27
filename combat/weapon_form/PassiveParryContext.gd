@@ -32,7 +32,7 @@ static func guard_readiness_float(c: Dictionary) -> float:
     return 1.0
 
 
-## Readiness multiplier for passive parry. WAITING = 1.0 - -  guard; RECOVERING = lerp(early, late) by progress.
+## Readiness multiplier for passive parry. WAITING = 1.0 × guard; RECOVERING = lerp(early, late) by progress.
 ## Uses READINESS_BY_CAUSE for cause-specific curves (attack_hit = more stunned, attack_miss = off-balance, etc.).
 ## C3: FORM_SWITCH = lerped readiness scaling with transition progress.
 static func get_passive_parry_readiness(c: Dictionary) -> float:

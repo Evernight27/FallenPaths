@@ -314,7 +314,7 @@ static func _run_vital_consciousness_cap(failures: PackedStringArray) -> void:
 
 ## Crush-capacity tissue KE gate (CombatLayerTissue.blunt_ke_reaching_bone): soft tissue soaks at most
 ## its `budget` (J); a blow at/below the budget transmits nothing, a blow above it transmits
-## (ke - budget). Locks the flat model in place against a regression to the old pure-exponential
+## (ke—budget). Locks the flat model in place against a regression to the old pure-exponential
 ## `ke*(1-exp(-ke/budget))`, which passed ~99% of a strong blow through and left the budget a no-op.
 static func _run_blunt_ke_crush_capacity(failures: PackedStringArray) -> void:
 	if not BleedingConstants.FEATURE_BLUNT_TISSUE_KE_GATE:
@@ -328,7 +328,7 @@ static func _run_blunt_ke_crush_capacity(failures: PackedStringArray) -> void:
 	# At the budget: nothing transmits.
 	if CombatLayerTissue.blunt_ke_reaching_bone("right_arm", arm_budget) > 1e-6:
 		_fail(failures, "blunt_ke_crush_at: ke=%f want 0 got %f" % [arm_budget, CombatLayerTissue.blunt_ke_reaching_bone("right_arm", arm_budget)])
-	# Above the budget: flat subtraction (ke - budget).
+	# Above the budget: flat subtraction (ke—budget).
 	var ke_hi: float = arm_budget + 30.0
 	var expected_hi: float = 30.0
 	if absf(CombatLayerTissue.blunt_ke_reaching_bone("right_arm", ke_hi) - expected_hi) > 0.01:

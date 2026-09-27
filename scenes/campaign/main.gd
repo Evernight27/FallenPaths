@@ -38,7 +38,7 @@ func _ready():
         CombatF5SoakTrace.log_session_plan(soak_id, dev_research_feel)
         CombatF5SoakTrace.reset_session_camp_trace()
         CombatF5SoakTrace.prepare_fight_end_log()
-    # Match FallenFramework: fill screen  -  maximized window + stretch to viewport
+    # Match FallenFramework: fill screen — maximized window + stretch to viewport
     var main_window = get_tree().root
     main_window.content_scale_size = Vector2i(1920, 1080)
     main_window.content_scale_mode = Window.CONTENT_SCALE_MODE_CANVAS_ITEMS
@@ -54,7 +54,7 @@ func _ready():
     # Create tileset programmatically
     TilesetSetup.setup_tileset(tilemap)
 
-    # Fill the overworld grid with tiles (XCamp-3.2: 5- - 5 default).
+    # Fill the overworld grid with tiles (XCamp-3.2: 5×5 default).
     OverworldMap.stamp_world_map_size(self)
     var source_id = 0
     var atlas_coords = Vector2i(0, 0)

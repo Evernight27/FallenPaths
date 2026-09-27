@@ -67,11 +67,11 @@ static func _run_feint_move_listing_spacing_close_boosts_vs_mid_when_defender_re
 
 
 ## Tier 4.2: defender **`STATE_RECOVERING`**  -  feint listing uses
-## **`PassiveParryContext.get_passive_parry_readiness`** - -  **`READINESS_BY_CAUSE`** (not **`guard`**).
+## **`PassiveParryContext.get_passive_parry_readiness`** ×  **`READINESS_BY_CAUSE`** (not **`guard`**).
 
 
 ## Tier 4.2: defender **`STATE_RECOVERING`**  -  feint listing uses
-## **`PassiveParryContext.get_passive_parry_readiness`** - -  **`READINESS_BY_CAUSE`** (not **`guard`**).
+## **`PassiveParryContext.get_passive_parry_readiness`** ×  **`READINESS_BY_CAUSE`** (not **`guard`**).
 static func _run_feint_move_listing_readiness_recovery_curve_when_defender_recovering(
     failures: PackedStringArray
 ) -> void:
@@ -159,11 +159,11 @@ static func _run_feint_move_listing_stamina_low_dampens_feint_weight(failures: P
     HarnessFixtures._free_manager_restore_global_rng(mgr)
 
 
-## Tier 4.2: low **`stamina`** feint damp (**`(qh)`**) stacks - -  **`hold_lane`** doctrine
+## Tier 4.2: low **`stamina`** feint damp (**`(qh)`**) stacks ×  **`hold_lane`** doctrine
 ## (**`AI_FEINT_LISTING_DOCTRINE_HOLD_LANE_MULT`**).
 
 
-## Tier 4.2: low **`stamina`** feint damp (**`(qh)`**) stacks - -  **`hold_lane`** doctrine
+## Tier 4.2: low **`stamina`** feint damp (**`(qh)`**) stacks ×  **`hold_lane`** doctrine
 ## (**`AI_FEINT_LISTING_DOCTRINE_HOLD_LANE_MULT`**).
 static func _run_feint_move_listing_stamina_low_stacks_with_hold_lane_doctrine_damp(
     failures: PackedStringArray
@@ -222,11 +222,11 @@ static func _run_feint_move_listing_stamina_low_stacks_with_hold_lane_doctrine_d
     HarnessFixtures._free_manager_restore_global_rng(mgr)
 
 
-## Tier 4.2: low **`stamina`** feint damp (**`(qh)`**) stacks - -  **`probing`**
+## Tier 4.2: low **`stamina`** feint damp (**`(qh)`**) stacks ×  **`probing`**
 ## (**`AI_FEINT_LISTING_DOCTRINE_PROBING_MULT`**).
 
 
-## Tier 4.2: low **`stamina`** feint damp (**`(qh)`**) stacks - -  **`probing`**
+## Tier 4.2: low **`stamina`** feint damp (**`(qh)`**) stacks ×  **`probing`**
 ## (**`AI_FEINT_LISTING_DOCTRINE_PROBING_MULT`**).
 static func _run_feint_move_listing_stamina_low_stacks_with_probing_doctrine_mult(failures: PackedStringArray) -> void:
     var mgr: Node = HarnessFixtures._harness_start_1v1()
@@ -283,11 +283,11 @@ static func _run_feint_move_listing_stamina_low_stacks_with_probing_doctrine_mul
     HarnessFixtures._free_manager_restore_global_rng(mgr)
 
 
-## Tier 4.2: low **`stamina`** feint damp (**`(qh)`**) stacks - -  **`pinch_center`**
+## Tier 4.2: low **`stamina`** feint damp (**`(qh)`**) stacks ×  **`pinch_center`**
 ## (**`AI_FEINT_LISTING_DOCTRINE_PINCH_CENTER_MULT`**).
 
 
-## Tier 4.2: low **`stamina`** feint damp (**`(qh)`**) stacks - -  **`pinch_center`**
+## Tier 4.2: low **`stamina`** feint damp (**`(qh)`**) stacks ×  **`pinch_center`**
 ## (**`AI_FEINT_LISTING_DOCTRINE_PINCH_CENTER_MULT`**).
 static func _run_feint_move_listing_stamina_low_stacks_with_pinch_center_doctrine_mult(
     failures: PackedStringArray
@@ -484,11 +484,11 @@ static func _run_feint_move_listing_doctrine_pinch_center_multiplies_feint_weigh
     HarnessFixtures._free_manager_restore_global_rng(mgr)
 
 
-## Tier 4.2: **`hold_lane`** feint listing - -  **`AI_FEINT_LISTING_DOCTRINE_HOLD_LANE_MULT`** vs explicit **`default`**
+## Tier 4.2: **`hold_lane`** feint listing ×  **`AI_FEINT_LISTING_DOCTRINE_HOLD_LANE_MULT`** vs explicit **`default`**
 ## (ratio **`w_feint/w_plain`**).
 
 
-## Tier 4.2: **`hold_lane`** feint listing - -  **`AI_FEINT_LISTING_DOCTRINE_HOLD_LANE_MULT`** vs explicit **`default`**
+## Tier 4.2: **`hold_lane`** feint listing ×  **`AI_FEINT_LISTING_DOCTRINE_HOLD_LANE_MULT`** vs explicit **`default`**
 ## (ratio **`w_feint/w_plain`**).
 static func _run_feint_move_listing_doctrine_hold_lane_dampens_feint_weight_vs_default(
     failures: PackedStringArray
@@ -540,13 +540,13 @@ static func _run_feint_move_listing_doctrine_hold_lane_dampens_feint_weight_vs_d
     HarnessFixtures._free_manager_restore_global_rng(mgr)
 
 
-## Tier 4.2: attacker **`form_str`** - -  **`CombatWeaponForm.mod(..., "ai_feint_listing")`** on feint listing; settled
-## WAITING - -  **`AI_FEINT_LISTING_DEFENDER_SETTLED_FOOTWORK_MULT`** + full **`read_m`** chain via
+## Tier 4.2: attacker **`form_str`** ×  **`CombatWeaponForm.mod(..., "ai_feint_listing")`** on feint listing; settled
+## WAITING ×  **`AI_FEINT_LISTING_DEFENDER_SETTLED_FOOTWORK_MULT`** + full **`read_m`** chain via
 ## **`_feint_listing_read_m_expect_for_move_on_target`**.
 
 
-## Tier 4.2: attacker **`form_str`** - -  **`CombatWeaponForm.mod(..., "ai_feint_listing")`** on feint listing; settled
-## WAITING - -  **`AI_FEINT_LISTING_DEFENDER_SETTLED_FOOTWORK_MULT`** + full **`read_m`** chain via
+## Tier 4.2: attacker **`form_str`** ×  **`CombatWeaponForm.mod(..., "ai_feint_listing")`** on feint listing; settled
+## WAITING ×  **`AI_FEINT_LISTING_DEFENDER_SETTLED_FOOTWORK_MULT`** + full **`read_m`** chain via
 ## **`_feint_listing_read_m_expect_for_move_on_target`**.
 static func _run_feint_move_listing_settled_waiting_footwork_dampens_vs_off_balance(
     failures: PackedStringArray
@@ -729,12 +729,12 @@ static func _run_feint_move_listing_recovery_cause_orders_recovering_footwork_mu
     HarnessFixtures._free_manager_restore_global_rng(mgr)
 
 
-## Tier 4.2 footwork: on **`STATE_RECOVERING`**, feint-listing **`read_m`** (spacing in **`pr_def`**) - -
+## Tier 4.2 footwork: on **`STATE_RECOVERING`**, feint-listing **`read_m`** (spacing in **`pr_def`**) ×
 ## **`ai_feint_listing_defender_recovering_footwork_mult_for_cause`** stack orthogonally  -  **`attack_hit`** at MID vs
 ## **`attack_miss`** at LONG.
 
 
-## Tier 4.2 footwork: on **`STATE_RECOVERING`**, feint-listing **`read_m`** (spacing in **`pr_def`**) - -
+## Tier 4.2 footwork: on **`STATE_RECOVERING`**, feint-listing **`read_m`** (spacing in **`pr_def`**) ×
 ## **`ai_feint_listing_defender_recovering_footwork_mult_for_cause`** stack orthogonally  -  **`attack_hit`** at MID vs
 ## **`attack_miss`** at LONG.
 static func _run_feint_move_listing_recovering_footwork_and_spacing_stack_orthogonally(
@@ -995,6 +995,6 @@ static func _run_counter_tempo_wind_up_stamps_pa_and_shortens_duration(failures:
     HarnessFixtures._free_manager_restore_global_rng(mgr_n)
     HarnessFixtures._free_manager_restore_global_rng(mgr_c)
 
-## Tier 4.2 counter-tempo AI: flagged actions - -  **`AI_COUNTER_TEMPO_*`**; plain **>** feint on incoming target during
+## Tier 4.2 counter-tempo AI: flagged actions ×  **`AI_COUNTER_TEMPO_*`**; plain **>** feint on incoming target during
 ## window.
 

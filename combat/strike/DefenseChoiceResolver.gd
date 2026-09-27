@@ -8,7 +8,7 @@ extends RefCounted
 ## Pure function: returns a dict of computed values; caller handles resolution and mutation.
 ## Tier 4.2: **`_guard_zone_modifier`** may treat the real hit line as the defender's guard focus when passive
 ## **`parry_readiness`**  -  stance **`feint_readthrough`** clears
-## **`CombatConstants.FEINT_GUARD_ZONE_READTHROUGH_THRESHOLD`** (omit extra arg '' ' harness compatibility / static
+## **`CombatConstants.FEINT_GUARD_ZONE_READTHROUGH_THRESHOLD`** (omit extra arg — harness compatibility / static
 ## calls).
 ## Tier 4.2 footwork: pair **`distance_to[attacker]`** scales **`parry_c_d`** (CLOSE / LONG vs MID) and
 ## **`dodge_chance`** at CLOSE / LONG (**`CombatConstants.DEFENSE_SPACING_*`**); **`STATE_RECOVERING`** / settled
@@ -18,7 +18,7 @@ extends RefCounted
 ## (**`AI_FEINT_LISTING_DEFENDER_READINESS_SPACING_*`**), and **`_guard_zone_modifier`** read-through
 ## (**`FEINT_GUARD_ZONE_READINESS_SPACING_*`**, **`feint_guard_zone_readiness_spacing_mult`**).
 ## Tier 4.2 tempo: non-empty **`feint_part`** on **`pa`** uses
-## **`CombatConstants.commitment_fraction_for_pending_attack`** (larger committed fraction '' ' shorter
+## **`CombatConstants.commitment_fraction_for_pending_attack`** (larger committed fraction → shorter
 ## **`effective_wind_up`** for passive parry timing vs plain attacks).
 ## Tier 4.2 telegraph delay: optional **`feint_target_reveal_at_progress`** on feint moves (stamped on **`pa`** in
 ## **`AttackWindUpStarter`**) scales feint read-through / dodge-telegraph readiness via
@@ -28,7 +28,7 @@ extends RefCounted
 ## **`PassiveParryContext.get_passive_parry_readiness`**
 ## (**`CombatConstants.passive_parry_readiness_incoming_contact_mult`**).
 ## Defender **`stamina`** scales the **readiness** used for feint read-through / guard-zone / dodge telegraph
-## (**`_defender_passive_readiness_stamina_mult`** '' '
+## (**`_defender_passive_readiness_stamina_mult`** →
 ## **`CombatConstants.defender_passive_readiness_stamina_mult_from_ratio`**) without folding into **`parry_c_d`'s**
 ## `pr_base` term (post-alignment stamina curve still applies once to **`parry_c_d`**). Reported **`choose_defense`**
 ## **`parry_readiness`** applies **`_feint_readiness_reveal_mult`** for non-empty **`feint_part`**; passive-parry
@@ -43,9 +43,9 @@ extends RefCounted
 
 ## Tier 3.1: `AttackResolver` / **`CombatStrikeStamping.stamp_attack_pair_geometry_on_dict`** set
 ## **`depth_polearm_attack`**, **`depth_polearm_allows_low_targets`**, and **`depth_polearm_lane_type`** when
-## rank''deg'1 depth spear lane is live.
+## rank≥1 depth spear lane is live.
 static func _depth_polearm_lane_is_open(pa: Dictionary) -> bool:
-	## `stamp_attack_pair_geometry_on_dict` always sets the key (often `""`). Empty / unknown '' ' `allows_low`
+	## `stamp_attack_pair_geometry_on_dict` always sets the key (often `""`). Empty / unknown → `allows_low`
 	## (baseline `pa`); explicit ids match **`CombatConstants`** (`open` / `over_shoulder`).
 	var lt: String = pa.get(DataKeys.PA_DEPTH_POLEARM_LANE, "").strip_edges()
 	if lt == "open":
@@ -1168,9 +1168,9 @@ static func _feint_telegraph_dodge_spacing_mult(tgt: Dictionary, atk: Dictionary
 			return 1.0
 
 
-## Tier 4.2 telegraph delay (Feint --AC-- ): until attacker wind-up progress ''deg'
+## Tier 4.2 telegraph delay (Feint “C”): until attacker wind-up progress ≥
 ## **`feint_target_reveal_at_progress`**, damp readiness used for feint read-through / dodge telegraph / guard-zone bait
-## resolution (**`1.0`** = disabled). If **`pa`** has **`feint_target_reveal_at_progress`** and it is **''deg' 0**,
+## resolution (**`1.0`** = disabled). If **`pa`** has **`feint_target_reveal_at_progress`** and it is **≤ 0**,
 ## delay is off; if the key is absent, read the fraction from **`WeaponConstants.get_move(attack_type)`**.
 static func _feint_readiness_reveal_mult(pa: Dictionary, atk: Dictionary) -> float:
 	var fp: String = pa.get(DataKeys.ACTION_FEINT_PART, "").strip_edges()
@@ -1273,7 +1273,7 @@ static func _feint_guard_reads_real_line(tgt: Dictionary, parry_readiness: float
 ## overrides **`FEINT_TELEGRAPH_DODGE_EVAL_BIAS`** for regression only; then **`distance_to[attacker]`** scales bias
 ## (**`FEINT_TELEGRAPH_DODGE_EVAL_BIAS_SPACING_*`**). Read-through uses the same
 ## **`feint_guard_zone_readiness_spacing_mult`** as **`_guard_zone_modifier`** vs
-## **`CombatantEntityAccess.id_int(atk)`** ( **`attacker_id` < 0** '' ' MID / **1.0** ). **`attack_type_for_contact`**:
+## **`CombatantEntityAccess.id_int(atk)`** ( **`attacker_id` < 0** → MID / **1.0** ). **`attack_type_for_contact`**:
 ## incoming move id for stab/cut/blunt readiness scaling; if empty, uses **`pa["attack_type"]`**.
 static func _apply_feint_telegraph_bias_to_dodge_eval_part(
 	pa: Dictionary,
@@ -1365,7 +1365,7 @@ static func _guard_zone_modifier(
 		var tele: String = str(tgt.get(CombatConstants.COMBATANT_KEY_INCOMING_ATTACK_TELEGRAPH_PART, feint_part))
 		if tele.is_empty():
 			tele = feint_part
-		# Still aligned with wind-up telegraph while real line lands elsewhere '' ' baited / wrong focus.
+		# Still aligned with wind-up telegraph while real line lands elsewhere → baited / wrong focus.
 		if gz_eval == tele and expected_part != tele:
 			return CombatConstants.GUARD_ZONE_UNGUARDED_PENALTY
 	if expected_part == gz_eval:

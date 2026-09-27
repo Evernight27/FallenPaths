@@ -674,11 +674,11 @@ static func _run_targeting_commitment_match_mult(failures: PackedStringArray) ->
     HarnessFixtures._free_manager(mgr)
 
 
-## Tier 1.6: **`CombatTargetScoring.soft_geometry_score`** = **`1/(1 + effective_pair_eff_dist - -
+## Tier 1.6: **`CombatTargetScoring.soft_geometry_score`** = **`1/(1 + effective_pair_eff_dist ×
 ## DOCTRINE_SOFT_DISTANCE_SCALE)`**; larger eff -> lower score (monotone).
 
 
-## Tier 1.6: **`CombatTargetScoring.soft_geometry_score`** = **`1/(1 + effective_pair_eff_dist - -
+## Tier 1.6: **`CombatTargetScoring.soft_geometry_score`** = **`1/(1 + effective_pair_eff_dist ×
 ## DOCTRINE_SOFT_DISTANCE_SCALE)`**; larger eff -> lower score (monotone).
 static func _run_targeting_soft_geometry_eff_dist_formula(failures: PackedStringArray) -> void:
     var mgr: Node = CombatManager.new()

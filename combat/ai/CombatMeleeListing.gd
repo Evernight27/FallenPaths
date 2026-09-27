@@ -288,7 +288,7 @@ static func append_execute_actions_for_combatant(
 
 
 ## Whether any downed opponent is in execute reach. Used by the action-build counter-tempo gate to keep the
-## mercy/execute option listed even at sub-100 gauge (coup de grâce on a lone beaten-down target).
+## mercy/execute option listed even at sub-100 gauge (coup de gràce on a lone beaten-down target).
 static func downed_opponent_in_reach(manager: Node, c: Dictionary, combatants: Array) -> bool:
     if manager == null or c.is_empty() or combatants.is_empty():
         return false

@@ -4,7 +4,7 @@ extends RefCounted
 ## Physics-leaning intensity mapping: low commitment stays near lower band, full commitment still reaches cap.
 ## Floor 0.50 keeps polearm thrusts above the ~44J thrust KE floor at realistic exchange intensity (i≈0.6).
 const INTENSITY_VELOCITY_FLOOR_FACTOR := 0.50
-## Floor for effective delivery intensity (intensity - -  extension commit).
+## Floor for effective delivery intensity (intensity × extension commit).
 const DELIVERY_INTENSITY_FLOOR := 0.05
 ## R5: Sub-band energy penalty — strikes below band-minimum energy get a smooth damage/KE ramp.
 ## Replaces the harsh sqrt(ratio) floor (which zeroed out low-energy hits at ratio<0.04).
@@ -46,7 +46,7 @@ const _PART_BODY_MASS_FRACTION := {
     "right_leg": 0.197,
     "left_leg": 0.197,
 }
-## Fist/hand effective mass - -  nominal hand speed - -  coupling â same abstract scale as previous (strength/100)*8
+## Fist/hand effective mass × nominal hand speed × coupling → same abstract scale as previous (strength/100)*8
 ## at ~100 STR.
 const UNARMED_FIST_EFFECTIVE_MASS_KG := 0.55
 const UNARMED_TYPICAL_HAND_SPEED_M_S := 7.0
@@ -85,7 +85,7 @@ static func reference_body_mass_kg_from_species(sp: Object) -> float:
 
 
 ## Unarmed pre-armor at full stance mod 1.0: ~ (STR/100)*8 in historical calibration units; derived from fist effective
-## mass - -  hand speed.
+## mass × hand speed.
 static func unarmed_base_pre_armor(strength: float, mod: float) -> float:
     var st: float = maxf(0.1, float(strength) / 100.0)
     return st * mod * UNARMED_FIST_EFFECTIVE_MASS_KG * UNARMED_TYPICAL_HAND_SPEED_M_S * UNARMED_MOMENTUM_TO_PREARMOR
@@ -118,7 +118,7 @@ static func move_id_from_attack_instance(attack_instance: RefCounted) -> String:
 
 ## Extension commit has no effect on intensity — it is handled in get_effective_velocity_m_s via a
 ## post-velocity multiplier so that committed strikes can exceed the intensity-derived velocity cap.
-## commit_frac < 0 â uncommitted baseline (no extension boost).
+## commit_frac < 0 → uncommitted baseline (no extension boost).
 static func effective_intensity_for_delivery(intensity: float, _commit_frac: float = -1.0) -> float:
     return clampf(intensity, DELIVERY_INTENSITY_FLOOR, 1.0)
 
@@ -222,7 +222,7 @@ static func _thrust_body_coupled_mass_from_part_kg(weapon: RefCounted, ct: Strin
     return clampf(part_m * 3.0, 0.5, 1.5)
 
 
-## Thrust / swing / mixed from archetype; if missing, infer from move contact (stab â thrust).
+## Thrust / swing / mixed from archetype; if missing, infer from move contact (stab → thrust).
 static func kinematic_delivery(archetype: Dictionary, move_id: String) -> String:
     var arch: Dictionary = archetype if archetype is Dictionary else {}
     var raw: Variant = arch.get("kinematic_delivery", "")
@@ -271,7 +271,7 @@ static func _velocity_swing_from_g(weapon: RefCounted, move_id: String, g: float
     return _velocity_linear_from_g(weapon, move_id, g)
 
 
-# Single place for intensity -> m/s. Thrust: linear band. Swing: Ï - lever. Mixed: kinematic_mixed_blend.
+# Single place for intensity -> m/s. Thrust: linear band. Swing: ω–lever. Mixed: kinematic_mixed_blend.
 static func velocity_m_s_from_intensity(
     intensity: float, archetype: Dictionary, weapon: RefCounted = null, move_id: String = ""
 ) -> float:
@@ -486,7 +486,7 @@ static func compute_pre_armor_blunt_momentum_raw(
     return raw * sub_band_energy_factor(weapon, attack_instance)
 
 
-## Cut-induced blunt slip: momentum raw - -  **`(1 - cut_ratio)`** - -  optional **`blunt_damage_mult`**, max-only clamp
+## Cut-induced blunt slip: momentum raw × **`(1 - cut_ratio)`** × optional **`blunt_damage_mult`**, max-only clamp
 ## (no **`BLUNT_DAMAGE_MIN`**  -  see **`AttackResolver.compute_and_apply_damage`**).
 static func compute_blunt_slip_pre_armor(
     weapon: RefCounted,
@@ -630,7 +630,7 @@ static func _get_blunt_contact_for_penetration(
     return contact_pen_raw
 
 
-# Blunt cushion: momentum per area (kg·m/s)/mÂ². Used by armor for transmission absorption.
+# Blunt cushion: momentum per area (kg·m/s)/m². Used by armor for transmission absorption.
 static func _compute_blunt_momentum_per_area_with_contact(
     weapon: RefCounted, attack_instance: RefCounted, contact_cm: float, target_effective_mass_kg: float = -1.0
 ) -> float:

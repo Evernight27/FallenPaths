@@ -6,7 +6,7 @@ extends RefCounted
 ## pick).
 ## **MS-L4 footing boundary:** hold-line layer picks listed moves only  -  does **not** write **`guard_line`**, PA
 ## offset, or **`weapon_form`**. LIVE_PATHS **`#wf-pick-vs-strike`** . **`#wf-layer-labels`**.
-## **No player target UI**  -  same picker for all sides; layers only narrow/reweight the listed action pool.
+## **No player target UI** — same picker for all sides; layers only narrow/reweight the listed action pool.
 
 
 static func enabled() -> bool:
@@ -42,7 +42,7 @@ static func try_pick(actions: Array, combatant_id: int, manager: Node) -> Dictio
         if retreat_only.is_empty():
             return {}
         return CombatAIActionPicker.pick_weighted(retreat_only, combatant_id, manager)
-    # L0: own immediate peril  -  self-aid before helping allies (TCCC-style).
+    # L0: own immediate peril — self-aid before helping allies (TCCC-style).
     var tier_failed_this_tick: bool = false
     if CombatantEntityAccess.is_in_immediate_peril(manager, c):
         var self_med: Array = _filter_self_medical_actions(actions, combatant_id, manager)
@@ -172,7 +172,7 @@ static func try_pick(actions: Array, combatant_id: int, manager: Node) -> Dictio
                         CombatAIActionPicker.pick_weighted(gp_pool, combatant_id, manager),
                         manager
                     )
-    # L4: back rank / no reach  -  hold in place; retarget guard only on incoming telegraph mismatch.
+    # L4: back rank / no reach — hold in place; retarget guard only on incoming telegraph mismatch.
     # Fight-finish tails skip L4 wait/focus when L4b had no offense  -  utility pick handles trusted close/strikes.
     if CombatListedActions.action_list_is_reserve_posture_only(actions):
         if fight_finish_tail:
@@ -232,7 +232,7 @@ static func try_pick(actions: Array, combatant_id: int, manager: Node) -> Dictio
                     CombatAIActionPicker.pick_weighted(pos_pool, combatant_id, manager),
                     manager
                 )
-    # L5 (MS-L7): exhaustion tunnel or critical stamina  -  wait / disengage before salience utility pick.
+    # L5 (MS-L7): exhaustion tunnel or critical stamina — wait / disengage before salience utility pick.
     # Fight-finish tails skip L5 so listed offense can win via L4b or salience-damped utility pick.
     ## Gradual ramp: disengage preference scales from 0 at tunnel threshold to full at exhausted threshold,
     ## matching the clinical progression where fighters degrade precision before abandoning engagement entirely.

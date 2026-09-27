@@ -13,12 +13,12 @@ const FORM_AXE_BEC := "bec_point"
 const FORM_DAGGER_HIGH := "high_hut"
 
 ## Per-fighter weapon form defs: temperament mods, move-family weights, pressure class, home guard, auto-switch.
-## Read order: FORM_DEFS ÃƒÂ¢Ã¢Â€Â ' normalize ÃƒÂ¢Ã¢Â€Â ' seed ÃƒÂ¢Ã¢Â€Â ' mod/action_weight_mult ÃƒÂ¢Ã¢Â€Â ' pressure
-## ÃƒÂ¢Ã¢Â€Â ' evaluate_automatic_form.
-## Canonical: CombatantEntityAccess.form_str Â· mod Â· action_weight_mult Â· home_guard_line Â· evaluate_automatic_form.
-## Footing: assign_form ÃƒÂ¢Ã¢Â€Â ' home guard_line only (LIVE_PATHS **`#wf-assign-form-contract`**); picker uses form
-## weights only â€”" **`#wf-pick-vs-strike`**. Tier 4.4 PA: **`CombatFootwork`** â€”" hub **`#wf-tier-44-pa`**.
-## **`#wf-footing-guards-stances`** Â· **`#wf-form-guard-pa-matrix`**.
+## Read order: FORM_DEFS → normalize → seed → mod/action_weight_mult → pressure → evaluate_automatic_form.
+## → evaluate_automatic_form.
+## Canonical: CombatantEntityAccess.form_str · mod · action_weight_mult · home_guard_line · evaluate_automatic_form.
+## Footing: assign_form → home guard_line only (LIVE_PATHS **`#wf-assign-form-contract`**); picker uses form
+## weights only —" **`#wf-pick-vs-strike`**. Tier 4.4 PA: **`CombatFootwork`** —" hub **`#wf-tier-44-pa`**.
+## **`#wf-footing-guards-stances`** · **`#wf-form-guard-pa-matrix`**.
 ## Manager requires: combatants, encounter, combat_clock (auto-switch cooldown only).
 
 # Runtime preload — circular dependency (CombatAttention preloads CombatWeaponForm).
@@ -245,7 +245,7 @@ static func controlling_pressure_active(c: Dictionary) -> bool:
 	return CombatantEntityAccess.stamina_ratio(c) >= CombatConstants.STANCE_MIN_STAMINA_CONTROLLING_RATIO
 
 
-## Live pressure tag for UI â€”" suppress **`controlling`** when the stamina gate is down.
+## Live pressure tag for UI —" suppress **`controlling`** when the stamina gate is down.
 static func pressure_class_label_for_ui(c: Dictionary) -> String:
 	if c.is_empty():
 		return ""
@@ -264,7 +264,7 @@ static func opponent_close_evasion_divisor(form: String) -> float:
 
 
 ## Controlling pressure slows opponent formation disengage (fall_back / swap duration). LIVE_PATHS
-## **`#wf-footing-improvement-backlog`** â€”" pairs with **`STANCE_MOD_OPPONENT_DISENGAGE`**.
+## **`#wf-footing-improvement-backlog`** —" pairs with **`STANCE_MOD_OPPONENT_DISENGAGE`**.
 static func opponent_disengage_pressure_mult(form: String) -> float:
 	if pressure_class_is(form, "controlling"):
 		return 1.0 / CombatConstants.STANCE_MOD_OPPONENT_DISENGAGE
@@ -542,7 +542,7 @@ static func refresh_inferred_forms_for_observer(manager: Node, observer: Diction
 		observer[CombatConstants.COMBATANT_KEY_INFERRED_OPP_FORM_BY_ID] = cache
 
 
-## Stance ÃƒÂ¢Ã¢Â€Â ' pressure_class alias (harness compatibility). Production uses **`form_str`** +
+## Stance → pressure_class alias (harness compatibility). Production uses **`form_str`** +
 ## **`CombatWeaponForm.mod`**.
 static func _stance_alias_from_pressure(form: String, weapon: Variant = null) -> String:
 	match pressure_class(form, weapon):
@@ -569,8 +569,8 @@ static func _side_encounter_default_form(manager: Node, c: Dictionary) -> String
 	return str(enc.get(key, "")).strip_edges()
 
 
-## L2 ÃƒÂ¢Ã¢Â€Â ' L3 home write site: sets **`weapon_form`**, stance alias (harness compatibility), home
-## **`guard_line`** â€”" does **not** stamp/clear PA. Contract: LIVE_PATHS **`#wf-assign-form-contract`**.
+## L2 → L3 home write site: sets **`weapon_form`**, stance alias (harness compatibility), home
+## **`guard_line`** —" does **not** stamp/clear PA. Contract: LIVE_PATHS **`#wf-assign-form-contract`**.
 static func assign_form(manager: Node, c: Dictionary, form: String, reason: String = "") -> void:
 	var weapon = CombatantEntityAccess.get_weapon(c)
 	var resolved: String = normalize_form(form, weapon)
@@ -598,7 +598,7 @@ static func assign_form(manager: Node, c: Dictionary, form: String, reason: Stri
 				OperationalLog
 				. play_combat(
 					(
-						"form_switch id=%d %s %sÃƒÂ¢Ã¢Â€Â '%s reason=%s"
+				"form_switch id=%d %s %s→%s reason=%s"
 						% [
 							CombatantEntityAccess.id_int(c),
 							CombatantEntityAccess.get_display_name(c, CombatantEntityAccess.id_int(c)),
@@ -611,8 +611,8 @@ static func assign_form(manager: Node, c: Dictionary, form: String, reason: Stri
 			)
 
 
-## Spawn path entry: resolve form from overlay ÃƒÂ¢Ã¢Â€Â ' encounter ÃƒÂ¢Ã¢Â€Â ' **`stance_preference`** ÃƒÂ¢Ã¢Â€Â '
-## weapon default ÃƒÂ¢Ã¢Â€Â ' **`assign_form(..., "spawn")`**. LIVE_PATHS **`#spawn--reset-path-wf-1a`**.
+## Spawn path entry: resolve form from overlay → encounter → **`stance_preference`** →
+## weapon default → **`assign_form(..., "spawn")`**. LIVE_PATHS **`#spawn→reset-path-wf-1a`**.
 static func seed_combatant_form(manager: Node, c: Dictionary, spawn_overlay: Dictionary = {}) -> void:
 	var weapon = CombatantEntityAccess.get_weapon(c)
 	var raw: String = spawn_overlay.get("weapon_form", "").strip_edges()
@@ -839,8 +839,8 @@ static func _try_assign_auto_switch(
 	return true
 
 
-## WF-3 auto-switch hook â€”" calls **`assign_form`** only; does **not** stamp/clear PA. Caller:
-## **`CombatAIActionPicker.pick`** after mental-stack miss. LIVE_PATHS **`#wf-pick-vs-strike`** Â·
+## WF-3 auto-switch hook —" calls **`assign_form`** only; does **not** stamp/clear PA. Caller:
+## **`CombatAIActionPicker.pick`** after mental-stack miss. LIVE_PATHS **`#wf-pick-vs-strike`** ·
 ## **`#wf-assign-form-contract`**.
 static func evaluate_automatic_form(manager: Node, c: Dictionary) -> bool:
 	if manager == null or c.is_empty():

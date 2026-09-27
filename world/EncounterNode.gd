@@ -8,7 +8,7 @@ const MARKER_SIZE := Vector2(64.0, 76.0)
 ## Copied to world meta **`CombatConstants.WORLD_META_COMBAT_ENCOUNTER`** when combat starts (doctrine, morale, posture,
 ## --|).
 @export var encounter_config: Dictionary = {}
-## Optional enemy **`CombatManager.start`** preset; empty |' default for **`enemy_count`**.
+## Optional enemy **`CombatManager.start`** preset; empty → default for **`enemy_count`**.
 @export var enemy_formation: Dictionary = {}
 ## Non-empty when spawned via **`SoakEncounterPresets`** (cyan map marker).
 

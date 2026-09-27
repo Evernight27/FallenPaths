@@ -7,9 +7,9 @@ const CombatConstantsScript := preload("res://combat/CombatConstants.gd")
 
 ## Medical phase queries: danger, urgency, untreated wounds, end-of-phase, ally medical actions, campaign
 ## **`batch_resolve_on_campaign_exit`**.
-## Footing: halting wind-up on phase entry ->'f??' ->->''''A!f''s''->'f''s''->''''A!--''''A!''->''''A!f''s' '
-## **`CombatFootwork.clear_on_exchange_end`** per combatant ->''''A!f''s'. **`return_to_waiting`** on idle reset
-## ->''--''''A!''--'''s''?" LIVE_PATHS **`#wf-tier-44-pa`** (clear). Does **not** change **`weapon_form`** / home guard.
+## Footing: halting wind-up on phase entry → **`CombatFootwork.clear_on_exchange_end`** per combatant · **`return_to_waiting`** on idle reset — LIVE_PATHS **`#wf-tier-44-pa`** (clear). Does **not** change **`weapon_form`** / home guard.
+## **`CombatFootwork.clear_on_exchange_end`** per combatant ·. **`return_to_waiting`** on idle reset
+## — §" LIVE_PATHS **`#wf-tier-44-pa`** (clear). Does **not** change **`weapon_form`** / home guard.
 ## Manager must have: combatants (Array), medical_phase (bool), medical_phase_winner (String), get_health_entity(node)
 ## -> Node (or use CombatantEntityAccess).
 
@@ -210,7 +210,7 @@ static func _log_instant_complete_result(
                     (
                         (
                             "medical_fast_forward incomplete sim_s=%.1f can_end=false parts_left=%d "
-                            + "iters=%d reason=%s ->''--''''A!''--'''s''? field care may still be needed"
+                            + "iters=%d reason=%s → Δs? field care may still be needed"
                         )
                         % [
                             sim_seconds,
@@ -386,7 +386,7 @@ static func _battle_med_supplies_available(manager: Node) -> bool:
     return world != null and MedicalPhaseBatchResolve._get_company_state().get_medical_supplies(world) >= 1
 
 ## TCCC escalation ladder for a wound part. Returns the ordered list of valid medical actions
-## (bandage ->'f??' ->->''''A!f''s''->'f''s''->''''A!--''''A!''->''''A!f''s' ' pack ->'f??'
-## ->->''''A!f''s''->'f''s''->''''A!--''''A!''->''''A!f''s' ' tourniquet), filtered to only actions that pass
+## (bandage → pack →
+## → tourniquet), filtered to only actions that pass
 ## `medical_action_allowed()`.
 ## The bandage variant used depends on `performer_id == tgt_id` (self vs ally).

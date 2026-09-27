@@ -169,29 +169,29 @@ static func is_formation_telegraph_leader(combatant: Dictionary) -> bool:
     return combatant.get(DataKeys.COMBATANT_IS_PARTY_LEADER, false) or combatant.get(DataKeys.COMBATANT_IS_ENEMY_LEADER, false)
 
 
-## Opponent side label for **`actor`** (`player` ->''f''s'f''s' -> `enemy`, else `player`).
+## Opponent side label for **`actor`** (`player` →f→s'f→s' -> `enemy`, else `player`).
 
 
-## Opponent side label for **`actor`** (`player` ->''f''s'f''s' -> `enemy`, else `player`).
+## Opponent side label for **`actor`** (`player` →f→s'f→s' -> `enemy`, else `player`).
 static func opponent_side_for(actor: Dictionary) -> String:
     return opponent_side_label(side_str(actor))
 
 
-## `player` ->''f''s'f''s'? `enemy` roster / formation id flip (same strings as **`side_str`**).
+## `player` →f→s'f→s'? `enemy` roster / formation id flip (same strings as **`side_str`**).
 
 
-## `player` ->''f''s'f''s'? `enemy` roster / formation id flip (same strings as **`side_str`**).
+## `player` →f→s'f→s'? `enemy` roster / formation id flip (same strings as **`side_str`**).
 static func opponent_side_label(side: String) -> String:
     return (
         CombatConstantsMisc.SIDE_ENEMY if side == CombatConstantsMisc.SIDE_PLAYER else CombatConstantsMisc.SIDE_PLAYER
     )
 
 
-## Resolves the health/wounds holder for a combat scene node (e.g. Character ->''f''s'f''s' -> CoreEntity). Prefers
+## Resolves the health/wounds holder for a combat scene node (e.g. Character →f→s'f→s' -> CoreEntity). Prefers
 ## **`manager.get_health_entity(node)`** (see **`CombatManager`**).
 
 
-## Resolves the health/wounds holder for a combat scene node (e.g. Character ->''f''s'f''s' -> CoreEntity). Prefers
+## Resolves the health/wounds holder for a combat scene node (e.g. Character →f→s'f→s' -> CoreEntity). Prefers
 ## **`manager.get_health_entity(node)`** (see **`CombatManager`**).
 static func formation_id_str(combatant: Dictionary) -> String:
     return combatant.get(DataKeys.COMBATANT_FORMATION_ID, "")

@@ -2,7 +2,7 @@ class_name WeaponTemplateDefinitions
 extends RefCounted
 
 ## Per-weapon move defs + Expand WF spawn keys: **`default_form`** / **`allowed_forms[]`** feed
-## **`CombatWeaponForm.seed_combatant_form`** (resolution step 4). LIVE_PATHS **`#spawn--reset-path-wf-1a`** ??
+## **`CombatWeaponForm.seed_combatant_form`** (resolution step 4). LIVE_PATHS **`#spawn→reset-path-wf-1a`**.
 ## **`#wf-assign-form-contract`**.
 
 # Damage types (also in CombatConstants; defined here to avoid circular preload)
@@ -36,7 +36,7 @@ const ARCHETYPE_POLE_SLASH: String = "pole_slash"
 const ARCHETYPE_POLL_STRIKE: String = "poll_strike"
 
 ## Kinematic delivery for `WeaponDamageHelper` (abstract  -  no unit positions): thrust = linear band + point-mass KE;
-## swing = (lever-swing) - lever + rotational KE; mixed = blend (`kinematic_mixed_blend` 0..1).
+## swing = (lever-swing)—lever + rotational KE; mixed = blend (`kinematic_mixed_blend` 0..1).
 const KINEMATIC_DELIVERY_THRUST := "thrust"
 const KINEMATIC_DELIVERY_SWING := "swing"
 const KINEMATIC_DELIVERY_MIXED := "mixed"
@@ -509,7 +509,7 @@ static func _archetype_definitions_build() -> Dictionary:
     }
 
 
-## Weapon template id (`SWORD`, `AXE`, ï¿½) from equipped weapon node/dict.
+## Weapon template id (`SWORD`, `AXE`, `MACE`) from equipped weapon node/dict.
 
 
 static func _weapon_template_id(weapon: Variant) -> String:
@@ -523,9 +523,9 @@ static func _weapon_template_id(weapon: Variant) -> String:
 
 ## Per-weapon measure curves: optimal engagement distance profiles.
 ## measure_curve: {"optimal_ratio": 0.85, "effective_range_m": 1.5, "overextend_threshold": 1.15}
-## - optimal_ratio: measure ratio where damage/velocity peaks (0.78-0.92 typical)
-## - effective_range_m: max distance for full effectiveness
-## - overextend_threshold: measure ratio beyond which penalties apply
+##—optimal_ratio: measure ratio where damage/velocity peaks (0.78-0.92 typical)
+##—effective_range_m: max distance for full effectiveness
+##—overextend_threshold: measure ratio beyond which penalties apply
 
 static func _measure_curves_build() -> Dictionary:
     return {

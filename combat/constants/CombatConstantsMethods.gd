@@ -671,6 +671,18 @@ static func combat_event_debug_verbose_active() -> bool:
 	return Debug.combat_event_debug_verbose_active()
 
 
+static func set_combat_log_verbose_detail_override(on: bool) -> void:
+	Debug.set_combat_log_verbose_detail_override(on)
+
+
+static func clear_combat_log_verbose_detail_override() -> void:
+	Debug.clear_combat_log_verbose_detail_override()
+
+
+static func combat_log_verbose_detail_active() -> bool:
+	return Debug.combat_log_verbose_detail_active()
+
+
 static func stamina_factor(ratio: float) -> float:
 	return Stamina.stamina_factor(ratio)
 

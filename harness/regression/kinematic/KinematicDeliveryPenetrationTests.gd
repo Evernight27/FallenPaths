@@ -1,4 +1,4 @@
-﻿class_name KinematicDeliveryPenetrationTests
+class_name KinematicDeliveryPenetrationTests
 extends CombatRegressionHarnessCore
 
 
@@ -206,7 +206,7 @@ static func _run_kinematic_delivery_compute_damage_strike_mods_penetration_integ
         _fail(
             failures,
             (
-                "kin_dmg_pen_sm: both mults want sharp- - %.2f blunt- - %.2f got ratios %.4f %.4f"
+                "kin_dmg_pen_sm: both mults want sharp×%.2f blunt×%.2f got ratios %.4f %.4f"
                 % [mult_sharp, mult_blunt, both.x / base.x, both.y / base.y]
             )
         )
@@ -874,12 +874,12 @@ static func _run_kinematic_delivery_alignment_context_guard_angle_only_uses_comb
         _fail(failures, "kin_align_ctx: fixture needs discrete align above floor (got %.6f)" % exp_discrete)
 
 
-## Tier 5.1 (optional long-tail): parry **`v_intent`** base is **`WeaponDamageHelper.get_effective_velocity_m_s`** - -
+## Tier 5.1 (optional long-tail): parry **`v_intent`** base is **`WeaponDamageHelper.get_effective_velocity_m_s`** ×
 ## **`StrikeRealismProfile.velocity_intent_mult_from_pa`** (pinned station); damage **KE** uses effective **`v`**
 ## without intent mult.
 
 
-## Tier 5.1 (optional long-tail): parry **`v_intent`** base is **`WeaponDamageHelper.get_effective_velocity_m_s`** - -
+## Tier 5.1 (optional long-tail): parry **`v_intent`** base is **`WeaponDamageHelper.get_effective_velocity_m_s`** ×
 ## **`StrikeRealismProfile.velocity_intent_mult_from_pa`** (pinned station); damage **KE** uses effective **`v`**
 ## without intent mult.
 static func _run_kinematic_delivery_parry_v_intent_effective_velocity_base(failures: PackedStringArray) -> void:

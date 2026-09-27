@@ -19,7 +19,7 @@ const REFERENCE_BLOOD_VOLUME_ML_ADULT := REFERENCE_ADULT_MASS_KG * REFERENCE_BLO
 ## `human.tres` tissue integer sum (10+30+12+12+16+16); scales inferred mass when `reference_body_mass_kg` unset.
 const REFERENCE_HUMAN_TISSUE_SUM := 96
 
-## Human hand-export tissue display caps (energy pool '?'' J capacity).
+## Human hand-export tissue display caps (energy pool '?→ J capacity).
 const REFERENCE_HUMAN_ARM_TISSUE_DISPLAY := 20
 const REFERENCE_HUMAN_LEG_TISSUE_DISPLAY := 24
 

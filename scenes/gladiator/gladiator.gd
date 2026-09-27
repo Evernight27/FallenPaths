@@ -2,7 +2,7 @@ extends Node2D
 
 ## Gladiator school (XCamp-6 playable slice): a UI-first replacement for the movement overworld.
 ##
-## The player runs a company of gladiators from a single management screen - no tile movement:
+## The player runs a company of gladiators from a single management screen—no tile movement:
 ##   - Roster: hire fighters, drill stats / forms / weapons (queued, applied at camp rest via
 ##     CompanyState.train_*), and manage gear + field care through the shared Party manager.
 ##   - Rival schools: dispatch scouts (dossier intel), appoint match lineups, and book an arena day.
@@ -256,7 +256,11 @@ func _refresh_match() -> void:
 		if not w.is_empty():
 			info.append("wields " + w)
 		_match_box.add_child(
-			_mk_label("Now: %s vs %s" % [str(card.get("player_name", "")), "  ".join(info)], 14, Color(0.95, 0.95, 0.9))
+			_mk_label(
+				"Now: %s vs %s" % [_resolve_member_display_name(str(card.get("player_name", ""))), "  ".join(info)],
+				14,
+				Color(0.95, 0.95, 0.9),
+			)
 		)
 	elif arena_day >= 0 and CompanyState.get_day_index(self) < arena_day:
 		var reason: String = str(card.get("reason", "arena day not reached"))
@@ -485,9 +489,9 @@ func _on_end_day() -> void:
 	if _busy:
 		return
 	if CompanyState.try_advance_day(self):
-		_log("Day advanced to %d (wages, provisions, scout returns)." % CompanyState.get_day_index(self))
+		_log("Advanced to day %d." % CompanyState.get_day_index(self))
 	else:
-		_log("End day was blocked.")
+		_log("The day could not be advanced.")
 	rebuild_all()
 
 
@@ -496,15 +500,9 @@ func _on_camp_rest() -> void:
 		return
 	var res: Dictionary = CompanyGladiator.rest_day(self)
 	if str(res.get("kind", "")) == "camp_rest":
-		_log(
-			"Camp rest (~%d min, +1 mood): healed and rested, queued drills merged, day %d. Med left %d."
-			% [int(CompanyCamp.CAMP_HEAL_SECONDS / 60.0), res.get("day"), CompanyState.get_medical_supplies(self)]
-		)
+		_log("Camp rest: the company heals, trains, and recovers morale. Day %d." % int(res.get("day", 0)))
 	else:
-		_log(
-			"Rest is blocked (dress wounds / need 1 med) - ended the day instead. Day %d."
-			% int(res.get("day", 0))
-		)
+		_log("Couldn't rest (wounds need tending or a med supply) - the day ended instead. Day %d." % int(res.get("day", 0)))
 	rebuild_all()
 
 
@@ -514,9 +512,9 @@ func _on_hire() -> void:
 	var gold_before: int = CompanyState.get_gold(self)
 	if CompanyState.try_hire_rookie(self, rng, true):
 		var gained: int = gold_before - CompanyState.get_gold(self)
-		_log("Hired a rookie (%dg)." % gained)
+		_log("Hired a new fighter (%dg)." % gained)
 	else:
-		_log("Cannot hire: %s" % CompanyState.format_hire_block_reason(self, true))
+		_log("Can't hire %s" % CompanyState.format_hire_block_reason(self, true).trim_prefix("Hire").strip_edges())
 	rebuild_all()
 
 
@@ -528,11 +526,11 @@ func _on_hire_surgeon() -> void:
 		var gained: int = gold_before - CompanyState.get_gold(self)
 		var surgeon: Node = CompanyState.find_living_surgeon(self)
 		_log(
-			"Hired a surgeon, %s (%dg). They ride along to field-TCCC campaign battles."
+			"Hired a surgeon, %s (%dg). They treat wounded fighters in the field after battles."
 			% [PlayerCompanionSetup.resolve_fighter_display_name(surgeon), gained]
 		)
 	else:
-		_log("Cannot hire: %s" % CompanyState.format_surgeon_hire_block_reason(self, true))
+		_log("Can't hire %s" % CompanyState.format_surgeon_hire_block_reason(self, true).trim_prefix("Hire surgeon").strip_edges())
 	rebuild_all()
 
 
@@ -553,7 +551,7 @@ func _on_scout(school_id: String, chooser: OptionButton) -> void:
 	var selected: String = str(chooser.get_item_text(chooser.selected))
 	var gate: Dictionary = CompanyState.can_dispatch_scout(self, selected, school_id)
 	if not gate.get("ok", false):
-		_log("Scout blocked: %s" % str(gate.get("reason", "")))
+		_log("Couldn't scout: %s" % str(gate.get("reason", "")))
 		rebuild_all()
 		return
 	CompanyState.dispatch_scout(self, selected, school_id)
@@ -574,7 +572,7 @@ func _on_schedule(school_id: String, preset_menu: OptionButton, day_menu: Option
 	var arena_day: int = CompanyState.get_day_index(self) + day_menu.selected
 	var gate: Dictionary = CompanyGladiator.can_schedule_match(self, school_id, lineup, arena_day)
 	if not gate.get("ok", false):
-		_log("Schedule blocked: %s" % str(gate.get("reason", "")))
+		_log("Couldn't schedule: %s" % str(gate.get("reason", "")))
 		rebuild_all()
 		return
 	if CompanyGladiator.schedule_match(self, school_id, lineup, arena_day):
@@ -605,7 +603,14 @@ func _on_train(chooser: OptionButton) -> void:
 		ok = CompanyState.train_form(self, node_ref as Node, value)
 	elif kind == "weapon":
 		ok = CompanyState.train_weapon(self, node_ref as Node, value)
-	_log(("Drilled %s (%s %s) - applies at next camp rest." % [name_s, kind, value]) if ok else "Drill failed (need %dg)." % CompanyEconomy.TRAIN_GOLD_COST)
+	var drill_desc: String
+	if kind == "form":
+		drill_desc = "form " + str(value).capitalize()
+	elif kind == "weapon":
+		drill_desc = str(value).to_lower().capitalize()
+	else:
+		drill_desc = str(value).capitalize()
+	_log(("Trained %s (%s) - takes effect at next camp rest." % [name_s, drill_desc]) if ok else "Not enough gold to train (need %dg)." % CompanyEconomy.TRAIN_GOLD_COST)
 	rebuild_all()
 
 
@@ -614,7 +619,7 @@ func _on_enter_bout() -> void:
 		return
 	var gate: Dictionary = CompanyGladiator.bout_entry_gate(self)
 	if not gate.get("ok", false):
-		_log("Bout blocked: %s" % str(gate.get("reason", "")))
+		_log("Can't enter the bout: %s" % str(gate.get("reason", "")))
 		rebuild_all()
 		return
 	_busy = true
@@ -625,7 +630,7 @@ func _on_enter_bout() -> void:
 	if enemies.is_empty():
 		_busy = false
 		_ui_layer.visible = true
-		_log("Bout entry rolled back (no fighter spawned).")
+		_log("The bout could not start - no opponent appeared.")
 		rebuild_all()
 		return
 	# Keep the school screen hidden and _busy set for the whole bout; CombatFlow adds the
@@ -711,6 +716,24 @@ func _log(text: String) -> void:
 
 func _can_pay_drill() -> bool:
 	return CompanyState.read_stub_proficiency_enabled() and CompanyState.get_gold(self) >= CompanyEconomy.TRAIN_GOLD_COST
+
+
+## Resolves a member's raw node name (as stored in a match lineup) to the fighter's player-facing
+## display name. Mirrors the combat log's CombatantIdentityAccess.get_display_name so the arena
+## card and the bout read identically.
+func _resolve_member_display_name(pn: String) -> String:
+	if pn.is_empty():
+		return pn
+	var pm: Variant = get_meta("party_manager") if has_meta("party_manager") else null
+	if pm != null and pm.has_method("get_members"):
+		for m in pm.get_members():
+			if m is not Dictionary:
+				continue
+			if str((m as Dictionary).get("name", "")) != pn:
+				continue
+			var dn: String = str((m as Dictionary).get("display_name", ""))
+			return dn if not dn.is_empty() else PlayerCompanionSetup.fighter_display_name(pn)
+	return PlayerCompanionSetup.fighter_display_name(pn)
 
 
 ## Per-member drill choices for the OptionButton: stats, then forms, then weapon types.

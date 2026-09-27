@@ -225,7 +225,7 @@ const VITAL_DESTRUCTION_GRACE_PERIOD_S: float = 2.5
 ## Per-part grace periods after vital destruction (combat seconds). Head (brain/brainstem)
 ## destruction collapses consciousness and autonomic control almost immediately (~1.5s); chest
 ## (heart/great-vessel) destruction causes tamponade + hemorrhagic shock over a slightly longer
-## window (~3.0s) — long enough that in multi-fighter fights a coup de grâce can land on the
+## window (~3.0s) — long enough that in multi-fighter fights a coup de gràce can land on the
 ## downed fighter before death registers, matching the historical execution flow.
 const VITAL_DESTRUCTION_GRACE_PERIODS: Dictionary = {
 	BodyPartConstants.PART_HEAD: 1.5,
@@ -424,7 +424,7 @@ func _get_blood_loss_death_threshold() -> float:
 	return BleedingConstants.BLOOD_LOSS_DEATH_THRESHOLD
 
 
-# --- Pain and consciousness (Combat Extended--"style) ---
+# --- Pain and consciousness (Combat Extended—style) ---
 # Per-wound healing progress 0..1 (exponential: after healing_duration seconds ~95% healed). Backwards compat: missing
 # fields => progress 0.
 func _get_wound_healing_progress(injury: Dictionary) -> float:

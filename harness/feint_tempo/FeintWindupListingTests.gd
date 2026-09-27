@@ -39,10 +39,10 @@ static func _feint_listing_defender_footwork_state_mult_for_target(tgt_enemy: Di
     return 1.0
 
 
-## Defender-side feint-listing mult: readiness lerp - -  footwork state mult (when applicable).
+## Defender-side feint-listing mult: readiness lerp ×  footwork state mult (when applicable).
 
 
-## Defender-side feint-listing mult: readiness lerp - -  footwork state mult (when applicable).
+## Defender-side feint-listing mult: readiness lerp ×  footwork state mult (when applicable).
 static func _feint_listing_target_readiness_and_footwork_mult(
     tgt_enemy: Dictionary, combatant_id_for_spacing: int, feint_move_id: String
 ) -> float:
@@ -662,11 +662,11 @@ static func _run_feint_move_listing_weight_mult_prefers_feint_over_plain_thrust(
     HarnessFixtures._free_manager_restore_global_rng(mgr)
 
 
-## Tier 4.2: feint listing mult - -  **`lerpf(1, AI_FEINT_LISTING_DEFENDER_READINESS_TOP_MULT, passive_readiness)`** vs
+## Tier 4.2: feint listing mult ×  **`lerpf(1, AI_FEINT_LISTING_DEFENDER_READINESS_TOP_MULT, passive_readiness)`** vs
 ## low defender **`guard`** (SWORD 1v1).
 
 
-## Tier 4.2: feint listing mult - -  **`lerpf(1, AI_FEINT_LISTING_DEFENDER_READINESS_TOP_MULT, passive_readiness)`** vs
+## Tier 4.2: feint listing mult ×  **`lerpf(1, AI_FEINT_LISTING_DEFENDER_READINESS_TOP_MULT, passive_readiness)`** vs
 ## low defender **`guard`** (SWORD 1v1).
 static func _run_feint_move_listing_readiness_scales_feint_weight_high_guard_vs_low_guard(
     failures: PackedStringArray

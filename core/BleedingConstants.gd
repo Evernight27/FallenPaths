@@ -864,7 +864,7 @@ const SEVERITY_PERCENTAGE_SEVERE: float = 0.5
 const SEVERITY_PERCENTAGE_MODERATE: float = 0.25
 # Absolute tissue damage (game units)  -  S4: decouple label from % body_max (prep for derived capacities).
 const FEATURE_ABSOLUTE_SEVERITY_BANDS: bool = true
-## When true with absolute bands: severity cannot exceed %'''based label (ceil on fragile small parts).
+## When true with absolute bands: severity cannot exceed %→'based label (ceil on fragile small parts).
 const FEATURE_ABSOLUTE_SEVERITY_PCT_CAP: bool = false
 const SEVERITY_ABSOLUTE_CRITICAL: float = 10.0
 const SEVERITY_ABSOLUTE_SEVERE: float = 5.0
@@ -1132,7 +1132,7 @@ static func is_unclottable(injury_type: String) -> bool:
 
 
 # Chance (0.0-1.0) that a wound is arterial based on severity, injury type (cut vs crush), body part, and sub-region.
-# Research-based. Crush uses ARTERIAL_CRUSH_MULTIPLIER - -  SUB_REGION_BLUNT_ARTERIAL_MODIFIER for region-specific cut
+# Research-based. Crush uses ARTERIAL_CRUSH_MULTIPLIER × SUB_REGION_BLUNT_ARTERIAL_MODIFIER for region-specific cut
 # vs blunt differentiation.
 static func get_arterial_chance(
     severity: String, injury_type: String, part: String, sub_region: String = "", penetration_to_tissue_mm: float = -1.0

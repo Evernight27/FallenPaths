@@ -34,7 +34,7 @@ static func handle_defeat(world: Node2D, player: Node, winner: String) -> void:
 static func handle_victory(world: Node2D, player: Node, winner: String) -> void:
     if winner != CombatConstants.SIDE_PLAYER:
         return
-    # SettlementPanel re-enables input on Continue  -  avoid a gap where map keys queue moves.
+    # SettlementPanel re-enables input on Continue — avoid a gap where map keys queue moves.
     restore_overworld_party(world, player, false)
 
 

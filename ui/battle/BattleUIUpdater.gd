@@ -116,7 +116,7 @@ static func gauge_label_text_for_combatant(c: Dictionary, manager: Node = null) 
         return _compose_waiting_gauge_label(c, status_override, manager)
     var primary: String = _waiting_stamina_primary_label(c)
     if CombatConstants.COMBAT_DEBUG and c.get(DataKeys.SNAPSHOT_GUARD_ANGLE_DEG, null) is float:
-        primary += " %.0ff''deg" % float(c.get(DataKeys.SNAPSHOT_GUARD_ANGLE_DEG))
+        primary += " %.0f°" % float(c.get(DataKeys.SNAPSHOT_GUARD_ANGLE_DEG))
     return _compose_waiting_gauge_label(c, primary, manager)
 
 

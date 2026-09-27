@@ -21,7 +21,7 @@ static func _get_company_state() -> GDScript:
 
 
 ## Handles completion of medical wind-up: apply bandage/packing/tourniquet, emit outcome, track retry.
-## Footing: medic **`clear_on_exchange_end`** before post-care **`STATE_RECOVERING`** - LIVE_PATHS **`#wf-tier-44-pa`**.
+## Footing: medic **`clear_on_exchange_end`** before post-care **`STATE_RECOVERING`** — LIVE_PATHS **`#wf-tier-44-pa`**.
 ## Manager must have: get_health_entity (via CombatantEntityAccess), track_medical_failure_and_maybe_retry,
 ## emit_signal, get.
 

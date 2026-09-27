@@ -17,7 +17,7 @@ const PARRY_GEOMETRY_VARIANCE_BASE := 0.08
 ## exhausted, just with somewhat wider scatter.
 const AIM_DRIFT_FATIGUE_FLOOR := 0.8
 ## Aim-leak near-miss falloff: the probability that leaks off the aimed part (the
-## (1 - aim_share) remainder) decays with blade-path distance from that part,
+## (1—aim_share) remainder) decays with blade-path distance from that part,
 ## 1/(1 + K*d) where d = number of path positions from the aimed part. Path order
 ## is blade-travel order, so the parts the blade actually passes clip preferentially.
 ## A fresh fencer's error cloud is tight (high K -> steep falloff, near-misses dominate);

@@ -1,4 +1,4 @@
-﻿class_name ParryActionResolvedTests
+class_name ParryActionResolvedTests
 extends CombatRegressionHarnessCore
 
 

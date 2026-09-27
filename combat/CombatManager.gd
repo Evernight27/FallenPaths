@@ -90,7 +90,7 @@ var _combat_tick_index: int = 0
 
 ## Combat orchestrator  -  turn loop, register combatants, vacancy/ZoC. Register dict:
 ## **`CombatantRegister.build_initial`**. WF spawn: **`CombatWeaponForm.seed_combatant_form`** at
-## **`register`** + post-**`start()`** re-seed  -  LIVE_PATHS **`#spawn--reset-path-wf-1a`**.
+## **`register`** + post-**`start()`** re-seed  -  LIVE_PATHS **`#spawn→reset-path-wf-1a`**.
 ## PA scrub: **`start()`** loop + **`on_combatant_died`**  -  **`#wf-tier-44-pa`** (clear).
 
 
@@ -739,7 +739,7 @@ static func _is_medical_move(move_id: String) -> bool:
 
 
 ## Track a failed medical action and optionally schedule a retry (buddy pressure coordination).
-## Public API â€” used by MedicalWindUpHandler.
+## Public API — used by MedicalWindUpHandler.
 func track_medical_failure_and_maybe_retry(
 	performer: Dictionary, target: Dictionary, part: String, target_cid: int
 ) -> void:

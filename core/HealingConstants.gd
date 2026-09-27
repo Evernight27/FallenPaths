@@ -8,13 +8,13 @@ extends RefCounted
 # Healing uses EXPONENTIAL decay of deficit (rate ~ current deficit): 72% of wounds fit exponential; 35% vs 21% closure
 # (BMC Dermatol 9:2). Exponential decay model defined in this file.
 # Body parts: head, chest, right_arm, left_arm, right_leg, left_leg (match CoreEntity).
-# References: wound healing phases (inflammatory 2 - 5 days, proliferation ~3 weeks); fracture 6 - 8 weeks.
+# References: wound healing phases (inflammatory 2–5 days, proliferation ~3 weeks); fracture 6–8 weeks.
 
 const SECONDS_PER_DAY: float = 86400.0
 
 # --- Tissue healing: "duration" = time (seconds) to ~95% healed when using exponential model (deficit *= exp(-t/tau),
 # tau = duration/3) ---
-# Minor: superficial ~3 - 5 days. Moderate: 1 - 2 weeks. Severe: 3 - 6 weeks. Critical: 6+ weeks.
+# Minor: superficial ~3–5 days. Moderate: 1–2 weeks. Severe: 3–6 weeks. Critical: 6+ weeks.
 const TISSUE_HEAL_DURATION_SECONDS: Dictionary = {
     "minor": 4.0 * SECONDS_PER_DAY,  # ~4 days
     "moderate": 10.0 * SECONDS_PER_DAY,  # ~10 days
@@ -32,7 +32,7 @@ const TISSUE_PART_DURATION_MULTIPLIERS: Dictionary = {
     BodyPartConstants.PART_LEFT_LEG: 1.0
 }
 
-# --- Bone healing (simple fracture ~6 - 8 weeks) ---
+# --- Bone healing (simple fracture ~6–8 weeks) ---
 const BONE_HEAL_DURATION_SECONDS: float = 42.0 * SECONDS_PER_DAY  # 6 weeks to full
 
 const BONE_PART_DURATION_MULTIPLIERS: Dictionary = {
@@ -45,7 +45,7 @@ const BONE_PART_DURATION_MULTIPLIERS: Dictionary = {
 }
 
 # --- Blood volume recovery (when not bleeding) ---
-# Body replenishes blood over hours - days. Full recovery from low volume over ~24 - 48 h.
+# Body replenishes blood over hours–days. Full recovery from low volume over ~24–48 h.
 const BLOOD_VOLUME_RECOVERY_DURATION_SECONDS: float = 24.0 * 3600.0  # 24 hours to approach 100%
 
 # Exponential healing: time constant tau = duration / EXPONENTIAL_HEAL_TAU_DIVISOR so that after duration seconds, ~95%

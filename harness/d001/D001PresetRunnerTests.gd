@@ -1,7 +1,7 @@
 class_name D001PresetRunnerTests
 extends RefCounted
 ## Headless **D-001** preset fights: simulates F5 cyan soaks, captures **`FP_COMBAT`**, parses runbook grep targets.
-## Mandatory **II-2b / II-5a - c** sign-off is headless-only via plausibility + **`BattleUIUpdater`** probes (see
+## Mandatory **II-2b / II-5a—c** sign-off is headless-only via plausibility + **`BattleUIUpdater`** probes (see
 ## **`.d001_headless_signoff.txt`**).
 ## **ii5c** (`_run_ii5c_gauge_label_checks`): **`Stm`/`Ready`/`Exh`/`Grd`** + WF gauge/diagram suffix order (incl.
 ## **`form_wrath_*`**)  -  LIVE_PATHS **`#wf-soak-audit-status`** . **`#battle-ui`**.
@@ -51,14 +51,14 @@ static func _run_preset(preset_id: String) -> Dictionary:
 
 ## **II-5c** headless: **`BattleUIUpdater.gauge_label_text_for_combatant`** (`Stm` / `Ready` / `Exh` / `Grd` in one
 ## row).
-## **II-5a**: formation **`FP_COMBAT`** stamp + **`ui_hint`** on 4- - 4 line (player rank-0 turn-ready).
+## **II-5a**: formation **`FP_COMBAT`** stamp + **`ui_hint`** on 4× 4 line (player rank-0 turn-ready).
 ## **II-5b**: aggregated preset captures must not contain stale crash/intrusion log vocabulary.
 ## II-0 **#7**: enter medical phase, list pressure on bleeding chest (live manager path).
 
 
 ## **II-5c** headless: **`BattleUIUpdater.gauge_label_text_for_combatant`** (`Stm` / `Ready` / `Exh` / `Grd` in one
 ## row).
-## **II-5a**: formation **`FP_COMBAT`** stamp + **`ui_hint`** on 4- - 4 line (player rank-0 turn-ready).
+## **II-5a**: formation **`FP_COMBAT`** stamp + **`ui_hint`** on 4× 4 line (player rank-0 turn-ready).
 ## **II-5b**: aggregated preset captures must not contain stale crash/intrusion log vocabulary.
 ## II-0 **#7**: enter medical phase, list pressure on bleeding chest (live manager path).
 static func _run_ii7_medical_phase_smoke() -> Dictionary:
@@ -854,10 +854,10 @@ static func _probe_ii_envelop_mopup_engagement_debug(preset_id: String) -> void:
     CombatConstants.set_headless_harness_quiet(was_quiet)
 
 
-## III-4 **3e**: rear rank reserve + `attempt_close` during mop-up (7- - 2 line).
+## III-4 **3e**: rear rank reserve + `attempt_close` during mop-up (7× 2 line).
 
 
-## III-4 **3e**: rear rank reserve + `attempt_close` during mop-up (7- - 2 line).
+## III-4 **3e**: rear rank reserve + `attempt_close` during mop-up (7× 2 line).
 static func _probe_ii_envelop_mopup_rear_rank_hint() -> void:
     OperationalLog.play_combat("soak_setup ii_envelop_mopup rear rank hold-line smoke (7x2 reserve + close)")
     var was_quiet: bool = CombatConstants.is_headless_harness_quiet()

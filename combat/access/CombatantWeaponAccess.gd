@@ -86,10 +86,10 @@ static func weapon_parry_contact_type(weapon: Variant, default_pct: String = "bl
     return str(weapon.get_parry_contact_type())
 
 
-## Cut vs blunt band for parry-speed reference (shaft/haft ->''f''s'f''s' -> blunt).
+## Cut vs blunt band for parry-speed reference (shaft/haft →f→s'f→s' -> blunt).
 
 
-## Cut vs blunt band for parry-speed reference (shaft/haft ->''f''s'f''s' -> blunt).
+## Cut vs blunt band for parry-speed reference (shaft/haft →f→s'f→s' -> blunt).
 static func weapon_parry_ref_contact_type(weapon: Variant) -> String:
     var pct: String = weapon_parry_contact_type(weapon)
     if pct == "shaft" or pct == "haft":

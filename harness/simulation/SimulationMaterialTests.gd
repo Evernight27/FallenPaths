@@ -2,7 +2,7 @@ class_name SimulationMaterialTests
 extends CombatRegressionHarnessCore
 const _CombatRegressionHarness := preload("res://harness/regression/CombatRegressionHarness.gd")
 
-## Simulation realism track (S1 - S10): `_run_sim_*`  -  docs/LIVE_PATHS.md#harness-prefixes.
+## Simulation realism track (S1—S10): `_run_sim_*`  -  docs/LIVE_PATHS.md#harness-prefixes.
 
 const HumanSpecies := preload("res://resources/species/human.tres")
 const GoblinSpecies := preload("res://resources/species/goblin.tres")
@@ -51,7 +51,7 @@ static func _run_sim_blunt_tissue_ke_reduces_fracture(failures: PackedStringArra
     var part: String = "right_arm"
     var sub: String = "elbow"
     var j_anchor: float = CombatDamageMechanism.blunt_fracture_j_anchor(part, sub)
-    # Crush-capacity model (blunt_ke_reaching_bone = max(0, ke - budget)): the fracture threshold
+    # Crush-capacity model (blunt_ke_reaching_bone = max(0, ke—budget)): the fracture threshold
     # (ke_to_bone == j_anchor) sits at strike KE == j_anchor + budget. Offset around j_anchor: +25 J
     # clears the 22 J budget and lands above the anchor (fractures); -5 J lands well below the anchor
     # (no fracture). Both sides of the threshold are bracketed by a comfortable margin.

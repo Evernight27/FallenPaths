@@ -17,9 +17,9 @@ const _WINNER_TRIAGE_BUSY_STATES: Array[String] = [
 
 ## Medical phase queries: danger, urgency, untreated wounds, end-of-phase, ally medical actions, campaign
 ## **`batch_resolve_on_campaign_exit`**.
-## Footing: halting wind-up on phase entry ->'f??' ->->''''A!f''s''->'f''s''->''''A!--''''A!''->''''A!f''s' '
-## **`CombatFootwork.clear_on_exchange_end`** per combatant ->''''A!f''s'. **`return_to_waiting`** on idle reset
-## ->''--''''A!''--'''s''?" LIVE_PATHS **`#wf-tier-44-pa`** (clear). Does **not** change **`weapon_form`** / home guard.
+## Footing: halting wind-up on phase entry → **`CombatFootwork.clear_on_exchange_end`** per combatant · **`return_to_waiting`** on idle reset — LIVE_PATHS **`#wf-tier-44-pa`** (clear). Does **not** change **`weapon_form`** / home guard.
+## **`CombatFootwork.clear_on_exchange_end`** per combatant ·. **`return_to_waiting`** on idle reset
+## — § LIVE_PATHS **`#wf-tier-44-pa`** (clear). Does **not** change **`weapon_form`** / home guard.
 ## Manager must have: combatants (Array), medical_phase (bool), medical_phase_winner (String), get_health_entity(node)
 ## -> Node (or use CombatantEntityAccess).
 
@@ -174,7 +174,7 @@ static func halt_losing_side_combat(manager: Node) -> void:
         )
         MedicalPhaseBatchResolve._reset_fled_and_combat_absent(c)
         # Fled winners: triage needs them on-field (`is_alive_in_combat`); suspend bleed ticks only
-        # (they left before victory ->''--''''A!''--'''s''?" wounds should not drain during post-victory medical phase).
+        # (they left before victory — § wounds should not drain during post-victory medical phase).
         if had_fled:
             c[CombatConstants.COMBATANT_KEY_SUSPEND_BLEED_TICK] = true
     purge_blocked_events_from_queue(manager)
@@ -591,7 +591,7 @@ static func get_ally_medical_actions(manager: Node, performer: Dictionary, ally:
     var tq_can: bool = CombatantEntityAccess.entity_can_apply_tourniquet(manager, ally, part)
     var junctional: bool = part in BleedingConstants.PACKING_PARTS
 
-    # Life-threatening limb: pressure (if needed) ->'f??' ->->''''A!f''s''->'f''s''->''''A!--''''A!''->''''A!f''s' '
+    # Life-threatening limb: pressure (if needed) → tourniquet before slow dressings.
     # tourniquet before slow dressings.
     if tq_indicated and tq_can:
         MedicalPhaseFastForward._append_pressure_action_if_needed(
@@ -665,8 +665,8 @@ static func may_perform_full_tccc(manager: Node, performer: Dictionary) -> bool:
 
 
 ## TCCC escalation ladder for a wound part. Returns the ordered list of valid medical actions
-## (bandage ->'f??' ->->''''A!f''s''->'f''s''->''''A!--''''A!''->''''A!f''s' ' pack ->'f??'
-## ->->''''A!f''s''->'f''s''->''''A!--''''A!''->''''A!f''s' ' tourniquet), filtered to only actions that pass
+## (bandage → pack →
+## → tourniquet), filtered to only actions that pass
 ## `medical_action_allowed()`.
 ## The bandage variant used depends on `performer_id == tgt_id` (self vs ally).
 static func escalation_path_for_part(tgt_id: int, performer_id: int, part: String, manager: Node) -> Array[String]:

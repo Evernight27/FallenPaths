@@ -564,7 +564,7 @@ static func rebound_bleeding_after_pressure_release(entity: Node, part: String) 
 		injury["is_stabilized"] = false
 		injury.erase("stabilized_remaining_seconds")
 	var after: float = get_bleeding_rate_for_part(entity, part)
-	# Always log pressure rebound  -  it is a critical UX event (player sees bleeding spike without understanding why).
+	# Always log pressure rebound — it is a critical UX event (player sees bleeding spike without understanding why).
 	# Bypass EntityMedical.log_medical_session which filters these in F5 sessions.
 	CombatDebug.medical_session(
 		"%s pressure_rebound part=%s bleed %.3f->%.3f (released without dressing)" % [entity.name, part, before, after]

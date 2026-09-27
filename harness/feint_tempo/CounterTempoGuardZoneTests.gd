@@ -137,11 +137,11 @@ static func _run_counter_tempo_ui_hint_winding_then_ready(failures: PackedString
     HarnessFixtures._free_manager_restore_global_rng(mgr)
 
 
-## Tier 4.2 riposte chain: **`grant_riposte_chain`** after deflect -> next wind-up vs that attacker - -
+## Tier 4.2 riposte chain: **`grant_riposte_chain`** after deflect -> next wind-up vs that attacker ×
 ## **`RIPOSTE_CHAIN_WINDUP_MULT`**.
 
 
-## Tier 4.2 riposte chain: **`grant_riposte_chain`** after deflect -> next wind-up vs that attacker - -
+## Tier 4.2 riposte chain: **`grant_riposte_chain`** after deflect -> next wind-up vs that attacker ×
 ## **`RIPOSTE_CHAIN_WINDUP_MULT`**.
 static func _run_riposte_chain_after_parry_deflect_shortens_wind_up_vs_plain(failures: PackedStringArray) -> void:
     var mgr_p: Node = CombatManager.new()
@@ -483,13 +483,13 @@ static func _run_feint_guard_zone_modifier_telegraph_mismatch_penalty_and_readju
 
 
 ## Tier 4.2: high passive parry readiness + form can read real line despite **`guard_zone`** still on telegraph
-## (**`FEINT_GUARD_ZONE_READTHROUGH_THRESHOLD`** - -  **`CombatWeaponForm.mod(form_str, "feint_readthrough")`**).
+## (**`FEINT_GUARD_ZONE_READTHROUGH_THRESHOLD`** ×  **`CombatWeaponForm.mod(form_str, "feint_readthrough")`**).
 ## **`AttackPathResolver`** **`randf`**  -  scan a bait seed for telegraph mismatch, then **`seed(bait_seed)`** before
 ## each **`_guard_zone_modifier`** so **`expected_part`** matches across cases.
 
 
 ## Tier 4.2: high passive parry readiness + form can read real line despite **`guard_zone`** still on telegraph
-## (**`FEINT_GUARD_ZONE_READTHROUGH_THRESHOLD`** - -  **`CombatWeaponForm.mod(form_str, "feint_readthrough")`**).
+## (**`FEINT_GUARD_ZONE_READTHROUGH_THRESHOLD`** ×  **`CombatWeaponForm.mod(form_str, "feint_readthrough")`**).
 ## **`AttackPathResolver`** **`randf`**  -  scan a bait seed for telegraph mismatch, then **`seed(bait_seed)`** before
 ## each **`_guard_zone_modifier`** so **`expected_part`** matches across cases.
 static func _run_feint_guard_zone_readthrough_par_bonus_when_readiness_high(failures: PackedStringArray) -> void:
@@ -563,12 +563,12 @@ static func _run_feint_guard_zone_readthrough_par_bonus_when_readiness_high(fail
 
 ## Tier 4.2: **`defender_distance_to` LONG** scales **`parry_readiness_for_feint`** before
 ## **`_feint_guard_reads_real_line`** in **`_guard_zone_modifier`** (**`FEINT_GUARD_ZONE_READINESS_SPACING_MULT_*`**);
-## same base readiness at **MID** stays sub-threshold, **LONG** crosses (**defensive** - -  WF feint read-through).
+## same base readiness at **MID** stays sub-threshold, **LONG** crosses (**defensive** ×  WF feint read-through).
 
 
 ## Tier 4.2: **`defender_distance_to` LONG** scales **`parry_readiness_for_feint`** before
 ## **`_feint_guard_reads_real_line`** in **`_guard_zone_modifier`** (**`FEINT_GUARD_ZONE_READINESS_SPACING_MULT_*`**);
-## same base readiness at **MID** stays sub-threshold, **LONG** crosses (**defensive** - -  WF feint read-through).
+## same base readiness at **MID** stays sub-threshold, **LONG** crosses (**defensive** ×  WF feint read-through).
 static func _run_feint_guard_zone_readthrough_spacing_long_boosts_vs_mid(failures: PackedStringArray) -> void:
     var parts: Array = ["head", "chest", "left_arm", "right_arm", "left_leg", "right_leg"]
     var pa_feint: Dictionary = {
@@ -620,12 +620,12 @@ static func _run_feint_guard_zone_readthrough_spacing_long_boosts_vs_mid(failure
 
 ## Tier 4.2: **`defender_distance_to` CLOSE** scales **`parry_readiness_for_feint`** down before
 ## **`_feint_guard_reads_real_line`**; same base readiness at **MID** clears the gate, **CLOSE** falls below
-## (**defensive** - -  WF feint read-through).
+## (**defensive** ×  WF feint read-through).
 
 
 ## Tier 4.2: **`defender_distance_to` CLOSE** scales **`parry_readiness_for_feint`** down before
 ## **`_feint_guard_reads_real_line`**; same base readiness at **MID** clears the gate, **CLOSE** falls below
-## (**defensive** - -  WF feint read-through).
+## (**defensive** ×  WF feint read-through).
 static func _run_feint_guard_zone_readthrough_spacing_close_dampens_vs_mid(failures: PackedStringArray) -> void:
     var parts: Array = ["head", "chest", "left_arm", "right_arm", "left_leg", "right_leg"]
     var pa_feint: Dictionary = {
@@ -901,13 +901,13 @@ static func _run_feint_move_listing_reveal_progress_dampens_early_wind_up(failur
 
 
 ## Tier 4.2: **`DefenseChoiceResolver.choose_defense`**  -  when **`feint_part`** is set and defender does not read
-## through (**`guard` - -  stance `feint_readthrough` < `FEINT_GUARD_ZONE_READTHROUGH_THRESHOLD`**),
+## through (**`guard` ×  stance `feint_readthrough` < `FEINT_GUARD_ZONE_READTHROUGH_THRESHOLD`**),
 ## **`dodge_eval_part`** can follow the telegraph; harness sets
 ## **`pa[CombatConstants.PA_KEY_HARNESS_FEINT_DODGE_EVAL_BIAS]`** to **1.0** for a deterministic assert.
 
 
 ## Tier 4.2: **`DefenseChoiceResolver.choose_defense`**  -  when **`feint_part`** is set and defender does not read
-## through (**`guard` - -  stance `feint_readthrough` < `FEINT_GUARD_ZONE_READTHROUGH_THRESHOLD`**),
+## through (**`guard` ×  stance `feint_readthrough` < `FEINT_GUARD_ZONE_READTHROUGH_THRESHOLD`**),
 ## **`dodge_eval_part`** can follow the telegraph; harness sets
 ## **`pa[CombatConstants.PA_KEY_HARNESS_FEINT_DODGE_EVAL_BIAS]`** to **1.0** for a deterministic assert.
 static func _run_feint_telegraph_biases_dodge_eval_part_when_not_readthrough(failures: PackedStringArray) -> void:
@@ -957,7 +957,7 @@ static func _run_feint_telegraph_biases_dodge_eval_part_when_not_readthrough(fai
 
 ## Tier 4.2 footwork: **`feint_guard_zone_readiness_spacing_mult`** on **`pr_rt`** for
 ## **`_feint_guard_reads_real_line`** in **`_apply_feint_telegraph_bias_to_dodge_eval_part`**  -  defensive **`guard`**
-## - -  WF feint read-through fails at **MID** (**`DISTANCE_MID`**) but clears at **LONG**
+## ×  WF feint read-through fails at **MID** (**`DISTANCE_MID`**) but clears at **LONG**
 ## (**`FEINT_GUARD_ZONE_READINESS_SPACING_MULT_LONG`**). Same global **`seed(s)`** before each **`choose_defense`**:
 ## **LONG** keeps the initial **`BodyPartConstants.get_weighted_random_part`** draw (scan for **>= ** **`left_leg`**);
 ## **MID** with harness bias **1.0** always telegraphs **`dodge_eval_part`** to **`feint_part`**.

@@ -1,4 +1,4 @@
-﻿class_name KinematicDeliveryStrikeMultTests
+class_name KinematicDeliveryStrikeMultTests
 extends CombatRegressionHarnessCore
 
 

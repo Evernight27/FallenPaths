@@ -461,10 +461,10 @@ static func _run_p4d_parry_bind_doc_code_parity_suite(failures: PackedStringArra
         _fail(failures, "p4d_sync: calibration audit must echo III-3 threshold pair")
 
 
-## Tier 4.5: open bind-exchange window -> wind-up vs partner - -  **`FLURRY_BIND_WIND_UP_MULT`** (feature on).
+## Tier 4.5: open bind-exchange window -> wind-up vs partner ×  **`FLURRY_BIND_WIND_UP_MULT`** (feature on).
 
 
-## Tier 4.5: open bind-exchange window -> wind-up vs partner - -  **`FLURRY_BIND_WIND_UP_MULT`** (feature on).
+## Tier 4.5: open bind-exchange window -> wind-up vs partner ×  **`FLURRY_BIND_WIND_UP_MULT`** (feature on).
 static func _run_flurry_bind_exchange_wind_up_reduced_vs_plain(failures: PackedStringArray) -> void:
     var saved: bool = CombatConstants.is_feature_flurry_bind_exchange_enabled()
     CombatConstants.set_feature_flurry_bind_exchange_load(true)
@@ -851,10 +851,10 @@ static func _run_parry_opposite_deflect_thresholds(failures: PackedStringArray) 
     seed(_HARNESS_RESTORE_GLOBAL_SEED)
 
 
-## Tier 3.2: defender weapon type - -  attack contact modifiers apply through Weapon object fields.
+## Tier 3.2: defender weapon type ×  attack contact modifiers apply through Weapon object fields.
 
 
-## Tier 3.2: defender weapon type - -  attack contact modifiers apply through Weapon object fields.
+## Tier 3.2: defender weapon type ×  attack contact modifiers apply through Weapon object fields.
 static func _run_parry_defender_vs_attack_modifiers(failures: PackedStringArray) -> void:
     var mgr: Node = MgrScript.new()
     mgr.register(_new_entity("DAGGER"), "player")

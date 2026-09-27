@@ -10,7 +10,7 @@ extends RefCounted
 const ABS_VELOCITY_MIN_M_S := 2.0
 const ABS_VELOCITY_MAX_M_S := 30.0
 
-## Unarmed strike band (m/s): trained hand peak speeds often ~6 - 9 m/s; band allows fatigue/weak shots.
+## Unarmed strike band (m/s): trained hand peak speeds often ~6–9 m/s; band allows fatigue/weak shots.
 const UNARMED_VELOCITY_MIN_M_S := 4.5
 const UNARMED_VELOCITY_MAX_M_S := 10.0
 

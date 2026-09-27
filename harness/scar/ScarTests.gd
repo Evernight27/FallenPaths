@@ -167,7 +167,7 @@ static func _run_stash_and_clear_resolved_wounds(failures: PackedStringArray) ->
 
 
 ## The health-system clock must survive save/load: without it, every saved wound's age
-## collapses (age = clock - created_at) and it heals as freshly made.
+## collapses (age = clock—created_at) and it heals as freshly made.
 static func _run_health_clock_round_trip(failures: PackedStringArray) -> void:
 	var ent: Node = _new_entity("SWORD")
 	# A wound aged 2400s of a 3600s healing duration (created at 1200, clock at 3600).
@@ -604,7 +604,7 @@ static func _run_dead_member_mints_nothing(failures: PackedStringArray) -> void:
 
 
 ## The scar/affliction line suffix renders a real SIGNED delta, not a terse remaining-value
-## ("Stamina - - 85%" misreads as an 85% loss): 0.88 -> "Stamina -12%", 1.05 pain -> "Pain +5%",
+## ("Stamina × 85%" misreads as an 85% loss): 0.88 -> "Stamina -12%", 1.05 pain -> "Pain +5%",
 ## neutral multipliers emit no fragment.
 static func _run_scar_line_effect_suffix_signed(failures: PackedStringArray) -> void:
 	var ribs: Dictionary = CampaignAfflictions._affliction_def(CampaignAfflictions.AFFLICTION_CRACKED_RIBS, "chest")

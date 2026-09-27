@@ -74,7 +74,7 @@ const MEDICAL_ACTION_LABELS_ALLY := {
     CombatConstants.MOVE_ID_APPLY_DIRECT_PRESSURE: "Direct pressure",
 }
 
-# Formation actions (player turn-ready log + gauge hints  -  Phase 2 **II-5a**)
+# Formation actions (player turn-ready log + gauge hints — Phase 2 **II-5a**)
 const FORMATION_ACTION_LABELS := {
     CombatConstants.MOVE_ID_REGAIN_FOOTING: "Regain footing",
     CombatConstants.MOVE_ID_SWAP_RANK: "Swap rank",

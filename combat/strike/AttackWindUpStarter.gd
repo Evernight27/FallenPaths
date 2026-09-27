@@ -2,7 +2,7 @@ class_name AttackWindUpStarter
 extends RefCounted
 
 ## Starts attack wind-up: stamps **`pending_attack`**, telegraph, duration.
-## Footing (strike path): **`CombatWeaponForm.wind_up_transition_mult`** (form - -  guard - -  attack line)  -  not PA
+## Footing (strike path): **`CombatWeaponForm.wind_up_transition_mult`** (form × guard × attack line) — not PA
 ## step . **`CombatFootwork.apply_attack_step_on_windup(attack_line, target_id, manager)`** when flag on. LIVE_PATHS
 ## **`#wf-tier-44-pa`** . **`#wf-pick-vs-strike`**.
 
@@ -149,7 +149,7 @@ static func start(
 		weapon
 	)
 	wind_up_s *= trans_mult
-	# Bind riposte: parry_part - -  contact_type. Extend=fast, wind=moderate, swing=slow.
+	# Bind riposte: parry_part × contact_type. Extend=fast, wind=moderate, swing=slow.
 	if weapon != null and atk_d.get(DataKeys.PA_PARRY_WAS_BIND, false) and atk_d.get(DataKeys.PA_PARRY_AGAINST_ID, -1) == target_id:
 		var contact_type: String = CombatantEntityAccess.weapon_contact_type(weapon, attack_type, "")
 		var eligible: Array = (
@@ -237,7 +237,7 @@ static func start(
 	atk_d.state = CombatConstants.STATE_WIND_UP
 	atk_d.state_timer = 0.0
 	atk_d.state_duration = wind_up_s
-	# arc_intended_deg: intended target angle (no variance)  -  lets systems query blade position during wind-up.
+	# arc_intended_deg: intended target angle (no variance) — lets systems query blade position during wind-up.
 	var arc_intended_deg: float = align_ctx[DataKeys.ALIGNMENT_ATTACK_ANGLE_DEG]
 	var pa: Dictionary = {
 		"target_id": target_id,

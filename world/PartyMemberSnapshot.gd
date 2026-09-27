@@ -2,7 +2,7 @@ class_name PartyMemberSnapshot
 extends RefCounted
 
 ## Builds party member display dicts from nodes. Reduces duplication between PartyManager.add_member
-## and get_members. Single source for entity|'display snapshot logic.
+## and get_members. Single source for entity→display snapshot logic.
 ## Uses CombatantStatsSync for base stats (single source of truth with combat registration).
 
 

@@ -1022,7 +1022,7 @@ static func _ke_sample_is_light_swing(sample: Variant) -> bool:
 ##
 ## When drift > 0 the line appends `[blocked=N aim-error=M]`:
 ##   blocked   - aimed part was outside the intercept segment (guard/first-contact in the way)
-##   aim-error - aimed part was in-segment but the weighted pick chose a different part
+##   aim-error—aimed part was in-segment but the weighted pick chose a different part
 ##
 ## aim-error is further bucketed by alignment tier (same thresholds as
 ## DefenseChoiceResolver: aligned >= PARRY_PARTIAL_GUARD_ALIGNMENT_THRESHOLD,

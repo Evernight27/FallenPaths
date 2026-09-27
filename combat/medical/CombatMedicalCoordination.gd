@@ -31,7 +31,7 @@ static func get_parts_being_treated_on(manager: Node, combatant_id: int) -> Arra
     return out
 
 
-## Another medic--'"'s in-flight wind-up on **`target_id`** + **`part`** (excludes **`exclude_performer_id`**).
+## Another medic's in-flight wind-up on **`target_id`** + **`part`** (excludes **`exclude_performer_id`**).
 static func get_active_windup_treatment_by_other(
     manager: Node, exclude_performer_id: int, target_id: int, part: String
 ) -> Dictionary:

@@ -179,7 +179,7 @@ static func _run_medical_mobility_cowering_lists_fall_back_in_formation_mode(fai
         mgr.register(HarnessFixtures._new_entity("SWORD"), "player")
     for _j in 4:
         mgr.register(HarnessFixtures._new_entity("SWORD"), "enemy")
-    # Six players on 2- - 3  -  kill rank-2 file-0 before rank-1 file-0; need >=4 actives after kills for formation
+    # Six players on 2× 3  -  kill rank-2 file-0 before rank-1 file-0; need >=4 actives after kills for formation
     # hysteresis.
     (
         mgr

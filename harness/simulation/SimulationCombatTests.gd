@@ -1,6 +1,6 @@
 class_name SimulationCombatTests
 extends CombatRegressionHarnessCore
-## Simulation realism track (S1 - S10): `_run_sim_*`  -  docs/LIVE_PATHS.md#harness-prefixes.
+## Simulation realism track (S1—S10): `_run_sim_*`  -  docs/LIVE_PATHS.md#harness-prefixes.
 
 const HumanSpecies := preload("res://resources/species/human.tres")
 const GoblinSpecies := preload("res://resources/species/goblin.tres")
@@ -575,7 +575,7 @@ static func _run_sim_joule_armor_cuirass_absorbs_more_than_gambeson(failures: Pa
         )
 
 
-## S10: joule-authoritative path matches ke_frac - -  pre (no second scalar ArmorPiece pass).
+## S10: joule-authoritative path matches ke_frac ×  pre (no second scalar ArmorPiece pass).
 static func _run_sim_joule_armor_authoritative_ke_frac(failures: PackedStringArray) -> void:
     var ent: CoreEntity = SimulationCombatTests._sim_entity()
     ent.species = HumanSpecies
@@ -1195,7 +1195,7 @@ static func _run_sim_blood_consc_rate_endurance_aware(failures: PackedStringArra
 
 ## S9: overall damage ratio tracks real tissue loss (body_cutting/body_blunt store REMAINING health).
 ## Guards the concussion-severity path: a healthy entity must read ~0% damaged, a destroyed one ~100%.
-## Regression: the old formula (max - remaining - remaining) inverted this, reporting healthy = 100% damaged.
+## Regression: the old formula (max—remaining—remaining) inverted this, reporting healthy = 100% damaged.
 static func _run_sim_overall_damage_ratio_tracks_tissue(failures: PackedStringArray) -> void:
     var healthy: CoreEntity = SimulationCombatTests._entity_for_species(HumanSpecies)
     var healthy_ratio: float = EntityPainConsciousness._get_entity_overall_damage_ratio(healthy)

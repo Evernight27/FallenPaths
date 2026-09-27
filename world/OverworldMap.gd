@@ -6,7 +6,7 @@ extends RefCounted
 
 const TILE_SIZE := 64
 const TILE_HALF := 32
-## EA was 3- - 3; expansion default 5- - 5 walkable grid.
+## EA was 3×3; expansion default 5×5 walkable grid.
 const MAP_TILES := 5
 
 const WORLD_META_MAP_TILES := "overworld_map_tiles"
@@ -62,4 +62,4 @@ static func random_tile(rng: RandomNumberGenerator, world: Node = null) -> Vecto
 
 static func format_map_label(world: Node = null) -> String:
     var n: int = map_tiles_for_world(world)
-    return "%d- - %d" % [n, n]
+    return "%d×%d" % [n, n]

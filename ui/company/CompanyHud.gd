@@ -1,6 +1,6 @@
 class_name CompanyHud
 extends PanelContainer
-## Overworld company resource strip (Camp-1.1 HUD '. Camp-1.2 wage hint). Parent: tree root **`UIOverlayLayer`**.
+## Overworld company resource strip (Camp-1.1 HUD · Camp-1.2 wage hint). Parent: tree root **`UIOverlayLayer`**.
 
 # Runtime preload ' circular dependency (CompanyState preloads CompanyHud).
 static var _company_state_cache: Variant = null

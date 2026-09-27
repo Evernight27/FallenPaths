@@ -1,4 +1,4 @@
-﻿# Pain Impact on Performance and Cognition: Research-Backed Data for Game Implementation
+# Pain Impact on Performance and Cognition: Research-Backed Data for Game Implementation
 
 **Compiled for:** Fallen Paths tactical combat game  
 **Purpose:** Game constants - precise numerical values derived from clinical pain research, sports medicine literature, military trauma data, and cognitive psychology studies.

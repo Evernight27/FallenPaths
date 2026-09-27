@@ -13,7 +13,7 @@ static func _get_company_state() -> GDScript:
 
 ## Syncs entity health/combat stats into a combatant stats dictionary.
 ## Used by CombatManager for _refresh_combatant_stats and get_combatants.
-## Ensures single source of truth for entity--''stats copy logic.
+## Ensures single source of truth for entity→stats copy logic.
 
 
 ## Copies core body/stats fields from entity to stats dict. Shared by sync_from_entity and
@@ -87,7 +87,7 @@ static func sync_from_entity(entity: Node, stats: Dictionary, ensure_consciousne
         stats.concussed = entity.is_concussed()
 
 
-## Returns initial stats dict for combatant registration. Single source of truth for entity--''stats copy.
+## Returns initial stats dict for combatant registration. Single source of truth for entity→stats copy.
 ## Entity can be null; returns defaults. Handles CoreEntity-style and nodes with "speed" instead of "agility".
 static func sync_from_entity_for_register(entity: Node) -> Dictionary:
     var s := {

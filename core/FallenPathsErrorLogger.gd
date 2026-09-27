@@ -2,7 +2,7 @@ class_name FallenPathsErrorLogger
 extends Logger
 
 ## Mirrors Godot script/runtime/shader errors to **`FP_ERROR`** during editor play (grep with `SCRIPT_ERROR`).
-## Skips Godot warnings and operational **`FP_WARN`** lines  -  those stay on stdout only.
+## Skips Godot warnings and operational **`FP_WARN`** lines — those stay on stdout only.
 ## Registered from **`OperationalLog.begin_play_session`**; do not **`print`** / **`push_error`** here (recursion).
 
 # Runtime preload ' circular dependency (OperationalLog preloads FallenPathsErrorLogger).

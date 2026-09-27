@@ -150,7 +150,7 @@ static func _button_label_for_reason(reason: String) -> String:
             return "Restart company"
 
 
-## F5 f''s'Sec8 step 8: paid/bankrupt loss reloads main; tutorial + soft defeat preserve camp.
+## F5 §Sec8 step 8: paid/bankrupt loss reloads main; tutorial + soft defeat preserve camp.
 static func run_end_logs_reload(reason: String) -> bool:
     return not _uses_soft_resume(reason)
 

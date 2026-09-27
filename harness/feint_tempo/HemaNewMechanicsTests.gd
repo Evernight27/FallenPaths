@@ -346,7 +346,7 @@ static func run_open_line_duration_scales_with_commitment(failures: PackedString
 
 
 ## open_line_openness decays over the stamped window with an ease-out recovery curve
-## (openness = (1 - t)^EASE): no live window -> 0.0, an expired window -> 0.0, a freshly opened
+## (openness = (1—t)^EASE): no live window -> 0.0, an expired window -> 0.0, a freshly opened
 ## window -> near 1.0, and the decay is faster early than late (the defender re-covers the acute
 ## off-line quickly, leaving only the fine blade re-coverage to linger). Pins the time-decay model
 ## (monotonic, no guard-position dependence) and the eased shape specifically.

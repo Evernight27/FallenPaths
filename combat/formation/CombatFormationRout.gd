@@ -3,7 +3,7 @@ extends RefCounted
 
 ## Rout / abandon-field policy: ties **`flee`** to formation **`line_cohesion`** (morale, fill, lane stress) and side
 ## **casualty ratio**.
-## **Read order:** standing baseline --'' stress/casualty queries --'' `abandonment_warranted` --'' AI/tooltip helpers.
+## **Read order:** standing baseline → stress/casualty queries → `abandonment_warranted` → AI/tooltip helpers.
 const FORMATION_FLEE_LEADER_BLOOD_MIN := 27.5
 const PERSONAL_CRISIS_COHESION_MULT: float = 0.55
 const LEADER_COHESION_EXEMPTION_MULT: float = 1.5

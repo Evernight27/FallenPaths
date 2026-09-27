@@ -1,4 +1,4 @@
-﻿# Fast Phase 0: quick validation before committing (no full soak / calibration).
+# Fast Phase 0: quick validation before committing (no full soak / calibration).
 
 #   .\tools\ci\run_fast_phase0.ps1          # regression + company state (~2-4 min)
 

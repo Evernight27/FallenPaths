@@ -2,7 +2,7 @@ class_name D001RunnerHelpers
 extends RefCounted
 
 ## Headless **D-001** preset fights: simulates F5 cyan soaks, captures **`FP_COMBAT`**, parses runbook grep targets.
-## Mandatory **II-2b / II-5a - c** sign-off is headless-only via plausibility + **`BattleUIUpdater`** probes (see
+## Mandatory **II-2b / II-5a—c** sign-off is headless-only via plausibility + **`BattleUIUpdater`** probes (see
 ## **`.d001_headless_signoff.txt`**).
 ## **ii5c** (`_run_ii5c_gauge_label_checks`): **`Stm`/`Ready`/`Exh`/`Grd`** + WF gauge/diagram suffix order (incl.
 ## **`form_wrath_*`**)  -  LIVE_PATHS **`#wf-soak-audit-status`** . **`#battle-ui`**.

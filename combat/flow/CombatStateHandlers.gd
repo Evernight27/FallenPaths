@@ -2,7 +2,7 @@ class_name CombatStateHandlers
 extends RefCounted
 
 ## Per-state handlers for CombatManager _process loop.
-## Footing: parry/deflect --'??'' **`GuardLineUpdater.set_guard_deflected`** '. recovery --'??''
+## Footing: parry/deflect → **`GuardLineUpdater.set_guard_deflected`**. recovery →
 ## **`set_guard_from_move`** '. **`CombatFootwork.clear_on_exchange_end`** '. idle **`reconcile_idle_offset`** on tick
 ## paths '. **`return_to_waiting`** / **`return_to_cowering`** on state transitions. LIVE_PATHS **`#wf-guard-writers`**
 ## '. **`#wf-tier-44-pa`**.

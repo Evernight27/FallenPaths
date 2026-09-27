@@ -1346,7 +1346,7 @@ static func _run_parry_decision_named_constants(failures: PackedStringArray) -> 
                 % CombatConstants.TWIST_DODGE_PARRY_QUALITY_SLOPE
             )
         )
-    # Quality floor must be in (0, 1) and consistent with slope: floor = 1 - slope.
+    # Quality floor must be in (0, 1) and consistent with slope: floor = 1—slope.
     var expected_floor: float = 1.0 - CombatConstants.TWIST_DODGE_PARRY_QUALITY_SLOPE
     if not is_equal_approx(
         CombatConstants.TWIST_DODGE_PARRY_QUALITY_FLOOR, expected_floor

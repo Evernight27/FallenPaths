@@ -2,7 +2,7 @@ class_name WeaponConstants
 extends RefCounted
 
 ## Per-weapon move defs + Expand WF spawn keys: **`default_form`** / **`allowed_forms[]`** feed
-## **`CombatWeaponForm.seed_combatant_form`** (resolution step 4). LIVE_PATHS **`#spawn--reset-path-wf-1a`** ??
+## **`CombatWeaponForm.seed_combatant_form`** (resolution step 4). LIVE_PATHS **`#spawn→reset-path-wf-1a`**
 ## **`#wf-assign-form-contract`**.
 
 # Damage types (also in CombatConstants; defined here to avoid circular preload)
@@ -346,7 +346,7 @@ static func get_blunt_coupling_reference_cm() -> float:
 	return max_hd if max_hd > 0.0 else 6.0
 
 
-## Weapon template id (`SWORD`, `AXE`, ï¿½) from equipped weapon node/dict.
+## Weapon template id (`SWORD`, `AXE`, `MACE`) from equipped weapon node/dict.
 static func weapon_type_id(weapon: Variant) -> String:
 	return WeaponTemplateDefinitions._weapon_template_id(weapon)
 

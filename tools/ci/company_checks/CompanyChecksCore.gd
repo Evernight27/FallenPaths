@@ -1,4 +1,4 @@
-﻿class_name CompanyChecksCore
+class_name CompanyChecksCore
 extends RefCounted
 
 ## Shared fixtures for headless company-state harness modules under tools/ci/company_checks/.

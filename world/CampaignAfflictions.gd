@@ -27,14 +27,14 @@ const SCAR_AMPUTATED_LIMB := "amputated_limb"
 
 ## Post-victory affliction trigger probabilities (tier roll). P_PERIL / P_DANGER / P_BONE_CRIPPLE /
 ## P_CAP and the max-one-per-fight structure are TIED to the guide's medieval-alignment table
-## (CAMPAIGN_DECISION_GUIDE.md#affliction-rng-medieval-alignment): peril 30% Â· danger 12% Â· bone
-## cripple 45% Â· max one per fight. P_STRUCK_DOWN and P_ARTERIAL_FAIL carry a clinical anchor:
-##   - P_STRUCK_DOWN 0.33 â‰ˆ the ~35% prolonged-symptom figure for concussion/mTBI (pro boxer survey:
+## (CAMPAIGN_DECISION_GUIDE.md#affliction-rng-medieval-alignment): peril 30% · danger 12% · bone
+## cripple 45% · max one per fight. P_STRUCK_DOWN and P_ARTERIAL_FAIL carry a clinical anchor:
+##   - P_STRUCK_DOWN 0.33 ≈ the ~35% prolonged-symptom figure for concussion/mTBI (pro boxer survey:
 ##     persistent symptoms days-weeks after a KO; RESEARCH_concussion_mTBI_combat.md + PMC3003467).
-##   - P_ARTERIAL_FAIL 0.55 â‰ˆ residual loss from a major extremity arterial injury, which even WITH
+##   - P_ARTERIAL_FAIL 0.55 ≈ residual loss from a major extremity arterial injury, which even WITH
 ##     modern revascularization carries 10-46% limb loss / lifelong ischemia (popliteal-artery series:
 ##     amputation 14.5-46%; NTDB lower-extremity arterial complications ~19%). With no vascular repair
-##     (medieval field surgery ligates at best), a survivor's disablement is strictly more likely â€”
+##     (medieval field surgery ligates at best), a survivor's disablement is strictly more likely —
 ##     0.55 is the tuned upper band. P_COLLAPSED_LUNG_SPLIT 0.35 is a tuned flavor split (which chronic
 ##     chest presentation the near-death danger tier lands on), not a clinical ratio; the guide cites it.
 const P_PERIL := 0.30
@@ -112,8 +112,8 @@ static func mint_from_resolved_wounds(world: Node2D, rng: RandomNumberGenerator)
 
 
 ## Mint scars for one entity from its resolved-wound stash (resolved_wounds_this_advance).
-## Deterministic rules (plan Â§2.3); the whole-body post-sepsis weakness is added if the member is
-## (or was) septic. Clears the stash at the end. `world` may be null (harness) â€” the mood
+## Deterministic rules (plan §2.3); the whole-body post-sepsis weakness is added if the member is
+## (or was) septic. Clears the stash at the end. `world` may be null (harness) — the mood
 ## adjustment is then skipped.
 static func _mint_scars_for_entity(entity: Node, name_s: String, world: Node, _rng: RandomNumberGenerator) -> PackedStringArray:
 	var lines: PackedStringArray = PackedStringArray()
@@ -135,7 +135,7 @@ static func _mint_scars_for_entity(entity: Node, name_s: String, world: Node, _r
 		var had_ischemia: bool = bool(desc.get("had_ischemia", false))
 		# A severed limb's chronic state is the amputated_limb scar (minted after this loop); a wound
 		# resolving on a severed part (e.g. the amputation stump healing over) must not also mint a
-		# per-wound remodeling scar â€” it would double-label ("Scarred left leg" + "Amputated left leg")
+		# per-wound remodeling scar — it would double-label ("Scarred left leg" + "Amputated left leg")
 		# and double-penalize a part that no longer bears weapon damage.
 		if BodyPartQuery.is_part_severed(entity, part):
 			continue
@@ -203,7 +203,7 @@ static func _mint_amputation_scar_for_entity(entity: Node, name_s: String, world
 			continue
 		# The amputation supersedes the limb's prior injuries: a severed part's old per-part scars
 		# (e.g. "Scarred left leg") and bone afflictions (e.g. "Limping left_leg") describe a limb
-		# that no longer exists â€” their multipliers are moot (the severed part reads ~0) and their
+		# that no longer exists — their multipliers are moot (the severed part reads ~0) and their
 		# labels would double-list beside "Amputated {part}". Prune same-part entries every call so
 		# old saved double-labels are cleaned too; sole whole-body afflictions (part "") are untouched.
 		var i: int = entity.campaign_afflictions.size() - 1
@@ -235,10 +235,10 @@ static func _mint_one(entity: Node, def: Dictionary, name_s: String, world: Node
 			_get_company_state().adjust_member_mood(world, name_s, -1.35)
 
 
-## Wound-derived scar catalog (plan Â§2.2). Each carries a part ("" = whole-body) plus the
+## Wound-derived scar catalog (plan §2.2). Each carries a part ("" = whole-body) plus the
 ## universal per-scar effect multipliers (stamina/pain/damage/bleed/heal) AND the part-specific
-## penalties (plan Â§9.5): a scarred limb carries a *location*-specific penalty on top of the
-## universal floor â€” a malunited/scarred leg drives slower (move_speed), a malunited/contracted
+## penalties (plan §9.5): a scarred limb carries a *location*-specific penalty on top of the
+## universal floor — a malunited/scarred leg drives slower (move_speed), a malunited/contracted
 ## arm grips weaker (grip), a scarred head reads slower (perception), a scarred thorax limits
 ## sustained output (stamina_pool). Part-specific keys are only present when != 1.0.
 static func _scar_def(id: String, part: String) -> Dictionary:
@@ -285,11 +285,11 @@ static func _scar_def(id: String, part: String) -> Dictionary:
 		"bleed_mult": b,
 		"heal_mult": h,
 		# Source marker for Core's _add_campaign_affliction: only wound-derived scars id+part-deepen
-		# (plan Â§9.6). The post-victory tier-RNG afflictions share this array but must keep plain
+		# (plan §9.6). The post-victory tier-RNG afflictions share this array but must keep plain
 		# id-dedup, so they never set this flag.
 		"is_wound_scar": true,
 	}
-	# Part-specific penalties (Â§9.5), keyed by (scar id, part category). Research anchors:
+	# Part-specific penalties (§9.5), keyed by (scar id, part category). Research anchors:
 	# malunion "trouble placing weight" (Wikipedia:Malunion); Volkmann's hand/forearm flexion
 	# contracture (Wikipedia:Volkmann's contracture); scar loss of elasticity (Wikipedia:Scar);
 	# a scarred thorax limits sustained cardiopulmonary output.
@@ -424,14 +424,14 @@ static func _bone_affliction_id(part: String) -> String:
 
 
 ## Tier-RNG affliction effects (XCamp-3.4 catalog). These stamina/pain multipliers are TUNED design
-## values (no direct clinical coefficient â€” chronic pain and effort costs are game-scaled), set to the
+## values (no direct clinical coefficient — chronic pain and effort costs are game-scaled), set to the
 ## 5-10% band so the post-victory affliction reads as a lingering hardship rather than a second wound:
 ## stamina 0.85-0.94 / pain 1.04-1.08. Bone-affliction entries carry their `part` AND a modest sited
 ## penalty (move_speed / grip / stamina_pool, 0.95) that the shared scar reader applies: the bone is
-## crippled, so the named functional cost is real â€” a limp slows gait, a shaky grip weakens grip, a
+## crippled, so the named functional cost is real — a limp slows gait, a shaky grip weakens grip, a
 ## cracked rib limits sustained output. (RNG bone afflictions stay plain id+part dedup in Core: these
 ## keys are penalties, not wound-scar deepen sources.) The wound-derived scar catalog (_scar_def) is the
-## anchored sibling â€” its multipliers trace to plan Â§2.2.
+## anchored sibling — its multipliers trace to plan §2.2.
 static func _affliction_def(id: String, bone_part: String) -> Dictionary:
 	match id:
 		AFFLICTION_OLD_WOUND_ACHE:

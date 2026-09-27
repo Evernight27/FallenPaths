@@ -253,7 +253,7 @@ static func member_needs_triage_attention(member: Dictionary) -> bool:
     return member.get("has_untreated_wounds", false)
 
 
-## Lower = more urgent (undressed clot = Ã¢Ë'1; active bleed = ETA seconds to danger band).
+## Lower = more urgent (undressed clot = −1; active bleed = ETA seconds to danger band).
 static func member_triage_priority(member: Dictionary) -> float:
     if not member_needs_triage_attention(member):
         return INF

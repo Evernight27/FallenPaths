@@ -1,7 +1,7 @@
 class_name CombatGuardLines
 extends RefCounted
 
-## HEMA Method C: eight diagonal guard/attack lines (45f''deg sectors).
+## HEMA Method C: eight diagonal guard/attack lines (45f→deg sectors).
 ## Cardinals remain valid; **`normalize_line`** maps four-line guard ids into eight-line octants.
 ## Footing: UI via **`display_short_for_line`**; octant PA step table via **`position_angle_offset_deg_for_line`** when
 ## eight-guard flag on — LIVE_PATHS **`#wf-form-guard-pa-matrix`** . hub **`#wf-tier-44-pa`**.
@@ -37,7 +37,7 @@ const LINE_TO_ANGLE_DEG: Dictionary = {
     LINE_HIGH_LEFT: 315.0,
 }
 
-## Four-line cardinal labels --'' ' primary octant (path tables keyed by cardinal).
+## Four-line cardinal labels → primary octant (path tables keyed by cardinal).
 const FOUR_LINE_TO_OCTANT: Dictionary = {
     "high": LINE_HIGH,
     "right": LINE_RIGHT,
@@ -78,7 +78,7 @@ const LINE_TO_DEFAULT_PART: Dictionary = {
     LINE_HIGH_LEFT: "head",
 }
 
-## Tier 4.4 PA step offsets (f''deg) per octant — cardinals match **`CombatConstants`** 4-key table.
+## Tier 4.4 PA step offsets (f→deg) per octant — cardinals match **`CombatConstants`** 4-key table.
 ## WF-T1 (2026-06-07): diagonals bias toward dominant adjacent cardinal (Camp-5 soak; was 50/50 blend):
 ## high_right 57% right . low_right 55% right . low_left 65% left . high_left 65% left.
 const POSITION_ANGLE_OFFSET_DEG_BY_LINE: Dictionary = {
@@ -176,7 +176,7 @@ static func is_flank_diagonal_guard_line(line: String) -> bool:
     return norm in [LINE_HIGH_LEFT, LINE_LOW_LEFT, LINE_HIGH_RIGHT, LINE_LOW_RIGHT]
 
 
-## IV-4: diagonal guards use flank cardinal for **`ATTACK_PATHS_BY_GUARD`** (high_left--'' 'left, not high).
+## IV-4: diagonal guards use flank cardinal for **`ATTACK_PATHS_BY_GUARD`** (high_left→ 'left, not high).
 static func guard_cardinal_for_attack_path(line: String) -> String:
     var norm: String = normalize_line(line)
     match norm:

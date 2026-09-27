@@ -171,9 +171,9 @@ const OFF_BALANCE_MAX_WINDOW_S := 3.0
 ## with depth like the other off-balance penalties. Mild (0.75) vs the 0.70 strike/parry penalties:
 ## the bind is a static grapple, not a dynamic strike.
 const OFF_BALANCE_BIND_CONTEST_MULT := 0.75
-## --- Off-balance execute (coup de grâce) fumble (realism) ---
+## --- Off-balance execute (coup de gràce) fumble (realism) ---
 ## HEMA: a staggered fighter's center of gravity is compromised, so a committed finishing strike on a
-## downed foe is less likely to land cleanly. At full off-balance depth the coup de grâce can fumble
+## downed foe is less likely to land cleanly. At full off-balance depth the coup de gràce can fumble
 ## (turn consumed, target stays downed — you can re-attempt once settled). Fades linearly with depth
 ## via off_balance_depth so a nearly-settled fighter finishes as reliably as a settled one. Bounded
 ## well under certainty even at full depth: a wobbly fighter usually still lands on a prostrate enemy.

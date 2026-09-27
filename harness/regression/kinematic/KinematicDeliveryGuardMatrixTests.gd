@@ -753,11 +753,11 @@ static func _kin_unarmed_pre_blunt_sample(parry_r: float) -> float:
 
 
 ## Tier 5.1 (optional long-tail): unarmed **`compute_and_apply_damage`**  -  **`pre_blunt_applied`** matches
-## **`unarmed_base_pre_armor`** - -  closing - -  stamina - -  stance (no **`strike_ke_j`**).
+## **`unarmed_base_pre_armor`** ×  closing ×  stamina ×  stance (no **`strike_ke_j`**).
 
 
 ## Tier 5.1 (optional long-tail): unarmed **`compute_and_apply_damage`**  -  **`pre_blunt_applied`** matches
-## **`unarmed_base_pre_armor`** - -  closing - -  stamina - -  stance (no **`strike_ke_j`**).
+## **`unarmed_base_pre_armor`** ×  closing ×  stamina ×  stance (no **`strike_ke_j`**).
 static func _run_kinematic_delivery_unarmed_pre_blunt_matches_helper(failures: PackedStringArray) -> void:
     var m: Node = CombatManager.new()
     m.set_meta(HARNESS_META_EXPOSE_DAMAGE_KINEMATICS, true)
