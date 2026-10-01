@@ -77,6 +77,8 @@ tmp_*
 
 # opencode AI tool config
 .opencode/
+opencode.jsonc
+opencode.json
 
 # Godot 4 resource UID files — track when generated (editor / headless import).
 # Keep ignored only for locally-broken orphan UIDs if needed; prefer committing.

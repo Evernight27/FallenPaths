@@ -1,5 +1,6 @@
 {
-  "godotTools.editorPath.godot4": "e:\\Godot_v4.7-stable_win64.exe",
+  // Set "godotTools.editorPath.godot4" in settings.local.json (git-ignored) or
+  // your user settings. Hard-coding a local Godot path here breaks for everyone else.
   "[gdscript]": {
     "editor.insertSpaces": true,
     "editor.tabSize": 4,

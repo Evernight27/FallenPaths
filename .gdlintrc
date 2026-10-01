@@ -8,6 +8,20 @@
 
 max-line-length: 120
 tab-characters: 4
+
+# Structural limits raised from gdtoolkit defaults (1000 / 20) to match the
+# codebase's deliberate facade/hub design. Both are documented in
+# docs/ARCHITECTURE.md and are not open-ended: the values sit just above the
+# current worst offenders so new growth still trips the gate.
+#
+# max-file-lines — CoreEntity (1364) is the Entity* sim facade and CompanyState
+#   (1216) is the campaign state hub, both of which aggregate submodules by
+#   design. Splitting them would invert the documented ownership model.
+#   Pre-existing debt: 8 of these 11 files already exceeded 1000 at 668439f.
+# max-public-methods — same rationale; CoreEntity exposes 37, CombatManager 27.
+max-file-lines: 1400
+max-public-methods: 40
+
 excluded_directories:
   - .git
   - .godot
