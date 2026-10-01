@@ -1,9 +1,9 @@
 class_name CombatRegressionHarnessTargeting1v1Tail
 extends RefCounted
-const _CombatRegressionHarness := preload("res://harness/regression/CombatRegressionHarness.gd")
+const CombatRegressionHarness := preload("res://harness/regression/CombatRegressionHarness.gd")
 ## 1v1 targeting validation harness (soak calibration).
 ## Runs short (3-exchange) strikes per weapon and logs aim=part distributions.
-## Usage: run() from _CombatRegressionHarness.run_all() or invoke run_tuning_all() manually.
+## Usage: run() from CombatRegressionHarness.run_all() or invoke run_tuning_all() manually.
 ## Each scenario fires exactly 3 exchanges (player→enemy, enemy→player = 2 attacks each).
 
 const PROF_NOVICE := {"strength": 80, "agility": 70, "intelligence": 60, "endurance": 70, "perception": 50}

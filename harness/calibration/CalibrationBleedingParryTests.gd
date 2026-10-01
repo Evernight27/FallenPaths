@@ -5,7 +5,7 @@ extends RefCounted
 
 const HumanSpecies := preload("res://resources/species/human.tres")
 const GoblinSpecies := preload("res://resources/species/goblin.tres")
-const _CombatRegressionHarness := preload("res://harness/regression/CombatRegressionHarness.gd")
+const CombatRegressionHarness := preload("res://harness/regression/CombatRegressionHarness.gd")
 
 const REPORT_FILENAME := ".calibration_audit.txt"
 const BIND_THRESHOLD := CombatConstants.PARRY_BIND_CONTROL_THRESHOLD
@@ -881,7 +881,10 @@ static func _append_parry_formula_section(lines: PackedStringArray, failures: Pa
     else:
         lines.append(
             (
-                "formula_note=marginal_stop can still bind when alignment high (%.2f>=%.2f); brawl partials use leak path"
+                (
+                    "formula_note=marginal_stop can still bind when alignment high (%.2f>=%.2f); brawl partials use "
+                    + "leak path"
+                )
                 % [ctrl_m, BIND_THRESHOLD]
             )
         )

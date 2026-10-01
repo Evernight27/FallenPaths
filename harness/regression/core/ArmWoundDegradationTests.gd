@@ -10,9 +10,7 @@ static func _run_arm_wound_grip_sub_region_and_severity_ordering(failures: Packe
     var clean := _new_entity("SWORD")
     if not is_equal_approx(BodyPartQuery.get_arm_wound_function_mult(clean, BodyPartConstants.PART_RIGHT_ARM), 1.0):
         _fail(failures, "arm_grip: clean arm grip mult want 1.0")
-    if not is_equal_approx(
-        BodyPartQuery.get_arm_wound_function_mult(clean, BodyPartConstants.PART_CHEST), 1.0
-    ):
+    if not is_equal_approx(BodyPartQuery.get_arm_wound_function_mult(clean, BodyPartConstants.PART_CHEST), 1.0):
         _fail(failures, "arm_grip: non-arm part grip mult want 1.0")
     var mod_hand := _arm_grip_mult(BodyPartConstants.PART_RIGHT_ARM, "hand", BleedingConstants.SEVERITY_MODERATE)
     var mod_forearm := _arm_grip_mult(BodyPartConstants.PART_RIGHT_ARM, "forearm", BleedingConstants.SEVERITY_MODERATE)
@@ -29,8 +27,10 @@ static func _run_arm_wound_grip_sub_region_and_severity_ordering(failures: Packe
     if not (mod_elbow < mod_hand and mod_hand < mod_forearm and mod_forearm < mod_upper):
         _fail(
             failures,
-            "arm_grip: sub-region ordering want elbow<hand<forearm<upper_arm got %f<%f<%f<%f"
-            % [mod_elbow, mod_hand, mod_forearm, mod_upper]
+            (
+                "arm_grip: sub-region ordering want elbow<hand<forearm<upper_arm got %f<%f<%f<%f"
+                % [mod_elbow, mod_hand, mod_forearm, mod_upper]
+            )
         )
     var sev_minor := _arm_grip_mult(BodyPartConstants.PART_RIGHT_ARM, "hand", BleedingConstants.SEVERITY_MINOR)
     var sev_mod := _arm_grip_mult(BodyPartConstants.PART_RIGHT_ARM, "hand", BleedingConstants.SEVERITY_MODERATE)
@@ -41,22 +41,20 @@ static func _run_arm_wound_grip_sub_region_and_severity_ordering(failures: Packe
     if not (sev_critical < sev_severe and sev_severe < sev_mod and sev_mod < sev_minor):
         _fail(
             failures,
-            "arm_grip: severity ordering want critical<severe<moderate<minor got %f<%f<%f<%f"
-            % [sev_critical, sev_severe, sev_mod, sev_minor]
+            (
+                "arm_grip: severity ordering want critical<severe<moderate<minor got %f<%f<%f<%f"
+                % [sev_critical, sev_severe, sev_mod, sev_minor]
+            )
         )
     var stacked := _new_entity("SWORD")
     _inject_arm_wound(stacked, BodyPartConstants.PART_RIGHT_ARM, "hand", BleedingConstants.SEVERITY_MODERATE)
     _inject_arm_wound(stacked, BodyPartConstants.PART_RIGHT_ARM, "forearm", BleedingConstants.SEVERITY_MODERATE)
-    var mod_stacked := BodyPartQuery.get_arm_wound_function_mult(
-        stacked, BodyPartConstants.PART_RIGHT_ARM
-    )
+    var mod_stacked := BodyPartQuery.get_arm_wound_function_mult(stacked, BodyPartConstants.PART_RIGHT_ARM)
     if not is_equal_approx(mod_stacked, 1.0 - (1.0 + 0.85) * 0.55 * 0.45):
         _fail(failures, "arm_grip: stacked hand+forearm want ~0.5421 got %f" % mod_stacked)
     var legacy := _new_entity("SWORD")
     legacy.wounds[BodyPartConstants.PART_RIGHT_ARM] = [{"severity": BleedingConstants.SEVERITY_SEVERE}]
-    var mod_legacy := BodyPartQuery.get_arm_wound_function_mult(
-        legacy, BodyPartConstants.PART_RIGHT_ARM
-    )
+    var mod_legacy := BodyPartQuery.get_arm_wound_function_mult(legacy, BodyPartConstants.PART_RIGHT_ARM)
     if not is_equal_approx(mod_legacy, 1.0):
         _fail(failures, "arm_grip: legacy no-sub_region wound must not stack grip mult got %f" % mod_legacy)
 
@@ -77,19 +75,17 @@ static func _run_arm_wound_attack_modifier_and_parry_ease(failures: PackedString
     if not is_equal_approx(attack_ratio, grip):
         _fail(
             failures,
-            "arm_grip_attack: attack mod ratio want ~%f (grip) got %f (wounded=%.4f clean=%.4f)"
-            % [grip, attack_ratio, mod_wound, mod_clean]
+            (
+                "arm_grip_attack: attack mod ratio want ~%f (grip) got %f (wounded=%.4f clean=%.4f)"
+                % [grip, attack_ratio, mod_wound, mod_clean]
+            )
         )
     var parry_ease: float = DefenseChoiceResolver.arm_wound_parry_capacity_mult(grip)
     var want_parry: float = 1.0 - (1.0 - grip) * CombatConstants.ARM_WOUND_GRIP_PARRY_PENALTY_RATIO
     if not is_equal_approx(parry_ease, want_parry):
         _fail(failures, "arm_grip_parry: parry ease want ~%f (10/15 ratio) got %f" % [want_parry, parry_ease])
     if not (parry_ease > attack_ratio):
-        _fail(
-            failures,
-            "arm_grip_parry: parry ease (%f) must exceed attack ratio (%f)"
-            % [parry_ease, attack_ratio]
-        )
+        _fail(failures, "arm_grip_parry: parry ease (%f) must exceed attack ratio (%f)" % [parry_ease, attack_ratio])
     _free_manager(mgr)
     CombatConstants.set_feature_arm_wound_degradation_load(false)
     var mgr2: Node = _harness_start_1v1("SWORD")
@@ -102,15 +98,15 @@ static func _run_arm_wound_attack_modifier_and_parry_ease(failures: PackedString
     if not is_equal_approx(wound2, clean2):
         _fail(
             failures,
-            "arm_grip_flag_off: attack mod must not change with feature off got clean=%.4f wounded=%.4f"
-            % [clean2, wound2]
+            (
+                "arm_grip_flag_off: attack mod must not change with feature off got clean=%.4f wounded=%.4f"
+                % [clean2, wound2]
+            )
         )
     var grip_off: float = BodyPartQuery.get_arm_wound_function_mult(node2, arm2)
     if not is_equal_approx(grip_off, 1.0):
         _fail(failures, "arm_grip_flag_off: grip mult want 1.0 got %f" % grip_off)
-    if not is_equal_approx(
-        DefenseChoiceResolver.arm_wound_parry_capacity_mult(0.7525), 0.7525
-    ):
+    if not is_equal_approx(DefenseChoiceResolver.arm_wound_parry_capacity_mult(0.7525), 0.7525):
         _fail(failures, "arm_grip_flag_off: parry ease must pass through unchanged when feature off")
     CombatConstants.set_feature_arm_wound_degradation_load(saved)
     _free_manager(mgr2)
@@ -131,10 +127,7 @@ static func _run_two_handed_weapon_offhand_arm_degradation(failures: PackedStrin
     # Healthy: no two-handed penalty (offhand arm intact).
     var spear_healthy: Dictionary = EntityEquipment.attack_damage_modifier_factors(spear)
     if not is_equal_approx(spear_healthy.get("two_hand", 1.0), 1.0):
-        _fail(
-            failures,
-            "two_hand_healthy: SPEAR two_hand factor want 1.0 got %f" % spear_healthy.get("two_hand", 1.0)
-        )
+        _fail(failures, "two_hand_healthy: SPEAR two_hand factor want 1.0 got %f" % spear_healthy.get("two_hand", 1.0))
     var spear_total_healthy: float = float(spear_healthy.get("total", 0.0))
     # Destroy the supporting (offhand / left) arm -> one-handed handling of the two-handed weapon.
     _destroy_arm(spear, BodyPartConstants.PART_LEFT_ARM)
@@ -143,22 +136,24 @@ static func _run_two_handed_weapon_offhand_arm_degradation(failures: PackedStrin
     if not is_equal_approx(two_hand_crippled, EntityEquipment.TWO_HAND_ONE_ARM_FLOOR):
         _fail(
             failures,
-            "two_hand_crippled: SPEAR two_hand factor want %f (floor) got %f"
-            % [EntityEquipment.TWO_HAND_ONE_ARM_FLOOR, two_hand_crippled]
+            (
+                "two_hand_crippled: SPEAR two_hand factor want %f (floor) got %f"
+                % [EntityEquipment.TWO_HAND_ONE_ARM_FLOOR, two_hand_crippled]
+            )
         )
     var spear_total_crippled: float = float(spear_crippled.get("total", 0.0))
-    if not is_equal_approx(
-        spear_total_crippled / spear_total_healthy, EntityEquipment.TWO_HAND_ONE_ARM_FLOOR
-    ):
+    if not is_equal_approx(spear_total_crippled / spear_total_healthy, EntityEquipment.TWO_HAND_ONE_ARM_FLOOR):
         _fail(
             failures,
-            "two_hand_crippled: SPEAR total ratio want %f got %f (healthy=%.4f crippled=%.4f)"
-            % [
-                EntityEquipment.TWO_HAND_ONE_ARM_FLOOR,
-                spear_total_crippled / spear_total_healthy,
-                spear_total_healthy,
-                spear_total_crippled
-            ]
+            (
+                "two_hand_crippled: SPEAR total ratio want %f got %f (healthy=%.4f crippled=%.4f)"
+                % [
+                    EntityEquipment.TWO_HAND_ONE_ARM_FLOOR,
+                    spear_total_crippled / spear_total_healthy,
+                    spear_total_healthy,
+                    spear_total_crippled
+                ]
+            )
         )
     # One-handed weapon: destroying the offhand arm must not apply a two-handed penalty.
     _destroy_arm(sword, BodyPartConstants.PART_LEFT_ARM)
@@ -166,8 +161,7 @@ static func _run_two_handed_weapon_offhand_arm_degradation(failures: PackedStrin
     if not is_equal_approx(sword_crippled.get("two_hand", 1.0), 1.0):
         _fail(
             failures,
-            "two_hand_one_handed: SWORD two_hand factor must stay 1.0 got %f"
-            % sword_crippled.get("two_hand", 1.0)
+            "two_hand_one_handed: SWORD two_hand factor must stay 1.0 got %f" % sword_crippled.get("two_hand", 1.0)
         )
 
 
@@ -188,11 +182,15 @@ static func _arm_grip_mult(arm: String, sub_region: String, severity: String) ->
 static func _inject_arm_wound(e: Node, arm: String, sub_region: String, severity: String) -> void:
     if not e.wounds.has(arm):
         e.wounds[arm] = []
-    e.wounds[arm].append(
-        {
-            "damage": 0.0,
-            "severity": severity,
-            "sub_region": sub_region,
-            "injury_type": BleedingConstants.INJURY_TYPE_CUT,
-        }
+    (
+        e
+        . wounds[arm]
+        . append(
+            {
+                "damage": 0.0,
+                "severity": severity,
+                "sub_region": sub_region,
+                "injury_type": BleedingConstants.INJURY_TYPE_CUT,
+            }
+        )
     )

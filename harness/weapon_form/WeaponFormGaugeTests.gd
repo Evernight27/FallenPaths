@@ -5,7 +5,7 @@ extends CombatRegressionHarnessCore
 ## **`#harness-row-catalog-combatregressionharnessweaponformtailgd`** . soak open scope **`#wf-soak-audit-status`** .
 ## compose **`#battle-ui`**.
 
-const _CombatRegressionHarness := preload("res://harness/regression/CombatRegressionHarness.gd")
+const CombatRegressionHarness := preload("res://harness/regression/CombatRegressionHarness.gd")
 
 
 static func _run_weapon_form_ui_suffix(failures: PackedStringArray) -> void:
@@ -16,9 +16,7 @@ static func _run_weapon_form_ui_suffix(failures: PackedStringArray) -> void:
     c["state"] = CombatConstants.STATE_WAITING
     var gauge_suffix: String = CombatUiHints.weapon_form_gauge_suffix(c)
     if gauge_suffix != " . Form Ox":
-        _fail(
-            failures, "weapon_form_ui: gauge suffix want ' . Form Ox' got '%s'" % gauge_suffix
-        )
+        _fail(failures, "weapon_form_ui: gauge suffix want ' . Form Ox' got '%s'" % gauge_suffix)
     var diagram_suffix: String = CombatUiHints.weapon_form_diagram_suffix(c)
     if diagram_suffix != " [Ox]":
         _fail(failures, "weapon_form_ui: diagram suffix want ' [Ox]' got '%s'" % diagram_suffix)
@@ -44,9 +42,7 @@ static func _run_weapon_form_ui_suffix(failures: PackedStringArray) -> void:
         _fail(failures, "weapon_form_ui: wall gauge suffix after assign")
     var wall_tip: String = CombatUiHints.weapon_form_tooltip_line(c)
     if wall_tip != "Form: Wall (defensive)":
-        _fail(
-            failures, "weapon_form_ui: wall tooltip want defensive flavor got '%s'" % wall_tip
-        )
+        _fail(failures, "weapon_form_ui: wall tooltip want defensive flavor got '%s'" % wall_tip)
     HarnessFixtures._free_manager_restore_global_rng(mgr)
 
 
@@ -56,9 +52,7 @@ static func _run_weapon_form_ui_suffix(failures: PackedStringArray) -> void:
 ## WF-T2: soak-tuned tuning constants locked (duel / surround / counter cap).
 static func _run_weapon_form_wf_t2_thresholds_locked(failures: PackedStringArray) -> void:
     if absf(CombatConstants.WF_FORM_COUNTER_MULT_CAP - 1.15) > 0.0001:
-        _fail(
-            failures, "weapon_form_wf_t2: counter cap want 1.15 got %.4f" % CombatConstants.WF_FORM_COUNTER_MULT_CAP
-        )
+        _fail(failures, "weapon_form_wf_t2: counter cap want 1.15 got %.4f" % CombatConstants.WF_FORM_COUNTER_MULT_CAP)
     if absf(CombatConstants.WF_AUTO_SWITCH_DUEL_OFFENSE_STAMINA_PAD - 0.12) > 0.0001:
         _fail(failures, "weapon_form_wf_t2: duel offense pad")
     if absf(CombatConstants.WF_AUTO_SWITCH_DUEL_WRATH_PROMOTE_PAD - 0.15) > 0.0001:
@@ -83,9 +77,7 @@ static func _run_weapon_form_wf_t2_mod_identity_bands(failures: PackedStringArra
             var got: float = CombatWeaponForm.mod(form_id, str(effect))
             var target: float = float(want[effect])
             if absf(got - target) > 0.001:
-                _fail(
-                    failures, "weapon_form_wf_t2: %s/%s want %.3f got %.3f" % [form_id, effect, target, got]
-                )
+                _fail(failures, "weapon_form_wf_t2: %s/%s want %.3f got %.3f" % [form_id, effect, target, got])
 
 
 ## WF-T2: counter mult respects cap; fool feint vs inferred ox boosted, cut not.

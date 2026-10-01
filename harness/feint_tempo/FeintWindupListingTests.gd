@@ -1,7 +1,7 @@
 class_name FeintTempoWindupListingTests
 extends CombatRegressionHarnessCore
 
-const _CombatRegressionHarness := preload("res://harness/regression/CombatRegressionHarness.gd")
+const CombatRegressionHarness := preload("res://harness/regression/CombatRegressionHarness.gd")
 ## Tier 4.2 feint / counter-tempo / riposte / defense telegraph tests (compile split).
 ## Weapon form: **`CombatRegressionHarnessWeaponFormTail`** owns **`form_str`** / **`mod`**  -  stance alias rows here
 ## stay feint/tempo only.
@@ -98,17 +98,11 @@ static func _run_feint_windup_options_stamp_pa_and_telegraph_guard_zone(failures
     AttackWindUpStarter.start(mgr, p_id, e_id, "oberhau_feint", {"target_part": "left_leg", "feint_part": "head"})
     var pa: Dictionary = CombatantEntityAccess.nested_dictionary_read(p, "pending_attack")
     if str(pa.get("target_part", "")) != "left_leg":
-        _fail(
-            failures, "feint_windup: pending target_part want left_leg got %s" % str(pa.get("target_part", ""))
-        )
+        _fail(failures, "feint_windup: pending target_part want left_leg got %s" % str(pa.get("target_part", "")))
     if str(pa.get("feint_part", "")) != "head":
-        _fail(
-            failures, "feint_windup: pending feint_part want head got %s" % str(pa.get("feint_part", ""))
-        )
+        _fail(failures, "feint_windup: pending feint_part want head got %s" % str(pa.get("feint_part", "")))
     if str(e.get("guard_zone", "")) != "head":
-        _fail(
-            failures, "feint_windup: defender guard_zone telegraph want head got %s" % str(e.get("guard_zone", ""))
-        )
+        _fail(failures, "feint_windup: defender guard_zone telegraph want head got %s" % str(e.get("guard_zone", "")))
     if str(e.get(CombatConstants.COMBATANT_KEY_INCOMING_ATTACK_TELEGRAPH_PART, "")) != "head":
         _fail(
             failures,
@@ -121,13 +115,9 @@ static func _run_feint_windup_options_stamp_pa_and_telegraph_guard_zone(failures
         WeaponConstants.get_move("oberhau_feint").get("feint_target_reveal_at_progress", 0.0)
     )
     if reveal_expect <= 0.0:
-        _fail(
-            failures, "feint_windup: oberhau_feint should define feint_target_reveal_at_progress > 0"
-        )
+        _fail(failures, "feint_windup: oberhau_feint should define feint_target_reveal_at_progress > 0")
     if not pa.has("feint_target_reveal_at_progress"):
-        _fail(
-            failures, "feint_windup: pending_attack should stamp feint_target_reveal_at_progress"
-        )
+        _fail(failures, "feint_windup: pending_attack should stamp feint_target_reveal_at_progress")
     if not is_equal_approx(float(pa.get("feint_target_reveal_at_progress", -1.0)), reveal_expect):
         _fail(
             failures,
@@ -161,13 +151,9 @@ static func _run_feint_windup_options_stamp_pa_and_telegraph_guard_zone_thrust(f
             "feint_windup_thrust: pending attack_type want thrust_feint got %s" % str(pa.get("attack_type", ""))
         )
     if str(pa.get("target_part", "")) != "chest":
-        _fail(
-            failures, "feint_windup_thrust: pending target_part want chest got %s" % str(pa.get("target_part", ""))
-        )
+        _fail(failures, "feint_windup_thrust: pending target_part want chest got %s" % str(pa.get("target_part", "")))
     if str(pa.get("feint_part", "")) != "head":
-        _fail(
-            failures, "feint_windup_thrust: pending feint_part want head got %s" % str(pa.get("feint_part", ""))
-        )
+        _fail(failures, "feint_windup_thrust: pending feint_part want head got %s" % str(pa.get("feint_part", "")))
     if str(pa.get("move_contact_type", "")) != WeaponConstants.ATTACK_TYPE_STAB:
         _fail(
             failures, "feint_windup_thrust: move_contact_type want stab got %s" % str(pa.get("move_contact_type", ""))
@@ -188,13 +174,9 @@ static func _run_feint_windup_options_stamp_pa_and_telegraph_guard_zone_thrust(f
     var mdef: Dictionary = WeaponConstants.get_move("thrust_feint")
     var mult_expect: float = float(mdef.get("feint_windup_duration_mult", 1.0))
     if mult_expect <= 1.0:
-        _fail(
-            failures, "feint_windup_thrust: thrust_feint should define feint_windup_duration_mult > 1"
-        )
+        _fail(failures, "feint_windup_thrust: thrust_feint should define feint_windup_duration_mult > 1")
     if not pa.has("feint_windup_duration_mult"):
-        _fail(
-            failures, "feint_windup_thrust: pending_attack should stamp feint_windup_duration_mult"
-        )
+        _fail(failures, "feint_windup_thrust: pending_attack should stamp feint_windup_duration_mult")
     if not is_equal_approx(float(pa.get("feint_windup_duration_mult", 0.0)), mult_expect):
         _fail(
             failures,
@@ -205,13 +187,9 @@ static func _run_feint_windup_options_stamp_pa_and_telegraph_guard_zone_thrust(f
         )
     var reveal_expect: float = float(mdef.get("feint_target_reveal_at_progress", 0.0))
     if reveal_expect <= 0.0:
-        _fail(
-            failures, "feint_windup_thrust: thrust_feint should define feint_target_reveal_at_progress > 0"
-        )
+        _fail(failures, "feint_windup_thrust: thrust_feint should define feint_target_reveal_at_progress > 0")
     if not pa.has("feint_target_reveal_at_progress"):
-        _fail(
-            failures, "feint_windup_thrust: pending_attack should stamp feint_target_reveal_at_progress"
-        )
+        _fail(failures, "feint_windup_thrust: pending_attack should stamp feint_target_reveal_at_progress")
     if not is_equal_approx(float(pa.get("feint_target_reveal_at_progress", -1.0)), reveal_expect):
         _fail(
             failures,
@@ -237,9 +215,7 @@ static func _run_feint_windup_duration_mult_extends_state_duration_vs_oberhau(fa
     var mdef: Dictionary = WeaponConstants.get_move("oberhau_feint")
     var mult_expect: float = float(mdef.get("feint_windup_duration_mult", 1.0))
     if mult_expect <= 1.0:
-        _fail(
-            failures, "feint_windup_mult: oberhau_feint should define feint_windup_duration_mult > 1"
-        )
+        _fail(failures, "feint_windup_mult: oberhau_feint should define feint_windup_duration_mult > 1")
     var mgr_o: Node = HarnessFixtures._harness_start_1v1()
     var po: Dictionary = mgr_o.combatants[0]
     var eo: Dictionary = mgr_o.combatants[1]
@@ -260,18 +236,12 @@ static func _run_feint_windup_duration_mult_extends_state_duration_vs_oberhau(fa
     var d_f: float = float(pf.get(DataKeys.PA_STATE_DURATION, 0.0))
     var pa_f: Dictionary = CombatantEntityAccess.nested_dictionary_read(pf, "pending_attack")
     if not pa_f.has("feint_windup_duration_mult"):
-        _fail(
-            failures, "feint_windup_mult: pending_attack should stamp feint_windup_duration_mult"
-        )
+        _fail(failures, "feint_windup_mult: pending_attack should stamp feint_windup_duration_mult")
     var reveal_f: float = float(mdef.get("feint_target_reveal_at_progress", 0.0))
     if reveal_f <= 0.0:
-        _fail(
-            failures, "feint_windup_mult: oberhau_feint should define feint_target_reveal_at_progress > 0"
-        )
+        _fail(failures, "feint_windup_mult: oberhau_feint should define feint_target_reveal_at_progress > 0")
     if not pa_f.has("feint_target_reveal_at_progress"):
-        _fail(
-            failures, "feint_windup_mult: pending_attack should stamp feint_target_reveal_at_progress"
-        )
+        _fail(failures, "feint_windup_mult: pending_attack should stamp feint_target_reveal_at_progress")
     if not is_equal_approx(float(pa_f.get("feint_target_reveal_at_progress", -1.0)), reveal_f):
         _fail(
             failures,
@@ -332,9 +302,7 @@ static func _run_feint_windup_duration_mult_extends_state_duration_vs_thrust(fai
     var mdef: Dictionary = WeaponConstants.get_move("thrust_feint")
     var mult_expect: float = float(mdef.get("feint_windup_duration_mult", 1.0))
     if mult_expect <= 1.0:
-        _fail(
-            failures, "feint_windup_mult_thrust: thrust_feint should define feint_windup_duration_mult > 1"
-        )
+        _fail(failures, "feint_windup_mult_thrust: thrust_feint should define feint_windup_duration_mult > 1")
     var mgr_t: Node = HarnessFixtures._harness_start_1v1()
     var pt: Dictionary = mgr_t.combatants[0]
     var et: Dictionary = mgr_t.combatants[1]
@@ -355,18 +323,12 @@ static func _run_feint_windup_duration_mult_extends_state_duration_vs_thrust(fai
     var d_tf: float = float(ptf.get(DataKeys.PA_STATE_DURATION, 0.0))
     var pa_tf: Dictionary = CombatantEntityAccess.nested_dictionary_read(ptf, "pending_attack")
     if not pa_tf.has("feint_windup_duration_mult"):
-        _fail(
-            failures, "feint_windup_mult_thrust: pending_attack should stamp feint_windup_duration_mult"
-        )
+        _fail(failures, "feint_windup_mult_thrust: pending_attack should stamp feint_windup_duration_mult")
     var reveal_tf: float = float(mdef.get("feint_target_reveal_at_progress", 0.0))
     if reveal_tf <= 0.0:
-        _fail(
-            failures, "feint_windup_mult_thrust: thrust_feint should define feint_target_reveal_at_progress > 0"
-        )
+        _fail(failures, "feint_windup_mult_thrust: thrust_feint should define feint_target_reveal_at_progress > 0")
     if not pa_tf.has("feint_target_reveal_at_progress"):
-        _fail(
-            failures, "feint_windup_mult_thrust: pending_attack should stamp feint_target_reveal_at_progress"
-        )
+        _fail(failures, "feint_windup_mult_thrust: pending_attack should stamp feint_target_reveal_at_progress")
     if not is_equal_approx(float(pa_tf.get("feint_target_reveal_at_progress", -1.0)), reveal_tf):
         _fail(
             failures,
@@ -441,9 +403,7 @@ static func _run_feint_windup_target_only_sets_defender_guard_zone_to_target(fai
             "feint_windup_target_only: should not stamp non-empty feint_part got %s" % str(pa.get("feint_part", ""))
         )
     if pa.has("feint_target_reveal_at_progress"):
-        _fail(
-            failures, "feint_windup_target_only: plain oberhau should not stamp feint_target_reveal_at_progress"
-        )
+        _fail(failures, "feint_windup_target_only: plain oberhau should not stamp feint_target_reveal_at_progress")
     if str(e.get("guard_zone", "")) != "left_leg":
         _fail(
             failures,
@@ -560,9 +520,7 @@ static func _run_feint_move_ai_distinct_feint_and_target_parts(failures: PackedS
 ## Tier 4.2: same as **`_run_feint_move_ai_distinct_feint_and_target_parts`**, for **`thrust_feint`** on **SWORD**.
 static func _run_feint_move_ai_distinct_feint_and_target_parts_thrust(failures: PackedStringArray) -> void:
     if not WeaponConstants.is_feint_move("thrust_feint"):
-        _fail(
-            failures, "feint_ai_thrust: WeaponConstants.is_feint_move(thrust_feint) should be true"
-        )
+        _fail(failures, "feint_ai_thrust: WeaponConstants.is_feint_move(thrust_feint) should be true")
     var mgr: Node = HarnessFixtures._harness_start_1v1()
     var p: Dictionary = mgr.combatants[0]
     var e: Dictionary = mgr.combatants[1]
@@ -731,9 +689,7 @@ static func _run_feint_move_listing_readiness_scales_feint_weight_high_guard_vs_
             )
         )
     if w_feint_hi <= w_feint_lo + 0.0001:
-        _fail(
-            failures, "feint_read_list: want feint_hi > feint_lo got lo=%.6f hi=%.6f" % [w_feint_lo, w_feint_hi]
-        )
+        _fail(failures, "feint_read_list: want feint_hi > feint_lo got lo=%.6f hi=%.6f" % [w_feint_lo, w_feint_hi])
     HarnessFixtures._free_manager_restore_global_rng(mgr)
 
 
@@ -862,9 +818,7 @@ static func _run_feint_move_listing_spacing_long_dampens_vs_mid(failures: Packed
             )
         )
     elif w_feint_l >= w_feint_m - 1e-9:
-        _fail(
-            failures, "feint_list_sp_long: want feint_LONG < feint_MID got m=%.6f l=%.6f" % [w_feint_m, w_feint_l]
-        )
+        _fail(failures, "feint_list_sp_long: want feint_LONG < feint_MID got m=%.6f l=%.6f" % [w_feint_m, w_feint_l])
     else:
         var got_ratio: float = (w_feint_l / w_plain_l) / (w_feint_m / w_plain_m)
         if absf(got_ratio - want_ratio) > 0.0005 * maxf(1.0, absf(want_ratio)):
@@ -920,9 +874,7 @@ static func _run_feint_move_listing_spacing_close_boosts_vs_mid(failures: Packed
             )
         )
     elif w_feint_c <= w_feint_m + 1e-9:
-        _fail(
-            failures, "feint_list_sp_close: want feint_CLOSE > feint_MID got m=%.6f c=%.6f" % [w_feint_m, w_feint_c]
-        )
+        _fail(failures, "feint_list_sp_close: want feint_CLOSE > feint_MID got m=%.6f c=%.6f" % [w_feint_m, w_feint_c])
     else:
         var got_ratio: float = (w_feint_c / w_plain_c) / (w_feint_m / w_plain_m)
         if absf(got_ratio - want_ratio) > 0.0005 * maxf(1.0, absf(want_ratio)):
@@ -999,4 +951,3 @@ static func _run_feint_move_listing_spacing_long_dampens_vs_mid_when_defender_re
 
 ## Tier 4.2 footwork: feint listing  -  CLOSE boosts vs MID when defender **`STATE_RECOVERING`**; same spacing mults as
 ## WAITING harness.
-

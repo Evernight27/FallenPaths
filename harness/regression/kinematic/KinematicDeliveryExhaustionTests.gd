@@ -14,6 +14,7 @@ static func _fail(failures: PackedStringArray, msg: String) -> void:
 # Test 1: timing_mult vs power_mult differentiation
 # ---------------------------------------------------------------------------
 
+
 static func _run_exhaustion_timing_vs_power_differentiation(failures: PackedStringArray) -> void:
     StaminaConstants.set_feature_fight_exhaustion_index_load(true)
 
@@ -49,7 +50,9 @@ static func _run_exhaustion_timing_vs_power_differentiation(failures: PackedStri
     var t100: float = StaminaConstants.exhaustion_timing_mult(1.0)
     var p100: float = StaminaConstants.exhaustion_power_mult(1.0)
     if not is_equal_approx(t100, StaminaConstants.EXHAUSTION_FLOOR_MULT):
-        _fail(failures, "exh_t_p_diff: t(1.0) want floor %.3f got %.6f" % [StaminaConstants.EXHAUSTION_FLOOR_MULT, t100])
+        _fail(
+            failures, "exh_t_p_diff: t(1.0) want floor %.3f got %.6f" % [StaminaConstants.EXHAUSTION_FLOOR_MULT, t100]
+        )
     ## Power at max uses delayed onset (0.85), not full floor
     var p100_delayed: float = StaminaConstants.exhaustion_performance_mult(0.85)
     if absf(p100 - p100_delayed) > 0.001:
@@ -63,7 +66,10 @@ static func _run_exhaustion_timing_vs_power_differentiation(failures: PackedStri
     for ev in exhaust_values:
         var cur_t: float = StaminaConstants.exhaustion_timing_mult(ev)
         if prev_t >= 0 and cur_t > prev_t + 0.0001:
-            _fail(failures, "exh_t_p_diff: timing not monotonic decreasing at %.2f (cur=%.6f prev=%.6f)" % [ev, cur_t, prev_t])
+            _fail(
+                failures,
+                "exh_t_p_diff: timing not monotonic decreasing at %.2f (cur=%.6f prev=%.6f)" % [ev, cur_t, prev_t]
+            )
         prev_t = cur_t
 
     ## Monotonicity for power_mult across increasing exhaustion values
@@ -71,7 +77,10 @@ static func _run_exhaustion_timing_vs_power_differentiation(failures: PackedStri
     for ev in exhaust_values:
         var cur_p: float = StaminaConstants.exhaustion_power_mult(ev)
         if prev_p >= 0 and cur_p > prev_p + 0.0001:
-            _fail(failures, "exh_t_p_diff: power not monotonic decreasing at %.2f (cur=%.6f prev=%.6f)" % [ev, cur_p, prev_p])
+            _fail(
+                failures,
+                "exh_t_p_diff: power not monotonic decreasing at %.2f (cur=%.6f prev=%.6f)" % [ev, cur_p, prev_p]
+            )
         prev_p = cur_p
 
     StaminaConstants.set_feature_fight_exhaustion_index_load(-1)
@@ -80,6 +89,7 @@ static func _run_exhaustion_timing_vs_power_differentiation(failures: PackedStri
 # ---------------------------------------------------------------------------
 # Test 2: Metabolic stress accumulation and decay
 # ---------------------------------------------------------------------------
+
 
 static func _run_exhaustion_metabolic_stress_accumulation(failures: PackedStringArray) -> void:
     StaminaConstants.set_feature_fight_exhaustion_index_load(true)
@@ -167,7 +177,9 @@ static func _run_exhaustion_metabolic_stress_accumulation(failures: PackedString
     var dq_via_exh: float = CombatExhaustion.decision_quality_mult(combatant)
     var expected_dq: float = lerpf(1.0, 0.75, after_ms_0)
     if absf(dq_via_exh - expected_dq) > 0.001:
-        _fail(failures, "met_chain: decision_quality want %.6f (ms=%.6f) got %.6f" % [expected_dq, after_ms_0, dq_via_exh])
+        _fail(
+            failures, "met_chain: decision_quality want %.6f (ms=%.6f) got %.6f" % [expected_dq, after_ms_0, dq_via_exh]
+        )
 
     ## Direct stress accumulation test: manually set high stress and verify decision quality floors correctly
     combatant[CombatConstantsStamina.COMBATANT_KEY_METABOLIC_STRESS] = 1.0
@@ -182,6 +194,7 @@ static func _run_exhaustion_metabolic_stress_accumulation(failures: PackedString
 # ---------------------------------------------------------------------------
 # Test 3: Consecutive action stamina scaling
 # ---------------------------------------------------------------------------
+
 
 static func _run_exhaustion_consecutive_action_scaling(failures: PackedStringArray) -> void:
     var tol: float = 0.001
@@ -275,6 +288,7 @@ static func _run_exhaustion_consecutive_action_scaling(failures: PackedStringArr
 # ---------------------------------------------------------------------------
 # Entry point for harness runner (same signature as other test classes)
 # ---------------------------------------------------------------------------
+
 
 static func run_all(failures: PackedStringArray) -> void:
     _run_exhaustion_timing_vs_power_differentiation(failures)

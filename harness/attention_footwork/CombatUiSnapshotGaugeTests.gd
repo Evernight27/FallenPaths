@@ -1,7 +1,7 @@
 class_name AttentionFootworkCombatUiSnapshotGaugeTests
 extends CombatRegressionHarnessCore
 const WeaponForm := preload("res://combat/weapon_form/CombatWeaponForm.gd")
-const _CombatRegressionHarness := preload("res://harness/regression/CombatRegressionHarness.gd")
+const CombatRegressionHarness := preload("res://harness/regression/CombatRegressionHarness.gd")
 
 ## Tier 4.2 - 4.4 attention / mental stack / footwork / battle UI hint tests (compile split).
 ## Footing harness: **`_run_footwork_*`** (Tier 4.4 PA) . **`_run_focus_line_*`** / **`_run_guard_*`** (L3 guard) .
@@ -77,17 +77,11 @@ static func _run_battle_ui_gauge_label_live_counter_tempo_needs_manager(failures
             "gauge_label_live: unstamped row should not show counter label without manager got '%s'" % without_mgr
         )
     if not with_mgr.begins_with("Seize tempo"):
-        _fail(
-            failures, "gauge_label_live: want Seize tempo prefix with manager got '%s'" % with_mgr
-        )
+        _fail(failures, "gauge_label_live: want Seize tempo prefix with manager got '%s'" % with_mgr)
     if not is_equal_approx(bar_no_mgr, 100.0):
-        _fail(
-            failures, "gauge_bar_live: without manager bar should show stamina (100) got %.2f" % bar_no_mgr
-        )
+        _fail(failures, "gauge_bar_live: without manager bar should show stamina (100) got %.2f" % bar_no_mgr)
     if not is_equal_approx(bar_with_mgr, 100.0):
-        _fail(
-            failures, "gauge_bar_live: with manager bar should still show stamina (100) got %.2f" % bar_with_mgr
-        )
+        _fail(failures, "gauge_bar_live: with manager bar should still show stamina (100) got %.2f" % bar_with_mgr)
 
 
 ## Tier 4.2 UI: formation tooltips derive counter window from **`manager`** when unstamped.
@@ -116,9 +110,7 @@ static func _run_combat_ui_hints_formation_counter_tempo_needs_manager(failures:
     if without_mgr.contains("counter window"):
         _fail(failures, "formation_counter_live: without manager got '%s'" % without_mgr)
     if not with_mgr.contains("counter window building"):
-        _fail(
-            failures, "formation_counter_live: with manager want building tip got '%s'" % with_mgr
-        )
+        _fail(failures, "formation_counter_live: with manager want building tip got '%s'" % with_mgr)
 
 
 ## Tier 4.3 UI: with **`manager`**, stale **`attention_ui_hint`** stamp ignored when telegraph absent.
@@ -167,13 +159,9 @@ static func _run_combat_ui_hints_attention_live_refresh_load_during_windup(failu
     CombatConstants.set_feature_combat_attention_load(false)
     HarnessFixtures._free_manager_restore_global_rng(mgr)
     if without_mgr.contains("Load 45") or without_mgr.contains("Load 40"):
-        _fail(
-            failures, "attention_live_load: without manager should not refresh load got '%s'" % without_mgr
-        )
+        _fail(failures, "attention_live_load: without manager should not refresh load got '%s'" % without_mgr)
     if with_mgr.find("Load ") < 0:
-        _fail(
-            failures, "attention_live_load: with manager want Load segment got '%s'" % with_mgr
-        )
+        _fail(failures, "attention_live_load: with manager want Load segment got '%s'" % with_mgr)
 
 
 static func _run_strike_stamping_weapon_eff_dist_sanity(failures: PackedStringArray) -> void:
@@ -300,9 +288,7 @@ static func _run_footwork_snapshot_omits_position_when_disabled(failures: Packed
         return
     var row: Dictionary = rows[0]
     if row.has("position_angle_offset_deg") or row.has("position_angle_ui_hint"):
-        _fail(
-            failures, "footwork_snapshot_disabled: should omit position_angle keys when flag off"
-        )
+        _fail(failures, "footwork_snapshot_disabled: should omit position_angle keys when flag off")
 
 
 ## Tier 4.4: body-part -> guard line for dodge step direction.
@@ -323,9 +309,7 @@ static func _run_combat_snapshot_exports_attention_ui_hint_when_stamped(failures
         _fail(failures, "snapshot_attention: expected one row")
         return
     if str(rows[0].get("attention_ui_hint", "")) != stamped:
-        _fail(
-            failures, "snapshot_attention: row='%s' want='%s'" % [rows[0].get("attention_ui_hint", ""), stamped]
-        )
+        _fail(failures, "snapshot_attention: row='%s' want='%s'" % [rows[0].get("attention_ui_hint", ""), stamped])
 
 
 ## Tier 4.4 UI soak: snapshot copies stamped counter-tempo hint for gauge consumers.
@@ -381,9 +365,7 @@ static func _run_combat_snapshot_suppresses_next_override_during_counter_tempo(f
         return
     var row: Dictionary = rows[0]
     if str(row.get("counter_tempo_ui_hint", "")) != "counter_ready":
-        _fail(
-            failures, "snapshot_counter_next: counter hint missing row=%s" % row.get("counter_tempo_ui_hint", "")
-        )
+        _fail(failures, "snapshot_counter_next: counter hint missing row=%s" % row.get("counter_tempo_ui_hint", ""))
     if row.has("status_override"):
         _fail(
             failures,
@@ -413,9 +395,7 @@ static func _run_combat_snapshot_derives_attention_ui_hint_from_telegraph(failur
         _fail(failures, "snapshot_attention_derive: expected one row")
         return
     if str(rows[0].get("attention_ui_hint", "")) != want:
-        _fail(
-            failures, "snapshot_attention_derive: row='%s' want='%s'" % [rows[0].get("attention_ui_hint", ""), want]
-        )
+        _fail(failures, "snapshot_attention_derive: row='%s' want='%s'" % [rows[0].get("attention_ui_hint", ""), want])
 
 
 ## Tier 4.2 UI soak: snapshot derives counter-tempo hint from open window when stamp missing.
@@ -447,9 +427,7 @@ static func _run_combat_snapshot_derives_counter_tempo_ui_hint_from_open_window(
     if want != "counter_winding":
         _fail(failures, "snapshot_counter_derive: want counter_winding got '%s'" % want)
     if str(row.get("counter_tempo_ui_hint", "")) != want:
-        _fail(
-            failures, "snapshot_counter_derive: row='%s' want='%s'" % [row.get("counter_tempo_ui_hint", ""), want]
-        )
+        _fail(failures, "snapshot_counter_derive: row='%s' want='%s'" % [row.get("counter_tempo_ui_hint", ""), want])
 
 
 ## Tier 4.2 UI: gauge label prefers counter hint over **`status_override`**.
@@ -570,9 +548,7 @@ static func _run_battle_ui_gauge_suffix_step_atk_form_order(failures: PackedStri
     var label: String = BattleUIUpdater.gauge_label_text_for_combatant(c)
     for needle in ["Step", "Atk", " . Form Ox"]:
         if needle not in label:
-            _fail(
-                failures, "gauge_suffix_step_atk_form: missing '%s' in '%s'" % [needle, label]
-            )
+            _fail(failures, "gauge_suffix_step_atk_form: missing '%s' in '%s'" % [needle, label])
             return
     var step_i: int = label.find("Step")
     var atk_i: int = label.find("Atk")
@@ -754,13 +730,9 @@ static func _run_footwork_choose_defense_dodge_does_not_keep_parry_offset(failur
     )
     CombatConstants.set_feature_position_angle_footwork_load(true)
     if absf(parry_off - dodge_off) < 0.01:
-        _fail(
-            failures, "footwork_commit_dodge: dodge offset should differ from parry stamp got %.2f" % dodge_off
-        )
+        _fail(failures, "footwork_commit_dodge: dodge offset should differ from parry stamp got %.2f" % dodge_off)
     if absf(dodge_off - want_dodge) > 0.05:
-        _fail(
-            failures, "footwork_commit_dodge: want dodge offset %.2f got %.2f" % [want_dodge, dodge_off]
-        )
+        _fail(failures, "footwork_commit_dodge: want dodge offset %.2f got %.2f" % [want_dodge, dodge_off])
 
 
 ## Tier 4.4: **`arc_end_deg_for_contact_geometry`** must not treat offset-bearing **`attack_angle_deg`** as arc end.
@@ -790,9 +762,7 @@ static func _run_footwork_arc_contact_applies_offset_once(failures: PackedString
     if absf(at_contact - want) > 0.05:
         _fail(failures, "footwork_arc_once: want %.2f got %.2f" % [want, at_contact])
     if absf(doubled - at_contact) < 0.05:
-        _fail(
-            failures, "footwork_arc_once: double-apply would match got %.2f (want distinct)" % at_contact
-        )
+        _fail(failures, "footwork_arc_once: double-apply would match got %.2f (want distinct)" % at_contact)
 
 
 ## Tier 4.4: flag off  -  step-on-windup does not stamp offset (restore production default after).
@@ -817,9 +787,7 @@ static func _run_footwork_arc_end_fallback_prefers_intended_over_attack_angle(fa
     at_contact = CombatFootwork.apply_offset_to_angle_deg(at_contact, atk)
     var doubled: float = CombatFootwork.apply_offset_to_angle_deg(90.0 + off, atk)
     if absf(at_contact - doubled) < 0.05:
-        _fail(
-            failures, "footwork_arc_end_fb: progress-1 should apply offset once got %.2f" % at_contact
-        )
+        _fail(failures, "footwork_arc_end_fb: progress-1 should apply offset once got %.2f" % at_contact)
 
 
 ## Tier 4.4: **`parry_partial`** follow-through must not re-roll resolve angle geometry.
@@ -882,13 +850,9 @@ static func _run_footwork_partial_follow_through_freezes_resolve_angles(failures
             "footwork_partial_freeze: attack_angle_deg changed to %.2f" % float(pa.get("attack_angle_deg", -1.0))
         )
     if absf(float(pa.get("arc_end_deg", -1.0)) - 187.0) > 0.05:
-        _fail(
-            failures, "footwork_partial_freeze: arc_end_deg changed to %.2f" % float(pa.get("arc_end_deg", -1.0))
-        )
+        _fail(failures, "footwork_partial_freeze: arc_end_deg changed to %.2f" % float(pa.get("arc_end_deg", -1.0)))
     if absf(float(pa.get("arc_span_deg", -1.0)) - 42.0) > 0.05:
-        _fail(
-            failures, "footwork_partial_freeze: arc_span_deg changed to %.2f" % float(pa.get("arc_span_deg", -1.0))
-        )
+        _fail(failures, "footwork_partial_freeze: arc_span_deg changed to %.2f" % float(pa.get("arc_span_deg", -1.0)))
     if str(pa.get("effective_attack_line", "")) != "left":
         _fail(
             failures,

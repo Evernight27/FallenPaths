@@ -1,7 +1,7 @@
 class_name FeintTempoCounterTempoGuardZoneTests
 extends CombatRegressionHarnessCore
 
-const _CombatRegressionHarness := preload("res://harness/regression/CombatRegressionHarness.gd")
+const CombatRegressionHarness := preload("res://harness/regression/CombatRegressionHarness.gd")
 ## Tier 4.2 feint / counter-tempo / riposte / defense telegraph tests (compile split).
 ## Weapon form: **`CombatRegressionHarnessWeaponFormTail`** owns **`form_str`** / **`mod`**  -  stance alias rows here
 ## stay feint/tempo only.
@@ -35,9 +35,7 @@ static func _run_counter_tempo_ai_listing_boosts_counter_and_prefers_plain_over_
         CombatConstants.AI_COUNTER_TEMPO_LISTING_WEIGHT_MULT * CombatConstants.AI_COUNTER_TEMPO_INCOMING_TARGET_MULT
     )
     if w_plain < w_feint:
-        _fail(
-            failures, "counter_tempo_ai: plain should beat feint got plain=%.6f feint=%.6f" % [w_plain, w_feint]
-        )
+        _fail(failures, "counter_tempo_ai: plain should beat feint got plain=%.6f feint=%.6f" % [w_plain, w_feint])
     var a_no_flag: Dictionary = {"move_id": "oberhau", "target_id": atk_id}
     var w_no_flag: float = CombatAIActionPicker._get_action_weight(a_no_flag, def_id, mgr, true)
     if w_plain <= w_no_flag * base_mult * 0.99:
@@ -172,14 +170,16 @@ static func _run_riposte_chain_after_parry_deflect_shortens_wind_up_vs_plain(fai
         _fail(failures, "riposte_chain: pending_attack should stamp riposte_chain")
     var soft_cap_rc: float = CombatConstantsTiming.WIND_UP_SOFT_CAP_S
     var unwind_soft_cap_rc = func(capped: float, cap: float) -> float:
-        if capped <= cap: return capped
+        if capped <= cap:
+            return capped
         return cap + (capped - cap) * 2.0
     var plain_un: float = unwind_soft_cap_rc.call(d_plain, soft_cap_rc)
     var rip_un: float = unwind_soft_cap_rc.call(d_rip, soft_cap_rc)
     var want_r_uncapped: float = plain_un * CombatConstants.RIPOSTE_CHAIN_WINDUP_MULT
     if absf(rip_un - want_r_uncapped) > 0.01:
         _fail(
-            failures, "riposte_chain: pre-cap ratio mismatch want %.4f got %.4f plain=%.4f" % [want_r_uncapped, rip_un, plain_un]
+            failures,
+            "riposte_chain: pre-cap ratio mismatch want %.4f got %.4f plain=%.4f" % [want_r_uncapped, rip_un, plain_un]
         )
     if def_r.has(CombatConstants.COMBATANT_KEY_RIPOSTE_CHAIN_UNTIL):
         _fail(failures, "riposte_chain: riposte window should be consumed after wind-up start")
@@ -295,9 +295,7 @@ static func _run_feint_move_listing_recent_opp_parry_deflect_boosts_feint_weight
     }
     var w_stale: float = CombatAIActionPicker._get_action_weight(a_feint, p_id, mgr, true)
     if absf(w_stale - w_before) > 0.0001 * maxf(1.0, absf(w_before)):
-        _fail(
-            failures, "feint_list_parry_stale: want feint %.6f got %.6f before=%.6f" % [w_before, w_stale, w_before]
-        )
+        _fail(failures, "feint_list_parry_stale: want feint %.6f got %.6f before=%.6f" % [w_before, w_stale, w_before])
     HarnessFixtures._free_manager_restore_global_rng(mgr)
 
 
@@ -356,9 +354,7 @@ static func _run_feint_opts_from_choice_and_non_feint_attack_no_feint_part(failu
     if not o_target.has(DataKeys.ACTION_TARGET_PART) or str(o_target.get("target_part", "")) != "chest":
         _fail(failures, "feint_opts: expected target_part chest in opts got %s" % str(o_target))
     if o_target.has(DataKeys.ACTION_FEINT_PART):
-        _fail(
-            failures, "feint_opts: non-feint choice should omit feint_part got %s" % str(o_target)
-        )
+        _fail(failures, "feint_opts: non-feint choice should omit feint_part got %s" % str(o_target))
     var c_with_feint: Dictionary = {
         "move_id": "oberhau_feint", "target_id": 1, "target_part": "chest", "feint_part": "head"
     }
@@ -373,17 +369,13 @@ static func _run_feint_opts_from_choice_and_non_feint_attack_no_feint_part(failu
     }
     var o_thrust_feint: Dictionary = CombatAIActionPicker.opts_from_choice(c_thrust_feint)
     if str(o_thrust_feint.get("feint_part", "")) != "head":
-        _fail(
-            failures, "feint_opts: thrust_feint should forward non-empty feint_part got %s" % str(o_thrust_feint)
-        )
+        _fail(failures, "feint_opts: thrust_feint should forward non-empty feint_part got %s" % str(o_thrust_feint))
     var c_empty_feint: Dictionary = {
         "move_id": "oberhau_feint", "target_id": 1, "target_part": "chest", "feint_part": ""
     }
     var o_no_feint: Dictionary = CombatAIActionPicker.opts_from_choice(c_empty_feint)
     if o_no_feint.has(DataKeys.ACTION_FEINT_PART):
-        _fail(
-            failures, "feint_opts: empty feint_part should be omitted got %s" % str(o_no_feint)
-        )
+        _fail(failures, "feint_opts: empty feint_part should be omitted got %s" % str(o_no_feint))
     var mgr: Node = HarnessFixtures._harness_start_1v1()
     var e: Dictionary = mgr.combatants[1]
     var p_id: int = CombatantEntityAccess.id_int(mgr.combatants[0])
@@ -426,9 +418,7 @@ static func _run_feint_guard_zone_modifier_telegraph_mismatch_penalty_and_readju
         pa_feint, tgt_baited, parts, "oberhau_feint", -1.0, CombatConstants.GUARD_ZONE_UNGUARDED_PENALTY
     )
     if bait_seed < 0:
-        _fail(
-            failures, "feint_guard_zone: no PathResolver seed yields bait penalty in 0..16383"
-        )
+        _fail(failures, "feint_guard_zone: no PathResolver seed yields bait penalty in 0..16383")
         seed(_HARNESS_RESTORE_GLOBAL_SEED)
         return
     seed(bait_seed)
@@ -450,9 +440,7 @@ static func _run_feint_guard_zone_modifier_telegraph_mismatch_penalty_and_readju
         pa_feint, tgt_readjust, parts, "oberhau_feint", -1.0, CombatConstants.GUARD_ZONE_BONUS
     )
     if readjust_bonus_seed < 0:
-        _fail(
-            failures, "feint_guard_zone: no PathResolver seed yields readjust bonus in 0..16383"
-        )
+        _fail(failures, "feint_guard_zone: no PathResolver seed yields readjust bonus in 0..16383")
         seed(_HARNESS_RESTORE_GLOBAL_SEED)
         return
     seed(readjust_bonus_seed)
@@ -467,9 +455,7 @@ static func _run_feint_guard_zone_modifier_telegraph_mismatch_penalty_and_readju
         pa_plain, tgt_plain, parts, "oberhau", -1.0, CombatConstants.GUARD_ZONE_BONUS
     )
     if plain_bonus_seed < 0:
-        _fail(
-            failures, "feint_guard_zone: no PathResolver seed yields non-feint bonus in 0..16383"
-        )
+        _fail(failures, "feint_guard_zone: no PathResolver seed yields non-feint bonus in 0..16383")
         seed(_HARNESS_RESTORE_GLOBAL_SEED)
         return
     seed(plain_bonus_seed)
@@ -510,9 +496,7 @@ static func _run_feint_guard_zone_readthrough_par_bonus_when_readiness_high(fail
         pa_feint, tgt_baited, parts, "oberhau_feint", -1.0, CombatConstants.GUARD_ZONE_UNGUARDED_PENALTY
     )
     if bait_seed < 0:
-        _fail(
-            failures, "feint_readthrough: no PathResolver seed yields bait penalty in 0..16383"
-        )
+        _fail(failures, "feint_readthrough: no PathResolver seed yields bait penalty in 0..16383")
         seed(_HARNESS_RESTORE_GLOBAL_SEED)
         return
     seed(bait_seed)
@@ -538,15 +522,11 @@ static func _run_feint_guard_zone_readthrough_par_bonus_when_readiness_high(fail
     seed(bait_seed)
     var m_mid: float = DefenseChoiceResolver._guard_zone_modifier(pa_feint, tgt_baited, parts, "oberhau_feint", 0.86)
     if not is_equal_approx(m_mid, CombatConstants.GUARD_ZONE_BONUS):
-        _fail(
-            failures, "feint_readthrough: readiness 0.86 defensive want bonus got %.2f" % m_mid
-        )
+        _fail(failures, "feint_readthrough: readiness 0.86 defensive want bonus got %.2f" % m_mid)
     seed(bait_seed)
     var m_low: float = DefenseChoiceResolver._guard_zone_modifier(pa_feint, tgt_baited, parts, "oberhau_feint", 0.82)
     if not is_equal_approx(m_low, CombatConstants.GUARD_ZONE_UNGUARDED_PENALTY):
-        _fail(
-            failures, "feint_readthrough: readiness 0.82 defensive want penalty got %.2f" % m_low
-        )
+        _fail(failures, "feint_readthrough: readiness 0.82 defensive want penalty got %.2f" % m_low)
     var tgt_agg: Dictionary = {
         "guard_zone": "head",
         "guard_line": "high",
@@ -592,9 +572,7 @@ static func _run_feint_guard_zone_readthrough_spacing_long_boosts_vs_mid(failure
         pa_feint, tgt_baited_base, parts, "oberhau_feint", -1.0, CombatConstants.GUARD_ZONE_UNGUARDED_PENALTY
     )
     if bait_seed < 0:
-        _fail(
-            failures, "feint_gz_spacing: no PathResolver seed yields bait penalty in 0..16383"
-        )
+        _fail(failures, "feint_gz_spacing: no PathResolver seed yields bait penalty in 0..16383")
         seed(_HARNESS_RESTORE_GLOBAL_SEED)
         return
     var pr_spacing: float = 0.81
@@ -612,9 +590,7 @@ static func _run_feint_guard_zone_readthrough_spacing_long_boosts_vs_mid(failure
             "feint_gz_spacing: mid want penalty %.2f got %.2f" % [CombatConstants.GUARD_ZONE_UNGUARDED_PENALTY, m_mid]
         )
     if not is_equal_approx(m_long, CombatConstants.GUARD_ZONE_BONUS):
-        _fail(
-            failures, "feint_gz_spacing: long want bonus %.2f got %.2f" % [CombatConstants.GUARD_ZONE_BONUS, m_long]
-        )
+        _fail(failures, "feint_gz_spacing: long want bonus %.2f got %.2f" % [CombatConstants.GUARD_ZONE_BONUS, m_long])
     seed(_HARNESS_RESTORE_GLOBAL_SEED)
 
 
@@ -649,9 +625,7 @@ static func _run_feint_guard_zone_readthrough_spacing_close_dampens_vs_mid(failu
         pa_feint, tgt_baited_base, parts, "oberhau_feint", -1.0, CombatConstants.GUARD_ZONE_UNGUARDED_PENALTY
     )
     if bait_seed < 0:
-        _fail(
-            failures, "feint_gz_spacing_close: no PathResolver seed yields bait penalty in 0..16383"
-        )
+        _fail(failures, "feint_gz_spacing_close: no PathResolver seed yields bait penalty in 0..16383")
         seed(_HARNESS_RESTORE_GLOBAL_SEED)
         return
     var pr_spacing: float = 0.835
@@ -736,9 +710,7 @@ static func _run_feint_target_reveal_progress_scales_readiness_mult(failures: Pa
     atk_stab_half["state_timer"] = reveal_stab * 0.5 * atk0["state_duration"]
     var m_stab_h: float = DefenseChoiceResolver._feint_readiness_reveal_mult(pa_stab, atk_stab_half)
     if not is_equal_approx(m_stab_h, want_h):
-        _fail(
-            failures, "feint_reveal thrust half window want %.6f got %.6f" % [want_h, m_stab_h]
-        )
+        _fail(failures, "feint_reveal thrust half window want %.6f got %.6f" % [want_h, m_stab_h])
     # choose_defense: reported parry_readiness scales by same mult during feint wind-up early vs late.
     seed(_HARNESS_RESTORE_GLOBAL_SEED)
     var mgr: Node = HarnessFixtures._harness_start_1v1()
@@ -785,9 +757,7 @@ static func _run_feint_target_reveal_progress_scales_readiness_mult(failures: Pa
     var pr_e: float = float(dc_e.get("parry_readiness", -1.0))
     var pr_l2: float = float(dc_l2.get("parry_readiness", -1.0))
     if pr_e <= 1e-8 or pr_l2 <= 1e-8:
-        _fail(
-            failures, "feint_reveal choose_def: parry_readiness too small pr_e=%.6f pr_l=%.6f" % [pr_e, pr_l2]
-        )
+        _fail(failures, "feint_reveal choose_def: parry_readiness too small pr_e=%.6f pr_l=%.6f" % [pr_e, pr_l2])
         HarnessFixtures._free_manager_restore_global_rng(mgr)
         return
     if not is_equal_approx(pr_e / pr_l2, want0):
@@ -875,9 +845,7 @@ static func _run_feint_move_listing_reveal_progress_dampens_early_wind_up(failur
             )
         )
     if w_late <= w_early + 0.0001:
-        _fail(
-            failures, "feint_list_reveal: want late > early got early=%.6f late=%.6f" % [w_early, w_late]
-        )
+        _fail(failures, "feint_list_reveal: want late > early got early=%.6f late=%.6f" % [w_early, w_late])
     if read_late <= read_early + 0.0001:
         _fail(
             failures, "feint_list_reveal: read_m late want > early got early=%.6f late=%.6f" % [read_early, read_late]
@@ -894,9 +862,7 @@ static func _run_feint_move_listing_reveal_progress_dampens_early_wind_up(failur
             "feint_list_reveal waiting: weight should match no-live-pa listing got %.6f late=%.6f" % [w_waiting, w_late]
         )
     if not is_equal_approx(read_waiting, read_late):
-        _fail(
-            failures, "feint_list_reveal waiting read_m: want late read_m %.6f got %.6f" % [read_late, read_waiting]
-        )
+        _fail(failures, "feint_list_reveal waiting read_m: want late read_m %.6f got %.6f" % [read_late, read_waiting])
     HarnessFixtures._free_manager_restore_global_rng(mgr)
 
 
@@ -961,4 +927,3 @@ static func _run_feint_telegraph_biases_dodge_eval_part_when_not_readthrough(fai
 ## (**`FEINT_GUARD_ZONE_READINESS_SPACING_MULT_LONG`**). Same global **`seed(s)`** before each **`choose_defense`**:
 ## **LONG** keeps the initial **`BodyPartConstants.get_weighted_random_part`** draw (scan for **>= ** **`left_leg`**);
 ## **MID** with harness bias **1.0** always telegraphs **`dodge_eval_part`** to **`feint_part`**.
-

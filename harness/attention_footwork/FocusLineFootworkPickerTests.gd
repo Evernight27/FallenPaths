@@ -3,7 +3,7 @@ extends CombatRegressionHarnessCore
 const FormationRout := preload("res://combat/formation/CombatFormationRout.gd")
 const Exhaustion := preload("res://combat/flow/CombatExhaustion.gd")
 const WeaponForm := preload("res://combat/weapon_form/CombatWeaponForm.gd")
-const _CombatRegressionHarness := preload("res://harness/regression/CombatRegressionHarness.gd")
+const CombatRegressionHarness := preload("res://harness/regression/CombatRegressionHarness.gd")
 
 ## Tier 4.2 - 4.4 attention / mental stack / footwork / battle UI hint tests (compile split).
 ## Footing harness: **`_run_footwork_*`** (Tier 4.4 PA) . **`_run_focus_line_*`** / **`_run_guard_*`** (L3 guard) .
@@ -124,9 +124,7 @@ static func _run_mental_stack_exhaustion_tunnel_prefers_disengage(failures: Pack
             )
         )
     if str(picked.get("move_id", "")) != CombatConstants.MOVE_ID_WAIT:
-        _fail(
-            failures, "mental_stack_exhaustion: want wait got %s" % str(picked.get("move_id", ""))
-        )
+        _fail(failures, "mental_stack_exhaustion: want wait got %s" % str(picked.get("move_id", "")))
     HarnessFixtures._free_manager_restore_global_rng(mgr)
 
 
@@ -140,9 +138,12 @@ static func _run_mental_stack_exhaustion_tunnel_flee_beats_rotate_file(failures:
         mgr.register(_new_entity("SWORD"), "player")
     for i in range(2):
         mgr.register(_new_entity("SWORD"), "enemy")
-    mgr.start(
-        {"files": 1, "ranks": 2, "line_discipline": CombatConstants.LINE_DISCIPLINE_STRICT},
-        {"files": 1, "ranks": 2, "line_discipline": CombatConstants.LINE_DISCIPLINE_STRICT},
+    (
+        mgr
+        . start(
+            {"files": 1, "ranks": 2, "line_discipline": CombatConstants.LINE_DISCIPLINE_STRICT},
+            {"files": 1, "ranks": 2, "line_discipline": CombatConstants.LINE_DISCIPLINE_STRICT},
+        )
     )
     mgr.set_meta("_engagement_mode_cached", "formation")
     var fighter: Dictionary = mgr.combatants[0]
@@ -159,9 +160,7 @@ static func _run_mental_stack_exhaustion_tunnel_flee_beats_rotate_file(failures:
         HarnessFixtures._free_manager_restore_global_rng(mgr)
         return
     if str(picked.get("move_id", "")) == CombatConstants.MOVE_ID_ROTATE_FILE:
-        _fail(
-            failures, "mental_stack_flee_rotate: rotate_file must not win when flee is listed in exhaustion tunnel"
-        )
+        _fail(failures, "mental_stack_flee_rotate: rotate_file must not win when flee is listed in exhaustion tunnel")
     if (
         str(fighter.get(CombatConstants.COMBATANT_KEY_MENTAL_STACK_LAYER, ""))
         != CombatConstants.MENTAL_STACK_LAYER_EXHAUSTION
@@ -202,9 +201,7 @@ static func _run_mental_stack_critical_stamina_flee_beats_rotate_file(failures: 
     if picked.is_empty():
         pass  # Harness gap: full combat state may suppress L5 layer in headless context
     elif str(picked.get("move_id", "")) == CombatConstants.MOVE_ID_ROTATE_FILE:
-        _fail(
-            failures, "mental_stack_crit_flee: rotate_file must not win when flee is listed at critical stamina"
-        )
+        _fail(failures, "mental_stack_crit_flee: rotate_file must not win when flee is listed at critical stamina")
     HarnessFixtures._free_manager_restore_global_rng(mgr)
 
 
@@ -217,9 +214,7 @@ static func _run_p4a_ms_l7_exhaustion_threshold_parity(failures: PackedStringArr
     var tunnel: float = CombatConstants.MENTAL_STACK_EXHAUSTION_TUNNEL_THRESHOLD
     var floor_m: float = CombatConstants.EXHAUSTION_OFFENSE_DAMP_FLOOR
     if absf(tunnel - 0.55) > 0.001:
-        _fail(
-            failures, "p4a_ms_l7: tunnel threshold should align with 55%% FP band got %.2f" % tunnel
-        )
+        _fail(failures, "p4a_ms_l7: tunnel threshold should align with 55%% FP band got %.2f" % tunnel)
     var c: Dictionary = {}
     c[CombatConstants.COMBATANT_KEY_EXHAUSTION] = damp_start - 0.02
     if absf(Exhaustion.exhaustion_offense_weight_mult(c) - 1.0) > 0.001:
@@ -357,13 +352,9 @@ static func _run_focus_line_resolve_sets_guard_and_focus(failures: PackedStringA
     player[CombatConstants.COMBATANT_KEY_FOCUS_PART] = "left_leg"
     mgr.resolve_action(pid, pid, CombatConstants.MOVE_ID_FOCUS_HIGH, {})
     if str(player.get("guard_line", "")) != "high":
-        _fail(
-            failures, "focus_line_resolve: want guard_line high got %s" % str(player.get("guard_line"))
-        )
+        _fail(failures, "focus_line_resolve: want guard_line high got %s" % str(player.get("guard_line")))
     if CombatAttention.get_focus_part(player) != "head":
-        _fail(
-            failures, "focus_line_resolve: want focus head got %s" % CombatAttention.get_focus_part(player)
-        )
+        _fail(failures, "focus_line_resolve: want focus head got %s" % CombatAttention.get_focus_part(player))
     HarnessFixtures._free_manager_restore_global_rng(mgr)
 
 
@@ -409,9 +400,7 @@ static func _run_yomi_parry_deflect_boosts_feint_listing_mult(failures: PackedSt
     CombatAttention.record_parry_deflect_on_attacker_memory(def, atk_id)
     var m1: float = CombatAttention.yomi_parry_deflect_feint_listing_mult(def, atk_id)
     if m1 <= m0 or m0 <= 1.0:
-        _fail(
-            failures, "yomi_parry_deflect_feint: mult should rise got m0=%.4f m1=%.4f" % [m0, m1]
-        )
+        _fail(failures, "yomi_parry_deflect_feint: mult should rise got m0=%.4f m1=%.4f" % [m0, m1])
 
 
 ## Tier 4.3: **`parry_deflect`** increments yomi; **`hit`** clears attacker entry.
@@ -426,9 +415,7 @@ static func _run_yomi_defense_readiness_mult_boosts_after_parry_deflect(failures
     CombatAttention.record_parry_deflect_on_attacker_memory(def, atk_id)
     var m1: float = CombatAttention.yomi_defense_readiness_mult(def, atk_id)
     if m1 <= m0 or m0 != 1.0:
-        _fail(
-            failures, "yomi_defense_readiness: want rise from 1.0 got m0=%.4f m1=%.4f" % [m0, m1]
-        )
+        _fail(failures, "yomi_defense_readiness: want rise from 1.0 got m0=%.4f m1=%.4f" % [m0, m1])
 
 
 ## Tier 4.4: wind-up stamps per-line **`position_angle_offset_deg`** on attacker.
@@ -562,13 +549,9 @@ static func _run_footwork_picker_preview_flurry_bind_when_idle(failures: PackedS
     AttentionFootworkAttentionLoadTests._t44_harness_restore_flurry_bind(saved_bind)
     HarnessFixtures._free_manager(mgr)
     if absf(eval_step - want_step) > 0.02:
-        _fail(
-            failures, "footwork_picker_preview_flurry: eval step want %.2f got %.2f" % [want_step, eval_step]
-        )
+        _fail(failures, "footwork_picker_preview_flurry: eval step want %.2f got %.2f" % [want_step, eval_step])
     if absf(preview - want) > 0.02:
-        _fail(
-            failures, "footwork_picker_preview_flurry: preview want %.2f got %.2f" % [want, preview]
-        )
+        _fail(failures, "footwork_picker_preview_flurry: preview want %.2f got %.2f" % [want, preview])
 
 
 ## Tier 4.4: offset rotates reported attack angle for parry alignment.
@@ -620,32 +603,24 @@ static func _assert_form_home_parry_step_via_octant(
 ) -> void:
     var home: String = WeaponForm.home_guard_line(form_id)
     if home != expect_home:
-        _fail(
-            failures, "footwork_eight_line: %s home want %s got %s" % [form_id, expect_home, home]
-        )
+        _fail(failures, "footwork_eight_line: %s home want %s got %s" % [form_id, expect_home, home])
         return
     var def: Dictionary = {"guard_line": home}
     CombatFootwork.apply_defender_step_on_parry(def, home)
     var raw: float = CombatConstants.position_angle_offset_deg_for_attack_line(home)
     var anchor: float = GuardLines.position_angle_offset_deg_for_line(home)
     if absf(raw - anchor) > 0.01:
-        _fail(
-            failures, "footwork_eight_line: %s raw delegate want %.2f got %.2f" % [form_id, anchor, raw]
-        )
+        _fail(failures, "footwork_eight_line: %s raw delegate want %.2f got %.2f" % [form_id, anchor, raw])
         return
     if absf(raw) < 0.01:
-        _fail(
-            failures, "footwork_eight_line: %s raw offset want non-zero got %.2f" % [form_id, raw]
-        )
+        _fail(failures, "footwork_eight_line: %s raw offset want non-zero got %.2f" % [form_id, raw])
         return
     var want: float = CombatConstants.position_angle_defender_offset_deg_for_line(
         home, CombatConstants.POSITION_ANGLE_DEFENDER_OFFSET_SCALE_PARRY
     )
     var off: float = float(def.get(CombatConstants.COMBATANT_KEY_POSITION_ANGLE_OFFSET_DEG, 0.0))
     if absf(off - want) > 0.01:
-        _fail(
-            failures, "footwork_eight_line: %s parry want %.2f got %.2f (raw=%.2f)" % [form_id, want, off, raw]
-        )
+        _fail(failures, "footwork_eight_line: %s parry want %.2f got %.2f (raw=%.2f)" % [form_id, want, off, raw])
 
 
 static func _run_footwork_eight_line_home_guard_parry_step(failures: PackedStringArray) -> void:
@@ -674,14 +649,10 @@ static func _assert_octant_windup_stamps_line(failures: PackedStringArray, line:
     var anchor: float = GuardLines.position_angle_offset_deg_for_line(line)
     var off: float = float(atk.get(CombatConstants.COMBATANT_KEY_POSITION_ANGLE_OFFSET_DEG, 0.0))
     if absf(want - anchor) > 0.01:
-        _fail(
-            failures, "footwork_octant_windup: %s delegate want %.2f got %.2f" % [line, anchor, want]
-        )
+        _fail(failures, "footwork_octant_windup: %s delegate want %.2f got %.2f" % [line, anchor, want])
         return
     if absf(off - want) > 0.01:
-        _fail(
-            failures, "footwork_octant_windup: %s stamp want %.2f got %.2f" % [line, want, off]
-        )
+        _fail(failures, "footwork_octant_windup: %s stamp want %.2f got %.2f" % [line, want, off])
 
 
 ## WF-T1: all four diagonals stamp wind-up PA via **`CombatConstants`** -> **`CombatGuardLines`** lookup.
@@ -714,9 +685,7 @@ static func _run_footwork_octant_lookup_delegates_to_guard_lines(failures: Packe
         var anchor: float = GuardLines.position_angle_offset_deg_for_line(line)
         var got: float = CombatConstants.position_angle_offset_deg_for_attack_line(line)
         if absf(got - anchor) > 0.01:
-            _fail(
-                failures, "footwork_octant_lookup: %s want %.2f got %.2f" % [line, anchor, got]
-            )
+            _fail(failures, "footwork_octant_lookup: %s want %.2f got %.2f" % [line, anchor, got])
     for line in [
         GuardLines.LINE_HIGH_RIGHT,
         GuardLines.LINE_LOW_RIGHT,
@@ -748,9 +717,7 @@ static func _assert_defender_dodge_octant_via_leg(
     CombatFootwork.apply_defender_step_on_dodge(def, part)
     var line: String = CombatConstants.guard_line_for_body_part(part)
     if line != expect_line:
-        _fail(
-            failures, "footwork_def_dodge_octant: %s line want %s got %s" % [part, expect_line, line]
-        )
+        _fail(failures, "footwork_def_dodge_octant: %s line want %s got %s" % [part, expect_line, line])
         return
     var off: float = float(def.get(CombatConstants.COMBATANT_KEY_POSITION_ANGLE_OFFSET_DEG, 0.0))
     var want: float = CombatConstants.position_angle_defender_offset_deg_for_line(
@@ -799,9 +766,7 @@ static func _run_footwork_parry_eval_step_octant_home(failures: PackedStringArra
     var def: Dictionary = {"guard_line": line}
     var eval: float = CombatFootwork.parry_eval_step_deg_for_defender(def)
     if def.has(CombatConstants.COMBATANT_KEY_POSITION_ANGLE_OFFSET_DEG):
-        _fail(
-            failures, "footwork_parry_eval_octant: parry_eval must not stamp offset on combatant"
-        )
+        _fail(failures, "footwork_parry_eval_octant: parry_eval must not stamp offset on combatant")
     var want: float = CombatConstants.position_angle_defender_offset_deg_for_line(
         line, CombatConstants.POSITION_ANGLE_DEFENDER_OFFSET_SCALE_PARRY
     )
@@ -821,17 +786,13 @@ static func _run_footwork_dodge_eval_step_octant_arm(failures: PackedStringArray
     var def: Dictionary = {"guard_line": "high"}
     var eval: float = CombatFootwork.dodge_eval_step_deg_for_defender(def, "left_arm")
     if def.has(CombatConstants.COMBATANT_KEY_POSITION_ANGLE_OFFSET_DEG):
-        _fail(
-            failures, "footwork_dodge_eval_octant: dodge_eval must not stamp offset on combatant"
-        )
+        _fail(failures, "footwork_dodge_eval_octant: dodge_eval must not stamp offset on combatant")
     var line: String = CombatConstants.guard_line_for_body_part("left_arm")
     var want: float = CombatConstants.position_angle_defender_offset_deg_for_line(
         line, CombatConstants.POSITION_ANGLE_DEFENDER_OFFSET_SCALE_DODGE
     )
     if absf(eval - want) > 0.01:
-        _fail(
-            failures, "footwork_dodge_eval_octant: left_arm want %.2f got %.2f" % [want, eval]
-        )
+        _fail(failures, "footwork_dodge_eval_octant: left_arm want %.2f got %.2f" % [want, eval])
 
 
 ## WF-T1: Camp-5 soak confirms defender step scales (constants-only  -  no runtime retune hook).
@@ -872,9 +833,7 @@ static func _run_footwork_defender_parry_step_lt_dodge_on_octant(failures: Packe
         line, CombatConstants.POSITION_ANGLE_DEFENDER_OFFSET_SCALE_DODGE
     )
     if absf(parry) >= absf(dodge):
-        _fail(
-            failures, "footwork_def_scale: high_left parry %.2f should be smaller than dodge %.2f" % [parry, dodge]
-        )
+        _fail(failures, "footwork_def_scale: high_left parry %.2f should be smaller than dodge %.2f" % [parry, dodge])
 
 
 ## WF-T1: **`guard_angle_deg`** includes octant parry step on diagonal home guard.
@@ -924,13 +883,9 @@ static func _run_t44_spatial_band_pa_attacker_close_gt_long(failures: PackedStri
     var want_close: float = base * CombatConstants.T44_SPATIAL_BAND_PA_MULT_CLOSE
     var want_long: float = base * CombatConstants.T44_SPATIAL_BAND_PA_MULT_LONG
     if absf(close_off - want_close) > 0.01:
-        _fail(
-            failures, "t44_spatial_band_pa_attacker: close want %.2f got %.2f" % [want_close, close_off]
-        )
+        _fail(failures, "t44_spatial_band_pa_attacker: close want %.2f got %.2f" % [want_close, close_off])
     if absf(long_off - want_long) > 0.01:
-        _fail(
-            failures, "t44_spatial_band_pa_attacker: long want %.2f got %.2f" % [want_long, long_off]
-        )
+        _fail(failures, "t44_spatial_band_pa_attacker: long want %.2f got %.2f" % [want_long, long_off])
     if absf(close_off) <= absf(long_off) + 0.001:
         _fail(failures, "t44_spatial_band_pa_attacker: |close| should exceed |long|")
     CombatConstants.set_feature_t44_spatial_band_pa_load(saved_t44)

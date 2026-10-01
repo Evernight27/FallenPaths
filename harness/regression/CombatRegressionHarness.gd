@@ -1,9 +1,18 @@
 class_name CombatRegressionHarness
+
 extends CombatRegressionHarnessCore
 
+const GLADIATOR_1V1_SKIP_PATTERNS: PackedStringArray = [
+    "tier1tail",
+    "rotatefiledoctrinetests",
+    "iv9gapcolumntests",
+    "iv11leadertargetingtests",
+]
+
+static var _test_functions_cache: Array = []
+
+
 ## Thin facade: orchestrates regression modules under harness/regression/ and subsystem tails.
-
-
 static func _kin_fixtures_cut_swing() -> Array:
     return KinematicDeliveryPenetrationTests._kin_fixtures_cut_swing()
 
@@ -88,8 +97,6 @@ static func _afterblow_harness_seed_pending_cut(mgr: Node, attacker_index: int, 
     WeaponAfterblowGuardTests._afterblow_harness_seed_pending_cut(mgr, attacker_index, defender_index)
 
 
-static var _test_functions_cache: Array = []
-
 static func get_test_functions() -> Array:
     if not _test_functions_cache.is_empty():
         return _test_functions_cache
@@ -108,12 +115,16 @@ static func get_test_functions() -> Array:
     tests.append(Callable(SoakFpOperationalLogDedupeTests, "_run_windup_pending_attack_pair_geometry"))
     tests.append(Callable(SoakFpOperationalLogDedupeTests, "_run_strike_measure_constants_sanity"))
     tests.append(Callable(SoakFpOperationalLogDedupeTests, "_run_attack_result_applier_terminal_clears_pending"))
-    tests.append(Callable(SoakFpOperationalLogDedupeTests, "_run_action_resolved_parry_deflect_payload_includes_clash_context"))
-    tests.append(Callable(ParryActionResolvedTests, "_run_action_resolved_parry_partial_payload_includes_clash_context"))
+    tests.append(
+        Callable(SoakFpOperationalLogDedupeTests, "_run_action_resolved_parry_deflect_payload_includes_clash_context")
+    )
+    tests.append(
+        Callable(ParryActionResolvedTests, "_run_action_resolved_parry_partial_payload_includes_clash_context")
+    )
     tests.append(Callable(ParryActionResolvedTests, "_run_hit_clears_attacker_parry_calibration_fields"))
     tests.append(Callable(ParryActionResolvedTests, "_run_hit_applier_sets_defender_guard_low_after_hit"))
-    tests.append(Callable(ParryActionResolvedTests, "_run_parry_partial_bind_riposte_flags_when_aligned"))
-    tests.append(Callable(ParryActionResolvedTests, "_run_parry_partial_bind_skips_counterstrike_window_when_flag_off"))
+    tests.append(Callable(ParryBindRiposteTests, "_run_parry_partial_bind_riposte_flags_when_aligned"))
+    tests.append(Callable(ParryBindRiposteTests, "_run_parry_partial_bind_skips_counterstrike_window_when_flag_off"))
     tests.append(Callable(ParryActionResolvedTests, "_run_parry_clash_context_carries_strike_momentum"))
     tests.append(Callable(ParryActionResolvedTests, "_run_full_parry_recoil_scales_with_parry_control"))
     tests.append(Callable(ArmWoundDegradationTests, "_run_arm_wound_grip_sub_region_and_severity_ordering"))
@@ -148,20 +159,36 @@ static func get_test_functions() -> Array:
     tests.append(Callable(WeaponAfterblowGuardTests, "_run_ai_attrition_offense_mult_duel_vs_line"))
     tests.append(Callable(WeaponAfterblowGuardTests, "_run_wind_up_duration_bounded_for_move"))
     tests.append(Callable(WeaponAfterblowGuardTests, "_run_kinematic_delivery_blunt_slip_momentum_mult_sword_v11"))
-    tests.append(Callable(WeaponAfterblowGuardTests, "_run_kinematic_delivery_mace_weak_tap_pre_blunt_below_baseline_min"))
+    tests.append(
+        Callable(WeaponAfterblowGuardTests, "_run_kinematic_delivery_mace_weak_tap_pre_blunt_below_baseline_min")
+    )
     tests.append(Callable(WeaponAfterblowGuardTests, "_run_resolve_aborts_when_threat_lost_mid_combat_arm_loss"))
     tests.append(Callable(CombatRegressionHarnessMedicalPhaseTail, "run"))
     tests.append(Callable(CombatRegressionHarnessProficiencyTail, "run"))
     tests.append(Callable(CombatRegressionHarnessProficiency1v1Tail, "run"))
     tests.append(Callable(CombatRegressionHarnessMuscleFatigueTail, "run"))
     tests.append(Callable(CombatRegressionHarnessTargeting1v1Tail, "run"))
-    tests.append(Callable(ParryActionResolvedTests, "_run_combat_end_enemy_win_stops_manager"))
-    tests.append(Callable(ParryActionResolvedTests, "_run_duel_auto_end_detection"))
-    tests.append(Callable(KinematicDeliveryStaminaFormationTests, "_run_medical_pain_shock_susceptibility_mult_from_effective_pain"))
-    tests.append(Callable(KinematicDeliveryStaminaFormationTests, "_run_medical_ambient_pain_shock_tick_enters_from_sustained_pain"))
-    tests.append(Callable(KinematicDeliveryStaminaFormationTests, "_run_medical_ambient_pain_shock_skips_when_feature_off"))
-    tests.append(Callable(KinematicDeliveryStaminaFormationTests, "_run_campaign_bridge_can_enter_combat_rejects_empty_party"))
-    tests.append(Callable(KinematicDeliveryStaminaFormationTests, "_run_campaign_bridge_can_enter_combat_rejects_unconscious"))
+    tests.append(Callable(CombatEndDuelFeintTests, "_run_combat_end_enemy_win_stops_manager"))
+    tests.append(Callable(CombatEndDuelFeintTests, "_run_duel_auto_end_detection"))
+    tests.append(
+        Callable(
+            KinematicDeliveryStaminaFormationTests, "_run_medical_pain_shock_susceptibility_mult_from_effective_pain"
+        )
+    )
+    tests.append(
+        Callable(
+            KinematicDeliveryStaminaFormationTests, "_run_medical_ambient_pain_shock_tick_enters_from_sustained_pain"
+        )
+    )
+    tests.append(
+        Callable(KinematicDeliveryStaminaFormationTests, "_run_medical_ambient_pain_shock_skips_when_feature_off")
+    )
+    tests.append(
+        Callable(KinematicDeliveryStaminaFormationTests, "_run_campaign_bridge_can_enter_combat_rejects_empty_party")
+    )
+    tests.append(
+        Callable(KinematicDeliveryStaminaFormationTests, "_run_campaign_bridge_can_enter_combat_rejects_unconscious")
+    )
     tests.append(Callable(KinematicDeliveryStaminaFormationTests, "_run_bind_riposte_contact_types_normalized"))
     tests.append(Callable(FlurryBindCampaignTests, "_run_bind_riposte_contact_multipliers"))
     tests.append(Callable(FlurryBindCampaignTests, "_run_bind_riposte_archetype_ordering_spear_faster_than_mace"))
@@ -176,25 +203,55 @@ static func get_test_functions() -> Array:
     tests.append(Callable(FlurryBindCampaignTests, "_run_flurry_bind_ui_gauge_label_when_window_open"))
     tests.append(Callable(FlurryBindCampaignTests, "_run_flurry_bind_feature_flag_respects_runtime_toggle"))
     tests.append(Callable(FlurryBindCampaignTests, "_run_p4g_flurry_bind_depth_suite"))
-    tests.append(Callable(KinematicDeliveryStaminaFormationTests, "_run_tier7_stamina_attack_cost_scales_with_intensity"))
-    tests.append(Callable(KinematicDeliveryStaminaFormationTests, "_run_tier7_stamina_parry_cost_scales_with_intensity"))
-    tests.append(Callable(KinematicDeliveryStaminaFormationTests, "_run_tier7_stamina_action_ready_cooldown_scales_with_fatigue"))
-    tests.append(Callable(KinematicDeliveryStaminaFormationTests, "_run_tier7_stamina_depletion_five_heavy_attacks_exhaust_pool"))
-    tests.append(Callable(KinematicDeliveryStaminaFormationTests, "_run_tier7_stamina_depletion_sustained_exchange_sim"))
-    tests.append(Callable(KinematicDeliveryStaminaFormationTests, "_run_stamina_effective_max_exhaustion_and_blood_cap"))
-    tests.append(Callable(KinematicDeliveryStaminaFormationTests, "_run_stamina_effective_refill_slows_with_exhaustion"))
-    tests.append(Callable(KinematicDeliveryStaminaFormationTests, "_run_stamina_refill_exponential_half_time_and_taper"))
+    tests.append(
+        Callable(KinematicDeliveryStaminaFormationTests, "_run_tier7_stamina_attack_cost_scales_with_intensity")
+    )
+    tests.append(
+        Callable(KinematicDeliveryStaminaFormationTests, "_run_tier7_stamina_parry_cost_scales_with_intensity")
+    )
+    tests.append(
+        Callable(KinematicDeliveryStaminaFormationTests, "_run_tier7_stamina_action_ready_cooldown_scales_with_fatigue")
+    )
+    tests.append(
+        Callable(KinematicDeliveryStaminaFormationTests, "_run_tier7_stamina_depletion_five_heavy_attacks_exhaust_pool")
+    )
+    tests.append(
+        Callable(KinematicDeliveryStaminaFormationTests, "_run_tier7_stamina_depletion_sustained_exchange_sim")
+    )
+    tests.append(
+        Callable(KinematicDeliveryStaminaFormationTests, "_run_stamina_effective_max_exhaustion_and_blood_cap")
+    )
+    tests.append(
+        Callable(KinematicDeliveryStaminaFormationTests, "_run_stamina_effective_refill_slows_with_exhaustion")
+    )
+    tests.append(
+        Callable(KinematicDeliveryStaminaFormationTests, "_run_stamina_refill_exponential_half_time_and_taper")
+    )
     tests.append(Callable(KinematicDeliveryExhaustionTests, "_run_exhaustion_timing_vs_power_differentiation"))
     tests.append(Callable(KinematicDeliveryExhaustionTests, "_run_exhaustion_metabolic_stress_accumulation"))
     tests.append(Callable(KinematicDeliveryExhaustionTests, "_run_exhaustion_consecutive_action_scaling"))
     tests.append(Callable(KinematicDeliveryStaminaFormationTests, "_run_opponent_pressure_defensive_uses_burst_ratio"))
     tests.append(Callable(FlurryBindCampaignTests, "_run_tier7_parry_bind_riposte_gauge_bonus_on_deflect"))
-    tests.append(Callable(KinematicDeliveryStaminaFormationTests, "_run_formation_move_duration_lane_obstacle_slows_estimate"))
-    tests.append(Callable(KinematicDeliveryStaminaFormationTests, "_run_formation_move_duration_matches_flow_pair_start"))
-    tests.append(Callable(KinematicDeliveryStaminaFormationTests, "_run_formation_move_duration_ui_hint_when_lane_crowded"))
-    tests.append(Callable(KinematicDeliveryStaminaFormationTests, "_run_formation_diagram_health_bar_reflects_body_damage"))
-    tests.append(Callable(KinematicDeliveryStaminaFormationTests, "_run_formation_diagram_health_bar_tint_reflects_function_loss"))
-    tests.append(Callable(KinematicDeliveryStaminaFormationTests, "_run_formation_move_duration_listed_actions_stamp_hint"))
+    tests.append(
+        Callable(KinematicDeliveryStaminaFormationTests, "_run_formation_move_duration_lane_obstacle_slows_estimate")
+    )
+    tests.append(
+        Callable(KinematicDeliveryStaminaFormationTests, "_run_formation_move_duration_matches_flow_pair_start")
+    )
+    tests.append(
+        Callable(KinematicDeliveryStaminaFormationTests, "_run_formation_move_duration_ui_hint_when_lane_crowded")
+    )
+    tests.append(
+        Callable(KinematicDeliveryStaminaFormationTests, "_run_formation_diagram_health_bar_reflects_body_damage")
+    )
+    tests.append(
+        Callable(
+            KinematicDeliveryStaminaFormationTests, "_run_formation_diagram_health_bar_tint_reflects_function_loss"
+        )
+    )
+    tests.append(
+        Callable(KinematicDeliveryStaminaFormationTests, "_run_formation_move_duration_listed_actions_stamp_hint")
+    )
     tests.append(Callable(RotateFileDoctrineTests, "_run_rotate_file_listed_for_adjacent_front_rank_allies"))
     tests.append(Callable(RotateFileDoctrineTests, "_run_rotate_file_start_sets_duration_matches_estimate"))
     tests.append(Callable(RotateFileDoctrineTests, "_run_rotate_file_resolve_stamps_rotate_cooldown"))
@@ -259,10 +316,22 @@ static func get_test_functions() -> Array:
     tests.append(Callable(Iv11LeaderTargetingTests, "_run_iv12_slot_distraction_ai_offense_damp"))
     tests.append(Callable(Iv11LeaderTargetingTests, "_run_iv12_co_located_target_bias_suite"))
     tests.append(Callable(Iv11LeaderTargetingTests, "_run_iv12_drag_back_dual_occupancy_distraction_suite"))
-    tests.append(Callable(KinematicDeliveryStaminaFormationTests, "_run_formation_move_duration_player_turn_hint_from_listed_actions"))
-    tests.append(Callable(KinematicDeliveryStaminaFormationTests, "_run_formation_move_duration_gauge_tooltip_listed_hint"))
-    tests.append(Callable(KinematicDeliveryStaminaFormationTests, "_run_formation_move_duration_gauge_tooltip_clears_when_not_waiting"))
-    tests.append(Callable(KinematicDeliveryStaminaFormationTests, "_run_formation_move_duration_gauge_tooltip_clears_on_resolve"))
+    tests.append(
+        Callable(
+            KinematicDeliveryStaminaFormationTests, "_run_formation_move_duration_player_turn_hint_from_listed_actions"
+        )
+    )
+    tests.append(
+        Callable(KinematicDeliveryStaminaFormationTests, "_run_formation_move_duration_gauge_tooltip_listed_hint")
+    )
+    tests.append(
+        Callable(
+            KinematicDeliveryStaminaFormationTests, "_run_formation_move_duration_gauge_tooltip_clears_when_not_waiting"
+        )
+    )
+    tests.append(
+        Callable(KinematicDeliveryStaminaFormationTests, "_run_formation_move_duration_gauge_tooltip_clears_on_resolve")
+    )
     tests.append(Callable(RotateFileDoctrineTests, "_run_p4b_formation_duration_ui_copy_suite"))
     tests.append(Callable(KinematicDeliveryStaminaFormationTests, "_run_wind_up_rejects_move_not_on_weapon"))
     tests.append(Callable(ImpactStationWeaponCommitTests, "_run_formation_hit_reaction_extends_pair_move_duration"))
@@ -271,14 +340,22 @@ static func get_test_functions() -> Array:
     tests.append(Callable(ImpactStationWeaponCommitTests, "_run_incoming_parry_can_parry_all_weak_pair"))
     tests.append(Callable(ImpactStationWeaponCommitTests, "_run_iii1_incoming_parry_sector_tiebreak"))
     tests.append(Callable(ImpactStationWeaponCommitTests, "_run_iii3_deflect_bind_calibration_suite"))
-    tests.append(Callable(ImpactStationWeaponCommitTests, "_run_weapon_extended_parry_dampens_defender_recovering_from_attack"))
+    tests.append(
+        Callable(ImpactStationWeaponCommitTests, "_run_weapon_extended_parry_dampens_defender_recovering_from_attack")
+    )
     tests.append(Callable(ImpactStationWeaponCommitTests, "_run_weapon_committed_attack_dampens_defender_parry_c_d"))
     tests.append(Callable(ImpactStationWeaponCommitTests, "_run_weapon_commit_fraction_stab_before_overhead_cut"))
     tests.append(Callable(ImpactStationWeaponCommitTests, "_run_weapon_windup_stamps_commit_fraction_on_pa"))
-    tests.append(Callable(ImpactStationWeaponCommitTests, "_run_weapon_commit_fraction_inferred_for_untagged_thrust_move"))
+    tests.append(
+        Callable(ImpactStationWeaponCommitTests, "_run_weapon_commit_fraction_inferred_for_untagged_thrust_move")
+    )
     tests.append(Callable(ImpactStationWeaponCommitTests, "_run_impact_station_mean_zero_spread_equals_move_mean"))
     tests.append(Callable(ImpactStationWeaponCommitTests, "_run_impact_station_mean_move_overrides_weapon_default"))
-    tests.append(Callable(ImpactStationWeaponCommitTests, "_run_impact_station_mean_ordering_spear_thrust_above_mace_direct_blow"))
+    tests.append(
+        Callable(
+            ImpactStationWeaponCommitTests, "_run_impact_station_mean_ordering_spear_thrust_above_mace_direct_blow"
+        )
+    )
     tests.append(Callable(ImpactStationWeaponCommitTests, "_run_impact_station_mean_windup_stamps_move_override"))
     tests.append(Callable(ImpactStationWeaponCommitTests, "_run_impact_station_mean_every_move_def_tagged"))
     tests.append(Callable(ImpactStationWeaponCommitTests, "_run_impact_station_mean_feint_coiled_below_honest_cut"))
@@ -289,33 +366,33 @@ static func get_test_functions() -> Array:
     tests.append(Callable(ParryCalibrationBlockTests, "_run_parry_clash_context_calibration_fields"))
     tests.append(Callable(ParryCalibrationBlockTests, "_run_parry_partial_clash_context_calibration_fields"))
     tests.append(Callable(ParryCalibrationBlockTests, "_run_parry_control_bind_deflect_formula"))
-    tests.append(Callable(ParryCalibrationBlockTests, "_run_bind_friction_blade_width"))
-    tests.append(Callable(ParryCalibrationBlockTests, "_run_morale_parry_readiness"))
-    tests.append(Callable(ParryCalibrationBlockTests, "_run_parry_max_damage_reduction_cap"))
-    tests.append(Callable(ParryCalibrationBlockTests, "_run_bind_pressure_defender_penalty"))
-    tests.append(Callable(ParryCalibrationBlockTests, "_run_parry_deflect_recovery_cost"))
-    tests.append(Callable(ParryCalibrationBlockTests, "_run_parry_deflect_immediate_guard_displacement"))
-    tests.append(Callable(ParryCalibrationBlockTests, "_run_off_balance_deflect_scaled_duration"))
-    tests.append(Callable(ParryCalibrationBlockTests, "_run_parry_decision_named_constants"))
-    tests.append(Callable(ParryCalibrationBlockTests, "_run_parry_bonus_scales_with_control"))
-    tests.append(Callable(ParryCalibrationBlockTests, "_run_parry_velocity_named_constants"))
-    tests.append(Callable(ParryCalibrationBlockTests, "_run_reach_disparity_named_constants"))
-    tests.append(Callable(ParryCalibrationBlockTests, "_run_flex_factor_blade_slenderness"))
-    tests.append(Callable(ParryCalibrationBlockTests, "_run_bind_pressure_decay_constants"))
-    tests.append(Callable(ParryCalibrationBlockTests, "_run_partial_parry_stamina_discount"))
-    tests.append(Callable(ParryCalibrationBlockTests, "_run_mid_swing_parry_penalty"))
-    tests.append(Callable(ParryCalibrationBlockTests, "_run_parry_recoil_mass_scale"))
-    tests.append(Callable(ParryCalibrationBlockTests, "_run_parry_fatigue_time_decay"))
-    tests.append(Callable(ParryCalibrationBlockTests, "_run_two_handed_parry_bracing"))
-    tests.append(Callable(ParryCalibrationBlockTests, "_run_parry_recoil_alignment_scale"))
-    tests.append(Callable(ParryCalibrationBlockTests, "_run_parry_recoil_flex_scale"))
-    tests.append(Callable(ParryCalibrationBlockTests, "_run_parry_recoil_progress_scale"))
-    tests.append(Callable(ParryCalibrationBlockTests, "_run_parry_recoil_body_mass_scale"))
-    tests.append(Callable(ParryCalibrationBlockTests, "_run_follow_through_gate_at_low_remaining_ratio"))
-    tests.append(Callable(ParryCalibrationBlockTests, "_run_follow_through_integration_gate"))
-    tests.append(Callable(ParryCalibrationBlockTests, "_run_block_threshold_balance_test"))
-    tests.append(Callable(ParryCalibrationBlockTests, "_run_block_threshold_asymmetric_test"))
-    tests.append(Callable(ParryCalibrationBlockTests, "_run_weapon_melee_range_ordering"))
+    tests.append(Callable(ParryCalibrationBindTests, "_run_bind_friction_blade_width"))
+    tests.append(Callable(ParryCalibrationBindTests, "_run_morale_parry_readiness"))
+    tests.append(Callable(ParryCalibrationBindTests, "_run_parry_max_damage_reduction_cap"))
+    tests.append(Callable(ParryCalibrationBindTests, "_run_bind_pressure_defender_penalty"))
+    tests.append(Callable(ParryCalibrationRecoilTests, "_run_parry_deflect_recovery_cost"))
+    tests.append(Callable(ParryCalibrationRecoilTests, "_run_parry_deflect_immediate_guard_displacement"))
+    tests.append(Callable(ParryCalibrationRecoilTests, "_run_off_balance_deflect_scaled_duration"))
+    tests.append(Callable(ParryCalibrationRecoilTests, "_run_parry_decision_named_constants"))
+    tests.append(Callable(ParryCalibrationRecoilTests, "_run_parry_bonus_scales_with_control"))
+    tests.append(Callable(ParryCalibrationRecoilTests, "_run_parry_velocity_named_constants"))
+    tests.append(Callable(ParryCalibrationRecoilTests, "_run_reach_disparity_named_constants"))
+    tests.append(Callable(ParryCalibrationRecoilTests, "_run_flex_factor_blade_slenderness"))
+    tests.append(Callable(ParryCalibrationBindTests, "_run_bind_pressure_decay_constants"))
+    tests.append(Callable(ParryCalibrationRecoilTests, "_run_partial_parry_stamina_discount"))
+    tests.append(Callable(ParryCalibrationRecoilTests, "_run_mid_swing_parry_penalty"))
+    tests.append(Callable(ParryCalibrationRecoilTests, "_run_parry_recoil_mass_scale"))
+    tests.append(Callable(ParryCalibrationRecoilTests, "_run_parry_fatigue_time_decay"))
+    tests.append(Callable(ParryCalibrationRecoilTests, "_run_two_handed_parry_bracing"))
+    tests.append(Callable(ParryCalibrationRecoilTests, "_run_parry_recoil_alignment_scale"))
+    tests.append(Callable(ParryCalibrationRecoilTests, "_run_parry_recoil_flex_scale"))
+    tests.append(Callable(ParryCalibrationRecoilTests, "_run_parry_recoil_progress_scale"))
+    tests.append(Callable(ParryCalibrationRecoilTests, "_run_parry_recoil_body_mass_scale"))
+    tests.append(Callable(ParryCalibrationBindTests, "_run_follow_through_gate_at_low_remaining_ratio"))
+    tests.append(Callable(ParryCalibrationBindTests, "_run_follow_through_integration_gate"))
+    tests.append(Callable(ParryCalibrationBindTests, "_run_block_threshold_balance_test"))
+    tests.append(Callable(ParryCalibrationBindTests, "_run_block_threshold_asymmetric_test"))
+    tests.append(Callable(ParryCalibrationBindTests, "_run_weapon_melee_range_ordering"))
     tests.append(Callable(WeaponAfterblowGuardTests, "_run_weapon_move_coverage"))
     tests.append(Callable(WeaponAfterblowGuardTests, "_run_weapon_parts_mass_sum"))
     tests.append(Callable(WeaponAfterblowGuardTests, "_run_weapon_sharpness_effective_contact_width"))
@@ -336,7 +413,9 @@ static func get_test_functions() -> Array:
     tests.append(Callable(FlurryBindCampaignTests, "_run_campaign_bridge_encounter_meta_from_node"))
     ## Phase 2: feint resistance gate  -  high-readiness defenders reject feints.
     tests.append(Callable(WeaponAfterblowGuardTests, "_run_mental_stack_feint_resistance_high_readiness"))
-    tests.append(Callable(MentalStackFeintMedicalTests, "_run_mental_stack_feint_resistance_low_readiness_still_falls_for"))
+    tests.append(
+        Callable(MentalStackFeintMedicalTests, "_run_mental_stack_feint_resistance_low_readiness_still_falls_for")
+    )
     ## Phase 3: MS-L8 post-strike momentum layer.
     tests.append(Callable(WeaponAfterblowGuardTests, "_run_ms_l8_post_strike_momentum_presses_target"))
     ## Phase 5: exhaustion gradient (offense weight lerp).
@@ -345,7 +424,9 @@ static func get_test_functions() -> Array:
     tests.append(Callable(MentalStackFeintMedicalTests, "_run_ms_l9_positional_awareness_disengage_when_surrounded"))
     ## Phase 7: medical escalation TCCC ladder  -  pack boosted when bandage failed.
     tests.append(Callable(MentalStackFeintMedicalTests, "_run_mental_stack_medical_escalation_bandage_to_pack"))
-    tests.append(Callable(MentalStackFeintMedicalTests, "_run_mental_stack_medical_escalation_no_bonus_when_no_failures"))
+    tests.append(
+        Callable(MentalStackFeintMedicalTests, "_run_mental_stack_medical_escalation_no_bonus_when_no_failures")
+    )
     ## Tier 1.7-1.8: stale swap-rank event cleanup and parry formation-pair state preservation.
     tests.append(Callable(CombatRegressionHarnessCore, "_run_cancel_stale_swap_rank_resolve_events"))
     tests.append(Callable(CombatRegressionHarnessCore, "_run_parry_preserves_formation_pair_state"))
@@ -377,20 +458,23 @@ static func run_all() -> Dictionary:
     if selected.is_empty():
         return {
             "ok": false,
-            "failures": PackedStringArray(
+            "failures":
+            PackedStringArray(
                 [
                     (
-                        "FP_HARNESS_TESTS=\"%s\" / scope skips matched 0 of %d tests; "
-                        + "none ran (check the patterns or set FP_HARNESS_SCOPE=full)"
+                        (
+                            'FP_HARNESS_TESTS="%s" / scope skips matched 0 of %d tests; '
+                            + "none ran (check the patterns or set FP_HARNESS_SCOPE=full)"
+                        )
+                        % [", ".join(patterns), all.size()]
                     )
-                    % [", ".join(patterns), all.size()]
                 ]
             ),
         }
     var scope_label: String = "1v1" if scope_is_1v1() else "full"
     var skip_note: String = ""
     if not skip_patterns.is_empty():
-        skip_note = "; skip=\"%s\"" % ", ".join(skip_patterns)
+        skip_note = '; skip="%s"' % ", ".join(skip_patterns)
     print(
         (
             "=== CombatRegressionHarness: FP_HARNESS_SCOPE=%s selected %d/%d%s ==="
@@ -415,6 +499,8 @@ static func run_all() -> Dictionary:
 
 
 ## Per-test durations (ms, desc) for `.regression_timing.txt` — which regression tail dominates.
+
+
 static func _write_timing_report(selected: Array, timing_rows: PackedStringArray) -> void:
     var rows: Array = []
     for i in selected.size():
@@ -439,6 +525,8 @@ static func _write_timing_report(selected: Array, timing_rows: PackedStringArray
 
 ## All registered regression test labels (ClassName.method, lowercased).
 ## FP_HARNESS_LIST prints these so a targeted FP_HARNESS_TESTS run can be chosen without grepping source.
+
+
 static func list_test_labels() -> PackedStringArray:
     var out: PackedStringArray = PackedStringArray()
     for tf in get_test_functions():
@@ -449,6 +537,8 @@ static func list_test_labels() -> PackedStringArray:
 
 ## FP_HARNESS_TESTS is a comma-separated list of case-insensitive substrings; a test runs if any
 ## pattern is a substring of its ClassName.method label. Empty (env unset) = run every test.
+
+
 static func _resolve_test_filter_patterns() -> PackedStringArray:
     var raw: String = OS.get_environment("FP_HARNESS_TESTS").strip_edges()
     var out: PackedStringArray = PackedStringArray()
@@ -465,12 +555,6 @@ static func _resolve_test_filter_patterns() -> PackedStringArray:
 ## formation/engagement engines (tier-1 surround/mop-up/wings, rotate-file + swap ranks/vacancy plugs,
 ## gap-column topology, and leader/commander order + IV-12 distraction + IV-13 ZOC targeting).
 ## Set **`FP_HARNESS_SCOPE=full`** to restore them.
-const GLADIATOR_1V1_SKIP_PATTERNS: PackedStringArray = [
-    "tier1tail",
-    "rotatefiledoctrinetests",
-    "iv9gapcolumntests",
-    "iv11leadertargetingtests",
-]
 
 
 ## True when the harness runs the gladiator **1v1** scope (default); set **`FP_HARNESS_SCOPE=full`**
@@ -482,6 +566,8 @@ static func scope_is_1v1() -> bool:
 
 ## Skip patterns = gladiator-1v1 scope defaults + user **`FP_HARNESS_SKIP`** substrings. A test matching
 ## any pattern never runs (applied after **`FP_HARNESS_TESTS`** include filtering).
+
+
 static func _resolve_test_skip_patterns() -> PackedStringArray:
     var out: PackedStringArray = PackedStringArray()
     if scope_is_1v1():

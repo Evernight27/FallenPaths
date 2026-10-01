@@ -1,6 +1,6 @@
 class_name Tier1SurroundTargetingTests
 extends CombatRegressionHarnessCore
-const _CombatRegressionHarness := preload("res://harness/regression/CombatRegressionHarness.gd")
+const CombatRegressionHarness := preload("res://harness/regression/CombatRegressionHarness.gd")
 ## Tier 1 depth / engagement / targeting / surround / doctrine tests (compile split).
 ## Footing: not WF/PA owner  -  may call strike/listing paths that read **`form_str`**. Spec: LIVE_PATHS
 ## **`#wf-footing-doc-map`**.
@@ -11,9 +11,7 @@ static func _run_surround_sector_load_formula(failures: PackedStringArray) -> vo
     var m_int_two_threats: float = TacticalCombat.surround_defense_multiplier(d, 2)
     var m_sector: float = TacticalCombat.surround_multiplier_from_weight_sum_for_harness(d, 2.0)
     if not is_equal_approx(m_int_two_threats, m_sector):
-        _fail(
-            failures, "surround_sector: int n=2 %.4f vs sector wsum=2 %.4f" % [m_int_two_threats, m_sector]
-        )
+        _fail(failures, "surround_sector: int n=2 %.4f vs sector wsum=2 %.4f" % [m_int_two_threats, m_sector])
     var m_mild: float = TacticalCombat.surround_multiplier_from_weight_sum_for_harness(d, 1.15)
     if m_mild <= m_int_two_threats + 0.01:
         _fail(
@@ -48,13 +46,9 @@ static func _run_surround_threat_weight_sum_three_file_line(failures: PackedStri
         return
     var wsum: float = TacticalCombat.compute_surround_threat_weight_sum(mgr, def_id)
     if wsum >= 2.0 - 0.02:
-        _fail(
-            failures, "surround_weight_sum: adjacent pair should sum < 2 full weights, got %.4f" % wsum
-        )
+        _fail(failures, "surround_weight_sum: adjacent pair should sum < 2 full weights, got %.4f" % wsum)
     if wsum < 0.9:
-        _fail(
-            failures, "surround_weight_sum: expected meaningful stacked weight, got %.4f" % wsum
-        )
+        _fail(failures, "surround_weight_sum: expected meaningful stacked weight, got %.4f" % wsum)
     HarnessFixtures._free_manager(mgr)
 
 
@@ -70,9 +64,7 @@ static func _run_surround_defense_multiplier_from_pa_both_paths(failures: Packed
     var m_int_path: float = TacticalCombat.surround_defense_multiplier_from_pa_with_sector(d, pa_two, false)
     var m_sector_equiv: float = TacticalCombat.surround_defense_multiplier_from_pa_with_sector(d, pa_two, true)
     if not is_equal_approx(m_int_path, TacticalCombat.surround_defense_multiplier(d, 2)):
-        _fail(
-            failures, "surround_from_pa: int path should match surround_defense_multiplier(n=2)"
-        )
+        _fail(failures, "surround_from_pa: int path should match surround_defense_multiplier(n=2)")
     if not is_equal_approx(m_sector_equiv, TacticalCombat.surround_multiplier_from_weight_sum_for_harness(d, 2.0)):
         _fail(failures, "surround_from_pa: sector path with count-only pa should match wsum=2")
     if not is_equal_approx(m_int_path, m_sector_equiv):
@@ -120,24 +112,18 @@ static func _run_surround_live_weight_sum_matches_from_pa_sector_path(failures: 
         return
     var wsum: float = TacticalCombat.compute_surround_threat_weight_sum(mgr, def_id)
     if wsum >= 2.0 - 0.02 or wsum < 0.9:
-        _fail(
-            failures, "surround_live_pa: unexpected wsum=%.4f (want compressed flank pair)" % wsum
-        )
+        _fail(failures, "surround_live_pa: unexpected wsum=%.4f (want compressed flank pair)" % wsum)
         HarnessFixtures._free_manager(mgr)
         return
     var pa: Dictionary = {"surround_threat_count": n_threats, "surround_threat_weight_sum": wsum}
     var m_sector: float = TacticalCombat.surround_defense_multiplier_from_pa_with_sector(def, pa, true)
     var m_ref: float = TacticalCombat.surround_multiplier_from_weight_sum_for_harness(def, wsum)
     if not is_equal_approx(m_sector, m_ref):
-        _fail(
-            failures, "surround_live_pa: sector from_pa %.6f vs harness wsum ref %.6f" % [m_sector, m_ref]
-        )
+        _fail(failures, "surround_live_pa: sector from_pa %.6f vs harness wsum ref %.6f" % [m_sector, m_ref])
     var m_int: float = TacticalCombat.surround_defense_multiplier_from_pa_with_sector(def, pa, false)
     var m_int_ref: float = TacticalCombat.surround_defense_multiplier(def, n_threats)
     if not is_equal_approx(m_int, m_int_ref):
-        _fail(
-            failures, "surround_live_pa: int from_pa %.6f vs surround_defense_multiplier %.6f" % [m_int, m_int_ref]
-        )
+        _fail(failures, "surround_live_pa: int from_pa %.6f vs surround_defense_multiplier %.6f" % [m_int, m_int_ref])
     if m_sector <= m_int + 0.001:
         _fail(
             failures,
@@ -187,9 +173,7 @@ static func _run_surround_single_threat_int_and_sector_neutral(failures: PackedS
     if not is_equal_approx(m_int, 1.0):
         _fail(failures, "surround_single: int path want 1.0 got %.6f" % m_int)
     if not is_equal_approx(m_sec, 1.0):
-        _fail(
-            failures, "surround_single: sector path want 1.0 got %.6f (wsum=%.4f)" % [m_sec, wsum]
-        )
+        _fail(failures, "surround_single: sector path want 1.0 got %.6f (wsum=%.4f)" % [m_sec, wsum])
     if not is_equal_approx(m_sec, TacticalCombat.surround_multiplier_from_weight_sum_for_harness(def, wsum)):
         _fail(failures, "surround_single: sector from_pa vs harness ref mismatch")
     HarnessFixtures._free_manager(mgr)
@@ -222,9 +206,7 @@ static func _run_sector_surround_feature_flag_respects_runtime_toggle(failures: 
     if n_threats != 2 or wsum >= 2.0 - 0.02 or wsum < 0.9:
         CombatConstants.set_feature_sector_surround_load(prev_flag)
         HarnessFixtures._free_manager(mgr)
-        _fail(
-            failures, "sector_flag_toggle: need compressed two-threat layout (n=%d wsum=%.4f)" % [n_threats, wsum]
-        )
+        _fail(failures, "sector_flag_toggle: need compressed two-threat layout (n=%d wsum=%.4f)" % [n_threats, wsum])
         return
     var m_int: float = TacticalCombat.surround_defense_multiplier_from_pa_with_sector(def, pa, false)
     var m_sec: float = TacticalCombat.surround_defense_multiplier_from_pa_with_sector(def, pa, true)
@@ -233,18 +215,14 @@ static func _run_sector_surround_feature_flag_respects_runtime_toggle(failures: 
     if not is_equal_approx(from_pa_off, m_int):
         CombatConstants.set_feature_sector_surround_load(prev_flag)
         HarnessFixtures._free_manager(mgr)
-        _fail(
-            failures, "sector_flag_toggle: flag off from_pa %.6f vs int ref %.6f" % [from_pa_off, m_int]
-        )
+        _fail(failures, "sector_flag_toggle: flag off from_pa %.6f vs int ref %.6f" % [from_pa_off, m_int])
         return
     CombatConstants.set_feature_sector_surround_load(true)
     var from_pa_on: float = TacticalCombat.surround_defense_multiplier_from_pa(def, pa)
     if not is_equal_approx(from_pa_on, m_sec):
         CombatConstants.set_feature_sector_surround_load(prev_flag)
         HarnessFixtures._free_manager(mgr)
-        _fail(
-            failures, "sector_flag_toggle: flag on from_pa %.6f vs sector ref %.6f" % [from_pa_on, m_sec]
-        )
+        _fail(failures, "sector_flag_toggle: flag on from_pa %.6f vs sector ref %.6f" % [from_pa_on, m_sec])
         return
     if from_pa_on <= from_pa_off + 0.001:
         CombatConstants.set_feature_sector_surround_load(prev_flag)
@@ -347,9 +325,7 @@ static func _run_hostile_pair_distributed_pressure_ally_commit(failures: PackedS
             "dist_pressure: distributed mult should drop when ally commits none=%.6f ally=%.6f" % [dp_none, dp_ally]
         )
     if w_after >= w_before - 1e-6:
-        _fail(
-            failures, "dist_pressure: hostile weight should drop before=%.6f after=%.6f" % [w_before, w_after]
-        )
+        _fail(failures, "dist_pressure: hostile weight should drop before=%.6f after=%.6f" % [w_before, w_after])
     var cnt: int = CombatTargetScoring.ally_pressure_count(mgr, e0id, "player", p0id)
     if cnt != 1:
         _fail(failures, "dist_pressure: expected ally_pressure_count=1 got %d" % cnt)
@@ -392,9 +368,7 @@ static func _run_ally_pressure_count_depth_uses_melee_pair_to_defender(failures:
     var p1nid: int = CombatantEntityAccess.id_int(p1n)
     var e0nid: int = CombatantEntityAccess.id_int(e0n)
     if not CombatMeleeRankTargeting.melee_pair_rank_allowed(mgr_near, p1n, e0n):
-        _fail(
-            failures, "ally_press_dep: near layout expected _melee_pair_rank_allowed depth->e0"
-        )
+        _fail(failures, "ally_press_dep: near layout expected _melee_pair_rank_allowed depth->e0")
         HarnessFixtures._free_manager(mgr_near)
         return
     CombatTargetScoring.on_combat_commitment(mgr_near, p1nid, e0nid)
@@ -424,9 +398,7 @@ static func _run_ally_pressure_count_depth_uses_melee_pair_to_defender(failures:
     mgr_far.recompute_zoc_and_distance()
     var e0_far: Dictionary = mgr_far.combatants[2]
     if CombatMeleeRankTargeting.melee_pair_rank_allowed(mgr_far, depth_far, e0_far):
-        _fail(
-            failures, "ally_press_dep: far enemies expected no _melee_pair_rank_allowed depth->e0"
-        )
+        _fail(failures, "ally_press_dep: far enemies expected no _melee_pair_rank_allowed depth->e0")
         HarnessFixtures._free_manager(mgr_far)
         return
     var p0f: Dictionary = mgr_far.combatants[0]
@@ -436,9 +408,7 @@ static func _run_ally_pressure_count_depth_uses_melee_pair_to_defender(failures:
     CombatTargetScoring.on_combat_commitment(mgr_far, p1fid, e0fid)
     var cnt_far: int = CombatTargetScoring.ally_pressure_count(mgr_far, e0fid, "player", p0fid)
     if cnt_far != 0:
-        _fail(
-            failures, "ally_press_dep: far-line committed depth should not count pressure got %d" % cnt_far
-        )
+        _fail(failures, "ally_press_dep: far-line committed depth should not count pressure got %d" % cnt_far)
     HarnessFixtures._free_manager(mgr_far)
 
 
@@ -480,15 +450,11 @@ static func _run_targeting_hold_lane_off_file_mult(failures: PackedStringArray) 
     mgr.recompute_zoc_and_distance()
     var m_same: float = CombatTargetScoring.hold_lane_mult(mgr, p, e)
     if not is_equal_approx(m_same, 1.0):
-        _fail(
-            failures, "hold_lane_mult: file-opposed front should be neutral got %.4f" % m_same
-        )
+        _fail(failures, "hold_lane_mult: file-opposed front should be neutral got %.4f" % m_same)
     mgr.set_formation_doctrine("player", CombatConstants.DOCTRINE_PINCH_CENTER)
     var m_pinch: float = CombatTargetScoring.hold_lane_mult(mgr, p, e)
     if not is_equal_approx(m_pinch, 1.0):
-        _fail(
-            failures, "hold_lane_mult: pinch doctrine should not apply hold hedge got %.4f" % m_pinch
-        )
+        _fail(failures, "hold_lane_mult: pinch doctrine should not apply hold hedge got %.4f" % m_pinch)
     mgr.set_formation_doctrine("player", CombatConstants.DOCTRINE_DEFAULT)
     if not is_equal_approx(CombatTargetScoring.hold_lane_mult(mgr, p, e), 1.0):
         _fail(failures, "hold_lane_mult: default doctrine should be neutral")
@@ -572,9 +538,7 @@ static func _run_targeting_file_opposed_mult(failures: PackedStringArray) -> voi
         )
     var m_depth_off: float = CombatTargetScoring.file_opposed_mult(mgr2, depth, en_off)
     if not is_equal_approx(m_depth_off, 1.0):
-        _fail(
-            failures, "file_opposed_mult_depth: off-file enemy expected 1.0 got %.4f" % m_depth_off
-        )
+        _fail(failures, "file_opposed_mult_depth: off-file enemy expected 1.0 got %.4f" % m_depth_off)
     HarnessFixtures._free_manager(mgr2)
 
 
@@ -600,9 +564,7 @@ static func _run_targeting_pinch_center_inward_bonus(failures: PackedStringArray
     mgr.recompute_zoc_and_distance()
     mgr.set_formation_doctrine("player", CombatConstants.DOCTRINE_PINCH_CENTER)
     if not CombatTargetScoring.wing_lacks_file_opposed(mgr, p):
-        _fail(
-            failures, "pinch_bonus: expected wing_lacks (no rank-0 mapped opposition; depth-only hostile)"
-        )
+        _fail(failures, "pinch_bonus: expected wing_lacks (no rank-0 mapped opposition; depth-only hostile)")
         HarnessFixtures._free_manager(mgr)
         return
     var ec: float = 0.0
@@ -617,25 +579,19 @@ static func _run_targeting_pinch_center_inward_bonus(failures: PackedStringArray
     var want: float = 1.0 + CombatConstants.DOCTRINE_PINCH_INWARD_BIAS_PER_FILE * maxf(0.0, 2.5 - inward)
     var m_pinch: float = CombatTargetScoring.pinch_score_mult(mgr, p, e)
     if not is_equal_approx(m_pinch, want):
-        _fail(
-            failures, "pinch_bonus: expected %.6f got %.6f (inward=%.4f)" % [want, m_pinch, inward]
-        )
+        _fail(failures, "pinch_bonus: expected %.6f got %.6f (inward=%.4f)" % [want, m_pinch, inward])
     e["rank"] = 0
     e["file"] = 0
     mgr.recompute_zoc_and_distance()
     var m_opposed: float = CombatTargetScoring.pinch_score_mult(mgr, p, e)
     if not is_equal_approx(m_opposed, 1.0):
-        _fail(
-            failures, "pinch_bonus: file-opposed front should suppress pinch got %.4f" % m_opposed
-        )
+        _fail(failures, "pinch_bonus: file-opposed front should suppress pinch got %.4f" % m_opposed)
     e["file"] = 1
     e["rank"] = 1
     mgr.set_formation_doctrine("player", CombatConstants.DOCTRINE_HOLD_LANE)
     var m_hold_doc: float = CombatTargetScoring.pinch_score_mult(mgr, p, e)
     if not is_equal_approx(m_hold_doc, 1.0):
-        _fail(
-            failures, "pinch_bonus: hold_lane doctrine should not apply pinch inward got %.4f" % m_hold_doc
-        )
+        _fail(failures, "pinch_bonus: hold_lane doctrine should not apply pinch inward got %.4f" % m_hold_doc)
     mgr.set_formation_doctrine("player", CombatConstants.DOCTRINE_DEFAULT)
     if not is_equal_approx(CombatTargetScoring.pinch_score_mult(mgr, p, e), 1.0):
         _fail(failures, "pinch_bonus: default doctrine should be neutral")
@@ -714,13 +670,9 @@ static func _run_targeting_soft_geometry_eff_dist_formula(failures: PackedString
     var want0: float = 1.0 / (1.0 + eff0 * k)
     var want1: float = 1.0 / (1.0 + eff1 * k)
     if not is_equal_approx(s0, want0):
-        _fail(
-            failures, "soft_geom: pair0 formula want %.6f got %.6f eff=%.4f" % [want0, s0, eff0]
-        )
+        _fail(failures, "soft_geom: pair0 formula want %.6f got %.6f eff=%.4f" % [want0, s0, eff0])
     if not is_equal_approx(s1, want1):
-        _fail(
-            failures, "soft_geom: pair1 formula want %.6f got %.6f eff=%.4f" % [want1, s1, eff1]
-        )
+        _fail(failures, "soft_geom: pair1 formula want %.6f got %.6f eff=%.4f" % [want1, s1, eff1])
     if absf(eff0 - eff1) > 0.02:
         if eff0 < eff1 and not (s0 > s1 + 1e-5):
             _fail(
@@ -789,9 +741,7 @@ static func _run_targeting_prune_commitment_when_target_dies(failures: PackedStr
     if int(p.get("doctrine_target_commit_id", -2)) != -1:
         _fail(failures, "prune_dead_tgt: expected commit cleared when target dies")
     if not is_equal_approx(CombatTargetScoring.commitment_match_mult(p, eid), 1.0):
-        _fail(
-            failures, "prune_dead_tgt: commitment_match_mult should be neutral after dead-target prune"
-        )
+        _fail(failures, "prune_dead_tgt: commitment_match_mult should be neutral after dead-target prune")
     HarnessFixtures._free_manager(mgr)
 
 
@@ -826,15 +776,11 @@ static func _run_targeting_clear_all_state_for_dead_defender(failures: PackedStr
     p1["close_block_until_by_target_id"] = blk1
     CombatTargetScoring.clear_all_targeting_state_for_dead_defender(mgr, eid)
     if int(p0.get("doctrine_target_commit_id", -2)) != -1 or int(p1.get("doctrine_target_commit_id", -2)) != -1:
-        _fail(
-            failures, "clear_dead_def: expected doctrine_target_commit_id cleared for both allies"
-        )
+        _fail(failures, "clear_dead_def: expected doctrine_target_commit_id cleared for both allies")
     var b0: Dictionary = p0.get("close_block_until_by_target_id", {}) as Dictionary
     var b1: Dictionary = p1.get("close_block_until_by_target_id", {}) as Dictionary
     if b0.has(eid) or b1.has(eid):
-        _fail(
-            failures, "clear_dead_def: expected close_block_until_by_target_id entries for dead id erased"
-        )
+        _fail(failures, "clear_dead_def: expected close_block_until_by_target_id entries for dead id erased")
     HarnessFixtures._free_manager(mgr)
 
 
@@ -905,15 +851,11 @@ static func _run_targeting_formation_dict_cache_matches_live(failures: PackedStr
     var m_pc_l: float = CombatTargetScoring.posture_cohesion_targeting_mult(mgr, p)
     var m_pc_c: float = CombatTargetScoring.posture_cohesion_targeting_mult(mgr, p, fd_p)
     if not is_equal_approx(m_pc_l, m_pc_c):
-        _fail(
-            failures, "tgt_fd_cache: posture_cohesion live %.6f vs cache %.6f" % [m_pc_l, m_pc_c]
-        )
+        _fail(failures, "tgt_fd_cache: posture_cohesion live %.6f vs cache %.6f" % [m_pc_l, m_pc_c])
     var m_of_l: float = CombatTargetScoring.opponent_formation_targeting_mult(mgr, opp)
     var m_of_c: float = CombatTargetScoring.opponent_formation_targeting_mult(mgr, opp, fd_o)
     if not is_equal_approx(m_of_l, m_of_c):
-        _fail(
-            failures, "tgt_fd_cache: opponent_formation live %.6f vs cache %.6f" % [m_of_l, m_of_c]
-        )
+        _fail(failures, "tgt_fd_cache: opponent_formation live %.6f vs cache %.6f" % [m_of_l, m_of_c])
     HarnessFixtures._free_manager(mgr)
 
 
@@ -927,9 +869,7 @@ static func _run_ai_targeting_engagement_mode_mult(failures: PackedStringArray) 
     d.register(_new_entity("SWORD"), "enemy")
     d.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
     if CombatEngagementMode.engagement_mode(d) != CombatConstants.ENGAGEMENT_MODE_DUEL:
-        _fail(
-            failures, "ai_targeting_eng_mode: expected duel for 1v1 got %s" % CombatEngagementMode.engagement_mode(d)
-        )
+        _fail(failures, "ai_targeting_eng_mode: expected duel for 1v1 got %s" % CombatEngagementMode.engagement_mode(d))
     var m_duel: float = CombatTargetScoring.engagement_mode_targeting_mult(d)
     if not is_equal_approx(m_duel, CombatConstants.AI_TARGETING_ENGAGEMENT_MODE_DUEL_MULT):
         _fail(

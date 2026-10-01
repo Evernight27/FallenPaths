@@ -1,6 +1,6 @@
 class_name Tier1EncounterGapTests
 extends CombatRegressionHarnessCore
-const _CombatRegressionHarness := preload("res://harness/regression/CombatRegressionHarness.gd")
+const CombatRegressionHarness := preload("res://harness/regression/CombatRegressionHarness.gd")
 ## Tier 1 depth / engagement / targeting / surround / doctrine tests (compile split).
 ## Footing: not WF/PA owner  -  may call strike/listing paths that read **`form_str`**. Spec: LIVE_PATHS
 ## **`#wf-footing-doc-map`**.
@@ -161,9 +161,7 @@ static func _run_encounter_formation_doctrine_string_helper(failures: PackedStri
         CombatConstants.ENCOUNTER_KEY_FORMATION_DOCTRINE_PLAYER_ALT
     )
     if got_alt != "hold":
-        _fail(
-            failures, "encounter_doctrine_string: empty canonical should use alt got %s" % got_alt
-        )
+        _fail(failures, "encounter_doctrine_string: empty canonical should use alt got %s" % got_alt)
     var enc_canon: Dictionary = {
         CombatConstants.ENCOUNTER_KEY_FORMATION_DOCTRINE_PLAYER: "probing",
         CombatConstants.ENCOUNTER_KEY_FORMATION_DOCTRINE_PLAYER_ALT: "hold_lane",
@@ -174,9 +172,7 @@ static func _run_encounter_formation_doctrine_string_helper(failures: PackedStri
         CombatConstants.ENCOUNTER_KEY_FORMATION_DOCTRINE_PLAYER_ALT
     )
     if got_canon != "probing":
-        _fail(
-            failures, "encounter_doctrine_string: canonical should win over alt got %s" % got_canon
-        )
+        _fail(failures, "encounter_doctrine_string: canonical should win over alt got %s" % got_canon)
     var enc_ws: Dictionary = {CombatConstants.ENCOUNTER_KEY_FORMATION_DOCTRINE_PLAYER: "  \t  "}
     var got_ws: String = CombatConstants.encounter_formation_doctrine_string(
         enc_ws,
@@ -197,9 +193,7 @@ static func _run_encounter_formation_doctrine_string_helper(failures: PackedStri
         CombatConstants.FORMATION_PRESET_KEY_DOCTRINE_ALT
     )
     if got_preset_alt != "hold":
-        _fail(
-            failures, "formation_doctrine_string_from_dict: preset alt-only want hold got %s" % got_preset_alt
-        )
+        _fail(failures, "formation_doctrine_string_from_dict: preset alt-only want hold got %s" % got_preset_alt)
     var preset_both: Dictionary = {
         CombatConstants.FORMATION_PRESET_KEY_DOCTRINE: "probing",
         CombatConstants.FORMATION_PRESET_KEY_DOCTRINE_ALT: "hold_lane",
@@ -208,9 +202,7 @@ static func _run_encounter_formation_doctrine_string_helper(failures: PackedStri
         preset_both, CombatConstants.FORMATION_PRESET_KEY_DOCTRINE, CombatConstants.FORMATION_PRESET_KEY_DOCTRINE_ALT
     )
     if got_preset_canon != "probing":
-        _fail(
-            failures, "formation_doctrine_string_from_dict: preset canonical should win got %s" % got_preset_canon
-        )
+        _fail(failures, "formation_doctrine_string_from_dict: preset canonical should win got %s" % got_preset_canon)
 
 
 ## Pair moves cancel any queued `swap_rank_resolve` touching either combatant before scheduling a fresh resolve.
@@ -283,9 +275,7 @@ static func _run_gap3_spear_diagonal_depth_gate(failures: PackedStringArray) -> 
     mgr.formations["player"]["density"] = "tight"
     mgr.formations["player"].erase(CombatConstants.FORMATION_KEY_SPEAR_LANE_PROFILE)
     if CombatDepthPolearm.depth_polearm_lane_allows_low_targets(mgr, atk):
-        _fail(
-            failures, "gap3_spear_diagonal_depth: expected strict+tight+no wedge to block low targets"
-        )
+        _fail(failures, "gap3_spear_diagonal_depth: expected strict+tight+no wedge to block low targets")
         HarnessFixtures._free_manager(mgr)
         return
     var targetable: Array = CombatantEntityAccess.get_targetable_parts(enm)
@@ -400,6 +390,7 @@ static func _run_gap6_diagonal_variance_distribution(failures: PackedStringArray
 ## Gap 7: wounded-vitals exploit (`FEATURE_WOUNDED_VITALS_EXPLOIT`) presses a defender's already-damaged head/chest in
 ## both the AI part-pick weights and the hit-resolution weights.
 
+
 static func _run_gap7_wounded_vitals_exploit(failures: PackedStringArray) -> void:
     if not CombatConstants.FEATURE_WOUNDED_VITALS_EXPLOIT:
         return
@@ -435,18 +426,16 @@ static func _run_gap7_wounded_vitals_exploit(failures: PackedStringArray) -> voi
     var chest_base: float = weights_base.get(BodyPartConstants.PART_CHEST, 0.0)
     var mult_pristine: float = AttackPathResolver._wounded_vitals_part_mult(enm, BodyPartConstants.PART_HEAD)
     if absf(mult_pristine - 1.0) > 0.001:
-        _fail(
-            failures, "gap7_wounded_vitals: pristine head mult want 1.0 got %.3f" % mult_pristine
-        )
+        _fail(failures, "gap7_wounded_vitals: pristine head mult want 1.0 got %.3f" % mult_pristine)
     # Pristine resolution distribution (seeded; each resolve draws one randf).
-    var seeds: Array = [101, 202, 303, 404, 505, 606, 707, 808, 909, 1011, 1112, 1213, 1314, 1415, 1516, 1617, 1718, 1819, 1920, 2021]
+    var seeds: Array = [
+        101, 202, 303, 404, 505, 606, 707, 808, 909, 1011, 1112, 1213, 1314, 1415, 1516, 1617, 1718, 1819, 1920, 2021
+    ]
     var pristine_head: int = 0
     for s in seeds:
         seed(int(s))
         if (
-            AttackPathResolver.resolve_hit_part(
-                attack_line, "high", targetable, {}, "", enm, {}, atk, move_def, true
-            )
+            AttackPathResolver.resolve_hit_part(attack_line, "high", targetable, {}, "", enm, {}, atk, move_def, true)
             == BodyPartConstants.PART_HEAD
         ):
             pristine_head += 1
@@ -458,14 +447,14 @@ static func _run_gap7_wounded_vitals_exploit(failures: PackedStringArray) -> voi
     if absf(mult_wounded - AttackPathResolver.WOUNDED_VITAL_TOP_MULT) > 0.001:
         _fail(
             failures,
-            "gap7_wounded_vitals: wounded head mult want %.2f got %.3f"
-            % [AttackPathResolver.WOUNDED_VITAL_TOP_MULT, mult_wounded]
+            (
+                "gap7_wounded_vitals: wounded head mult want %.2f got %.3f"
+                % [AttackPathResolver.WOUNDED_VITAL_TOP_MULT, mult_wounded]
+            )
         )
     var mult_arm: float = AttackPathResolver._wounded_vitals_part_mult(enm, BodyPartConstants.PART_LEFT_ARM)
     if mult_arm != 1.0:
-        _fail(
-            failures, "gap7_wounded_vitals: non-vital part mult must stay 1.0 got %.3f" % mult_arm
-        )
+        _fail(failures, "gap7_wounded_vitals: non-vital part mult must stay 1.0 got %.3f" % mult_arm)
     var weights_wounded: Dictionary = AttackPathResolver.part_weights_for_ai_pick(
         segment, attack_line, move_def, atk, enm, CombatantEntityAccess.id_int(atk), "overhead_chop", true
     )
@@ -473,24 +462,26 @@ static func _run_gap7_wounded_vitals_exploit(failures: PackedStringArray) -> voi
     if head_wounded <= head_base * 1.7:
         _fail(
             failures,
-            "gap7_wounded_vitals: AI pick head weight should jump ~%.2fx on wounded head (base %.4f got %.4f)"
-            % [AttackPathResolver.WOUNDED_VITAL_TOP_MULT, head_base, head_wounded]
+            (
+                "gap7_wounded_vitals: AI pick head weight should jump ~%.2fx on wounded head (base %.4f got %.4f)"
+                % [AttackPathResolver.WOUNDED_VITAL_TOP_MULT, head_base, head_wounded]
+            )
         )
     if segment.has(BodyPartConstants.PART_CHEST) and chest_base > 0.0:
         var chest_wounded: float = weights_wounded.get(BodyPartConstants.PART_CHEST, 0.0)
         if absf(chest_wounded - chest_base) > 0.001:
             _fail(
                 failures,
-                "gap7_wounded_vitals: pristine chest weight must be unchanged (base %.4f got %.4f)"
-                % [chest_base, chest_wounded]
+                (
+                    "gap7_wounded_vitals: pristine chest weight must be unchanged (base %.4f got %.4f)"
+                    % [chest_base, chest_wounded]
+                )
             )
     var wounded_head: int = 0
     for s in seeds:
         seed(int(s))
         if (
-            AttackPathResolver.resolve_hit_part(
-                attack_line, "high", targetable, {}, "", enm, {}, atk, move_def, true
-            )
+            AttackPathResolver.resolve_hit_part(attack_line, "high", targetable, {}, "", enm, {}, atk, move_def, true)
             == BodyPartConstants.PART_HEAD
         ):
             wounded_head += 1
@@ -507,19 +498,58 @@ static func _run_xcamp6_school_tendency_hook(failures: PackedStringArray) -> voi
     # Aggression multiplier: absent -> 1.0, 0.0 -> 0.75, 0.5 -> 1.0, 1.0 -> 1.25
     if absf(CombatConstantsAIWeights.school_tendency_aggression_mult({}) - 1.0) > 0.001:
         _fail(failures, "xcamp6_tendency: no-tendency aggression mult should be 1.0")
-    if absf(CombatConstantsAIWeights.school_tendency_aggression_mult({"school_tendency": {"aggression": 1.0}}) - 1.25) > 0.001:
-        _fail(failures, "xcamp6_tendency: aggression=1.0 should give 1.25x, got %f" % CombatConstantsAIWeights.school_tendency_aggression_mult({"school_tendency": {"aggression": 1.0}}))
-    if absf(CombatConstantsAIWeights.school_tendency_aggression_mult({"school_tendency": {"aggression": 0.0}}) - 0.75) > 0.001:
-        _fail(failures, "xcamp6_tendency: aggression=0.0 should give 0.75x, got %f" % CombatConstantsAIWeights.school_tendency_aggression_mult({"school_tendency": {"aggression": 0.0}}))
-    if absf(CombatConstantsAIWeights.school_tendency_aggression_mult({"school_tendency": {"aggression": 0.5}}) - 1.0) > 0.001:
+    if (
+        absf(CombatConstantsAIWeights.school_tendency_aggression_mult({"school_tendency": {"aggression": 1.0}}) - 1.25)
+        > 0.001
+    ):
+        _fail(
+            failures,
+            (
+                "xcamp6_tendency: aggression=1.0 should give 1.25x, got %f"
+                % CombatConstantsAIWeights.school_tendency_aggression_mult({"school_tendency": {"aggression": 1.0}})
+            )
+        )
+    if (
+        absf(CombatConstantsAIWeights.school_tendency_aggression_mult({"school_tendency": {"aggression": 0.0}}) - 0.75)
+        > 0.001
+    ):
+        _fail(
+            failures,
+            (
+                "xcamp6_tendency: aggression=0.0 should give 0.75x, got %f"
+                % CombatConstantsAIWeights.school_tendency_aggression_mult({"school_tendency": {"aggression": 0.0}})
+            )
+        )
+    if (
+        absf(CombatConstantsAIWeights.school_tendency_aggression_mult({"school_tendency": {"aggression": 0.5}}) - 1.0)
+        > 0.001
+    ):
         _fail(failures, "xcamp6_tendency: aggression=0.5 should give 1.0x (midpoint)")
     # Parry multiplier: absent -> 1.0, 0.0 -> 0.80, 1.0 -> 1.30
     if absf(CombatConstantsAIWeights.school_tendency_parry_mult({}) - 1.0) > 0.001:
         _fail(failures, "xcamp6_tendency: no-tendency parry mult should be 1.0")
-    if absf(CombatConstantsAIWeights.school_tendency_parry_mult({"school_tendency": {"parry_bias": 1.0}}) - 1.30) > 0.001:
-        _fail(failures, "xcamp6_tendency: parry_bias=1.0 should give 1.30x, got %f" % CombatConstantsAIWeights.school_tendency_parry_mult({"school_tendency": {"parry_bias": 1.0}}))
-    if absf(CombatConstantsAIWeights.school_tendency_parry_mult({"school_tendency": {"parry_bias": 0.0}}) - 0.80) > 0.001:
-        _fail(failures, "xcamp6_tendency: parry_bias=0.0 should give 0.80x, got %f" % CombatConstantsAIWeights.school_tendency_parry_mult({"school_tendency": {"parry_bias": 0.0}}))
+    if (
+        absf(CombatConstantsAIWeights.school_tendency_parry_mult({"school_tendency": {"parry_bias": 1.0}}) - 1.30)
+        > 0.001
+    ):
+        _fail(
+            failures,
+            (
+                "xcamp6_tendency: parry_bias=1.0 should give 1.30x, got %f"
+                % CombatConstantsAIWeights.school_tendency_parry_mult({"school_tendency": {"parry_bias": 1.0}})
+            )
+        )
+    if (
+        absf(CombatConstantsAIWeights.school_tendency_parry_mult({"school_tendency": {"parry_bias": 0.0}}) - 0.80)
+        > 0.001
+    ):
+        _fail(
+            failures,
+            (
+                "xcamp6_tendency: parry_bias=0.0 should give 0.80x, got %f"
+                % CombatConstantsAIWeights.school_tendency_parry_mult({"school_tendency": {"parry_bias": 0.0}})
+            )
+        )
     # Plumbing: node meta -> combatant dict copy in register() (the seam
     # CompanyMatch.stamp_bout_enemy depends on), and the key survives start()'s
     # clear loop. A non-school node (no meta) must NOT gain the key.
@@ -574,6 +604,18 @@ static func _run_xcamp6_school_tendency_hook(failures: PackedStringArray) -> voi
     if head_base <= 0.0:
         HarnessFixtures._free_manager(mgr)
         return
+    # Diagonal variance path: oberhau carries DIAGONAL_WEIGHTS, so its pick blends across
+    # resolved lines through _compute_weights_for_segment. The tendency boost must survive
+    # that blend too (pre-dedup, the segment loop dropped tend_part entirely).
+    var diag_move_def: Dictionary = WeaponConstants.get_move("oberhau")
+    var diag_atk_line: String = diag_move_def.get("attack_line", "high")
+    var diag_segment: Array = AttackPathResolver.path_segment_for_strike(diag_atk_line, guard_line, targetable, 0.9, {})
+    var diag_head_base: float = 0.0
+    if not diag_segment.is_empty() and diag_segment.has(head_part):
+        var diag_weights_base: Dictionary = AttackPathResolver.part_weights_for_ai_pick(
+            diag_segment, diag_atk_line, diag_move_def, atk, enm, CombatantEntityAccess.id_int(atk), "oberhau", true
+        )
+        diag_head_base = diag_weights_base.get(head_part, 0.0)
     atk["school_tendency"] = {"target_part": head_part}
     var weights_tend: Dictionary = AttackPathResolver.part_weights_for_ai_pick(
         segment, atk_line, move_def, atk, enm, CombatantEntityAccess.id_int(atk), "overhead_chop", true
@@ -582,7 +624,22 @@ static func _run_xcamp6_school_tendency_hook(failures: PackedStringArray) -> voi
     if head_tend < head_base * 1.4:
         _fail(
             failures,
-            "xcamp6_tendency: target_part boost expected >=1.4x head weight (base=%.4f got=%.4f)"
-            % [head_base, head_tend]
+            (
+                "xcamp6_tendency: target_part boost expected >=1.4x head weight (base=%.4f got=%.4f)"
+                % [head_base, head_tend]
+            )
         )
+    if diag_head_base > 0.0:
+        var diag_weights_tend: Dictionary = AttackPathResolver.part_weights_for_ai_pick(
+            diag_segment, diag_atk_line, diag_move_def, atk, enm, CombatantEntityAccess.id_int(atk), "oberhau", true
+        )
+        var head_diag_tend: float = diag_weights_tend.get(head_part, 0.0)
+        if head_diag_tend < diag_head_base * 1.4:
+            _fail(
+                failures,
+                (
+                    "xcamp6_tendency: diagonal blend must keep target_part boost (base=%.4f got=%.4f)"
+                    % [diag_head_base, head_diag_tend]
+                )
+            )
     HarnessFixtures._free_manager(mgr)

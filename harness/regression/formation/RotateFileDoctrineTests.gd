@@ -577,8 +577,10 @@ static func _run_formation_move_duration_leg_injury_slows_estimate(failures: Pac
     if crippled_dur < healthy_dur * 1.5:
         _fail(
             failures,
-            "form_dur_leg: crippled %.3f should exceed healthy %.3f (>=1.5x hobbling slowdown)"
-            % [crippled_dur, healthy_dur]
+            (
+                "form_dur_leg: crippled %.3f should exceed healthy %.3f (>=1.5x hobbling slowdown)"
+                % [crippled_dur, healthy_dur]
+            )
         )
     if pair_dur < healthy_dur * 1.5:
         _fail(
@@ -598,21 +600,19 @@ static func _run_fractured_leg_retains_hobbling_functionality(failures: PackedSt
     ent.bone_health["left_leg"] = 0.0
     var fractured: float = BodyPartQuery.get_leg_functionality(ent)
     if fractured <= 0.0:
-        _fail(
-            failures,
-            "fracture_cliff: fractured leg should retain a hobbling value > 0.0 (got %.4f)" % fractured
-        )
+        _fail(failures, "fracture_cliff: fractured leg should retain a hobbling value > 0.0 (got %.4f)" % fractured)
     if fractured > 0.55:
         _fail(
-            failures,
-            "fracture_cliff: fractured leg (%.4f) should not exceed a destroyed-leg hobble (0.55)" % fractured
+            failures, "fracture_cliff: fractured leg (%.4f) should not exceed a destroyed-leg hobble (0.55)" % fractured
         )
     var expected: float = sqrt(BodyPartQuery.LIMB_BONE_FUNCTIONAL_RATIO)
     if absf(fractured - expected) > 0.01:
         _fail(
             failures,
-            "fracture_cliff: fractured leg (%.4f) should be ~sqrt(LIMB_BONE_FUNCTIONAL_RATIO)=%.4f"
-            % [fractured, expected]
+            (
+                "fracture_cliff: fractured leg (%.4f) should be ~sqrt(LIMB_BONE_FUNCTIONAL_RATIO)=%.4f"
+                % [fractured, expected]
+            )
         )
 
 

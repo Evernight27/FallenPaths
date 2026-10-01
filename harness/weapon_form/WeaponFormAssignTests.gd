@@ -1,6 +1,6 @@
 class_name WeaponFormAssignTests
 extends CombatRegressionHarnessCore
-const _CombatRegressionHarness := preload("res://harness/regression/CombatRegressionHarness.gd")
+const CombatRegressionHarness := preload("res://harness/regression/CombatRegressionHarness.gd")
 ## Expand WF: weapon form spawn, mods, picker weights, pressure class, UI suffix parity.
 ## Footing rows: home guard on **`assign_form`** . gauge/diagram **` . Form`** / **`[Ox]`**  -  not PA step. LIVE_PATHS
 ## **`#harness-row-catalog-combatregressionharnessweaponformtailgd`** . soak open scope **`#wf-soak-audit-status`** .
@@ -12,14 +12,10 @@ static func _run_weapon_form_spawn_default_guard(failures: PackedStringArray) ->
     mgr.register(_new_entity("SWORD"), "player")
     var c: Dictionary = mgr.combatants[0]
     if CombatantEntityAccess.form_str(c) != CombatWeaponForm.FORM_OX:
-        _fail(
-            failures, "weapon_form: spawn_default expected ox got %s" % CombatantEntityAccess.form_str(c)
-        )
+        _fail(failures, "weapon_form: spawn_default expected ox got %s" % CombatantEntityAccess.form_str(c))
     var home: String = CombatWeaponForm.home_guard_line(CombatWeaponForm.FORM_OX)
     if str(c.get("guard_line", "")) != home:
-        _fail(
-            failures, "weapon_form: spawn guard_line want %s got %s" % [home, c.get("guard_line", "")]
-        )
+        _fail(failures, "weapon_form: spawn guard_line want %s got %s" % [home, c.get("guard_line", "")])
     HarnessFixtures._free_manager_restore_global_rng(mgr)
 
 
@@ -29,9 +25,7 @@ static func _run_weapon_form_allowed_forms_clamp(failures: PackedStringArray) ->
     var c: Dictionary = mgr.combatants[0]
     CombatWeaponForm.assign_form(mgr, c, CombatWeaponForm.FORM_WRATH, "test")
     if CombatantEntityAccess.form_str(c) != CombatWeaponForm.FORM_DAGGER_HIGH:
-        _fail(
-            failures, "weapon_form: dagger wrath alias want high_hut got %s" % CombatantEntityAccess.form_str(c)
-        )
+        _fail(failures, "weapon_form: dagger wrath alias want high_hut got %s" % CombatantEntityAccess.form_str(c))
     HarnessFixtures._free_manager_restore_global_rng(mgr)
 
 
@@ -51,9 +45,7 @@ static func _run_weapon_form_mod_parity_stance_alias(failures: PackedStringArray
         var old_defensive: float = CombatConstants.get_stance_modifier(CombatConstants.STANCE_DEFENSIVE, effect)
         var wall: float = CombatWeaponForm.mod(CombatWeaponForm.FORM_WALL, effect)
         if absf(old_defensive - wall) > 0.001:
-            _fail(
-                failures, "weapon_form: wall/%s parity want %.3f got %.3f" % [effect, old_defensive, wall]
-            )
+            _fail(failures, "weapon_form: wall/%s parity want %.3f got %.3f" % [effect, old_defensive, wall])
 
 
 static func _run_weapon_form_move_weight_distribution(failures: PackedStringArray) -> void:
@@ -71,13 +63,9 @@ static func _run_weapon_form_move_weight_distribution(failures: PackedStringArra
     CombatWeaponForm.assign_form(mgr, c, CombatWeaponForm.FORM_BALANCED, "test")
     var w_stab_bal: float = CombatAIActionPicker._get_action_weight(act_stab, cid, mgr, true, {}, {})
     if w_stab <= w_stab_bal:
-        _fail(
-            failures, "weapon_form: plow stab weight want > balanced (%.3f vs %.3f)" % [w_stab, w_stab_bal]
-        )
+        _fail(failures, "weapon_form: plow stab weight want > balanced (%.3f vs %.3f)" % [w_stab, w_stab_bal])
     if w_stab <= w_slash:
-        _fail(
-            failures, "weapon_form: plow stab want > slash (%.3f vs %.3f)" % [w_stab, w_slash]
-        )
+        _fail(failures, "weapon_form: plow stab want > slash (%.3f vs %.3f)" % [w_stab, w_slash])
     HarnessFixtures._free_manager_restore_global_rng(mgr)
 
 
@@ -98,13 +86,9 @@ static func _run_weapon_form_axe_chop_weight_bias(failures: PackedStringArray) -
     CombatWeaponForm.assign_form(mgr, c, CombatWeaponForm.FORM_BALANCED, "test")
     var w_chop_bal: float = CombatAIActionPicker._get_action_weight(act_chop, cid, mgr, true, {}, {})
     if w_chop <= w_chop_bal:
-        _fail(
-            failures, "weapon_form: demi_hache chop want > balanced (%.3f vs %.3f)" % [w_chop, w_chop_bal]
-        )
+        _fail(failures, "weapon_form: demi_hache chop want > balanced (%.3f vs %.3f)" % [w_chop, w_chop_bal])
     if w_chop <= w_thrust:
-        _fail(
-            failures, "weapon_form: demi_hache chop want > spike_thrust (%.3f vs %.3f)" % [w_chop, w_thrust]
-        )
+        _fail(failures, "weapon_form: demi_hache chop want > spike_thrust (%.3f vs %.3f)" % [w_chop, w_thrust])
     var bec_chop: float = CombatWeaponForm.action_weight_mult(CombatWeaponForm.FORM_AXE_BEC, "overhead_chop", weapon)
     var demi_chop: float = CombatWeaponForm.action_weight_mult(CombatWeaponForm.FORM_AXE_DEMI, "overhead_chop", weapon)
     if demi_chop <= bec_chop:
@@ -136,23 +120,17 @@ static func _run_weapon_form_close_controlling_evasion(failures: PackedStringArr
     var old_controlling_close: float = CombatConstants.STANCE_MOD_OPPONENT_CLOSE
     var fool_div: float = CombatWeaponForm.opponent_close_evasion_divisor(CombatWeaponForm.FORM_FOOL)
     if absf(old_controlling_close - fool_div) > 0.001:
-        _fail(
-            failures, "weapon_form: fool close divisor want %.2f got %.2f" % [old_controlling_close, fool_div]
-        )
+        _fail(failures, "weapon_form: fool close divisor want %.2f got %.2f" % [old_controlling_close, fool_div])
     var close_list: float = CombatWeaponForm.opponent_close_listing_weight_mult(CombatWeaponForm.FORM_FOOL)
     if absf(close_list - old_controlling_close) > 0.001:
-        _fail(
-            failures, "weapon_form: fool close listing mult want %.2f got %.2f" % [old_controlling_close, close_list]
-        )
+        _fail(failures, "weapon_form: fool close listing mult want %.2f got %.2f" % [old_controlling_close, close_list])
 
 
 static func _run_weapon_form_controlling_disengage_pressure(failures: PackedStringArray) -> void:
     var old_controlling_disengage: float = 1.0 / CombatConstants.STANCE_MOD_OPPONENT_DISENGAGE
     var fool_mult: float = CombatWeaponForm.opponent_disengage_pressure_mult(CombatWeaponForm.FORM_FOOL)
     if absf(old_controlling_disengage - fool_mult) > 0.001:
-        _fail(
-            failures, "weapon_form: fool disengage mult want %.4f got %.4f" % [old_controlling_disengage, fool_mult]
-        )
+        _fail(failures, "weapon_form: fool disengage mult want %.4f got %.4f" % [old_controlling_disengage, fool_mult])
     var mgr: Node = CombatManager.new()
     mgr.register(_new_entity("SWORD"), "player")
     mgr.register(_new_entity("SWORD"), "enemy")
@@ -165,9 +143,7 @@ static func _run_weapon_form_controlling_disengage_pressure(failures: PackedStri
     var mod_neutral: float = ZoneOfControl.get_opponent_pressure_duration_multiplier(mgr, "player")
     var want: float = CombatConstants.PRESSURE_MOD_NEUTRAL * old_controlling_disengage
     if absf(mod_neutral - want) > 0.001:
-        _fail(
-            failures, "weapon_form: fool disengage pressure want %.4f got %.4f" % [want, mod_neutral]
-        )
+        _fail(failures, "weapon_form: fool disengage pressure want %.4f got %.4f" % [want, mod_neutral])
     HarnessFixtures._free_manager_restore_global_rng(mgr)
 
 
@@ -276,9 +252,7 @@ static func _run_weapon_form_controlling_close_listing_weight(failures: PackedSt
     HarnessFixtures._free_manager_restore_global_rng(mgr)
     HarnessFixtures._free_manager_restore_global_rng(mgr_bal)
     if w_bal <= 0.001 or w_fool >= w_bal:
-        _fail(
-            failures, "weapon_form: fool defender should lower close weight got fool=%.4f bal=%.4f" % [w_fool, w_bal]
-        )
+        _fail(failures, "weapon_form: fool defender should lower close weight got fool=%.4f bal=%.4f" % [w_fool, w_bal])
 
 
 static func _run_weapon_form_controlling_close_turn_hint(failures: PackedStringArray) -> void:
@@ -301,16 +275,12 @@ static func _run_weapon_form_controlling_close_turn_hint(failures: PackedStringA
     CombatPlayerTurnHints.sync_controlling_close_turn_hint_on_combatant(mgr, player, acts)
     var gauge_tips: String = "\n".join(CombatUiHints.gauge_tooltip_lines(player, mgr))
     if not gauge_tips.contains("Fool") or not gauge_tips.to_lower().contains("controlling"):
-        _fail(
-            failures, "weapon_form: controlling close gauge tip want Fool/controlling got '%s'" % gauge_tips
-        )
+        _fail(failures, "weapon_form: controlling close gauge tip want Fool/controlling got '%s'" % gauge_tips)
     var acts_bal: Array = [{"move_id": CombatConstants.MOVE_ID_ATTEMPT_CLOSE, "target_id": e_id}]
     CombatWeaponForm.assign_form(mgr, enemy, CombatWeaponForm.FORM_BALANCED, "test")
     var hint_bal: String = CombatUiHints.controlling_defender_close_hint_line(mgr, player, acts_bal)
     if not hint_bal.is_empty():
-        _fail(
-            failures, "weapon_form: balanced defender should not emit controlling close hint got '%s'" % hint_bal
-        )
+        _fail(failures, "weapon_form: balanced defender should not emit controlling close hint got '%s'" % hint_bal)
     HarnessFixtures._free_manager_restore_global_rng(mgr)
 
 
@@ -373,9 +343,7 @@ static func _run_weapon_form_close_failed_log_controlling_note(failures: PackedS
     }
     var line_plain: String = CombatLogFormatter.format_action_line("Alice", "player", "Bob", "enemy", plain)
     if line_plain.contains("Fool"):
-        _fail(
-            failures, "weapon_form: close_failed log without note should omit form got '%s'" % line_plain
-        )
+        _fail(failures, "weapon_form: close_failed log without note should omit form got '%s'" % line_plain)
 
 
 static func _run_weapon_form_close_resolve_contest_note(failures: PackedStringArray) -> void:
@@ -442,17 +410,13 @@ static func _run_weapon_form_controlling_pressure_stamina_gate(failures: PackedS
         _fail(failures, "weapon_form: exhausted fool should not have controlling pressure")
     var exhaust_tip: String = CombatUiHints.weapon_form_tooltip_line(enemy)
     if exhaust_tip.to_lower().contains("controlling"):
-        _fail(
-            failures, "weapon_form: exhausted fool tooltip should omit controlling got '%s'" % exhaust_tip
-        )
+        _fail(failures, "weapon_form: exhausted fool tooltip should omit controlling got '%s'" % exhaust_tip)
     if ZoneOfControl.get_opponent_controlling_disengage_pressure_mult(mgr, "player") > 1.01:
         _fail(failures, "weapon_form: exhausted fool front should not pin disengage")
     var acts: Array = [{"move_id": CombatConstants.MOVE_ID_ATTEMPT_CLOSE, "target_id": e_id}]
     var hint: String = CombatUiHints.controlling_defender_close_hint_line(mgr, player, acts)
     if not hint.is_empty():
-        _fail(
-            failures, "weapon_form: exhausted fool should not emit close hint got '%s'" % hint
-        )
+        _fail(failures, "weapon_form: exhausted fool should not emit close hint got '%s'" % hint)
     var close_act: Dictionary = {
         "move_id": CombatConstants.MOVE_ID_ATTEMPT_CLOSE,
         "target_id": e_id,
@@ -494,9 +458,7 @@ static func _run_weapon_form_controlling_pressure_stamina_gate(failures: PackedS
     if cap.is_empty():
         _fail(failures, "weapon_form: exhausted fool close resolve want payload")
     elif not str((cap[0] as Dictionary).get("close_contest_note", "")).strip_edges().is_empty():
-        _fail(
-            failures, "weapon_form: exhausted fool close resolve should omit contest note got %s" % str(cap[0])
-        )
+        _fail(failures, "weapon_form: exhausted fool close resolve should omit contest note got %s" % str(cap[0]))
     HarnessFixtures._free_manager_restore_global_rng(wing_mgr)
 
 
@@ -565,9 +527,7 @@ static func _run_weapon_form_harness_assign_form_home_guard(failures: PackedStri
     var c: Dictionary = mgr.combatants[0]
     harness_assign_form(mgr, c, CombatWeaponForm.FORM_WRATH)
     if CombatantEntityAccess.form_str(c) != CombatWeaponForm.FORM_WRATH:
-        _fail(
-            failures, "weapon_form: harness_assign_form want wrath got %s" % CombatantEntityAccess.form_str(c)
-        )
+        _fail(failures, "weapon_form: harness_assign_form want wrath got %s" % CombatantEntityAccess.form_str(c))
     var home: String = CombatWeaponForm.home_guard_line(CombatWeaponForm.FORM_WRATH)
     if str(c.get("guard_line", "")) != home:
         _fail(
@@ -621,18 +581,14 @@ static func _run_weapon_form_octant_attack_path_cardinal_lookup(failures: Packed
     var fallback: Array = CombatConstants.get_attack_path("high", "__no_such_guard__")
     var want_fallback: Array = CombatConstants.ATTACK_PATHS.get("high", CombatConstants.ATTACK_PATH_HIGH)
     if str(fallback) != str(want_fallback):
-        _fail(
-            failures, "weapon_form: unknown guard should still fall back to ATTACK_PATHS[high]"
-        )
+        _fail(failures, "weapon_form: unknown guard should still fall back to ATTACK_PATHS[high]")
 
 
 static func _run_weapon_form_wait_weight_wall(failures: PackedStringArray) -> void:
     var wall_w: float = CombatWeaponForm.wait_action_weight_mult(CombatWeaponForm.FORM_WALL)
     var bal_w: float = CombatWeaponForm.wait_action_weight_mult(CombatWeaponForm.FORM_BALANCED)
     if wall_w <= bal_w:
-        _fail(
-            failures, "weapon_form: wall wait want > balanced (%.2f vs %.2f)" % [wall_w, bal_w]
-        )
+        _fail(failures, "weapon_form: wall wait want > balanced (%.2f vs %.2f)" % [wall_w, bal_w])
 
 
 static func _run_weapon_form_wind_up_native_line(failures: PackedStringArray) -> void:
@@ -641,9 +597,7 @@ static func _run_weapon_form_wind_up_native_line(failures: PackedStringArray) ->
     )
     var cross: float = CombatWeaponForm.wind_up_transition_mult(CombatWeaponForm.FORM_OX, "thrust", "low", "high_right")
     if native >= cross or native >= 1.0:
-        _fail(
-            failures, "weapon_form: ox native wind-up mult want < cross (native=%.2f cross=%.2f)" % [native, cross]
-        )
+        _fail(failures, "weapon_form: ox native wind-up mult want < cross (native=%.2f cross=%.2f)" % [native, cross])
 
 
 static func _run_weapon_form_auto_switch_duel(failures: PackedStringArray) -> void:
@@ -657,9 +611,7 @@ static func _run_weapon_form_auto_switch_duel(failures: PackedStringArray) -> vo
     if not CombatWeaponForm.evaluate_automatic_form(mgr, c):
         _fail(failures, "weapon_form: auto_switch low stamina expected true")
     if CombatantEntityAccess.form_str(c) != CombatWeaponForm.FORM_WALL:
-        _fail(
-            failures, "weapon_form: auto_switch want wall got %s" % CombatantEntityAccess.form_str(c)
-        )
+        _fail(failures, "weapon_form: auto_switch want wall got %s" % CombatantEntityAccess.form_str(c))
     if CombatWeaponForm.evaluate_automatic_form(mgr, c):
         _fail(failures, "weapon_form: auto_switch cooldown should block second switch")
     HarnessFixtures._free_manager_restore_global_rng(mgr)
@@ -774,9 +726,7 @@ static func _run_weapon_form_preference_spawn(failures: PackedStringArray) -> vo
         )
     var home: String = CombatWeaponForm.home_guard_line(CombatWeaponForm.FORM_WALL)
     if str(c.get("guard_line", "")) != home:
-        _fail(
-            failures, "weapon_form: preference spawn guard_line want %s got %s" % [home, c.get("guard_line", "")]
-        )
+        _fail(failures, "weapon_form: preference spawn guard_line want %s got %s" % [home, c.get("guard_line", "")])
     var mgr2: Node = CombatManager.new()
     mgr2.register(_new_entity("SWORD"), "player")
     mgr2.combatants[0]["stance_preference"] = CombatWeaponForm.FORM_WALL
@@ -810,9 +760,7 @@ static func _run_weapon_form_yomi_inference(failures: PackedStringArray) -> void
     CombatWeaponForm.refresh_inferred_forms_for_observer(mgr, def)
     var cache: Dictionary = def.get(CombatConstants.COMBATANT_KEY_INFERRED_OPP_FORM_BY_ID, {}) as Dictionary
     if str(cache.get(str(atk_id), "")) != CombatWeaponForm.FORM_WRATH:
-        _fail(
-            failures, "weapon_form_yomi: cache want wrath got %s" % str(cache.get(str(atk_id), ""))
-        )
+        _fail(failures, "weapon_form_yomi: cache want wrath got %s" % str(cache.get(str(atk_id), "")))
     var def_feint: Dictionary = {}
     var feint_atk_id: int = 42
     for _j in 5:
@@ -865,7 +813,5 @@ static func _run_weapon_form_counter_pick(failures: PackedStringArray) -> void:
             failures, "weapon_form_counter: fool vs ox feint mult=%.3f cut mult=%.3f" % [fool_feint_only, fool_cut_only]
         )
     if w_cut >= w_thrust:
-        _fail(
-            failures, "weapon_form_counter: fool thrust should beat oberhau vs ox (%.3f vs %.3f)" % [w_thrust, w_cut]
-        )
+        _fail(failures, "weapon_form_counter: fool thrust should beat oberhau vs ox (%.3f vs %.3f)" % [w_thrust, w_cut])
     HarnessFixtures._free_manager_restore_global_rng(mgr)

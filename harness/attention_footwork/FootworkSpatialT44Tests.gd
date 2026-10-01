@@ -1,7 +1,7 @@
 class_name AttentionFootworkSpatialT44Tests
 extends CombatRegressionHarnessCore
 
-const _CombatRegressionHarness := preload("res://harness/regression/CombatRegressionHarness.gd")
+const CombatRegressionHarness := preload("res://harness/regression/CombatRegressionHarness.gd")
 
 ## Tier 4.2 - 4.4 attention / mental stack / footwork / battle UI hint tests (compile split).
 ## Footing harness: **`_run_footwork_*`** (Tier 4.4 PA) . **`_run_focus_line_*`** / **`_run_guard_*`** (L3 guard) .
@@ -134,17 +134,13 @@ static func _run_t44_spatial_file_dodge_wing_gt_interior(failures: PackedStringA
         CombatFootwork.apply_defender_step_on_dodge(right_wing, "left_arm", -1, mgr)
         var rw_off: float = float(right_wing.get(CombatConstants.COMBATANT_KEY_POSITION_ANGLE_OFFSET_DEG, 0.0))
         if absf(rw_off - want_wing) > 0.01:
-            _fail(
-                failures, "t44_file_dodge: right wing want %.2f got %.2f" % [want_wing, rw_off]
-            )
+            _fail(failures, "t44_file_dodge: right wing want %.2f got %.2f" % [want_wing, rw_off])
     CombatFootwork.apply_defender_step_on_parry(wing, "left", -1)
     var wing_parry: float = float(wing.get(CombatConstants.COMBATANT_KEY_POSITION_ANGLE_OFFSET_DEG, 0.0))
     CombatFootwork.apply_defender_step_on_parry(center, "left", -1)
     var center_parry: float = float(center.get(CombatConstants.COMBATANT_KEY_POSITION_ANGLE_OFFSET_DEG, 0.0))
     if absf(wing_parry - center_parry) > 0.01:
-        _fail(
-            failures, "t44_file_dodge: parry must not differ wing=%.2f center=%.2f" % [wing_parry, center_parry]
-        )
+        _fail(failures, "t44_file_dodge: parry must not differ wing=%.2f center=%.2f" % [wing_parry, center_parry])
     CombatConstants.set_feature_t44_spatial_file_dodge_bias_load(saved_file)
     CombatConstants.set_feature_position_angle_footwork_load(saved_pa)
     HarnessFixtures._free_manager(mgr)
@@ -177,9 +173,7 @@ static func _run_t44_spatial_file_dodge_eval_parity(failures: PackedStringArray)
         CombatFootwork.apply_defender_step_on_dodge(wing, "left_arm", -1, mgr)
         var stamp_deg: float = float(wing.get(CombatConstants.COMBATANT_KEY_POSITION_ANGLE_OFFSET_DEG, 0.0))
         if absf(eval_deg - stamp_deg) > 0.01:
-            _fail(
-                failures, "t44_file_dodge_eval: want parity eval=%.2f stamp=%.2f" % [eval_deg, stamp_deg]
-            )
+            _fail(failures, "t44_file_dodge_eval: want parity eval=%.2f stamp=%.2f" % [eval_deg, stamp_deg])
     CombatConstants.set_feature_t44_spatial_file_dodge_bias_load(saved_file)
     CombatConstants.set_feature_position_angle_footwork_load(saved_pa)
     HarnessFixtures._free_manager(mgr)
@@ -308,9 +302,7 @@ static func _run_t44_spatial_flurry_pa_parry_eval_parity(failures: PackedStringA
     CombatFootwork.apply_defender_step_on_parry(def, "left", atk_id, mgr)
     var stamp_deg: float = float(def.get(CombatConstants.COMBATANT_KEY_POSITION_ANGLE_OFFSET_DEG, 0.0))
     if absf(eval_deg - stamp_deg) > 0.01:
-        _fail(
-            failures, "t44_flurry_pa: parry_eval want stamp parity eval=%.2f stamp=%.2f" % [eval_deg, stamp_deg]
-        )
+        _fail(failures, "t44_flurry_pa: parry_eval want stamp parity eval=%.2f stamp=%.2f" % [eval_deg, stamp_deg])
     CombatConstants.set_feature_t44_spatial_flurry_pa_load(saved_flurry)
     CombatConstants.set_feature_position_angle_footwork_load(saved_pa)
     AttentionFootworkAttentionLoadTests._t44_harness_restore_flurry_bind(saved_bind)
@@ -338,9 +330,7 @@ static func _run_t44_spatial_flurry_pa_dodge_eval_parity(failures: PackedStringA
     CombatFootwork.apply_defender_step_on_dodge(def, "left_arm", atk_id, mgr)
     var stamp_deg: float = float(def.get(CombatConstants.COMBATANT_KEY_POSITION_ANGLE_OFFSET_DEG, 0.0))
     if absf(eval_deg - stamp_deg) > 0.01:
-        _fail(
-            failures, "t44_flurry_pa: dodge_eval want stamp parity eval=%.2f stamp=%.2f" % [eval_deg, stamp_deg]
-        )
+        _fail(failures, "t44_flurry_pa: dodge_eval want stamp parity eval=%.2f stamp=%.2f" % [eval_deg, stamp_deg])
     CombatConstants.set_feature_t44_spatial_flurry_pa_load(saved_flurry)
     CombatConstants.set_feature_position_angle_footwork_load(saved_pa)
     AttentionFootworkAttentionLoadTests._t44_harness_restore_flurry_bind(saved_bind)
@@ -411,9 +401,7 @@ static func _run_t44_spatial_band_pa_parry_eval_parity(failures: PackedStringArr
     CombatConstants.set_feature_t44_spatial_band_pa_load(saved_band)
     CombatConstants.set_feature_position_angle_footwork_load(saved_pa)
     if absf(eval_deg - stamp_deg) > 0.01:
-        _fail(
-            failures, "t44_band_pa: parry_eval want stamp parity eval=%.2f stamp=%.2f" % [eval_deg, stamp_deg]
-        )
+        _fail(failures, "t44_band_pa: parry_eval want stamp parity eval=%.2f stamp=%.2f" % [eval_deg, stamp_deg])
 
 
 static func _run_t44_spatial_stacked_band_file_dodge(failures: PackedStringArray) -> void:
@@ -513,9 +501,7 @@ static func _run_t44_spatial_stacked_band_flurry_dodge(failures: PackedStringArr
     var got: float = float(def.get(CombatConstants.COMBATANT_KEY_POSITION_ANGLE_OFFSET_DEG, 0.0))
     var want: float = base * CombatConstants.T44_SPATIAL_BAND_PA_MULT_CLOSE * CombatConstants.T44_SPATIAL_FLURRY_PA_MULT
     if absf(got - want) > 0.02:
-        _fail(
-            failures, "t44_stacked_flurry: want %.2f got %.2f (close+flurry dodge)" % [want, got]
-        )
+        _fail(failures, "t44_stacked_flurry: want %.2f got %.2f (close+flurry dodge)" % [want, got])
     CombatConstants.set_feature_t44_spatial_flurry_pa_load(saved_flurry)
     CombatConstants.set_feature_t44_spatial_band_pa_load(saved_band)
     CombatConstants.set_feature_position_angle_footwork_load(saved_pa)
@@ -573,9 +559,7 @@ static func _run_t44_spatial_stacked_band_file_flurry_dodge(failures: PackedStri
             * CombatConstants.T44_SPATIAL_FLURRY_PA_MULT
         )
         if absf(got - want) > 0.03:
-            _fail(
-                failures, "t44_stacked_all: want %.2f got %.2f (close+wing+flurry)" % [want, got]
-            )
+            _fail(failures, "t44_stacked_all: want %.2f got %.2f (close+wing+flurry)" % [want, got])
     CombatConstants.set_feature_t44_spatial_flurry_pa_load(saved_flurry)
     CombatConstants.set_feature_t44_spatial_file_dodge_bias_load(saved_file)
     CombatConstants.set_feature_t44_spatial_band_pa_load(saved_band)
@@ -873,9 +857,7 @@ static func _run_footwork_complete_recovery_parry_deflect_alias(failures: Packed
     if c.has(CombatConstants.COMBATANT_KEY_POSITION_ANGLE_OFFSET_DEG):
         _fail(failures, "footwork_recovery_alias: offset should be cleared")
     if c.has("defender_guard_line_at_parry"):
-        _fail(
-            failures, "footwork_recovery_alias: deflect guard path should erase defender_guard_line_at_parry"
-        )
+        _fail(failures, "footwork_recovery_alias: deflect guard path should erase defender_guard_line_at_parry")
     if CombatantEntityAccess.state_str(c) != CombatConstants.STATE_WAITING:
         _fail(
             failures,
@@ -923,8 +905,8 @@ static func _run_footwork_formation_move_scrubs_leaked_offset(failures: PackedSt
         _fail(failures, "footwork_formation_scrub: offset key should be erased")
     if absf(float(c.get(DataKeys.PA_STATE_TIMER, 0.0)) - 0.05) > 0.001:
         _fail(
-            failures, "footwork_formation_scrub: timer should advance got %.4f" % float(c.get(DataKeys.PA_STATE_TIMER, 0.0))
+            failures,
+            "footwork_formation_scrub: timer should advance got %.4f" % float(c.get(DataKeys.PA_STATE_TIMER, 0.0))
         )
 
 ## Tier 4.4: medical wind-up tick scrubs leaked PA (**`process_medical_wind_up`**).
-

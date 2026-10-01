@@ -246,7 +246,8 @@ static func _run_tier7_parry_bind_riposte_gauge_bonus_on_deflect(failures: Packe
 static func _run_bind_riposte_contact_multipliers(failures: PackedStringArray) -> void:
     var soft_cap: float = CombatConstantsTiming.WIND_UP_SOFT_CAP_S
     var unwind_soft_cap = func(capped: float, cap: float) -> float:
-        if capped <= cap: return capped
+        if capped <= cap:
+            return capped
         return cap + (capped - cap) * 2.0
     var spear_normal: float = unwind_soft_cap.call(
         HarnessFixtures.get_windup_duration_for_bind("SPEAR", "spear_thrust", false), soft_cap
@@ -488,13 +489,20 @@ static func _run_flurry_bind_exchange_wind_up_reduced_vs_plain(failures: PackedS
     var dur_flurry: float = float(mgr_f.combatants[0].get(DataKeys.PA_STATE_DURATION, 0.0))
     var soft_cap_fb: float = CombatConstantsTiming.WIND_UP_SOFT_CAP_S
     var unwind_soft_cap_fb = func(capped: float, cap: float) -> float:
-        if capped <= cap: return capped
+        if capped <= cap:
+            return capped
         return cap + (capped - cap) * 2.0
     var plain_un_f: float = unwind_soft_cap_fb.call(dur_plain, soft_cap_fb)
     var flurry_un_f: float = unwind_soft_cap_fb.call(dur_flurry, soft_cap_fb)
     var want_fb_uncapped: float = plain_un_f * CombatConstants.FLURRY_BIND_WIND_UP_MULT
     if absf(flurry_un_f - want_fb_uncapped) > 0.01:
-        _fail(failures, "flurry_bind: pre-cap ratio mismatch want %.4f got %.4f plain=%.4f" % [want_fb_uncapped, flurry_un_f, plain_un_f])
+        _fail(
+            failures,
+            (
+                "flurry_bind: pre-cap ratio mismatch want %.4f got %.4f plain=%.4f"
+                % [want_fb_uncapped, flurry_un_f, plain_un_f]
+            )
+        )
     _free_manager(mgr_p)
     _free_manager(mgr_f)
     seed(_HARNESS_RESTORE_GLOBAL_SEED)
@@ -914,4 +922,3 @@ static func _run_parry_defender_vs_attack_modifiers(failures: PackedStringArray)
 ## sets **`impact_blade_station`** before **`resolve`** so post-resolve kinematics recompute matches
 ## **`velocity_intent_mult_from_pa`** (no extra **`randf()`** vs resolver); unstamped **`pa`** -> clash
 ## **`strike_measure_ratio`** **-1**, then **`seed(3312)`** before stamped path for stable RNG.
-

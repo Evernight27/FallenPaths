@@ -1,6 +1,6 @@
 class_name Tier1DepthPolearmEngagementTests
 extends CombatRegressionHarnessCore
-const _CombatRegressionHarness := preload("res://harness/regression/CombatRegressionHarness.gd")
+const CombatRegressionHarness := preload("res://harness/regression/CombatRegressionHarness.gd")
 
 ## Tier 1 depth / engagement / targeting / surround / doctrine tests (compile split).
 ## Footing: not WF/PA owner  -  may call strike/listing paths that read **`form_str`**. Spec: LIVE_PATHS
@@ -11,16 +11,12 @@ static func _assert_tactical_snapshot_matches(failures: PackedStringArray, mgr: 
     if mgr == null:
         return
     if not mgr.has_meta("_tactical_mode_snapshot"):
-        _fail(
-            failures, "%s: missing _tactical_mode_snapshot (run _recompute_zoc_and_distance?)" % ctx
-        )
+        _fail(failures, "%s: missing _tactical_mode_snapshot (run _recompute_zoc_and_distance?)" % ctx)
         return
     var ts: Dictionary = mgr.get_meta("_tactical_mode_snapshot") as Dictionary
     var resolved: String = CombatEngagementMode.engagement_mode(mgr)
     if str(ts.get("mode", "")) != resolved:
-        _fail(
-            failures, "%s: tactical mode=%s vs engagement_mode=%s" % [ctx, ts.get("mode"), resolved]
-        )
+        _fail(failures, "%s: tactical mode=%s vs engagement_mode=%s" % [ctx, ts.get("mode"), resolved])
 
 
 static func _run_depth_polearm(failures: PackedStringArray) -> void:
@@ -37,16 +33,12 @@ static func _run_depth_polearm(failures: PackedStringArray) -> void:
     if not CombatDepthPolearm.depth_polearm_lane_open(mgr, depth):
         _fail(failures, "depth_polearm: expected open lane (rank-1 spear + rank-0 ally)")
     if CombatMeleeListing.can_melee_threaten(mgr, depth, enemy) != true:
-        _fail(
-            failures, "depth_polearm: can_melee_threaten should be true vs file-opposed rank-0"
-        )
+        _fail(failures, "depth_polearm: can_melee_threaten should be true vs file-opposed rank-0")
     var dist: String = CombatantEntityAccess.distance_to_opponent_band(
         depth, CombatantEntityAccess.id_int(enemy, -2), ""
     )
     if dist == CombatConstants.DISTANCE_LONG:
-        _fail(
-            failures, "depth_polearm: distance_to should not be LONG when lane open (got %s)" % dist
-        )
+        _fail(failures, "depth_polearm: distance_to should not be LONG when lane open (got %s)" % dist)
     depth.gauge = 100.0
     var acts: Array = mgr.get_available_actions(CombatantEntityAccess.id_int(depth))
     var w_depth: Variant = CombatantEntityAccess.get_weapon(depth)
@@ -56,9 +48,7 @@ static func _run_depth_polearm(failures: PackedStringArray) -> void:
     if not CombatListedActions.actions_include_any_move_in_vs_target(
         acts, CombatantEntityAccess.id_int(enemy), atk_ids
     ):
-        _fail(
-            failures, "depth_polearm: expected weapon strike vs enemy in available actions (had %s)" % str(acts)
-        )
+        _fail(failures, "depth_polearm: expected weapon strike vs enemy in available actions (had %s)" % str(acts))
     # Non-polearm depth: no extra reach to line.
     var mgr2: Node = CombatManager.new()
     mgr2.register(_new_entity("SWORD"), "player")
@@ -68,9 +58,7 @@ static func _run_depth_polearm(failures: PackedStringArray) -> void:
     var depth_sw: Dictionary = mgr2.combatants[1]
     var en2: Dictionary = mgr2.combatants[2]
     if CombatMeleeListing.can_melee_threaten(mgr2, depth_sw, en2):
-        _fail(
-            failures, "depth_polearm: rank-1 sword must not melee-threaten file-opposed rank-0"
-        )
+        _fail(failures, "depth_polearm: rank-1 sword must not melee-threaten file-opposed rank-0")
     HarnessFixtures._free_manager(mgr2)
     # Tight density: over-shoulder filter drops legs when lane open (pin strict  -  duel/open posture alone opens lows
     # per Tier 1.9).
@@ -79,9 +67,7 @@ static func _run_depth_polearm(failures: PackedStringArray) -> void:
     var parts_in: Array = ["head", "chest", "left_leg", "right_leg"]
     var filt_tight: Array = CombatDepthPolearm.depth_polearm_targetable_parts_filter(mgr, depth, parts_in)
     if filt_tight.has("left_leg") or filt_tight.has("right_leg"):
-        _fail(
-            failures, "depth_polearm: tight lane should filter leg targets (got %s)" % str(filt_tight)
-        )
+        _fail(failures, "depth_polearm: tight lane should filter leg targets (got %s)" % str(filt_tight))
     var df: int = CombatantEntityAccess.file_int(depth, 0)
     mgr.formations["player"]["lane_stress_by_file"] = {df: 0.85}
     var filt_wedge_gap: Array = CombatDepthPolearm.depth_polearm_targetable_parts_filter(mgr, depth, parts_in)
@@ -144,9 +130,7 @@ static func _run_depth_polearm_reciprocal_distance_bands(failures: PackedStringA
     var d_depth_to_p: String = CombatantEntityAccess.distance_to_opponent_band(en_depth, pid, "")
     var d_p_to_depth: String = CombatantEntityAccess.distance_to_opponent_band(player, did, "")
     if d_depth_to_p == CombatConstants.DISTANCE_LONG:
-        _fail(
-            failures, "depth_polearm_recip: spear->player band unexpected LONG (got %s)" % d_depth_to_p
-        )
+        _fail(failures, "depth_polearm_recip: spear->player band unexpected LONG (got %s)" % d_depth_to_p)
     if d_p_to_depth == CombatConstants.DISTANCE_LONG:
         _fail(
             failures,
@@ -167,9 +151,7 @@ static func _run_depth_polearm_reciprocal_distance_bands(failures: PackedStringA
         _fail(failures, "depth_polearm_recip: rank-1 sword must not have open polearm lane")
     var band_r0_to_r1: String = CombatantEntityAccess.distance_to_opponent_band(pl2, eid2, "")
     if band_r0_to_r1 != CombatConstants.DISTANCE_LONG:
-        _fail(
-            failures, "depth_polearm_recip: rank-1 non-polearm should stay LONG from rank-0 (got %s)" % band_r0_to_r1
-        )
+        _fail(failures, "depth_polearm_recip: rank-1 non-polearm should stay LONG from rank-0 (got %s)" % band_r0_to_r1)
     HarnessFixtures._free_manager(mgr2)
     HarnessFixtures._free_manager(mgr)
 
@@ -265,9 +247,7 @@ static func _run_depth_polearm_valid_line_threat_false_when_lane_closed(failures
         HarnessFixtures._free_manager(mgr)
         return
     if not CombatDepthPolearm.depth_polearm_threatens_line_target(front, en):
-        _fail(
-            failures, "valid_lt_lane: expected geometric line threat rank-0 vs rank-0 same column"
-        )
+        _fail(failures, "valid_lt_lane: expected geometric line threat rank-0 vs rank-0 same column")
         HarnessFixtures._free_manager(mgr)
         return
     if CombatDepthPolearm.depth_polearm_valid_line_threat(mgr, depth, en):
@@ -383,9 +363,7 @@ static func _run_depth_polearm_melee_pair_rank_allowed_agrees_with_valid_line_th
         var pr: bool = CombatMeleeRankTargeting.melee_pair_rank_allowed(mgr_open, depth_open, c)
         var vlt: bool = CombatDepthPolearm.depth_polearm_valid_line_threat(mgr_open, depth_open, c)
         if pr != vlt:
-            _fail(
-                failures, "mpra_vlt open: id=%d pr=%s vlt=%s" % [CombatantEntityAccess.id_int(c), str(pr), str(vlt)]
-            )
+            _fail(failures, "mpra_vlt open: id=%d pr=%s vlt=%s" % [CombatantEntityAccess.id_int(c), str(pr), str(vlt)])
     HarnessFixtures._free_manager(mgr_open)
     var mgr_closed: Node = CombatManager.new()
     mgr_closed.register(_new_entity("SWORD"), "player")
@@ -440,9 +418,7 @@ static func _run_depth_polearm_can_melee_threaten_respects_valid_line_for_home_d
             CombatMeleeListing.can_melee_threaten(mgr, depth, c)
             and not CombatDepthPolearm.depth_polearm_valid_line_threat(mgr, depth, c)
         ):
-            _fail(
-                failures, "cm_vlt: can_melee_threaten without valid_line id=%d" % CombatantEntityAccess.id_int(c)
-            )
+            _fail(failures, "cm_vlt: can_melee_threaten without valid_line id=%d" % CombatantEntityAccess.id_int(c))
     HarnessFixtures._free_manager(mgr)
     var mgr2: Node = CombatManager.new()
     mgr2.register(_new_entity("SWORD"), "player")
@@ -457,9 +433,7 @@ static func _run_depth_polearm_can_melee_threaten_respects_valid_line_for_home_d
         HarnessFixtures._free_manager(mgr2)
         return
     if CombatMeleeListing.can_melee_threaten(mgr2, depth_sw, en):
-        _fail(
-            failures, "cm_vlt: closed lane rank-1 sword must not can_melee_threaten rank-0 enemy"
-        )
+        _fail(failures, "cm_vlt: closed lane rank-1 sword must not can_melee_threaten rank-0 enemy")
     HarnessFixtures._free_manager(mgr2)
 
 
@@ -493,9 +467,7 @@ static func _run_depth_polearm_layout_fuzz(failures: PackedStringArray) -> void:
         var depth: Dictionary = mgr.combatants[depth_idx]
         var lane_open: bool = CombatDepthPolearm.depth_polearm_lane_open(mgr, depth)
         if not lane_open:
-            _fail(
-                failures, "depth_polearm_fuzz seed=%d: expected open lane pf=%d fs=%d" % [scenario_seed, pf, fs]
-            )
+            _fail(failures, "depth_polearm_fuzz seed=%d: expected open lane pf=%d fs=%d" % [scenario_seed, pf, fs])
             HarnessFixtures._free_manager(mgr)
             continue
         var front: Dictionary = CombatDepthPolearm.same_file_living_rank0_ally(mgr, depth)
@@ -558,9 +530,7 @@ static func _run_front_rank_pair_melee_listed(failures: PackedStringArray) -> vo
     if w_p != null and w_p is Weapon:
         atk_ids = (w_p as Weapon).attack_types
     if not CombatListedActions.actions_include_any_move_in_vs_target(acts, CombatantEntityAccess.id_int(e), atk_ids):
-        _fail(
-            failures, "front_rank_pair: expected weapon strike vs enemy at band %s (acts=%s)" % [dist, str(acts)]
-        )
+        _fail(failures, "front_rank_pair: expected weapon strike vs enemy at band %s (acts=%s)" % [dist, str(acts)])
     HarnessFixtures._free_manager(mgr)
 
 
@@ -593,9 +563,7 @@ static func _run_iv3_true_duel_classifier_suite(failures: PackedStringArray) -> 
     duel_mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
     var duel_snap: Dictionary = CombatEngagementMode.snapshot(duel_mgr)
     if not CombatEngagementMode.snapshot_is_true_duel(duel_snap):
-        _fail(
-            failures, "iv3_duel: live 1v1 snap must pass snapshot_is_true_duel got %s" % str(duel_snap)
-        )
+        _fail(failures, "iv3_duel: live 1v1 snap must pass snapshot_is_true_duel got %s" % str(duel_snap))
     if CombatEngagementMode.engagement_mode(duel_mgr) != CombatConstants.ENGAGEMENT_MODE_DUEL:
         _fail(
             failures,
@@ -656,9 +624,7 @@ static func _run_engagement_scenarios(failures: PackedStringArray) -> void:
     d.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
     var s1: Dictionary = CombatEngagementMode.snapshot(d)
     if str(s1.get("raw_mode", "")) != CombatConstants.ENGAGEMENT_MODE_DUEL:
-        _fail(
-            failures, "engagement: 1v1 expected raw duel, got %s" % str(s1.get("raw_mode", ""))
-        )
+        _fail(failures, "engagement: 1v1 expected raw duel, got %s" % str(s1.get("raw_mode", "")))
     if CombatEngagementMode.can_enter_formation_from_snapshot(s1):
         _fail(failures, "engagement: 1v1 snap must not claim formation-eligible")
     Tier1DepthPolearmEngagementTests._assert_tactical_snapshot_matches(failures, d, "engagement small 1v1")
@@ -679,9 +645,7 @@ static func _run_engagement_scenarios(failures: PackedStringArray) -> void:
     if CombatEngagementMode.engagement_mode(mop) == CombatConstants.ENGAGEMENT_MODE_DUEL:
         _fail(failures, "engagement: 7v2 resolved must not be duel")
     if not CombatEngagementMode.allow_rotate_file_for_formation(mop, "player"):
-        _fail(
-            failures, "engagement: 7v2 skirmish outnumber should allow player rotate_file (5 vs 3 files)"
-        )
+        _fail(failures, "engagement: 7v2 skirmish outnumber should allow player rotate_file (5 vs 3 files)")
     HarnessFixtures._free_manager(mop)
     # Escort-shaped equal files: skirmish mop-up without rotate (III-4 3b needs file outnumber).
     var esc: Node = CombatManager.new()
@@ -718,9 +682,7 @@ static func _run_engagement_scenarios(failures: PackedStringArray) -> void:
         attr.register(_new_entity("SWORD"), "enemy")
     attr.start({"files": 5, "ranks": 2, "density": "normal"}, {"files": 5, "ranks": 1, "density": "normal"})
     if CombatEngagementMode.engagement_mode(attr) != CombatConstants.ENGAGEMENT_MODE_FORMATION:
-        _fail(
-            failures, "engagement: 7v5 want formation-line mode got %s" % CombatEngagementMode.engagement_mode(attr)
-        )
+        _fail(failures, "engagement: 7v5 want formation-line mode got %s" % CombatEngagementMode.engagement_mode(attr))
     var enemy_ids: Array = []
     for c in attr.combatants:
         if CombatantEntityAccess.side_str(c) == "enemy":
@@ -729,9 +691,7 @@ static func _run_engagement_scenarios(failures: PackedStringArray) -> void:
         HarnessFixtures._soak_kill_combatant(attr, int(enemy_ids[k]))
     var m_after: String = CombatEngagementMode.engagement_mode(attr)
     if m_after == CombatConstants.ENGAGEMENT_MODE_FORMATION:
-        _fail(
-            failures, "engagement: 7v2 after attrition should not stay formation (hysteresis)"
-        )
+        _fail(failures, "engagement: 7v2 after attrition should not stay formation (hysteresis)")
     if m_after == CombatConstants.ENGAGEMENT_MODE_DUEL:
         _fail(failures, "engagement: 7v2 after attrition must not be duel")
     HarnessFixtures._free_manager(attr)
@@ -759,9 +719,7 @@ static func _run_engagement_scenarios(failures: PackedStringArray) -> void:
             "engagement: 3v3 three-wide expected raw skirmish, got %s snap=%s" % [str(s3.get("raw_mode", "")), str(s3)]
         )
     if CombatEngagementMode.can_enter_formation_from_snapshot(s3):
-        _fail(
-            failures, "engagement: 3v3 snap must not claim formation-eligible (below active floor)"
-        )
+        _fail(failures, "engagement: 3v3 snap must not claim formation-eligible (below active floor)")
     Tier1DepthPolearmEngagementTests._assert_tactical_snapshot_matches(failures, m, "engagement medium 3v3")
     HarnessFixtures._free_manager(m)
     # Large: 4v4 two-wide line -> formation-classifier band (Option 2 minimums)
@@ -781,9 +739,7 @@ static func _run_engagement_scenarios(failures: PackedStringArray) -> void:
             )
         )
     if not CombatEngagementMode.can_enter_formation_from_snapshot(s4):
-        _fail(
-            failures, "engagement: 4v4 formation snap must satisfy can_enter_formation_from_snapshot"
-        )
+        _fail(failures, "engagement: 4v4 formation snap must satisfy can_enter_formation_from_snapshot")
     var mode_f: String = CombatEngagementMode.engagement_mode(f)
     Tier1DepthPolearmEngagementTests._assert_tactical_snapshot_matches(failures, f, "engagement large 4v4")
     HarnessFixtures._free_manager(f)
@@ -823,9 +779,7 @@ static func _run_opposition_offset_seeded_at_start(failures: PackedStringArray) 
     elif not EngagementOpposition.is_mapped_file_opposed(mgr, p_wing, e_wing):
         _fail(failures, "opposition_offset: wing file 0 should nearest-map to enemy file 0")
     elif not CombatTargetScoring.is_file_opposed_rank0_pair(mgr, p_center, e_center):
-        _fail(
-            failures, "opposition_offset: TargetScoring delegate expected center file-opposed"
-        )
+        _fail(failures, "opposition_offset: TargetScoring delegate expected center file-opposed")
     elif CombatTargetScoring.is_file_opposed_rank0_pair(mgr, p_wing, e_center):
         _fail(failures, "opposition_offset: wing should not be file-opposed via delegate")
     HarnessFixtures._free_manager(mgr)
@@ -855,17 +809,13 @@ static func _run_opposition_offset_seeded_at_start(failures: PackedStringArray) 
     elif not EngagementOpposition.is_mapped_file_opposed(wide, p_right, e_right):
         _fail(failures, "opposition_nearest_wing: player file 6 should oppose enemy file 2")
     elif EngagementOpposition.is_mapped_file_opposed(wide, p_left, e_right):
-        _fail(
-            failures, "opposition_nearest_wing: player file 0 should not map to far enemy file 2"
-        )
+        _fail(failures, "opposition_nearest_wing: player file 0 should not map to far enemy file 2")
     var p_inner: Dictionary = HarnessFixtures._harness_find_living_at_rank_file(wide, "player", 0, 1)
     var e_mid: Dictionary = HarnessFixtures._harness_find_living_at_rank_file(wide, "enemy", 0, 1)
     if p_inner.is_empty() or e_mid.is_empty():
         _fail(failures, "opposition_nearest_wing: missing inner-wing fixtures")
     elif not EngagementOpposition.is_mapped_file_opposed(wide, p_inner, e_left):
-        _fail(
-            failures, "opposition_nearest_wing: player file 1 should nearest-map to enemy file 0"
-        )
+        _fail(failures, "opposition_nearest_wing: player file 1 should nearest-map to enemy file 0")
     elif EngagementOpposition.wing_lacks_mapped_opposition(wide, p_left):
         _fail(failures, "opposition_nearest_wing: outer wing should not lack mapped opposition")
     var m_wing: float = CombatTargetScoring.file_opposed_mult(wide, p_left, e_left)
@@ -959,9 +909,7 @@ static func _run_opposition_aware_pair_geometry_wing_reach(failures: PackedStrin
         p_center, CombatantEntityAccess.id_int(e_center), ""
     )
     if center_band == CombatConstants.DISTANCE_LONG:
-        _fail(
-            failures, "opposition_pair_geom: center mapped pair want MID/CLOSE band got %s" % center_band
-        )
+        _fail(failures, "opposition_pair_geom: center mapped pair want MID/CLOSE band got %s" % center_band)
     HarnessFixtures._free_manager(wide)
 
 ## Reach audit: CLOSE band uses bind spacing (df=0); mapped wing gap 2 stays out of sword reach until close.

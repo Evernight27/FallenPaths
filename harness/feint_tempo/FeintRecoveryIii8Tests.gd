@@ -1,7 +1,7 @@
 class_name FeintTempoRecoveryIii8Tests
 extends CombatRegressionHarnessCore
 
-const _CombatRegressionHarness := preload("res://harness/regression/CombatRegressionHarness.gd")
+const CombatRegressionHarness := preload("res://harness/regression/CombatRegressionHarness.gd")
 ## Tier 4.2 feint / counter-tempo / riposte / defense telegraph tests (compile split).
 ## Weapon form: **`CombatRegressionHarnessWeaponFormTail`** owns **`form_str`** / **`mod`**  -  stance alias rows here
 ## stay feint/tempo only.
@@ -32,9 +32,7 @@ static func _run_feint_move_listing_incoming_contact_stab_feint_dampens_vs_cut_f
     var wps: float = CombatAIActionPicker._get_action_weight(a_plain_s, p_id, mgr, true)
     var wfs: float = CombatAIActionPicker._get_action_weight(a_feint_s, p_id, mgr, true)
     if wpc <= 1e-8 or wps <= 1e-8:
-        _fail(
-            failures, "feint_list_incoming_ct: plain weights too small pc=%.8f ps=%.8f" % [wpc, wps]
-        )
+        _fail(failures, "feint_list_incoming_ct: plain weights too small pc=%.8f ps=%.8f" % [wpc, wps])
         HarnessFixtures._free_manager_restore_global_rng(mgr)
         return
     var boost_c: float = wfc / wpc
@@ -117,9 +115,7 @@ static func _run_feint_move_listing_defender_low_stamina_scales_read_m_vs_full_s
             )
         )
     elif w_feint_hi <= 1e-8:
-        _fail(
-            failures, "feint_list_def_stam: full-stamina feint weight too small %.8f" % w_feint_hi
-        )
+        _fail(failures, "feint_list_def_stam: full-stamina feint weight too small %.8f" % w_feint_hi)
     elif not is_equal_approx(w_feint_lo / w_feint_hi, want):
         _fail(
             failures,
@@ -167,9 +163,7 @@ static func _run_feint_move_listing_defender_and_attacker_stamina_multiply_ortho
     mgr.recompute_zoc_and_distance()
     var w_ll: float = CombatAIActionPicker._get_action_weight(a_feint, p_id, mgr, true)
     if w_mm <= 1e-8 or w_ml <= 1e-8:
-        _fail(
-            failures, "feint_list_stam_ortho: feint weights too small mm=%.8f ml=%.8f" % [w_mm, w_ml]
-        )
+        _fail(failures, "feint_list_stam_ortho: feint weights too small mm=%.8f ml=%.8f" % [w_mm, w_ml])
         HarnessFixtures._free_manager_restore_global_rng(mgr)
         return
     var lhs: float = w_ll / w_ml
@@ -230,15 +224,11 @@ static func _run_recovery_cause_parry_deflect_alias_aligns_readiness_and_footwor
     var def_curve: Array = CombatConstants.readiness_curve_for_cause("attack_deflect")
     var alias_curve: Array = CombatConstants.readiness_curve_for_cause("parry_deflect")
     if alias_curve != def_curve:
-        _fail(
-            failures, "recovery_cause_alias: readiness parry_deflect want %s got %s" % [def_curve, alias_curve]
-        )
+        _fail(failures, "recovery_cause_alias: readiness parry_deflect want %s got %s" % [def_curve, alias_curve])
     var m_def: float = CombatConstants.defense_footwork_recovering_dodge_mult_for_cause("attack_deflect")
     var m_alias: float = CombatConstants.defense_footwork_recovering_dodge_mult_for_cause("parry_deflect")
     if not is_equal_approx(m_def, m_alias):
-        _fail(
-            failures, "recovery_cause_alias: footwork parry_deflect want %.4f got %.4f" % [m_def, m_alias]
-        )
+        _fail(failures, "recovery_cause_alias: footwork parry_deflect want %.4f got %.4f" % [m_def, m_alias])
     var c: Dictionary = {
         "state": CombatConstants.STATE_RECOVERING,
         "state_duration": 1.0,
@@ -250,14 +240,10 @@ static func _run_recovery_cause_parry_deflect_alias_aligns_readiness_and_footwor
     var r_alias: float = PassiveParryContext.get_passive_parry_readiness(c)
     var r_canon: float = PassiveParryContext.get_passive_parry_readiness(c_canon)
     if not is_equal_approx(r_alias, r_canon):
-        _fail(
-            failures, "recovery_cause_alias: passive readiness want %.4f got %.4f" % [r_canon, r_alias]
-        )
+        _fail(failures, "recovery_cause_alias: passive readiness want %.4f got %.4f" % [r_canon, r_alias])
     var m_partial: float = CombatConstants.defense_footwork_recovering_dodge_mult_for_cause("parry_partial")
     if not is_equal_approx(m_def, m_partial):
-        _fail(
-            failures, "recovery_cause_alias: footwork parry_partial want %.4f got %.4f" % [m_def, m_partial]
-        )
+        _fail(failures, "recovery_cause_alias: footwork parry_partial want %.4f got %.4f" % [m_def, m_partial])
 
 
 ## III-8: canonical causes share readiness curves + inverse feint/dodge footwork mults.
@@ -284,11 +270,8 @@ static func _run_iii8_recovery_cause_table_parity(failures: PackedStringArray) -
     if m_hit > m_miss + 0.01:
         pass  # attack_hit dodge mult exceeds attack_miss (miss recovery is more punishing).
     else:
-        _fail(
-            failures, "iii8_table: attack_hit dodge mult want > attack_miss got hit=%.4f miss=%.4f" % [m_hit, m_miss]
-        )
+        _fail(failures, "iii8_table: attack_hit dodge mult want > attack_miss got hit=%.4f miss=%.4f" % [m_hit, m_miss])
     var hit_curve: Array = CombatConstants.readiness_curve_for_cause("attack_hit")
     var miss_curve: Array = CombatConstants.readiness_curve_for_cause("attack_miss")
     if float(miss_curve[1]) <= float(hit_curve[1]):
         _fail(failures, "iii8_table: attack_miss late readiness want > attack_hit")
-

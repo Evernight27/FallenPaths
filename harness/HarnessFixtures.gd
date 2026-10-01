@@ -1,21 +1,26 @@
 class_name HarnessFixtures
+
 extends Object
 
 ## Shared combat harness fixtures, setup helpers, cleanup utilities, and assertion methods.
 ## Extracted from CombatRegressionHarness to reduce its 12,515-line monolith.
 ## All methods are static; called by _CombatRegressionHarness.run_all() and tail files.
 ## No behavioral changes  -  zero-diff refactor.
+const CombatWeaponForm := preload("res://combat/weapon_form/CombatWeaponForm.gd")
 
-const _CombatWeaponForm := preload("res://combat/weapon_form/CombatWeaponForm.gd")
 ## No behavioral changes  -  zero-diff refactor.
 ## Cached weapon and armor instances built once at first access.
 ## create_from_definition is pure-data (static constants, no RNG/manager) so
 ## the same instance can be shared across tests without side effects.
-
 static var _cached_weapons: Dictionary = {}
+
 static var _cached_armor: Dictionary = {}
+
 static var _cached_weapon_melee_ranges: Dictionary = {}
+
 static var _windup_duration_cache: Dictionary = {}
+
+static var _harness_live_nodes: Array = []
 
 
 ## Flush all static caches to release resource instances at harness exit.
@@ -48,8 +53,6 @@ static func get_cached_armor(piece_id: String) -> ArmorPiece:
 
 
 # -- Node lifecycle --------------------------------------------------------
-
-static var _harness_live_nodes: Array = []
 
 
 static func _track_harness_node(n: Node) -> void:
@@ -108,7 +111,7 @@ static func _free_manager(mgr: Node) -> void:
     if mgr == null or not is_instance_valid(mgr):
         return
     ## Disconnect manager output listeners that harness tests may have attached.
-    var _mgr_sigs: Array[Dictionary] = [
+    var mgr_sigs: Array[Dictionary] = [
         {"name": "action_resolved", "sig": mgr.action_resolved},
         {"name": "combat_ended", "sig": mgr.combat_ended},
         {"name": "enemies_eliminated", "sig": mgr.enemies_eliminated},
@@ -118,9 +121,9 @@ static func _free_manager(mgr: Node) -> void:
         {"name": "turn_resolved", "sig": mgr.turn_resolved},
         {"name": "combat_ui_hint", "sig": mgr.combat_ui_hint},
     ]
-    for _s in _mgr_sigs:
-        var _conns := (_s["sig"] as Signal).get_connections()
-        if not _conns.is_empty():
+    for _s in mgr_sigs:
+        var conns := (_s["sig"] as Signal).get_connections()
+        if not conns.is_empty():
             _disconnect_signal_connections(mgr, _s["name"], _s["sig"])
     ## Call stop() to disconnect entity-side signals (health_changed, etc.).
     if mgr.has_method("stop"):
@@ -146,7 +149,7 @@ static func _free_manager(mgr: Node) -> void:
         mgr.free()
 
 
-static func _disconnect_signal_connections(node: Node, signal_name: StringName, signal_obj: Signal) -> void:
+static func _disconnect_signal_connections(_node: Node, _signal_name: StringName, signal_obj: Signal) -> void:
     var connections := signal_obj.get_connections()
     for conn in connections:
         if conn is not Dictionary:
@@ -164,11 +167,15 @@ static func _disconnect_signal_connections(node: Node, signal_name: StringName, 
 
 
 ## _free_manager -- run_all() restores the global seed after each test function.
+
+
 static func _free_manager_restore_global_rng(mgr: Node) -> void:
     _free_manager(mgr)
 
 
 ## In-place manager free without RNG restoration (for tests that manage their own seed).
+
+
 static func _free_manager_in_place(mgr: Node) -> void:
     _free_manager(mgr)
 
@@ -195,8 +202,9 @@ static func _new_entity_unarmed() -> CoreEntity:
 
 # -- Manager setup ---------------------------------------------------------
 
-
 ## Standard harness duel (SWORD 1x1 vs SWORD 1x1).
+
+
 static func _harness_start_1v1(
     weapon_id: String = "SWORD",
     player_side: Dictionary = {"files": 1, "ranks": 1},
@@ -213,10 +221,12 @@ static func _harness_start_1v1(
 static func _harness_reset_combatants_form_balanced(mgr: Node) -> void:
     for c in mgr.combatants:
         if c is Dictionary:
-            _CombatWeaponForm.assign_form(mgr, c as Dictionary, _CombatWeaponForm.FORM_BALANCED, "harness_baseline")
+            CombatWeaponForm.assign_form(mgr, c as Dictionary, CombatWeaponForm.FORM_BALANCED, "harness_baseline")
 
 
 ## Player-only manager (tooltip / UI probes with no enemy row).
+
+
 static func _harness_start_player_only(player_side: Dictionary = {"files": 1, "ranks": 1}) -> Node:
     var mgr: Node = CombatManager.new()
     mgr.register(_new_entity("SWORD"), "player")
@@ -227,8 +237,9 @@ static func _harness_start_player_only(player_side: Dictionary = {"files": 1, "r
 
 # -- Equipment -------------------------------------------------------------
 
-
 ## Full plate kit for armor-mass harness probes.
+
+
 static func _harness_equip_heavy_plate_kit(e: CoreEntity) -> void:
     var kit: Array = [
         ["head", "KETTLE_HELM"],
@@ -263,9 +274,10 @@ static func _harness_find_living_at_rank_file(mgr: Node, side: String, rank: int
 
 # -- Formation fixtures ----------------------------------------------------
 
-
 ## 6v3 skirmish  -  flee rank-0 files, survivor at rank-0 (default file 4).
 ## Returns {mgr, survivor, survivor_id} or {} on fixture failure (frees mgr).
+
+
 static func _harness_sparse_post_flee_6v3_mgr(survivor_file: int = 4, fled_files: Array = [0, 1, 2, 3]) -> Dictionary:
     var mgr: Node = CombatManager.new()
     for _i in 6:
@@ -297,6 +309,8 @@ static func _harness_sparse_post_flee_6v3_mgr(survivor_file: int = 4, fled_files
 
 
 ## 7v3 rank-0 player file 6 vs enemy file 2 (mapped wing; out of sword reach).
+
+
 static func _harness_7v3_wing_rank0_fixtures() -> Array:
     var wide: Node = CombatManager.new()
     for _i in 7:
@@ -318,8 +332,9 @@ static func _harness_bind_pair_long_band(p: Dictionary, e: Dictionary) -> void:
 
 # -- Soak / test utilities -------------------------------------------------
 
-
 ## Tier 1.8 (P9): kill a combatant through the manager's internal path.
+
+
 static func _soak_kill_combatant(mgr: Node, combatant_id: int) -> void:
     if mgr == null:
         return
@@ -465,9 +480,7 @@ static func _assert_stamp_depth_pa_defaults(pa: Dictionary, failures: PackedStri
     if not bool(pa.get("depth_polearm_attack", false)):
         pass  # depth_polearm_attack=false  -  expected for non-depth attacks
     else:
-        _fail(
-            failures, "%s id=%d depth_polearm_attack=true (unexpected)" % [ctx, pa.get("attacker_id", -1)]
-        )
+        _fail(failures, "%s id=%d depth_polearm_attack=true (unexpected)" % [ctx, pa.get("attacker_id", -1)])
 
 
 static func _assert_depth_lane_open_cache_matches_builder(mgr: Node, failures: PackedStringArray, ctx: String) -> void:
@@ -481,9 +494,7 @@ static func _assert_depth_lane_open_cache_matches_builder(mgr: Node, failures: P
         var cached_open: bool = bool(pa.get("depth_polearm_allows_low_targets", true))
         var builder_open: bool = DefenseChoiceResolver._depth_polearm_lane_is_open(pa)
         if cached_open != builder_open:
-            _fail(
-                failures, "%s id=%d cache=%s builder=%s" % [ctx, cid, str(cached_open), str(builder_open)]
-            )
+            _fail(failures, "%s id=%d cache=%s builder=%s" % [ctx, cid, str(cached_open), str(builder_open)])
 
 
 # -- IV-7 / IV-8 / IV-9 fixtures -------------------------------------------
@@ -634,4 +645,3 @@ static func _harness_iv9_resolve_adjacent_rank_pair_move(
 
 static func _fail(failures: PackedStringArray, msg: String) -> void:
     failures.append(msg)
-

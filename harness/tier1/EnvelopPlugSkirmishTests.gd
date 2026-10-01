@@ -1,6 +1,6 @@
 class_name Tier1EnvelopPlugSkirmishTests
 extends CombatRegressionHarnessCore
-const _CombatRegressionHarness := preload("res://harness/regression/CombatRegressionHarness.gd")
+const CombatRegressionHarness := preload("res://harness/regression/CombatRegressionHarness.gd")
 ## Tier 1 depth / engagement / targeting / surround / doctrine tests (compile split).
 ## Footing: not WF/PA owner  -  may call strike/listing paths that read **`form_str`**. Spec: LIVE_PATHS
 ## **`#wf-footing-doc-map`**.
@@ -36,13 +36,9 @@ static func _run_fall_back_solo_depth_recheck_rank2_after_resolve(failures: Pack
     var want: float = CombatConstants.READY_DELAY_FORMATION_RECHECK_S
     HarnessFixtures._free_manager(mgr)
     if rank_after != 1:
-        _fail(
-            failures, "fall_back_depth_recheck: want rank1 got rank=%d delay2=%.2f" % [rank_after, delay2]
-        )
+        _fail(failures, "fall_back_depth_recheck: want rank1 got rank=%d delay2=%.2f" % [rank_after, delay2])
     if absf(delay2 - want) > 0.05:
-        _fail(
-            failures, "fall_back_depth_recheck: rank-2 want delay %.2f got %.2f" % [want, delay2]
-        )
+        _fail(failures, "fall_back_depth_recheck: rank-2 want delay %.2f got %.2f" % [want, delay2])
 
 
 ## III-6: incap plug-forward copy surfaces on formation gauge suffix when **`swap_rank`** listed.
@@ -88,9 +84,7 @@ static func _run_plug_forward_gauge_suffix_when_listed(failures: PackedStringArr
     var stamp: String = str(rear.get(CombatConstants.COMBATANT_KEY_FORMATION_MOVES_TURN_HINT, "")).strip_edges()
     HarnessFixtures._free_manager(mgr)
     if "Partner down" not in stamp:
-        _fail(
-            failures, "plug_forward_gauge: want partner-down suffix on gauge stamp got %s" % stamp
-        )
+        _fail(failures, "plug_forward_gauge: want partner-down suffix on gauge stamp got %s" % stamp)
 
 
 ## III-6 maintain: rear lists swap_rank to plug rank-0 hole when relief fitness gate blocks.
@@ -347,9 +341,7 @@ static func _run_rotate_line_plug_weight_skirmish_rank0_hole(failures: PackedStr
         HarnessFixtures._free_manager(mgr)
         return
     if CombatFormationFlow.formation_has_frontline_fill_opportunity(mgr, "player"):
-        _fail(
-            failures, "rotate_skirmish_hole: skirmish 1-rank should not expose depth plug opportunity"
-        )
+        _fail(failures, "rotate_skirmish_hole: skirmish 1-rank should not expose depth plug opportunity")
         HarnessFixtures._free_manager(mgr)
         return
     var rot_act: Dictionary = {
@@ -560,9 +552,7 @@ static func _run_skirmish_outnumber_allows_rotate_file(failures: PackedStringArr
             . is_empty()
         )
         if not saw_rotate:
-            _fail(
-                failures, "skirmish_rotate: player file-0 should list rotate_file vs file-1 in skirmish outnumber"
-            )
+            _fail(failures, "skirmish_rotate: player file-0 should list rotate_file vs file-1 in skirmish outnumber")
     var e0: Dictionary = HarnessFixtures._harness_find_living_at_rank_file(mgr, "enemy", 0, 0)
     var e1: Dictionary = HarnessFixtures._harness_find_living_at_rank_file(mgr, "enemy", 0, 1)
     if e0.is_empty() or e1.is_empty():
@@ -641,14 +631,10 @@ static func _run_envelop_close_listed_mid_mop_up(failures: PackedStringArray) ->
     )
     if in_swing:
         if listed_long:
-            _fail(
-                failures, "envelop_close_mid: in-swing at LONG during mop-up must not list attempt_close"
-            )
+            _fail(failures, "envelop_close_mid: in-swing at LONG during mop-up must not list attempt_close")
     else:
         if not listed_long:
-            _fail(
-                failures, "envelop_close_mid: out-of-reach LONG during mop-up want attempt_close listed"
-            )
+            _fail(failures, "envelop_close_mid: out-of-reach LONG during mop-up want attempt_close listed")
     HarnessFixtures._free_manager(mgr)
 
 
@@ -682,9 +668,7 @@ static func _run_envelop_close_resolve_mid_mop_up(failures: PackedStringArray) -
     if mgr.has_meta(TacticalCombat.META_COMBAT_TELEMETRY):
         var tel: Dictionary = mgr.get_meta(TacticalCombat.META_COMBAT_TELEMETRY) as Dictionary
         if int(tel.get("invalid_close_resolve_blocked", 0)) >= 1:
-            _fail(
-                failures, "envelop_close_resolve: MID mop-up must not increment invalid_close_resolve_blocked"
-            )
+            _fail(failures, "envelop_close_resolve: MID mop-up must not increment invalid_close_resolve_blocked")
     HarnessFixtures._free_manager(mgr)
 
 
@@ -756,9 +740,7 @@ static func _run_plug_forward_listed_during_envelop_mop_up(failures: PackedStrin
     rear["gauge"] = 100.0
     var acts: Array = AvailableActionsBuilder.build(mgr, CombatantEntityAccess.id_int(rear))
     if not CombatListedActions.actions_include_move_id(acts, CombatConstants.MOVE_ID_PLUG_FORWARD):
-        _fail(
-            failures, "plug_forward_mop_up: want plug_forward listed for depth fighter during envelop mop-up"
-        )
+        _fail(failures, "plug_forward_mop_up: want plug_forward listed for depth fighter during envelop mop-up")
     HarnessFixtures._free_manager(mgr)
 
 
@@ -784,9 +766,7 @@ static func _run_plug_forward_not_listed_without_mop_up(failures: PackedStringAr
     rear["gauge"] = 100.0
     var acts: Array = AvailableActionsBuilder.build(mgr, CombatantEntityAccess.id_int(rear))
     if CombatListedActions.actions_include_move_id(acts, CombatConstants.MOVE_ID_PLUG_FORWARD):
-        _fail(
-            failures, "plug_forward_no_mop_up: plug_forward must NOT list when envelop mop-up inactive"
-        )
+        _fail(failures, "plug_forward_no_mop_up: plug_forward must NOT list when envelop mop-up inactive")
     HarnessFixtures._free_manager(mgr)
 
 
@@ -813,9 +793,7 @@ static func _run_envelop_mop_up_rotate_suppressed(failures: PackedStringArray) -
         elif mid == CombatConstants.MOVE_ID_ATTEMPT_CLOSE:
             reserve_only.append(a)
     if not CombatDoctrine.should_suppress_skirmish_rotate_file(mgr, wing, reserve_only):
-        _fail(
-            failures, "envelop_rotate: should_suppress when mop-up and no melee strikes in menu"
-        )
+        _fail(failures, "envelop_rotate: should_suppress when mop-up and no melee strikes in menu")
     if CombatListedActions.actions_include_move_id(acts, CombatConstants.MOVE_ID_ATTEMPT_CLOSE):
         if not (
             CombatListedActions
@@ -824,9 +802,7 @@ static func _run_envelop_mop_up_rotate_suppressed(failures: PackedStringArray) -
             )
             . is_empty()
         ):
-            _fail(
-                failures, "envelop_rotate: must not list rotate_file when close is listed during mop-up"
-            )
+            _fail(failures, "envelop_rotate: must not list rotate_file when close is listed during mop-up")
     elif not CombatListedActions.action_list_has_hostile_melee_strike(acts, wing_id):
         if not (
             CombatListedActions
@@ -835,9 +811,7 @@ static func _run_envelop_mop_up_rotate_suppressed(failures: PackedStringArray) -
             )
             . is_empty()
         ):
-            _fail(
-                failures, "envelop_rotate: must not list rotate_file without melee during mop-up"
-            )
+            _fail(failures, "envelop_rotate: must not list rotate_file without melee during mop-up")
     HarnessFixtures._free_manager(mgr)
 
 
@@ -883,9 +857,7 @@ static func _run_sparse_skirmish_line_rotate_suppressed_when_engagement_listed(f
     var survivor_id: int = CombatantEntityAccess.id_int(survivor)
     var acts: Array = AvailableActionsBuilder.build(mgr, survivor_id)
     if not CombatListedActions.action_list_has_hostile_strike(acts, survivor_id):
-        _fail(
-            failures, "sparse_rotate: want hostile strike or attempt_close listed for survivor"
-        )
+        _fail(failures, "sparse_rotate: want hostile strike or attempt_close listed for survivor")
         HarnessFixtures._free_manager(mgr)
         return
     if not CombatDoctrine.should_suppress_skirmish_rotate_file(mgr, survivor, acts):

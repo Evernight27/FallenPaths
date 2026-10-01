@@ -1,41 +1,12 @@
 class_name SimulationCombatTests
-extends CombatRegressionHarnessCore
-## Simulation realism track (S1—S10): `_run_sim_*`  -  docs/LIVE_PATHS.md#harness-prefixes.
 
-const HumanSpecies := preload("res://resources/species/human.tres")
-const GoblinSpecies := preload("res://resources/species/goblin.tres")
+extends SimulationCombatBase
 
-## Test tolerance thresholds — calibrated to floating-point variation in multi-step damage calculations.
-## KE comparisons: 0.5J accounts for rounding in mass×velocity²/2 across weapon archetypes.
-## Cut/blunt comparisons: 0.01 accounts for sqrt/exp variations in tissue failure functions.
-const TOLERANCE_KE_J: float = 0.5
-const TOLERANCE_SHARP: float = 0.01
+## S1 strike-delivery realism: committed KE / cut composition, subregion
+## determinism, IV10 combat multipliers, pack-neck subregion gate, MFB
+## fracture rules, and severity stability under KE upgrades.
 
 
-static func _sim_entity() -> CoreEntity:
-    var ent: CoreEntity = CoreEntity.new()
-    HarnessFixtures._track_harness_node(ent)
-    return ent
-
-
-static func _oberhau_swing_instance(intensity: float, commit_frac: float) -> AttackInstance:
-    var ai: AttackInstance = AttackInstance.new("oberhau", intensity)
-    ai.archetype = {"kinematic_delivery": WeaponConstants.KINEMATIC_DELIVERY_SWING}
-    if commit_frac >= 0.0:
-        ai.delivery_commit_fraction = commit_frac
-    return ai
-
-
-## General attack-instance builder for a named move (used by the realism cross-check to
-## generate committed cuts/thrusts). commit < 0 leaves the move at its natural commitment.
-static func _sim_attack(move_id: String, intensity: float, commit_frac: float) -> AttackInstance:
-    var ai: AttackInstance = AttackInstance.new(move_id, intensity)
-    if commit_frac >= 0.0:
-        ai.delivery_commit_fraction = commit_frac
-    return ai
-
-
-## S1: extension commit scales KE and pre_armor_cut; intensity ordering at fixed commit.
 static func _run_sim_delivery_commit_scales_ke_and_cut(failures: PackedStringArray) -> void:
     var sword: Weapon = HarnessFixtures.get_cached_weapon("SWORD")
     if sword == null:
@@ -45,8 +16,8 @@ static func _run_sim_delivery_commit_scales_ke_and_cut(failures: PackedStringArr
     var arm_mod: float = 1.0
     var commit_lo: float = 0.45
     var commit_hi: float = 0.90
-    var ai_lo: AttackInstance = SimulationCombatTests._oberhau_swing_instance(1.0, commit_lo)
-    var ai_hi: AttackInstance = SimulationCombatTests._oberhau_swing_instance(1.0, commit_hi)
+    var ai_lo: AttackInstance = SimulationCombatBase._oberhau_swing_instance(1.0, commit_lo)
+    var ai_hi: AttackInstance = SimulationCombatBase._oberhau_swing_instance(1.0, commit_hi)
     var ke_lo: float = WeaponDamageHelper.compute_kinetic_energy_j(sword, ai_lo)
     var ke_hi: float = WeaponDamageHelper.compute_kinetic_energy_j(sword, ai_hi)
     if ke_hi <= ke_lo + TOLERANCE_KE_J:
@@ -65,8 +36,8 @@ static func _run_sim_delivery_commit_scales_ke_and_cut(failures: PackedStringArr
             )
         )
     var pin_commit: float = 0.78
-    var ai_half: AttackInstance = SimulationCombatTests._oberhau_swing_instance(0.5, pin_commit)
-    var ai_full: AttackInstance = SimulationCombatTests._oberhau_swing_instance(1.0, pin_commit)
+    var ai_half: AttackInstance = SimulationCombatBase._oberhau_swing_instance(0.5, pin_commit)
+    var ai_full: AttackInstance = SimulationCombatBase._oberhau_swing_instance(1.0, pin_commit)
     var ke_half: float = WeaponDamageHelper.compute_kinetic_energy_j(sword, ai_half)
     var ke_full: float = WeaponDamageHelper.compute_kinetic_energy_j(sword, ai_full)
     if ke_full <= ke_half + TOLERANCE_KE_J:
@@ -74,7 +45,7 @@ static func _run_sim_delivery_commit_scales_ke_and_cut(failures: PackedStringArr
             failures,
             "sim_delivery: i=1.0 KE %.1f should exceed i=0.5 KE %.1f at commit %.2f" % [ke_full, ke_half, pin_commit]
         )
-    var ai_no_commit: AttackInstance = SimulationCombatTests._oberhau_swing_instance(1.0, -1.0)
+    var ai_no_commit: AttackInstance = SimulationCombatBase._oberhau_swing_instance(1.0, -1.0)
     var ke_no: float = WeaponDamageHelper.compute_kinetic_energy_j(sword, ai_no_commit)
     if ke_no <= ke_full + TOLERANCE_KE_J:
         SimulationCombatTests._fail(
@@ -83,14 +54,16 @@ static func _run_sim_delivery_commit_scales_ke_and_cut(failures: PackedStringArr
 
 
 ## S1: oberhau full wind-up with move commit lands nearer design arm KE than uncommitted i=1.0.
+
+
 static func _run_sim_calibration_audit_committed_ke_in_band(failures: PackedStringArray) -> void:
     var sword: Weapon = HarnessFixtures.get_cached_weapon("SWORD")
     if sword == null:
         SimulationCombatTests._fail(failures, "sim_audit_ke: missing SWORD")
         return
     var oberhau_commit: float = CombatWeaponPosition.commit_fraction_from_move_def(WeaponConstants.get_move("oberhau"))
-    var ai_bare: AttackInstance = SimulationCombatTests._oberhau_swing_instance(1.0, -1.0)
-    var ai_committed: AttackInstance = SimulationCombatTests._oberhau_swing_instance(1.0, oberhau_commit)
+    var ai_bare: AttackInstance = SimulationCombatBase._oberhau_swing_instance(1.0, -1.0)
+    var ai_committed: AttackInstance = SimulationCombatBase._oberhau_swing_instance(1.0, oberhau_commit)
     var ke_bare: float = WeaponDamageHelper.compute_kinetic_energy_j(sword, ai_bare)
     var ke_commit: float = WeaponDamageHelper.compute_kinetic_energy_j(sword, ai_committed)
     if not CombatDesignAnchors.committed_strike_ke_in_strict_band(ke_commit):
@@ -120,6 +93,8 @@ static func _run_sim_calibration_audit_committed_ke_in_band(failures: PackedStri
 
 
 ## S2: identical inputs yield the same sub_region (no randf on hot path).
+
+
 static func _run_sim_subregion_deterministic_same_inputs(failures: PackedStringArray) -> void:
     var align: Dictionary = {"attack_angle_deg": 0.0, "guard_angle_deg": 0.0}
     var intercept_idx: int = AttackPathResolver.path_intercept_max_index("high", "high", 1.0, align)
@@ -130,6 +105,8 @@ static func _run_sim_subregion_deterministic_same_inputs(failures: PackedStringA
 
 
 ## S2: high attack vs high guard on arm path -> proximal site (upper_arm).
+
+
 static func _run_sim_subregion_high_line_arm(failures: PackedStringArray) -> void:
     var align: Dictionary = {"attack_angle_deg": 0.0, "guard_angle_deg": 0.0}
     var intercept_idx: int = AttackPathResolver.path_intercept_max_index("high", "high", 1.0, align)
@@ -143,6 +120,8 @@ static func _run_sim_subregion_high_line_arm(failures: PackedStringArray) -> voi
 
 
 ## IV-10: elbow sub_region applies higher mechanical cut than upper_arm when feature on.
+
+
 static func _run_iv10_subregion_combat_mult_elbow_vs_upper_arm(failures: PackedStringArray) -> void:
     var sync_line: String = CombatHitSubRegion.iv10_doc_sync_line()
     if "mechanical=severity_modifier" not in sync_line:
@@ -172,12 +151,12 @@ static func _run_iv10_subregion_combat_mult_elbow_vs_upper_arm(failures: PackedS
     var mult_upper: float = CombatHitSubRegion.combat_damage_mult("right_arm", "upper_arm")
     var mult_elbow: float = CombatHitSubRegion.combat_damage_mult("right_arm", "elbow")
     if mult_elbow <= mult_upper:
-        _fail(
-            failures, "iv10_mult: elbow mult want > upper_arm (%.3f vs %.3f)" % [mult_elbow, mult_upper]
-        )
+        _fail(failures, "iv10_mult: elbow mult want > upper_arm (%.3f vs %.3f)" % [mult_elbow, mult_upper])
 
 
 ## IV-10: flag off  -  identical sub_region hits apply same mechanical damage.
+
+
 static func _run_iv10_subregion_combat_mult_flag_off_parity(failures: PackedStringArray) -> void:
     var cut_pre: float = 16.0
     var saved: bool = CombatConstants.is_feature_subregion_combat_mult_enabled()
@@ -194,12 +173,12 @@ static func _run_iv10_subregion_combat_mult_flag_off_parity(failures: PackedStri
     var mech_a: float = float(r_a.get("mechanical_post_armor", 0.0))
     var mech_b: float = float(r_b.get("mechanical_post_armor", 0.0))
     if absf(mech_a - mech_b) > 0.05:
-        _fail(
-            failures, "iv10_mult_off: flag off want parity (elbow=%.2f forearm=%.2f)" % [mech_a, mech_b]
-        )
+        _fail(failures, "iv10_mult_off: flag off want parity (elbow=%.2f forearm=%.2f)" % [mech_a, mech_b])
 
 
 ## S2: packing eligibility still works when neck sub_region is explicit (medical harness pattern).
+
+
 static func _run_sim_pack_neck_requires_subregion(failures: PackedStringArray) -> void:
     var ent: Node = _new_entity("SWORD")
     EntityWounds.add_wound(
@@ -219,22 +198,16 @@ static func _run_sim_pack_neck_requires_subregion(failures: PackedStringArray) -
         )
 
 
-static func _has_fracture_wound(ent: Node, part: String) -> bool:
-    for w: Variant in ent.wounds.get(part, []):
-        if w is Dictionary and str(w.get("injury_type", "")) == BleedingConstants.INJURY_TYPE_FRACTURE:
-            return true
-    return false
-
-
-## S3: cut-dominant, low penetration -> no fracture (old pool would often chip bone).
 static func _run_sim_mfb_cut_only_no_fracture(failures: PackedStringArray) -> void:
     var ent: Node = _new_entity("SWORD")
     var res: Dictionary = ent.take_damage_split(16.0, 0.0, "right_arm", 0.4, -1.0, -1.0, {"hit_sub_region": "forearm"})
-    if SimulationCombatTests._has_fracture_wound(ent, "right_arm") or float(res.get("final_bone", 0.0)) > 0.01:
+    if SimulationCombatBase._has_fracture_wound(ent, "right_arm") or float(res.get("final_bone", 0.0)) > 0.01:
         SimulationCombatTests._fail(failures, "sim_mfb_cut_low_pen: sharp-dominant low pen should not chip bone")
 
 
 ## S3: blunt-dominant arm hit with KE above sub-region anchor -> fracture.
+
+
 static func _run_sim_mfb_mace_arm_fracture(failures: PackedStringArray) -> void:
     var ent: Node = _new_entity("MACE")
     var j_anchor: float = CombatDamageMechanism.blunt_fracture_j_anchor("right_arm", "elbow")
@@ -242,13 +215,15 @@ static func _run_sim_mfb_mace_arm_fracture(failures: PackedStringArray) -> void:
     var res: Dictionary = ent.take_damage_split(
         0.0, 8.0, "right_arm", -1.0, -1.0, -1.0, {"hit_sub_region": "elbow", "strike_ke_j": strike_ke}
     )
-    if not SimulationCombatTests._has_fracture_wound(ent, "right_arm") and float(res.get("final_bone", 0.0)) < 0.5:
+    if not SimulationCombatBase._has_fracture_wound(ent, "right_arm") and float(res.get("final_bone", 0.0)) < 0.5:
         SimulationCombatTests._fail(
             failures, "sim_mfb_mace_arm: want fracture or final_bone at KE %.1f (anchor %.1f)" % [strike_ke, j_anchor]
         )
 
 
 ## S3: deep cut (pen gate) allows bone; shallow pen at same cut damage does not.
+
+
 static func _run_sim_mfb_deep_cut_bone_optional(failures: PackedStringArray) -> void:
     var shallow: Node = _new_entity("SWORD")
     var extras_mfb: Dictionary = {
@@ -256,13 +231,13 @@ static func _run_sim_mfb_deep_cut_bone_optional(failures: PackedStringArray) -> 
         "disable_layer_tissue": true,
     }
     var res_sh: Dictionary = shallow.take_damage_split(11.0, 0.0, "right_arm", 0.5, -1.0, -1.0, extras_mfb)
-    if SimulationCombatTests._has_fracture_wound(shallow, "right_arm") or float(res_sh.get("final_bone", 0.0)) > 0.01:
+    if SimulationCombatBase._has_fracture_wound(shallow, "right_arm") or float(res_sh.get("final_bone", 0.0)) > 0.01:
         SimulationCombatTests._fail(failures, "sim_mfb_deep_cut: shallow pen should not chip bone")
     var deep: Node = _new_entity("SWORD")
     var res_dp: Dictionary = deep.take_damage_split(
         11.0, 0.0, "right_arm", CombatDamageMechanism.MFB_CUT_BONE_MIN_PENETRATION_MM + 1.5, -1.0, -1.0, extras_mfb
     )
-    if float(res_dp.get("final_bone", 0.0)) < 0.5 and not SimulationCombatTests._has_fracture_wound(deep, "right_arm"):
+    if float(res_dp.get("final_bone", 0.0)) < 0.5 and not SimulationCombatBase._has_fracture_wound(deep, "right_arm"):
         SimulationCombatTests._fail(
             failures,
             (
@@ -272,22 +247,14 @@ static func _run_sim_mfb_deep_cut_bone_optional(failures: PackedStringArray) -> 
         )
 
 
-static func _entity_for_species(sp: SpeciesResource) -> CoreEntity:
-    var ent: CoreEntity = SimulationCombatTests._sim_entity()
-    ent.species = sp
-    ent.apply_species()
-    return ent
-
-
-## S4: same raw tissue damage -> same severity on human vs goblin arm (absolute bands on).
 static func _run_sim_severity_absolute_stable(failures: PackedStringArray) -> void:
     if not BleedingConstants.FEATURE_ABSOLUTE_SEVERITY_BANDS:
         SimulationCombatTests._fail(failures, "sim_severity_abs: FEATURE_ABSOLUTE_SEVERITY_BANDS must be on")
         return
     var dmg: float = 5.5
     var part: String = "right_arm"
-    var human: CoreEntity = SimulationCombatTests._entity_for_species(HumanSpecies)
-    var goblin: CoreEntity = SimulationCombatTests._entity_for_species(GoblinSpecies)
+    var human: CoreEntity = SimulationCombatBase._entity_for_species(HumanSpecies)
+    var goblin: CoreEntity = SimulationCombatBase._entity_for_species(GoblinSpecies)
     var sev_h: String = EntityWounds.severity_from_damage(human, part, dmg, "forearm", -1.0)
     var sev_g: String = EntityWounds.severity_from_damage(goblin, part, dmg, "forearm", -1.0)
     if sev_h != sev_g:
@@ -309,8 +276,10 @@ static func _run_sim_severity_absolute_stable(failures: PackedStringArray) -> vo
 
 
 ## S4: high impact_ke_j still raises severity band vs low-KE same damage.
+
+
 static func _run_sim_severity_ke_still_upgrades(failures: PackedStringArray) -> void:
-    var ent: CoreEntity = SimulationCombatTests._entity_for_species(HumanSpecies)
+    var ent: CoreEntity = SimulationCombatBase._entity_for_species(HumanSpecies)
     var part: String = "chest"
     var dmg: float = 1.8
     var sev_low: String = EntityWounds.severity_from_damage(ent, part, dmg, "thoracic", -1.0)
@@ -325,1116 +294,3 @@ static func _run_sim_severity_ke_still_upgrades(failures: PackedStringArray) -> 
         SimulationCombatTests._fail(
             failures, "sim_severity_ke: high KE should raise band (low=%s hi=%s dmg=%.1f)" % [sev_low, sev_hi, dmg]
         )
-
-
-static func _species_with_derived_flag(sp: SpeciesResource) -> SpeciesResource:
-    var dup: SpeciesResource = sp.duplicate() as SpeciesResource
-    dup.feature_derived_limb_capacity = true
-    return dup
-
-
-static func _within_pct(actual: int, expected: int, tolerance_pct: float) -> bool:
-    if expected <= 0:
-        return actual == expected
-    var slack: int = maxi(1, int(round(float(expected) * tolerance_pct)))
-    return absi(actual - expected) <= slack
-
-
-## S5: human + goblin production flags on; profiled derived matches hand exports.
-static func _run_sim_derived_production_species_flags(failures: PackedStringArray) -> void:
-    if not HumanSpecies.feature_derived_limb_capacity:
-        SimulationCombatTests._fail(
-            failures, "sim_derived_flag: human.tres feature_derived_limb_capacity must be true (S5 pilot)"
-        )
-    if not GoblinSpecies.feature_derived_limb_capacity:
-        SimulationCombatTests._fail(
-            failures, "sim_derived_flag: goblin.tres feature_derived_limb_capacity must be true (S5 pilot)"
-        )
-    for part in ["right_arm", "left_arm", "left_leg", "right_leg"]:
-        var hand_t: int = SimulationCombatTests._hand_tuned_limb_tissue(HumanSpecies, part)
-        var hand_b: int = SimulationCombatTests._hand_tuned_limb_bone(HumanSpecies, part)
-        if HumanSpecies.get_body_part_max(part) != hand_t or HumanSpecies.get_bone_max(part) != hand_b:
-            (
-                SimulationCombatTests
-                . _fail(
-                    failures,
-                    (
-                        "sim_derived_flag: human production %s tissue/bone %d/%d != hand %d/%d"
-                        % [
-                            part,
-                            HumanSpecies.get_body_part_max(part),
-                            HumanSpecies.get_bone_max(part),
-                            hand_t,
-                            hand_b,
-                        ]
-                    )
-                )
-            )
-    for part in ["right_arm", "left_arm", "left_leg", "right_leg"]:
-        var hand_t_g: int = SimulationCombatTests._hand_tuned_limb_tissue(GoblinSpecies, part)
-        var hand_b_g: int = SimulationCombatTests._hand_tuned_limb_bone(GoblinSpecies, part)
-        if GoblinSpecies.get_body_part_max(part) != hand_t_g or GoblinSpecies.get_bone_max(part) != hand_b_g:
-            (
-                SimulationCombatTests
-                . _fail(
-                    failures,
-                    (
-                        "sim_derived_flag: goblin production %s tissue/bone %d/%d != hand %d/%d"
-                        % [
-                            part,
-                            GoblinSpecies.get_body_part_max(part),
-                            GoblinSpecies.get_bone_max(part),
-                            hand_t_g,
-                            hand_b_g,
-                        ]
-                    )
-                )
-            )
-
-
-static func _hand_tuned_limb_tissue(sp: SpeciesResource, part: String) -> int:
-    match part:
-        "right_arm":
-            return sp.right_arm
-        "left_arm":
-            return sp.left_arm
-        "left_leg":
-            return sp.left_leg
-        "right_leg":
-            return sp.right_leg
-    return 0
-
-
-static func _hand_tuned_limb_bone(sp: SpeciesResource, part: String) -> int:
-    match part:
-        "right_arm":
-            return sp.right_arm_bone
-        "left_arm":
-            return sp.left_arm_bone
-        "left_leg":
-            return sp.left_leg_bone
-        "right_leg":
-            return sp.right_leg_bone
-    return 1
-
-
-## S5: derived human arm tissue/bone within +/-15% of hand-tuned 12/8 when pilot flag on.
-static func _run_sim_derived_limb_capacity_human_arm_reference(failures: PackedStringArray) -> void:
-    var sp: SpeciesResource = SimulationCombatTests._species_with_derived_flag(HumanSpecies)
-    var part: String = "right_arm"
-    var tissue: int = sp.get_body_part_max(part)
-    var bone: int = sp.get_bone_max(part)
-    if not SimulationCombatTests._within_pct(tissue, 12, 0.15):
-        SimulationCombatTests._fail(
-            failures, "sim_derived_human_arm: tissue=%d want ~12 within 15%% (derived formula)" % tissue
-        )
-    if not SimulationCombatTests._within_pct(bone, 8, 0.15):
-        SimulationCombatTests._fail(
-            failures, "sim_derived_human_arm: bone=%d want ~8 within 15%% (derived formula)" % bone
-        )
-    var ent: CoreEntity = SimulationCombatTests._entity_for_species(sp)
-    if int(ent.body_max.get(part, 0)) != tissue or int(ent.bone_max.get(part, 0)) != bone:
-        SimulationCombatTests._fail(
-            failures,
-            (
-                "sim_derived_human_arm: CoreEntity caps tissue=%d bone=%d != getters %d/%d"
-                % [int(ent.body_max.get(part, 0)), int(ent.bone_max.get(part, 0)), tissue, bone]
-            )
-        )
-
-
-## S5: derived human leg tissue/bone within +/-15% of hand-tuned 16/12 when pilot flag on.
-static func _run_sim_derived_limb_capacity_human_leg_reference(failures: PackedStringArray) -> void:
-    var sp: SpeciesResource = SimulationCombatTests._species_with_derived_flag(HumanSpecies)
-    var part: String = "left_leg"
-    var tissue: int = sp.get_body_part_max(part)
-    var bone: int = sp.get_bone_max(part)
-    if not SimulationCombatTests._within_pct(tissue, 16, 0.15):
-        SimulationCombatTests._fail(
-            failures, "sim_derived_human_leg: tissue=%d want ~16 within 15%% (derived formula)" % tissue
-        )
-    if not SimulationCombatTests._within_pct(bone, 12, 0.15):
-        SimulationCombatTests._fail(
-            failures, "sim_derived_human_leg: bone=%d want ~12 within 15%% (derived formula)" % bone
-        )
-
-
-## S5: lighter species gets smaller derived limb budgets than human (mass-scaled pilot).
-static func _run_sim_derived_goblin_smaller_limb_than_human(failures: PackedStringArray) -> void:
-    var human: SpeciesResource = SimulationCombatTests._species_with_derived_flag(HumanSpecies)
-    var goblin: SpeciesResource = SimulationCombatTests._species_with_derived_flag(GoblinSpecies)
-    for part in ["right_arm", "left_leg"]:
-        var h_t: int = human.get_body_part_max(part)
-        var g_t: int = goblin.get_body_part_max(part)
-        if g_t >= h_t:
-            SimulationCombatTests._fail(
-                failures, "sim_derived_goblin: %s goblin tissue=%d should be < human %d" % [part, g_t, h_t]
-            )
-        var h_b: int = human.get_bone_max(part)
-        var g_b: int = goblin.get_bone_max(part)
-        if g_b >= h_b:
-            SimulationCombatTests._fail(
-                failures, "sim_derived_goblin: %s goblin bone=%d should be < human %d" % [part, g_b, h_b]
-            )
-
-
-## S5: body-size reach scaling — a smaller wielder (goblin) has shorter effective weapon reach than a human
-## with the same weapon (shorter arms extend the blade less). Human (75 kg) -> 1.0; goblin (38 kg) -> ~0.9.
-static func _run_sim_body_reach_scale_scales_with_species(failures: PackedStringArray) -> void:
-    var human_scale: float = HumanSpecies.body_reach_scale()
-    var goblin_scale: float = GoblinSpecies.body_reach_scale()
-    if absf(human_scale - 1.0) > 0.001:
-        SimulationCombatTests._fail(failures, "sim_reach_scale: human should be 1.0 (got %.4f)" % human_scale)
-    if not (goblin_scale < human_scale - 0.001):
-        SimulationCombatTests._fail(
-            failures, "sim_reach_scale: goblin (%.4f) should be < human (%.4f)" % [goblin_scale, human_scale]
-        )
-    # Full path: a goblin wielding a sword has shorter effective reach than a human with the same sword.
-    var human_ent: CoreEntity = SimulationCombatTests._entity_for_species(HumanSpecies)
-    var goblin_ent: CoreEntity = SimulationCombatTests._entity_for_species(GoblinSpecies)
-    var sword: Weapon = HarnessFixtures.get_cached_weapon("SWORD")
-    human_ent.equip_weapon(sword)
-    goblin_ent.equip_weapon(sword)
-    var human_c: Dictionary = {DataKeys.COMBATANT_NODE: human_ent}
-    var goblin_c: Dictionary = {DataKeys.COMBATANT_NODE: goblin_ent}
-    var human_reach: float = CombatantEntityAccess.weapon_melee_reach(human_c)
-    var goblin_reach: float = CombatantEntityAccess.weapon_melee_reach(goblin_c)
-    if not (goblin_reach < human_reach - 0.001):
-        SimulationCombatTests._fail(
-            failures,
-            "sim_reach_scale: goblin reach (%.4f) should be < human reach (%.4f)" % [goblin_reach, human_reach]
-        )
-    HarnessFixtures._free_harness_node(human_ent)
-    HarnessFixtures._free_harness_node(goblin_ent)
-
-
-## S5: profiled derived goblin limbs equal hand-tuned exports (mini mass, hand cap).
-static func _run_sim_derived_goblin_limbs_match_hand_tuned(failures: PackedStringArray) -> void:
-    var sp: SpeciesResource = SimulationCombatTests._species_with_derived_flag(GoblinSpecies)
-    for part in ["right_arm", "left_arm", "left_leg", "right_leg"]:
-        var hand_t: int = SimulationCombatTests._hand_tuned_limb_tissue(GoblinSpecies, part)
-        var hand_b: int = SimulationCombatTests._hand_tuned_limb_bone(GoblinSpecies, part)
-        if sp.get_body_part_max(part) != hand_t:
-            SimulationCombatTests._fail(
-                failures,
-                "sim_derived_goblin_hand: %s tissue=%d want hand-tuned %d" % [part, sp.get_body_part_max(part), hand_t]
-            )
-        if sp.get_bone_max(part) != hand_b:
-            SimulationCombatTests._fail(
-                failures,
-                "sim_derived_goblin_hand: %s bone=%d want hand-tuned %d" % [part, sp.get_bone_max(part), hand_b]
-            )
-
-
-## S5: pain reference uses applied entity body_max (getters), not bypassing derived caps.
-static func _run_sim_derived_pain_reference_matches_entity_body_max(failures: PackedStringArray) -> void:
-    var sp: SpeciesResource = SimulationCombatTests._species_with_derived_flag(HumanSpecies)
-    var ent: CoreEntity = SimulationCombatTests._entity_for_species(sp)
-    var from_entity: float = sp.get_pain_reference(ent.body_max)
-    var from_getters: float = sp.live_pain_reference()
-    if not is_equal_approx(from_entity, from_getters):
-        SimulationCombatTests._fail(
-            failures,
-            "sim_derived_pain_ref: entity body_max sum pain ref %.3f != getter dict %.3f" % [from_entity, from_getters]
-        )
-
-
-## S6: layer KE walk conserves strike_ke_j = absorbed + remaining.
-static func _run_sim_joule_armor_ke_conserved(failures: PackedStringArray) -> void:
-    var cuirass: ArmorPiece = HarnessFixtures.get_cached_armor("CUIRASS")
-    if cuirass == null:
-        SimulationCombatTests._fail(failures, "sim_joule_ke: missing CUIRASS")
-        return
-    var strike_ke: float = 120.0
-    var pen: float = 2.0
-    var r: Dictionary = ArmorJouleBudget.account_ke_through_armor(cuirass, strike_ke, pen, true)
-    var absorbed: float = float(r.get("armor_ke_absorbed_j", 0.0))
-    var remaining: float = float(r.get("armor_ke_remaining_j", 0.0))
-    if not is_equal_approx(absorbed + remaining, strike_ke):
-        SimulationCombatTests._fail(
-            failures, "sim_joule_ke: absorbed %.1f + remaining %.1f != strike %.1f" % [absorbed, remaining, strike_ke]
-        )
-
-
-## S6: plate kit bleeds less KE through than gambeson at same pen (sharp deflect path).
-static func _run_sim_joule_armor_cuirass_absorbs_more_than_gambeson(failures: PackedStringArray) -> void:
-    var cuirass: ArmorPiece = HarnessFixtures.get_cached_armor("CUIRASS")
-    var gambeson: ArmorPiece = HarnessFixtures.get_cached_armor("GAMBESON")
-    if cuirass == null or gambeson == null:
-        SimulationCombatTests._fail(failures, "sim_joule_armor: missing CUIRASS or GAMBESON")
-        return
-    var strike_ke: float = 100.0
-    var pen: float = 2.0
-    var heavy: Dictionary = ArmorJouleBudget.account_ke_through_armor(cuirass, strike_ke, pen, true)
-    var light: Dictionary = ArmorJouleBudget.account_ke_through_armor(gambeson, strike_ke, pen, true)
-    var rem_heavy: float = float(heavy.get("armor_ke_remaining_j", strike_ke))
-    var rem_light: float = float(light.get("armor_ke_remaining_j", strike_ke))
-    if rem_heavy >= rem_light - 0.5:
-        SimulationCombatTests._fail(
-            failures, "sim_joule_armor: cuirass remaining KE %.1f should be < gambeson %.1f" % [rem_heavy, rem_light]
-        )
-
-
-## S10: joule-authoritative path matches ke_frac ×  pre (no second scalar ArmorPiece pass).
-static func _run_sim_joule_armor_authoritative_ke_frac(failures: PackedStringArray) -> void:
-    var ent: CoreEntity = SimulationCombatTests._sim_entity()
-    ent.species = HumanSpecies
-    ent.apply_species()
-    ent.endurance = 0
-    var armor: ArmorPiece = HarnessFixtures.get_cached_armor("CUIRASS")
-    if armor == null:
-        SimulationCombatTests._fail(failures, "sim_joule_authoritative: missing CUIRASS")
-        return
-    ent.equip_armor("chest", armor)
-    var strike_ke: float = 90.0
-    var cut_pre: float = 14.0
-    var extras: Dictionary = {"strike_ke_j": strike_ke, "force_joule_armor_budget": true, "hit_sub_region": "thoracic"}
-    var res: Dictionary = EntityDamage.apply_damage_split(ent, cut_pre, 0.0, "chest", 2.0, -1.0, -1.0, extras)
-    var frac: float = float(res.get("transmitted_ke_fraction", -1.0))
-    var mech: float = float(res.get("mechanical_post_armor", 0.0))
-    var want_mech: float = cut_pre * frac
-    if frac < 0.0:
-        SimulationCombatTests._fail(failures, "sim_joule_authoritative: missing transmitted_ke_fraction on result")
-    if want_mech > 0.01 and absf(mech - want_mech) > want_mech * 0.15:
-        SimulationCombatTests._fail(
-            failures, "sim_joule_authoritative: mech %.2f want cut*frac=%.2f (frac=%.3f)" % [mech, want_mech, frac]
-        )
-    if float(res.get("armor_ke_absorbed_j", 0.0)) <= 1.0:
-        SimulationCombatTests._fail(failures, "sim_joule_authoritative: want armor_ke_absorbed_j > 1 when forced")
-
-
-## S10: joule path must not double-absorb below ke_frac floor (regression guard).
-static func _run_sim_joule_armor_not_below_ke_frac_floor(failures: PackedStringArray) -> void:
-    var armor: ArmorPiece = HarnessFixtures.get_cached_armor("CUIRASS")
-    if armor == null:
-        SimulationCombatTests._fail(failures, "sim_joule_floor: missing CUIRASS")
-        return
-    var strike_ke: float = 90.0
-    var cut_pre: float = 14.0
-    var joule_ke: Dictionary = ArmorJouleBudget.account_ke_through_armor(armor, strike_ke, 2.0, true)
-    var frac: float = float(joule_ke.get("transmitted_ke_fraction", 1.0))
-    var ent: CoreEntity = SimulationCombatTests._sim_entity()
-    ent.species = HumanSpecies
-    ent.apply_species()
-    ent.equip_armor("chest", armor)
-    var res: Dictionary = EntityDamage.apply_damage_split(
-        ent, cut_pre, 0.0, "chest", 2.0, -1.0, -1.0, {"strike_ke_j": strike_ke, "force_joule_armor_budget": true}
-    )
-    var mech: float = float(res.get("mechanical_post_armor", 0.0))
-    var floor_mech: float = cut_pre * frac * 0.80
-    if mech < floor_mech - 0.05:
-        SimulationCombatTests._fail(
-            failures,
-            "sim_joule_floor: mech %.2f below ke_frac floor %.2f (double-absorb regression)" % [mech, floor_mech]
-        )
-
-
-## S10: armor complete failure — the blunt/thrust RHA read (get_effective_rha_with_degradation) is
-## wear-aware: it delegates to the outer surviving layer's material-accurate value (the same source
-## the sharp damage math uses). Pin: a fresh CUIRASS reports the plate outer layer's RHA, and once the
-## outer plate layer is destroyed the reported value falls to the inner cloth layer's RHA.
-static func _run_sim_armor_complete_failure_at_high_absorbed(failures: PackedStringArray) -> void:
-    var armor: ArmorPiece = HarnessFixtures.get_cached_armor("CUIRASS")
-    if armor == null:
-        SimulationCombatTests._fail(failures, "sim_armor_fail: missing CUIRASS")
-        return
-    var ent: CoreEntity = SimulationCombatTests._sim_entity()
-    ent.species = HumanSpecies
-    ent.apply_species()
-    ent.equip_armor("chest", armor)
-    var combatant: Dictionary = {DataKeys.COMBATANT_NODE: ent}
-    var fresh_rha: float = CombatArmorDoctrine.get_effective_rha_with_degradation(combatant, "chest")
-    var plate_rha: float = float(ArmorConstants.LAYER_PLATE[ArmorConstants.ARMOR_LAYER_KEY_SHARP_RESISTANCE_RHA_MM])
-    if absf(fresh_rha - plate_rha) > 0.01:
-        SimulationCombatTests._fail(
-            failures, "sim_armor_fail: fresh CUIRASS effective RHA want %.1f (plate) got %.2f" % [plate_rha, fresh_rha]
-        )
-    # Destroy the outer plate layer -> the effective RHA should fall through to the inner cloth layer.
-    armor.layers[0][ArmorConstants.ARMOR_LAYER_KEY_DURABILITY] = 0.0
-    var worn_rha: float = CombatArmorDoctrine.get_effective_rha_with_degradation(combatant, "chest")
-    var cloth_rha: float = float(ArmorConstants.LAYER_CLOTH[ArmorConstants.ARMOR_LAYER_KEY_SHARP_RESISTANCE_RHA_MM])
-    if absf(worn_rha - cloth_rha) > 0.01:
-        SimulationCombatTests._fail(
-            failures, "sim_armor_fail: worn CUIRASS effective RHA want %.1f (cloth) got %.2f" % [cloth_rha, worn_rha]
-        )
-
-
-## S11: armor robustness edge cases + doctrine bounds. Pins the invariants that keep the
-## wear-aware RHA read and the AI tier/gap doctrine from misbehaving on boundary inputs:
-## all-destroyed pieces report 0 RHA and 0% condition; a worn-but-alive outer layer reports a
-## strictly lower effective RHA than fresh; the mace bonus is monotonic non-decreasing and capped
-## at its documented heavy-plate ceiling; and a bare fighter (no armor slots) classifies as "none".
-static func _run_sim_armor_robustness_edge_cases(failures: PackedStringArray) -> void:
-    # -- All layers destroyed -> 0 effective RHA and 0% condition --
-    var dead_piece: ArmorPiece = ArmorPiece.create_from_definition("CUIRASS")
-    if dead_piece == null:
-        SimulationCombatTests._fail(failures, "sim_armor_rob: missing CUIRASS")
-        return
-    for layer in dead_piece.layers:
-        layer[ArmorConstants.ARMOR_LAYER_KEY_DURABILITY] = 0.0
-    if dead_piece.get_outer_layer_effective_rha_mm() > 0.01:
-        SimulationCombatTests._fail(failures, "sim_armor_rob: destroyed piece should report ~0 effective RHA, got %.3f" % dead_piece.get_outer_layer_effective_rha_mm())
-    if dead_piece.get_condition_pct() > 0.01:
-        SimulationCombatTests._fail(failures, "sim_armor_rob: destroyed piece condition want 0 got %.2f" % dead_piece.get_condition_pct())
-
-    # -- Worn outer layer strictly lowers effective RHA vs fresh --
-    var fresh: ArmorPiece = ArmorPiece.create_from_definition("CUIRASS")
-    var worn: ArmorPiece = ArmorPiece.create_from_definition("CUIRASS")
-    worn.layers[0][ArmorConstants.ARMOR_LAYER_KEY_DURABILITY] = 50.0
-    var fresh_rha: float = fresh.get_outer_layer_effective_rha_mm()
-    var worn_rha: float = worn.get_outer_layer_effective_rha_mm()
-    if not (worn_rha < fresh_rha and worn_rha > 0.0):
-        SimulationCombatTests._fail(failures, "sim_armor_rob: worn outer RHA (%.3f) must be < fresh (%.3f) and > 0" % [worn_rha, fresh_rha])
-
-    # -- Mace bonus is monotonic non-decreasing in target RHA and capped --
-    var prev: float = -1.0
-    var capped: bool = false
-    for rha in [0.0, 2.0, 5.0, 8.0, 12.0, 16.0, 20.0, 40.0]:
-        var m: float = CombatArmorDoctrine.mace_armor_interaction_multiplier(float(rha))
-        if m < prev:
-            SimulationCombatTests._fail(failures, "sim_armor_rob: mace multiplier not monotonic at rha=%s (%.3f after %.3f)" % [str(rha), m, prev])
-        if m > 1.78 + 0.001:
-            SimulationCombatTests._fail(failures, "sim_armor_rob: mace multiplier %.3f exceeds heavy-plate cap 1.78" % m)
-        if rha >= 16.0 and absf(m - 1.78) < 0.001:
-            capped = true
-        prev = m
-    if not capped:
-        SimulationCombatTests._fail(failures, "sim_armor_rob: mace multiplier should reach 1.78 cap at rha >= 16")
-
-    # -- Bare fighter (no armor slots) classifies as "none" --
-    var bare: CoreEntity = SimulationCombatTests._sim_entity()
-    bare.species = HumanSpecies
-    bare.apply_species()
-    var bare_combatant: Dictionary = {DataKeys.COMBATANT_NODE: bare}
-    if CombatArmorDoctrine.classify_tier(bare_combatant) != CombatArmorDoctrine.TIER_NONE:
-        SimulationCombatTests._fail(failures, "sim_armor_rob: bare fighter should classify TIER_NONE, got %s" % CombatArmorDoctrine.classify_tier(bare_combatant))
-
-
-## S12: armor realism cross-check. Pins the historically-plausible combat outcomes the layer
-## values + wear model are meant to produce (see docs/ARMOR_VALUES_PHYSICS_RESEARCH.md):
-##   - a committed sword cut and a committed spear thrust penetrate a fresh CUIRASS plate (a
-##     real sharp edge gets through; this is the fresh-sharp-edge case, not a glancing blow),
-##     and the cut depth stays within a realistic band (not absurdly deep);
-##   - a full plate kit (chest/head/2 arms/2 legs) sits in the realistic 10-30 kg mass band;
-##   - a committed cutting weapon eventually tears a CUIRASS fully — BOTH the plate and the
-##     cloth layers fail in a finite number of hits, so a multi-layer piece can never fully
-##     fail in the scalar path (regression guard for the penetrated-cut durability floor);
-##   - a mace (the anti-plate weapon) transmits through a fresh plate layer at the 30-60%
-##     HMIT band level (its area-coupling uses the true uncapped face, not the pressure cap),
-##     and its doctrine multiplier reaches the documented heavy-plate cap.
-static func _run_sim_armor_realism_cross_check(failures: PackedStringArray) -> void:
-    var sword: Weapon = HarnessFixtures.get_cached_weapon("SWORD")
-    var spear: Weapon = HarnessFixtures.get_cached_weapon("SPEAR")
-    var mace: Weapon = HarnessFixtures.get_cached_weapon("MACE")
-    var cuir: ArmorPiece = ArmorPiece.create_from_definition("CUIRASS")
-    if sword == null or spear == null or mace == null or cuir == null:
-        SimulationCombatTests._fail(failures, "sim_armor_real: missing SWORD/SPEAR/MACE/CUIRASS")
-        return
-    var plate_layer: Dictionary = cuir.layers[0]
-    var plate_rha: float = float(
-        plate_layer.get(ArmorConstants.ARMOR_LAYER_KEY_SHARP_RESISTANCE_RHA_MM, 0.0)
-    )
-
-    # -- Penetration verdicts: committed sharp blows get through fresh plate --
-    var cut_ai: AttackInstance = SimulationCombatTests._sim_attack("oberhau", 1.0, 0.9)
-    var cut_pen: float = float(
-        WeaponDamageHelper.compute_penetration(sword, cut_ai, WeaponConstants.DAMAGE_TYPE_SHARP).get("penetration_sharp", 0.0)
-    )
-    var cut_res: Dictionary = ArmorPiece.sharp_penetration_math(cut_pen, plate_layer, 20.0)
-    if plate_rha <= 0.0:
-        SimulationCombatTests._fail(failures, "sim_armor_real: CUIRASS plate RHA should be > 0, got %.3f" % plate_rha)
-    if cut_pen <= plate_rha:
-        SimulationCombatTests._fail(failures, "sim_armor_real: committed sword cut (pen %.2f) must exceed plate RHA (%.2f)" % [cut_pen, plate_rha])
-    if cut_res.deflected:
-        SimulationCombatTests._fail(failures, "sim_armor_real: committed sword cut (pen %.2f) must penetrate fresh plate, was deflected" % cut_pen)
-    if cut_pen >= 9.0:
-        SimulationCombatTests._fail(failures, "sim_armor_real: committed sword cut pen %.2f unrealistically deep (>= 9.0)" % cut_pen)
-    var thrust_ai: AttackInstance = SimulationCombatTests._sim_attack("thrust", 1.0, 0.9)
-    var spear_thrust_pen: float = float(
-        WeaponDamageHelper.compute_penetration(spear, thrust_ai, WeaponConstants.DAMAGE_TYPE_SHARP).get("penetration_sharp", 0.0)
-    )
-    var spear_thrust_res: Dictionary = ArmorPiece.sharp_penetration_math(spear_thrust_pen, plate_layer, 20.0)
-    if not (spear_thrust_pen > plate_rha and not spear_thrust_res.deflected):
-        SimulationCombatTests._fail(failures, "sim_armor_real: committed spear thrust (pen %.2f) must penetrate fresh plate" % spear_thrust_pen)
-
-    # -- Full plate kit mass within a realistic band --
-    var kit_ids: Array = ["CUIRASS", "KETTLE_HELM", "VAMBRACES_RIGHT", "VAMBRACES_LEFT", "GREAVES_RIGHT", "GREAVES_LEFT"]
-    var kit_mass: float = 0.0
-    for pid in kit_ids:
-        var piece: ArmorPiece = ArmorPiece.create_from_definition(String(pid))
-        if piece == null:
-            SimulationCombatTests._fail(failures, "sim_armor_real: missing armor piece %s" % str(pid))
-            return
-        kit_mass += piece.get_total_mass_kg()
-    if not (kit_mass > 10.0 and kit_mass < 30.0):
-        SimulationCombatTests._fail(failures, "sim_armor_real: full plate kit mass %.2f kg outside realistic (10-30)" % kit_mass)
-
-    # -- Finite full failure: a committed cut tears BOTH layers (guards the penetrated-cut floor) --
-    var target: ArmorPiece = ArmorPiece.create_from_definition("CUIRASS")
-    var failed_at: int = -1
-    for h in range(1, 601):
-        target.apply_damage(20.0, WeaponConstants.DAMAGE_TYPE_SHARP, cut_pen)
-        var dead: Array = target.destroyed_layer_indices()
-        if 0 in dead and 1 in dead:
-            failed_at = h
-            break
-    if failed_at < 0:
-        SimulationCombatTests._fail(failures, "sim_armor_real: committed cut failed to destroy both CUIRASS layers in 600 hits (asymptote regression)")
-
-    # -- Mace (the anti-plate weapon) transmits through fresh plate at a historically-realistic level.
-    #    The rigid-plate area-coupling term must use the weapon's TRUE (uncapped) contact face so a
-    #    mace's broad head couples at full face size (docs/ARMOR_VALUES_PHYSICS_RESEARCH.md §8.2):
-    #    HMIT drop-hammer data puts flat-plate mace/hammer transmission at 30-60% of impact energy.
-    #    Pre-fix the pressure-channel face cap (BLUNT_HEAD_MAX_CONTACT_CM) leaked into the coupling,
-    #    coupling the mace at only cap/reference and transmitting ~14% (too weak for the anti-plate role).
-    var mace_ai: AttackInstance = SimulationCombatTests._sim_attack("direct_blow", 1.0, 0.9)
-    var mace_pen: Dictionary = WeaponDamageHelper.compute_penetration(mace, mace_ai, WeaponConstants.DAMAGE_TYPE_BLUNT)
-    var mace_mom: float = float(mace_pen.get("penetration_blunt_momentum_per_area", -1.0))
-    var mace_contact: float = float(mace_pen.get("blunt_contact_cm", -1.0))
-    var mace_coupling_contact: float = float(mace_pen.get("blunt_coupling_contact_cm", -1.0))
-    if mace_mom <= 0.0 or mace_coupling_contact < mace_contact:
-        SimulationCombatTests._fail(failures, "sim_armor_real: mace must carry positive momentum/area (got %.0f) and an uncapped coupling face (coupling %.2f >= pressure contact %.2f)" % [mace_mom, mace_coupling_contact, mace_contact])
-    var mace_plate: Dictionary = ArmorConstants.LAYER_PLATE.duplicate()
-    var mace_plate_pre: float = ArmorPiece.blunt_transmission_math(100.0, mace_plate, mace_mom, mace_contact)
-    var mace_plate_post: float = ArmorPiece.blunt_transmission_math(100.0, mace_plate, mace_mom, mace_contact, mace_coupling_contact)
-    if mace_plate_post < mace_plate_pre:
-        SimulationCombatTests._fail(failures, "sim_armor_real: uncapped coupling face must not reduce mace-plate transmission (post %.3f < pre %.3f)" % [mace_plate_post, mace_plate_pre])
-    if mace_plate_post < 30.0:
-        SimulationCombatTests._fail(failures, "sim_armor_real: committed mace through fresh plate transmits %.1f%% (of 100), below the 30%% HMIT band floor — the mace is the anti-plate weapon and the area-coupling must use the true face" % mace_plate_post)
-    if absf(CombatArmorDoctrine.mace_armor_interaction_multiplier(16.0) - 1.78) > 0.001:
-        SimulationCombatTests._fail(failures, "sim_armor_real: mace doctrine multiplier at heavy plate (16) should be 1.78 cap, got %.3f" % CombatArmorDoctrine.mace_armor_interaction_multiplier(16.0))
-
-
-static func _harness_entity_with_ml_pool(sp: SpeciesResource) -> CoreEntity:
-    BloodVolumeMl._harness_force_literal_blood_ml = true
-    var ent: CoreEntity = SimulationCombatTests._sim_entity()
-    ent.species = sp
-    ent.apply_species()
-    return ent
-
-
-## S6 literal blood: mL max scales with species reference mass (human 75 kg -> 5250 mL via `CombatDesignAnchors`).
-static func _run_sim_blood_ml_pool_human_goblin_mass_scale(failures: PackedStringArray) -> void:
-    BloodVolumeMl._harness_force_literal_blood_ml = true
-    var human: CoreEntity = SimulationCombatTests._harness_entity_with_ml_pool(HumanSpecies)
-    var goblin: CoreEntity = SimulationCombatTests._harness_entity_with_ml_pool(GoblinSpecies)
-    var hum_max: float = human.blood_volume_ml_max
-    var gob_max: float = goblin.blood_volume_ml_max
-    if not is_equal_approx(hum_max, BloodVolumeMl.REFERENCE_BLOOD_VOLUME_ML_ADULT):
-        SimulationCombatTests._fail(
-            failures,
-            "sim_blood_ml: human max want %.0f got %.0f" % [BloodVolumeMl.REFERENCE_BLOOD_VOLUME_ML_ADULT, hum_max]
-        )
-    if gob_max >= hum_max - 1.0:
-        SimulationCombatTests._fail(
-            failures, "sim_blood_ml: goblin max %.0f should be < human %.0f" % [gob_max, hum_max]
-        )
-    var want_gob: float = BloodVolumeMl.blood_volume_ml_max_for_reference_mass(38.0)
-    if not is_equal_approx(gob_max, want_gob):
-        SimulationCombatTests._fail(failures, "sim_blood_ml: goblin max want %.0f got %.0f" % [want_gob, gob_max])
-    BloodVolumeMl._harness_force_literal_blood_ml = false
-
-
-## S6: same bleed rate -> same seconds-to-death in % mode vs mL mode (ATLS bridge).
-static func _run_sim_blood_ml_ttd_matches_percent_mode(failures: PackedStringArray) -> void:
-    var rate: float = BleedingConstants.REFERENCE_UNCONTROLLED_BLEED_RATE
-    var ttd_pct: float = BleedingConstants.seconds_to_exsanguination(rate, BleedingConstants.MAX_BLOOD_VOLUME, 1.0)
-    BloodVolumeMl._harness_force_literal_blood_ml = true
-    var ent_ml: CoreEntity = SimulationCombatTests._harness_entity_with_ml_pool(HumanSpecies)
-    var max_ml: float = ent_ml.blood_volume_ml_max
-    var buffer_ml: float = (
-        max_ml
-        * (
-            (BleedingConstants.MAX_BLOOD_VOLUME - BleedingConstants.BLOOD_LOSS_DEATH_THRESHOLD)
-            / BleedingConstants.MAX_BLOOD_VOLUME
-        )
-    )
-    var loss_ml_s: float = BloodVolumeMl.blood_ml_loss_per_second(rate, max_ml, 1.0)
-    var ttd_ml: float = buffer_ml / loss_ml_s if loss_ml_s > 0.01 else 0.0
-    BloodVolumeMl._harness_force_literal_blood_ml = false
-    if not is_equal_approx(ttd_pct, ttd_ml):
-        SimulationCombatTests._fail(
-            failures, "sim_blood_ml_ttd: percent %.1fs vs ml %.1fs (rate=%.2f)" % [ttd_pct, ttd_ml, rate]
-        )
-
-
-## S6: one process_blood_loss tick keeps blood_volume % in sync with mL pool.
-static func _run_sim_blood_ml_sync_percent_from_ml(failures: PackedStringArray) -> void:
-    BloodVolumeMl._harness_force_literal_blood_ml = true
-    var ent: CoreEntity = SimulationCombatTests._harness_entity_with_ml_pool(HumanSpecies)
-    ent.take_damage_split(8.0, 2.0, "right_arm")
-    ent.blood_volume_ml = ent.blood_volume_ml_max * 0.6
-    BloodVolumeMl.sync_percent_from_ml(ent)
-    if not is_equal_approx(ent.blood_volume, 60.0):
-        SimulationCombatTests._fail(
-            failures, "sim_blood_ml_sync: 60%% pool want blood_volume=60 got %.2f" % ent.blood_volume
-        )
-    var rate: float = EntityWounds.get_total_bleeding_rate(ent)
-    if rate <= 0.0:
-        SimulationCombatTests._fail(failures, "sim_blood_ml_sync: need bleed rate")
-        return
-    var ml_before: float = ent.blood_volume_ml
-    var pct_before: float = ent.blood_volume
-    ent._set_combat_blood_loss_mult(1.0)
-    EntityWounds.process_blood_loss(ent, 1.0)
-    var want_loss_pct: float = rate * BleedingConstants.BLOOD_LOSS_RATE_MULTIPLIER
-    var want_loss_ml: float = BloodVolumeMl.blood_ml_loss_per_second(rate, ent.blood_volume_ml_max, 1.0)
-    if not is_equal_approx(pct_before - ent.blood_volume, want_loss_pct):
-        SimulationCombatTests._fail(
-            failures, "sim_blood_ml_sync: pct loss %.3f want %.3f" % [pct_before - ent.blood_volume, want_loss_pct]
-        )
-    if not is_equal_approx(ml_before - ent.blood_volume_ml, want_loss_ml):
-        SimulationCombatTests._fail(
-            failures, "sim_blood_ml_sync: ml loss %.1f want %.1f" % [ml_before - ent.blood_volume_ml, want_loss_ml]
-        )
-
-
-## Death signal fires once per entity (map bleed / repeated process_blood_loss ticks).
-static func _run_sim_notify_died_emits_once(failures: PackedStringArray) -> void:
-    var ent: CoreEntity = SimulationCombatTests._sim_entity()
-    var fired_box: Array = [0]
-    ent.died.connect(func() -> void: fired_box[0] = int(fired_box[0]) + 1)
-    ent._notify_died()
-    ent._notify_died()
-    if int(fired_box[0]) != 1:
-        SimulationCombatTests._fail(failures, "notify_died: want 1 died signal got %d" % int(fired_box[0]))
-    var bleed_ent: CoreEntity = _new_entity("SWORD")
-    bleed_ent.take_damage_split(6.0, 2.0, "chest")
-    if EntityWounds.get_total_bleeding_rate(bleed_ent) <= 0.0:
-        SimulationCombatTests._fail(failures, "notify_died: need bleed rate on wounded entity")
-        return
-    bleed_ent.blood_volume = 55.0
-    bleed_ent._set_combat_blood_loss_mult(1.0)
-    bleed_ent._set_combat_blood_recovery_per_s(0.0)
-    var bleed_fired: Array = [0]
-    bleed_ent.died.connect(func() -> void: bleed_fired[0] = int(bleed_fired[0]) + 1)
-    # Ticks to exsanguination from current volume (blood 55 -> death 50) at the clinical TTD band; the loop window must
-    # span it regardless of BLOOD_LOSS_RATE_MULTIPLIER calibration.
-    var ticks_to_die: int = int(ceil(BleedingConstants.seconds_to_exsanguination_at_death_threshold(
-        EntityWounds.get_total_bleeding_rate(bleed_ent), bleed_ent.blood_volume, BleedingConstants.BLOOD_LOSS_DEATH_THRESHOLD, 1.0
-    ))) + 5
-    for _i in range(ticks_to_die):
-        EntityWounds.process_blood_loss(bleed_ent, 1.0)
-    if int(bleed_fired[0]) != 1:
-        SimulationCombatTests._fail(
-            failures, "notify_died: blood_loss ticks want 1 died signal got %d" % int(bleed_fired[0])
-        )
-    bleed_ent.apply_species()
-    var refire_box: Array = [0]
-    bleed_ent.died.connect(func() -> void: refire_box[0] = int(refire_box[0]) + 1)
-    bleed_ent._notify_died()
-    if int(refire_box[0]) != 1:
-        SimulationCombatTests._fail(
-            failures, "notify_died: apply_species should allow one new died signal got %d" % int(refire_box[0])
-        )
-
-
-## S6 layer tissue: shallow penetration absorbed by soft-tissue budget -> less bone via MFB pen gate.
-static func _run_sim_layer_tissue_shallow_pen_reduces_bone(failures: PackedStringArray) -> void:
-    CombatLayerTissue._harness_force_layer_tissue = true
-    var part: String = "right_arm"
-    var sub: String = "forearm"
-    var cut: float = 14.0
-    var pen_mid: float = 6.0
-    var off: Dictionary = CombatDamageMechanism.allocate_bone_and_tissue(cut, 0.0, cut, part, sub, pen_mid, -1.0)
-    var layer: Dictionary = CombatLayerTissue.penetration_after_soft_tissue(part, pen_mid, true)
-    var on: Dictionary = (
-        CombatDamageMechanism
-        . allocate_bone_and_tissue(
-            cut,
-            0.0,
-            cut,
-            part,
-            sub,
-            float(layer.get("penetration_to_bone_mm", pen_mid)),
-            -1.0,
-        )
-    )
-    CombatLayerTissue._harness_force_layer_tissue = false
-    if float(layer.get("penetration_to_bone_mm", -1.0)) >= CombatDamageMechanism.MFB_CUT_BONE_MIN_PENETRATION_MM:
-        (
-            SimulationCombatTests
-            . _fail(
-                failures,
-                (
-                    "sim_layer_tissue_shallow: pen %.1f absorbed should leave to_bone < %.2f got %.2f"
-                    % [
-                        pen_mid,
-                        CombatDamageMechanism.MFB_CUT_BONE_MIN_PENETRATION_MM,
-                        float(layer.get("penetration_to_bone_mm", 0.0)),
-                    ]
-                )
-            )
-        )
-    if float(off.get("to_bone", 0.0)) <= 0.0:
-        SimulationCombatTests._fail(failures, "sim_layer_tissue_shallow: need baseline bone from pen for comparison")
-    if float(on.get("to_bone", 0.0)) >= float(off.get("to_bone", 0.0)):
-        SimulationCombatTests._fail(
-            failures,
-            (
-                "sim_layer_tissue_shallow: layer on bone %.2f should be < off %.2f"
-                % [float(on.get("to_bone", 0.0)), float(off.get("to_bone", 0.0))]
-            )
-        )
-
-
-## S6 layer tissue: penetration beyond budget reaches bone MFB pen threshold.
-static func _run_sim_layer_tissue_deep_pen_reaches_bone(failures: PackedStringArray) -> void:
-    CombatLayerTissue._harness_force_layer_tissue = true
-    var part: String = "right_arm"
-    var sub: String = "forearm"
-    var cut: float = 14.0
-    var pen_deep: float = 8.0
-    var layer: Dictionary = CombatLayerTissue.penetration_after_soft_tissue(part, pen_deep, true)
-    var pen_bone: float = float(layer.get("penetration_to_bone_mm", 0.0))
-    if pen_bone < CombatDamageMechanism.MFB_CUT_BONE_MIN_PENETRATION_MM:
-        SimulationCombatTests._fail(
-            failures,
-            (
-                "sim_layer_tissue_deep: pen_to_bone %.2f want >= %.2f"
-                % [pen_bone, CombatDamageMechanism.MFB_CUT_BONE_MIN_PENETRATION_MM]
-            )
-        )
-    var alloc: Dictionary = CombatDamageMechanism.allocate_bone_and_tissue(cut, 0.0, cut, part, sub, pen_bone, -1.0)
-    CombatLayerTissue._harness_force_layer_tissue = false
-    if float(alloc.get("to_bone", 0.0)) < 0.5:
-        SimulationCombatTests._fail(
-            failures,
-            (
-                "sim_layer_tissue_deep: want bone chip at pen %.1f (to_bone=%.2f)"
-                % [pen_deep, float(alloc.get("to_bone", 0.0))]
-            )
-        )
-
-
-## S7: armor layer stack consumes RHA depth  -  shallow pen stopped before tissue.
-static func _run_sim_pen_trace_cuirass_stops_shallow(failures: PackedStringArray) -> void:
-    var cuirass: ArmorPiece = HarnessFixtures.get_cached_armor("CUIRASS")
-    if cuirass == null:
-        SimulationCombatTests._fail(failures, "sim_pen_trace: missing CUIRASS")
-        return
-    var trace: Dictionary = ArmorPenetrationTrace.sharp_penetration_to_tissue_mm(cuirass, 3.0)
-    if not bool(trace.get("stopped_by_armor", false)):
-        SimulationCombatTests._fail(failures, "sim_pen_trace: pen 3 mm should stop on cuirass plate")
-    if float(trace.get("penetration_to_tissue_mm", -1.0)) > 0.01:
-        SimulationCombatTests._fail(
-            failures,
-            "sim_pen_trace: shallow pen tissue mm want 0 got %.2f" % float(trace.get("penetration_to_tissue_mm", 0.0))
-        )
-
-
-## S7: pen beyond cloth+plate stack reaches tissue with remainder.
-static func _run_sim_pen_trace_cuirass_deep_reaches_tissue(failures: PackedStringArray) -> void:
-    var cuirass: ArmorPiece = HarnessFixtures.get_cached_armor("CUIRASS")
-    if cuirass == null:
-        SimulationCombatTests._fail(failures, "sim_pen_trace_deep: missing CUIRASS")
-        return
-    var pen_deep: float = 6.0
-    var trace: Dictionary = ArmorPenetrationTrace.sharp_penetration_to_tissue_mm(cuirass, pen_deep)
-    var to_tissue: float = float(trace.get("penetration_to_tissue_mm", 0.0))
-    ## CUIRASS fixture = cloth (0.9 mm RHA) + plate (3.5 mm RHA) = 4.4 mm total resistance.
-    ## Source: ArmorConstants.LAYER_CLOTH.sharp_resistance_rha_mm + LAYER_PLATE.sharp_resistance_rha_mm.
-    var cloth_res: float = ArmorConstants.LAYER_CLOTH["sharp_resistance_rha_mm"]
-    var plate_res: float = ArmorConstants.LAYER_PLATE["sharp_resistance_rha_mm"]
-    var want_remainder: float = pen_deep - cloth_res - plate_res
-    if not is_equal_approx(to_tissue, want_remainder):
-        SimulationCombatTests._fail(
-            failures,
-            "sim_pen_trace_deep: tissue pen %.2f want ~%.2f (cloth+plate consumed)" % [to_tissue, want_remainder]
-        )
-
-
-## S7: post-armor tissue pen gates sharp-dominant MFB bone (cuirass vs bare pen).
-static func _run_sim_pen_entity_damage_armor_reduces_bone(failures: PackedStringArray) -> void:
-    var armor: ArmorPiece = HarnessFixtures.get_cached_armor("CUIRASS")
-    if armor == null:
-        SimulationCombatTests._fail(failures, "sim_pen_damage: missing CUIRASS")
-        return
-    var pen: float = 5.0
-    var cut: float = 14.0
-    var part: String = "chest"
-    var sub: String = "thoracic"
-    var trace: Dictionary = ArmorPenetrationTrace.sharp_penetration_to_tissue_mm(armor, pen)
-    var pen_tissue: float = float(trace.get("penetration_to_tissue_mm", 0.0))
-    var bare_alloc: Dictionary = CombatDamageMechanism.allocate_bone_and_tissue(cut, 0.0, cut, part, sub, pen, -1.0)
-    var arm_alloc: Dictionary = CombatDamageMechanism.allocate_bone_and_tissue(
-        cut, 0.0, cut, part, sub, pen_tissue, -1.0
-    )
-    if float(bare_alloc.get("to_bone", 0.0)) <= 0.0:
-        SimulationCombatTests._fail(failures, "sim_pen_damage: bare MFB want bone at pen %.1f" % pen)
-    if float(arm_alloc.get("to_bone", 0.0)) >= float(bare_alloc.get("to_bone", 0.0)) - 0.01:
-        SimulationCombatTests._fail(
-            failures,
-            (
-                "sim_pen_damage: armored sharp bone %.2f should be < bare %.2f (tissue pen %.2f)"
-                % [float(arm_alloc.get("to_bone", 0.0)), float(bare_alloc.get("to_bone", 0.0)), pen_tissue]
-            )
-        )
-
-
-## S7: ATLS hemorrhage class boundaries (remaining blood %).
-static func _run_sim_atls_consciousness_class_boundaries(failures: PackedStringArray) -> void:
-    if not BleedingConstants.FEATURE_ATLS_STEPPED_BLOOD_CONSCIOUSNESS:
-        SimulationCombatTests._fail(failures, "sim_atls: FEATURE_ATLS_STEPPED_BLOOD_CONSCIOUSNESS must be on")
-        return
-    if BleedingConstants.atls_hemorrhage_class_from_remaining_pct(90.0) != 1:
-        SimulationCombatTests._fail(failures, "sim_atls: 90%% remaining want class I")
-    if BleedingConstants.atls_hemorrhage_class_from_remaining_pct(75.0) != 2:
-        SimulationCombatTests._fail(failures, "sim_atls: 75%% remaining want class II")
-    if BleedingConstants.atls_hemorrhage_class_from_remaining_pct(65.0) != 3:
-        SimulationCombatTests._fail(failures, "sim_atls: 65%% remaining want class III")
-    if BleedingConstants.atls_hemorrhage_class_from_remaining_pct(50.0) != 4:
-        SimulationCombatTests._fail(failures, "sim_atls: 50%% remaining want class IV")
-    var mod_85: float = BleedingConstants.blood_consciousness_modifier_from_remaining(
-        85.0,
-        PainConsciousnessConstants.BLOOD_CONSCIOUSNESS_START_THRESHOLD,
-        PainConsciousnessConstants.BLOOD_CONSCIOUSNESS_FLOOR_THRESHOLD,
-        PainConsciousnessConstants.BLOOD_CONSCIOUSNESS_REDUCTION_MAX
-    )
-    var mod_35: float = BleedingConstants.blood_consciousness_modifier_from_remaining(
-        35.0,
-        PainConsciousnessConstants.BLOOD_CONSCIOUSNESS_START_THRESHOLD,
-        PainConsciousnessConstants.BLOOD_CONSCIOUSNESS_FLOOR_THRESHOLD,
-        PainConsciousnessConstants.BLOOD_CONSCIOUSNESS_REDUCTION_MAX
-    )
-    if not is_equal_approx(mod_85, 1.0):
-        SimulationCombatTests._fail(failures, "sim_atls: mod at 85%% want 1.0 got %.3f" % mod_85)
-    if not is_equal_approx(mod_35, 0.04):
-        SimulationCombatTests._fail(failures, "sim_atls: mod at 35%% want 0.04 got %.3f" % mod_35)
-    # Realism gate: deep blood loss ALONE (healthy head) must drive unconsciousness (hypovolemic syncope).
-    # At the floor (35% remaining = 65% lost) a healthy-headed fighter's consciousness must fall below the
-    # incapacitation threshold; at 70% remaining (Class II/III) the same fighter must stay conscious.
-    var ent: CoreEntity = SimulationCombatTests._entity_for_species(HumanSpecies)
-    var head_max: int = ent.body_max.get(BodyPartConstants.PART_HEAD, 1)
-    ent.body_cutting[BodyPartConstants.PART_HEAD] = float(head_max)
-    ent.body_blunt[BodyPartConstants.PART_HEAD] = float(head_max)
-    ent.blood_volume = 35.0
-    ent._consciousness_dirty = true
-    EntityPainConsciousness.update_consciousness(ent)
-    if ent.effective_consciousness >= PainConsciousnessConstants.INCAPACITATION_CONSCIOUSNESS_THRESHOLD:
-        SimulationCombatTests._fail(
-            failures,
-            (
-                "sim_atls: blood-loss-alone at 35%% remaining should be unconscious (consc < %.1f) got %.2f"
-                % [PainConsciousnessConstants.INCAPACITATION_CONSCIOUSNESS_THRESHOLD, ent.effective_consciousness]
-            )
-        )
-    ent.blood_volume = 70.0
-    ent._consciousness_dirty = true
-    EntityPainConsciousness.update_consciousness(ent)
-    if ent.effective_consciousness < PainConsciousnessConstants.INCAPACITATION_CONSCIOUSNESS_THRESHOLD:
-        SimulationCombatTests._fail(
-            failures,
-            "sim_atls: 70%% remaining healthy head should stay conscious got %.2f" % ent.effective_consciousness
-        )
-
-
-## S7: blood-loss consciousness modifier decreases monotonically with volume loss.
-static func _run_sim_atls_consciousness_monotonic(failures: PackedStringArray) -> void:
-    var ent: CoreEntity = SimulationCombatTests._entity_for_species(HumanSpecies)
-    var prev: float = 1.0
-    for pct in [100.0, 85.0, 80.0, 70.0, 65.0, 55.0, 40.0, 35.0]:
-        ent.blood_volume = pct
-        var mod: float = EntityPainConsciousness.get_blood_consciousness_modifier(ent)
-        if mod > prev + 0.001:
-            SimulationCombatTests._fail(
-                failures, "sim_atls_mono: mod %.3f at %.0f%% > prev %.3f (non-monotonic)" % [mod, pct, prev]
-            )
-        prev = mod
-
-
-## S7: rate/endurance-aware syncope shift (Gap 3). The ATLS stepped curve now shifts
-## effective remaining % by bleeding rate (down) and endurance (up) before evaluating.
-## Reference conditions (rate=0, endurance=100) produce no shift (backward compatible).
-static func _run_sim_blood_consc_rate_endurance_aware(failures: PackedStringArray) -> void:
-    # --- Pure function: reference conditions = identity ---
-    var ref_adj: float = BleedingConstants.adjusted_remaining_for_consciousness(70.0, 0.0, 100.0)
-    if not is_equal_approx(ref_adj, 70.0):
-        SimulationCombatTests._fail(failures, "blood_consc_ref: reference (rate=0, end=100) want 70.0 got %.2f" % ref_adj)
-
-    # --- Pure function: high rate shifts effective remaining DOWN ---
-    var high_rate: float = BleedingConstants.adjusted_remaining_for_consciousness(70.0, 1.0, 100.0)
-    if not is_equal_approx(high_rate, 50.0):
-        SimulationCombatTests._fail(failures, "blood_consc_rate: rate=1.0%/s want 50.0 got %.2f" % high_rate)
-    if high_rate >= ref_adj:
-        SimulationCombatTests._fail(failures, "blood_consc_rate_mono: high rate should lower effective remaining")
-
-    # --- Pure function: partial rate produces partial shift ---
-    var low_rate: float = BleedingConstants.adjusted_remaining_for_consciousness(70.0, 0.25, 100.0)
-    if not is_equal_approx(low_rate, 65.0):
-        SimulationCombatTests._fail(failures, "blood_consc_rate_partial: rate=0.25%/s want 65.0 got %.2f" % low_rate)
-    if low_rate >= ref_adj or low_rate <= high_rate:
-        SimulationCombatTests._fail(failures, "blood_consc_rate_order: partial (65) must sit between ref (70) and full (50)")
-
-    # --- Pure function: high endurance shifts effective remaining UP ---
-    var high_end: float = BleedingConstants.adjusted_remaining_for_consciousness(70.0, 0.0, 140.0)
-    var expected_end: float = 70.0 + minf(40.0 * 0.18, 12.0)
-    if absf(high_end - expected_end) > 0.01:
-        SimulationCombatTests._fail(failures, "blood_consc_end_high: end=140 want %.1f got %.2f" % [expected_end, high_end])
-    if high_end <= ref_adj:
-        SimulationCombatTests._fail(failures, "blood_consc_end_mono: high endurance should raise effective remaining")
-
-    # --- Pure function: low endurance shifts effective remaining DOWN ---
-    var low_end: float = BleedingConstants.adjusted_remaining_for_consciousness(70.0, 0.0, 40.0)
-    var expected_end_low: float = 70.0 + clampf((40.0 - 100.0) * 0.18, -12.0, 12.0)
-    if absf(low_end - expected_end_low) > 0.01:
-        SimulationCombatTests._fail(failures, "blood_consc_end_low: end=40 want %.1f got %.2f" % [expected_end_low, low_end])
-
-    # --- Integration: bleeding rate reduces modifier vs no-bleed at same volume ---
-    var ent: CoreEntity = SimulationCombatTests._entity_for_species(HumanSpecies)
-    ent.blood_volume = 65.0
-    ent.endurance = 100
-    var mod_no_bleed: float = EntityPainConsciousness.get_blood_consciousness_modifier(ent)
-    ent.wounds[BodyPartConstants.PART_RIGHT_ARM] = [
-        {"injury_type": "cut", "severity": "severe", "current_bleeding_rate": 85.0}
-    ]
-    var mod_bleeding: float = EntityPainConsciousness.get_blood_consciousness_modifier(ent)
-    if mod_bleeding >= mod_no_bleed:
-        SimulationCombatTests._fail(failures, "blood_consc_integ: bleeding mod %.3f should be < no-bleed mod %.3f" % [mod_bleeding, mod_no_bleed])
-
-
-## S9: overall damage ratio tracks real tissue loss (body_cutting/body_blunt store REMAINING health).
-## Guards the concussion-severity path: a healthy entity must read ~0% damaged, a destroyed one ~100%.
-## Regression: the old formula (max—remaining—remaining) inverted this, reporting healthy = 100% damaged.
-static func _run_sim_overall_damage_ratio_tracks_tissue(failures: PackedStringArray) -> void:
-    var healthy: CoreEntity = SimulationCombatTests._entity_for_species(HumanSpecies)
-    var healthy_ratio: float = EntityPainConsciousness._get_entity_overall_damage_ratio(healthy)
-    if healthy_ratio > 0.05:
-        SimulationCombatTests._fail(
-            failures, "sim_dmg_ratio: healthy entity want ~0%% damaged got %.2f" % healthy_ratio
-        )
-    # Destroy every part (cutting + blunt -> 0) -> fully damaged.
-    var destroyed: CoreEntity = SimulationCombatTests._entity_for_species(HumanSpecies)
-    for part in destroyed.body_max:
-        destroyed.body_cutting[part] = 0.0
-        destroyed.body_blunt[part] = 0.0
-    var destroyed_ratio: float = EntityPainConsciousness._get_entity_overall_damage_ratio(destroyed)
-    if destroyed_ratio < 0.95:
-        SimulationCombatTests._fail(
-            failures, "sim_dmg_ratio: destroyed entity want ~100%% damaged got %.2f" % destroyed_ratio
-        )
-    # Half-damage one part -> ratio strictly between healthy and destroyed.
-    var half: CoreEntity = SimulationCombatTests._entity_for_species(HumanSpecies)
-    var some_part: String = half.body_max.keys()[0]
-    var mx: float = half.body_max[some_part]
-    half.body_cutting[some_part] = mx * 0.5
-    half.body_blunt[some_part] = mx * 0.5
-    var half_ratio: float = EntityPainConsciousness._get_entity_overall_damage_ratio(half)
-    if half_ratio <= healthy_ratio or half_ratio >= destroyed_ratio:
-        SimulationCombatTests._fail(
-            failures,
-            "sim_dmg_ratio: half-damage %.2f must sit between healthy %.2f and destroyed %.2f"
-            % [half_ratio, healthy_ratio, destroyed_ratio]
-        )
-
-
-## S9: concussion severity scales with cumulative damage (weighted_severity blends head-bone + overall damage).
-## A heavily-damaged entity concussed by the same head-bone ratio must be at least as severe as a healthy one.
-static func _run_sim_concussion_severity_scales_with_damage(failures: PackedStringArray) -> void:
-    var healthy: CoreEntity = SimulationCombatTests._entity_for_species(HumanSpecies)
-    var damaged: CoreEntity = SimulationCombatTests._entity_for_species(HumanSpecies)
-    for part in damaged.body_max:
-        damaged.body_cutting[part] = 0.0
-        damaged.body_blunt[part] = 0.0
-    var bone_ratio: float = 1.0  # within CONCUSSION_BONE_THRESHOLD range (MIN 0.75, MAX 1.5): transmitted-KE/fracture-anchor ratio
-    EntityPainConsciousness.try_enter_concussion_from_head_bone_damage(healthy, bone_ratio)
-    EntityPainConsciousness.try_enter_concussion_from_head_bone_damage(damaged, bone_ratio)
-    var healthy_until: float = float(healthy.get_meta("_concussion_until_time", 0.0))
-    var damaged_until: float = float(damaged.get_meta("_concussion_until_time", 0.0))
-    if healthy_until <= 0.0 or damaged_until <= 0.0:
-        SimulationCombatTests._fail(
-            failures,
-            "sim_concussion: expected concussion on both (healthy_until=%.1f damaged_until=%.1f)"
-            % [healthy_until, damaged_until]
-        )
-        return
-    if damaged_until < healthy_until - 0.5:
-        SimulationCombatTests._fail(
-            failures,
-            (
-                "sim_concussion: damaged entity recovery %.1fs should be >= healthy %.1fs (severity scales with damage)"
-                % [damaged_until, healthy_until]
-            )
-        )
-
-
-## S9b: concussion trigger is REACHABLE — a transmitted-KE ratio just above CONCUSSION_BONE_THRESHOLD_MIN
-## (post-tissue-KE / sub-region fracture anchor) concusses, while a ratio just below it does not. Guards
-## against the regression where the trigger used the clamped to_bone (ratio always <= 1.0) and the threshold
-## was unreachable (dead code). Under the KE-ratio model the threshold sits BELOW 1.0 (concussion onset is
-## below fracture energy), so the reachability guard checks a valid 0 < threshold < MAX band.
-static func _run_sim_concussion_trigger_reachable_threshold(failures: PackedStringArray) -> void:
-    var threshold: float = EntityPainConsciousness.CONCUSSION_BONE_THRESHOLD_MIN
-    if threshold <= 0.0 or threshold >= EntityPainConsciousness.CONCUSSION_BONE_THRESHOLD_MAX:
-        SimulationCombatTests._fail(failures, "sim_concussion_reach: threshold %.2f must be in (0, MAX %.2f)" % [threshold, EntityPainConsciousness.CONCUSSION_BONE_THRESHOLD_MAX])
-        return
-    var above: CoreEntity = SimulationCombatTests._entity_for_species(HumanSpecies)
-    var below: CoreEntity = SimulationCombatTests._entity_for_species(HumanSpecies)
-    var above_ratio: float = threshold + 0.1  # just above the threshold -> should concuss
-    var below_ratio: float = threshold - 0.1  # just below the threshold -> should NOT concuss
-    EntityPainConsciousness.try_enter_concussion_from_head_bone_damage(above, above_ratio)
-    EntityPainConsciousness.try_enter_concussion_from_head_bone_damage(below, below_ratio)
-    var above_until: float = float(above.get_meta("_concussion_until_time", 0.0))
-    var below_until: float = float(below.get_meta("_concussion_until_time", 0.0))
-    if above_until <= 0.0:
-        SimulationCombatTests._fail(
-            failures,
-            "sim_concussion_reach: ratio %.2f (above threshold %.2f) should concuss (until=%.1f)"
-            % [above_ratio, threshold, above_until]
-        )
-    if below_until > 0.0:
-        SimulationCombatTests._fail(
-            failures,
-            "sim_concussion_reach: ratio %.2f (below threshold %.2f) should NOT concuss (until=%.1f)"
-            % [below_ratio, threshold, below_until]
-        )
-
-
-## S9c: rotational (Rowson/Duma) mTBI channel — pins the fracture-anchored alpha mapping and its entry gate.
-## (a) alpha is monotonic in transmitted head KE; (b) fracture-anchored mild/severe thresholds are ordered
-## and align with the linear channel's 0.75x/1.5x band (mild = alpha(0.75*anchor)); (c) below the mild alpha
-## no concussion registers, above it one does, and a severe (>=1.5x anchor) blow recovers no faster than a
-## mid-severity one (severity scaling through the shared SIS/recovery path).
-static func _run_sim_concussion_rotational_mtbI(failures: PackedStringArray) -> void:
-    var anchor: float = CombatDamageMechanism.blunt_fracture_j_anchor(BodyPartConstants.PART_HEAD, "scalp")
-    if anchor <= 0.0:
-        SimulationCombatTests._fail(failures, "sim_concussion_rot: head fracture anchor must be > 0 (got %.1f)" % anchor)
-        return
-    # (a) monotonic alpha: higher transmitted head KE -> higher angular acceleration.
-    var a_low: float = EntityPainConsciousness.head_rotational_accel_rad_s2(2.0)
-    var a_mid: float = EntityPainConsciousness.head_rotational_accel_rad_s2(5.0)
-    var a_high: float = EntityPainConsciousness.head_rotational_accel_rad_s2(10.0)
-    if not (0.0 < a_low and a_low < a_mid and a_mid < a_high):
-        SimulationCombatTests._fail(
-            failures,
-            "sim_concussion_rot: alpha must increase with KE (low=%.1f mid=%.1f high=%.1f)"
-            % [a_low, a_mid, a_high]
-        )
-        return
-    # (b) fracture-anchored thresholds are ordered and mild == alpha at 0.75x anchor (band alignment).
-    var thr: Array = EntityPainConsciousness.rotational_alpha_thresholds_for_fracture_anchor(anchor)
-    var mild: float = float(thr[0])
-    var severe: float = float(thr[1])
-    if mild <= 0.0 or mild >= severe:
-        SimulationCombatTests._fail(
-            failures, "sim_concussion_rot: thresholds must be 0 < mild < severe (mild=%.1f severe=%.1f)" % [mild, severe]
-        )
-        return
-    var mild_expected: float = EntityPainConsciousness.head_rotational_accel_rad_s2(0.75 * anchor)
-    if not is_equal_approx(mild, mild_expected):
-        SimulationCombatTests._fail(
-            failures,
-            "sim_concussion_rot: mild threshold %.2f must equal alpha(0.75*anchor=%.2f)=%.2f (band alignment)"
-            % [mild, 0.75 * anchor, mild_expected]
-        )
-        return
-    # (c) entry gate: below mild alpha -> no concussion; above -> concussion; severe >= mid in recovery.
-    var e_low: CoreEntity = SimulationCombatTests._entity_for_species(HumanSpecies)
-    var e_mid: CoreEntity = SimulationCombatTests._entity_for_species(HumanSpecies)
-    var e_high: CoreEntity = SimulationCombatTests._entity_for_species(HumanSpecies)
-    var alpha_low: float = EntityPainConsciousness.head_rotational_accel_rad_s2(0.5 * anchor)  # < mild
-    var alpha_mid: float = EntityPainConsciousness.head_rotational_accel_rad_s2(1.0 * anchor)  # mild..severe
-    var alpha_high: float = EntityPainConsciousness.head_rotational_accel_rad_s2(2.0 * anchor)  # >= severe
-    EntityPainConsciousness.try_enter_concussion_from_rotation(e_low, alpha_low, mild, severe)
-    EntityPainConsciousness.try_enter_concussion_from_rotation(e_mid, alpha_mid, mild, severe)
-    EntityPainConsciousness.try_enter_concussion_from_rotation(e_high, alpha_high, mild, severe)
-    var low_until: float = float(e_low.get_meta("_concussion_until_time", 0.0))
-    var mid_until: float = float(e_mid.get_meta("_concussion_until_time", 0.0))
-    var high_until: float = float(e_high.get_meta("_concussion_until_time", 0.0))
-    if low_until > 0.0:
-        SimulationCombatTests._fail(
-            failures,
-            "sim_concussion_rot: alpha=%.1f below mild %.1f should NOT concuss (until=%.1f)"
-            % [alpha_low, mild, low_until]
-        )
-    if mid_until <= 0.0:
-        SimulationCombatTests._fail(
-            failures,
-            "sim_concussion_rot: alpha=%.1f between mild %.1f and severe %.1f should concuss (until=%.1f)"
-            % [alpha_mid, mild, severe, mid_until]
-        )
-    if high_until < mid_until - 0.5:
-        SimulationCombatTests._fail(
-            failures,
-            "sim_concussion_rot: severe alpha=%.1f recovery %.1fs should be >= mid alpha=%.1f recovery %.1fs"
-            % [alpha_high, high_until, alpha_mid, mid_until]
-        )
-
-
-## Persistent concussion fatigue is a per-session brain impairment: it must reset with the other
-## concussion metas on apply_species, or it ratchets a permanent performance penalty across campaigns.
-static func _run_persistent_fatigue_resets_between_sessions(failures: PackedStringArray) -> void:
-    var e: CoreEntity = SimulationCombatTests._entity_for_species(HumanSpecies)
-    e.set_meta("_concussion_persistent_fatigue", 0.3)
-    e.apply_species()
-    if e.has_meta("_concussion_persistent_fatigue"):
-        SimulationCombatTests._fail(
-            failures,
-            "conc_fatigue_reset: persistent fatigue must be cleared on apply_species (got %.2f)"
-            % float(e.get_meta("_concussion_persistent_fatigue", 0.0))
-        )
-
-
-## S9c-catastrophic: a purely rotational re-impact can trigger a SIS catastrophic outcome. Before the
-## fix the rotational channel clamped severity to 2.0 BEFORE the >= 4.0 catastrophic gate, so a
-## rotational-only fighter could never take a SIS catastrophic result — an asymmetry with the
-## head-bone channel (which passes the unclamped raw severity). High cumulative count + severe alpha
-## pushes the raw severity past the gate.
-static func _run_sim_concussion_rot_sis_catastrophic(failures: PackedStringArray) -> void:
-    var anchor: float = CombatDamageMechanism.blunt_fracture_j_anchor(BodyPartConstants.PART_HEAD, "scalp")
-    if anchor <= 0.0:
-        SimulationCombatTests._fail(failures, "sim_concussion_rot_sis: head fracture anchor must be > 0")
-        return
-    var e: CoreEntity = SimulationCombatTests._entity_for_species(HumanSpecies)
-    var thr: Array = EntityPainConsciousness.rotational_alpha_thresholds_for_fracture_anchor(anchor)
-    var mild: float = float(thr[0])
-    var severe: float = float(thr[1])
-    var alpha_high: float = EntityPainConsciousness.head_rotational_accel_rad_s2(2.0 * anchor)
-    # First rotational impact: concusses the entity (sets _concussion_until_time).
-    EntityPainConsciousness.try_enter_concussion_from_rotation(e, alpha_high, mild, severe)
-    if not e.has_meta("_concussion_until_time"):
-        SimulationCombatTests._fail(failures, "sim_concussion_rot_sis: first rotational impact should concuss")
-        return
-    # High cumulative count so the second impact's raw severity reaches the >= 4.0 catastrophic gate:
-    # severity(1.0) x (1.0 + 20 x 0.15 = 4.0) = 4.0.
-    e.set_meta("_cumulative_concussion_count", 20)
-    e.set_meta("_concussion_onset_time", 0.0)
-    EntityPainConsciousness.try_enter_concussion_from_rotation(e, alpha_high, mild, severe)
-    if not bool(e.get_meta("_sis_catastrophic_flag", false)):
-        SimulationCombatTests._fail(
-            failures,
-            "sim_concussion_rot_sis: high-cumulative rotational re-impact should trigger SIS catastrophic (flag not set)"
-        )
-
-
-## S9b-clobber: a re-impact that fires a SIS catastrophic outcome must not clobber the 1-12h recovery
-## extension the catastrophic path just applied to _concussion_until_time. Before the fix the re-impact
-## timeline math (max of the two branches) wrote a plain recovery duration that could be SHORTER than
-## the catastrophic extension, silently discarding it. Assert the final until is at least the
-## catastrophic floor (U1 + 3600s, the minimum 1h extension).
-static func _run_sim_concussion_reimpact_preserves_sis_extension(failures: PackedStringArray) -> void:
-    var e: CoreEntity = SimulationCombatTests._entity_for_species(HumanSpecies)
-    # First impact: full severity (ratio 1.5 = top of the 0.75-1.5 band -> severity 1.0). Sets
-    # until + cumulative_count=1 + onset.
-    EntityPainConsciousness.try_enter_concussion_from_head_bone_damage(e, 1.5)
-    var u1: float = float(e.get_meta("_concussion_until_time", 0.0))
-    if u1 <= 0.0:
-        SimulationCombatTests._fail(failures, "reimp_sis: first impact should concuss (until=%.1f)" % u1)
-        return
-    # Pin onset to NOW so the re-impact falls in the critical window (SIS multiplier 4.5x).
-    # weighted_severity(0.8) x 4.5 x cumulative_bonus(1 + 1*0.15 = 1.15) = 4.14 >= 4.0 -> catastrophic.
-    # cumulative_count stays at 1 (from the first impact) — do NOT reset it to 0.
-    e.set_meta("_concussion_onset_time", CombatTiming.now_seconds())
-    EntityPainConsciousness.try_enter_concussion_from_head_bone_damage(e, 1.5)
-    var u2: float = float(e.get_meta("_concussion_until_time", 0.0))
-    if not bool(e.get_meta("_sis_catastrophic_flag", false)):
-        SimulationCombatTests._fail(failures, "reimp_sis: severe re-impact should trigger SIS catastrophic (flag not set)")
-    if u2 < u1 + 3600.0 - 1.0:
-        SimulationCombatTests._fail(
-            failures,
-            "reimp_sis: re-impact clobbered the SIS recovery extension (u1=%.1f u2=%.1f, need u2>=u1+3600)"
-            % [u1, u2]
-        )
-
-
-## S8: shallow post-armor penetration -> lower cut severity than deep track at same damage.

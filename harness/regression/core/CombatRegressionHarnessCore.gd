@@ -593,6 +593,7 @@ static func _assert_depth_lane_open_cache_matches_builder(mgr: Node, failures: P
 
 ## Kinematic delivery helpers — forwards to dedicated test modules.
 
+
 static func _kin_fixtures_cut_swing() -> Array:
     return KinematicDeliveryPenetrationTests._kin_fixtures_cut_swing()
 
@@ -639,7 +640,17 @@ static func _kin_dmg_integration_sample(
     strike_physics_ctx: Dictionary = {}
 ) -> Dictionary:
     return KinematicDeliveryPartialParryTests._kin_dmg_integration_sample(
-        vo, parry_r, align, strike_mods, weapon_id, move_id, afterblow_mult, arch_override, tgt_overrides, tgt_chest_armor_id, strike_physics_ctx
+        vo,
+        parry_r,
+        align,
+        strike_mods,
+        weapon_id,
+        move_id,
+        afterblow_mult,
+        arch_override,
+        tgt_overrides,
+        tgt_chest_armor_id,
+        strike_physics_ctx
     )
 
 
@@ -661,6 +672,5 @@ static func _kin_expected_damage_velocity_m_s(
 
 static func _kin_path_intercept_max_index(path: Array, alignment: float) -> int:
     return KinematicDeliveryPenetrationTests._kin_path_intercept_max_index(path, alignment)
-
 
 ## `handle_swap_rank_resolve` completes rank swap when both combatants remain in pair motion state.

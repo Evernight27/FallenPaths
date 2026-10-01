@@ -4,6 +4,7 @@ extends CombatRegressionHarnessCore
 ## `compute_kinetic_energy_j` uses pure physics only (mass, velocity, inertia). KE ratio between a base call
 ## and one passing e_mult should be ~1.0 for all weapon/move combos.
 
+
 static func _run_kinematic_delivery_strike_energy_mult_integration_pre_cut_not_pen(failures: PackedStringArray) -> void:
     var vo_pin: float = 11.0
     var mult: float = 1.45
@@ -25,7 +26,10 @@ static func _run_kinematic_delivery_strike_energy_mult_integration_pre_cut_not_p
         var ke_ratio: float = float(shaped["strike_ke_j"]) / maxf(float(base["strike_ke_j"]), 0.001)
         # KE is now pure physics — strike_energy_mult no longer scales ke_j after the e_mult removal fix.
         if absf(ke_ratio - 1.0) > 0.03:
-            _fail(failures, "%s: kin_energy_mult_int ke ratio %.4f should be ~1.0 (e_mult removed from KE path)" % [tag, ke_ratio])
+            _fail(
+                failures,
+                "%s: kin_energy_mult_int ke ratio %.4f should be ~1.0 (e_mult removed from KE path)" % [tag, ke_ratio]
+            )
 
 
 ## Tier 5.1 (optional long-tail): **`afterblow_damage_mult`** scales assembled **`v`** (sqrt) ->
@@ -445,10 +449,13 @@ static func _run_stamina_refill_exponential_half_time_and_taper(failures: Packed
     var want_half: float = max_s * 0.5
     if absf(s - want_half) > max_s * 0.05:
         _fail(failures, "stam_refill_half: want ~50%% (%.1f) after half-time got %.1f" % [want_half, s])
-    var rate_low: float = k * (max_s - max_s * 0.1)   # per-second refill at 10%% stamina
+    var rate_low: float = k * (max_s - max_s * 0.1)  # per-second refill at 10%% stamina
     var rate_high: float = k * (max_s - max_s * 0.9)  # per-second refill at 90%% stamina
     if not (rate_low > rate_high):
-        _fail(failures, "stam_refill_taper: want rate_low > rate_high (exponential) got low=%.3f high=%.3f" % [rate_low, rate_high])
+        _fail(
+            failures,
+            "stam_refill_taper: want rate_low > rate_high (exponential) got low=%.3f high=%.3f" % [rate_low, rate_high]
+        )
 
 
 ## Formation pressure: defensive threshold uses burst ratio vs effective max (not absolute / STAMINA_MAX).
@@ -908,4 +915,3 @@ static func _run_formation_move_duration_ui_hint_when_lane_crowded(failures: Pac
         _fail(failures, "form_dur_ui: want crowded lane in hint got '%s'" % tip)
 
 ## Tier 1: **`rotate_file`** listed for adjacent rank-0 allies on a multi-file line.
-

@@ -1,7 +1,7 @@
 class_name MedicalPhaseGateTests
 extends CombatRegressionHarnessCore
 
-const _CombatRegressionHarness := preload("res://harness/regression/CombatRegressionHarness.gd")
+const CombatRegressionHarness := preload("res://harness/regression/CombatRegressionHarness.gd")
 ## Tier 6.3 medical phase + treatment tests split from CombatRegressionHarness (compile size).
 
 const BattleScene := preload("res://ui/battle/BattleScene.gd")
@@ -53,13 +53,9 @@ static func _run_medical_phase_cancels_pending_enemy_melee(failures: PackedStrin
         HarnessFixtures._free_manager(mgr)
         return
     if CombatantEntityAccess.state_str(en) == CombatConstants.STATE_WIND_UP:
-        _fail(
-            failures, "medical_phase_melee: enemy should not remain in wind_up after teardown"
-        )
+        _fail(failures, "medical_phase_melee: enemy should not remain in wind_up after teardown")
     if CombatantEntityAccess.state_str(en) == CombatConstants.STATE_RECOVERING:
-        _fail(
-            failures, "medical_phase_melee: enemy should not remain in recovering after teardown"
-        )
+        _fail(failures, "medical_phase_melee: enemy should not remain in recovering after teardown")
     if CombatEventScheduler.get_pending_melee_attack_resolve_at(mgr, e_id) >= 0.0:
         _fail(failures, "medical_phase_melee: pending EVENT_MELEE_ATTACK should be cancelled")
     var enemy_actions: Array = mgr.get_available_actions(e_id)
@@ -73,9 +69,7 @@ static func _run_medical_phase_cancels_pending_enemy_melee(failures: PackedStrin
     mgr.combat_clock = resolve_at + 0.01
     CombatEventDispatch.process_event_queue(mgr)
     if int(fired_box[0]) != 0:
-        _fail(
-            failures, "medical_phase_melee: expected no action_resolved got fired=%d" % int(fired_box[0])
-        )
+        _fail(failures, "medical_phase_melee: expected no action_resolved got fired=%d" % int(fired_box[0]))
     if CombatantEntityAccess.state_str(en) == CombatConstants.STATE_WIND_UP:
         _fail(failures, "medical_phase_melee: enemy still wind_up after queued melee dispatch")
     HarnessFixtures._free_manager(mgr)
@@ -102,9 +96,7 @@ static func _run_medical_phase_blocks_afterblow_on_loser(failures: PackedStringA
     var fired_box: Array = [0]
     mgr.action_resolved.connect(func(_a: int, _t: int, _r: Dictionary) -> void: fired_box[0] = int(fired_box[0]) + 1)
     if AfterblowHandler.try_afterblow(mgr, p_id, e_id, {"part": "chest", "outcome": "hit", "final_cut": 1.0}, 0.2):
-        _fail(
-            failures, "medical_phase_afterblow: try_afterblow should be false for losing side"
-        )
+        _fail(failures, "medical_phase_afterblow: try_afterblow should be false for losing side")
     if int(fired_box[0]) != 0:
         _fail(failures, "medical_phase_afterblow: expected no action_resolved")
     if not CombatantEntityAccess.nested_dictionary_read(en, "pending_attack").is_empty():
@@ -142,9 +134,7 @@ static func _run_medical_phase_blocks_scheduled_enemy_events(failures: PackedStr
         )
     )
     if CombatEventScheduler.get_pending_melee_attack_resolve_at(mgr, e_id) >= 0.0:
-        _fail(
-            failures, "medical_phase_schedule: enemy melee via schedule_event should be blocked"
-        )
+        _fail(failures, "medical_phase_schedule: enemy melee via schedule_event should be blocked")
     CombatEventScheduler.schedule_action_ready(mgr, p_id, 0.05)
     if CombatEventScheduler.get_next_action_ready_at(mgr, p_id) < 0.0:
         _fail(failures, "medical_phase_schedule: winner action_ready should schedule")
@@ -272,9 +262,7 @@ static func _run_medical_phase_winner_combat_resolve_blocked(failures: PackedStr
         _fail(failures, "medical_phase_winner: AttackWindUpStarter.start should be blocked")
     var res: Dictionary = AttackResolver.resolve_attack(mgr, p_id)
     if str(res.get("action", "")) != "skip":
-        _fail(
-            failures, "medical_phase_winner: resolve_attack should skip got %s" % str(res.get("action", ""))
-        )
+        _fail(failures, "medical_phase_winner: resolve_attack should skip got %s" % str(res.get("action", "")))
     HarnessFixtures._free_manager(mgr)
 
 
@@ -309,9 +297,7 @@ static func _run_medical_phase_winner_listing_medical_only(failures: PackedStrin
     for a in actions:
         var mid: String = str(a.get("move_id", ""))
         if mid in blocked_move_ids:
-            _fail(
-                failures, "medical_phase_winner_listing: blocked move_id '%s' in %s" % [mid, str(actions)]
-            )
+            _fail(failures, "medical_phase_winner_listing: blocked move_id '%s' in %s" % [mid, str(actions)])
     HarnessFixtures._free_manager(mgr)
 
 
@@ -330,9 +316,7 @@ static func _run_medical_phase_apply_result_blocked(failures: PackedStringArray)
         mgr, p_id, {"action": "hit", "target_id": p_id, "recovery_duration": 0.5, "result_dict": {"died": false}}
     )
     if int(fired_box[0]) != 0:
-        _fail(
-            failures, "medical_phase_applier: apply_result should not emit during medical phase"
-        )
+        _fail(failures, "medical_phase_applier: apply_result should not emit during medical phase")
     HarnessFixtures._free_manager(mgr)
 
 
@@ -366,13 +350,9 @@ static func _run_medical_phase_end_combat_idempotent(failures: PackedStringArray
         _fail(failures, "medical_phase_idempotent: expected medical_phase after first end")
     mgr._end_combat_phase("player", null)
     if int(emit_box[0]) != 1:
-        _fail(
-            failures, "medical_phase_idempotent: enemies_eliminated should emit once got %d" % int(emit_box[0])
-        )
+        _fail(failures, "medical_phase_idempotent: enemies_eliminated should emit once got %d" % int(emit_box[0]))
     if CombatEventScheduler.get_pending_melee_attack_resolve_at(mgr, e_id) >= 0.0:
-        _fail(
-            failures, "medical_phase_idempotent: loser melee should stay cancelled after refresh"
-        )
+        _fail(failures, "medical_phase_idempotent: loser melee should stay cancelled after refresh")
     HarnessFixtures._free_manager(mgr)
 
 
@@ -393,9 +373,7 @@ static func _run_medical_phase_winner_fled_suspends_bleed_tick(failures: PackedS
     if CombatantEntityAccess.state_str(c) == CombatConstants.STATE_FLED:
         _fail(failures, "med_phase_fled: winner should leave STATE_FLED for medical listing")
     if CombatantEntityAccess.state_str(c) != CombatConstants.STATE_WAITING:
-        _fail(
-            failures, "med_phase_fled: want STATE_WAITING for triage got %s" % CombatantEntityAccess.state_str(c)
-        )
+        _fail(failures, "med_phase_fled: want STATE_WAITING for triage got %s" % CombatantEntityAccess.state_str(c))
     if not CombatantEntityAccess.is_alive_in_combat(c):
         _fail(failures, "med_phase_fled: fled winner should list medical actions")
     HarnessFixtures._free_manager(mgr)
@@ -468,9 +446,7 @@ static func _run_medical_phase_non_fled_winner_bleed_continues_on_tick(failures:
     var bv_before: float = float(node.blood_volume)
     mgr._end_combat_phase("player", null)
     if bool(c.get(CombatConstants.COMBATANT_KEY_SUSPEND_BLEED_TICK, false)):
-        _fail(
-            failures, "med_phase_bleed_continue: non-fled winner must not suspend bleed ticks"
-        )
+        _fail(failures, "med_phase_bleed_continue: non-fled winner must not suspend bleed ticks")
     CombatProcessTick.tick(mgr, 2.0)
     if float(node.blood_volume) >= bv_before - 0.01:
         _fail(
@@ -491,9 +467,7 @@ static func _run_medical_phase_stop_clears_suspend_bleed_tick(failures: PackedSt
     c.state = CombatConstants.STATE_FLED
     mgr._end_combat_phase("player", null)
     if not bool(c.get(CombatConstants.COMBATANT_KEY_SUSPEND_BLEED_TICK, false)):
-        _fail(
-            failures, "med_phase_stop: setup want suspend_bleed_tick after fled medical entry"
-        )
+        _fail(failures, "med_phase_stop: setup want suspend_bleed_tick after fled medical entry")
     mgr.stop()
     if bool(c.get(CombatConstants.COMBATANT_KEY_SUSPEND_BLEED_TICK, false)):
         _fail(failures, "med_phase_stop: stop() should erase suspend_bleed_tick")
@@ -567,9 +541,7 @@ static func _run_pack_wound_strict_subregion_eligibility(failures: PackedStringA
     if ent.wounds.get("head", []).size() > 0:
         ent.wounds["head"][0]["is_arterial"] = false
     if ent.can_apply_packing("head"):
-        _fail(
-            failures, "pack_wound_strict: moderate non-arterial neck should not allow packing"
-        )
+        _fail(failures, "pack_wound_strict: moderate non-arterial neck should not allow packing")
     ent.wounds["head"].clear()
     EntityWounds.add_wound(
         ent, "head", BleedingConstants.INJURY_TYPE_CUT, 5.0, "neck", BleedingConstants.SEVERITY_MODERATE
@@ -656,13 +628,9 @@ static func _run_pack_wound_lists_in_medical_phase(failures: PackedStringArray) 
             found_pack = true
     HarnessFixtures._free_manager(mgr)
     if not found_pressure:
-        _fail(
-            failures, "pack_wound_list: actively bleeding chest should list apply_direct_pressure first"
-        )
+        _fail(failures, "pack_wound_list: actively bleeding chest should list apply_direct_pressure first")
     if found_pack:
-        _fail(
-            failures, "pack_wound_list: pack_wound should not list before pressure on active chest bleed"
-        )
+        _fail(failures, "pack_wound_list: pack_wound should not list before pressure on active chest bleed")
 
 
 static func _run_bandage_allowed_on_packed_part(failures: PackedStringArray) -> void:
@@ -750,9 +718,7 @@ static func _run_iii5_packing_channel_success_depth(failures: PackedStringArray)
     var mult: float = EntityMedical.packing_channel_success_mult(ent, "chest")
     var want: float = pow(BleedingConstants.PACKING_SUCCESS_PER_EXTRA_CHANNEL, float(channels - 1))
     if absf(mult - want) > 0.001:
-        _fail(
-            failures, "iii5_pack_depth: want mult=%.3f got %.3f (channels=%d)" % [want, mult, channels]
-        )
+        _fail(failures, "iii5_pack_depth: want mult=%.3f got %.3f (channels=%d)" % [want, mult, channels])
     MedicalPhaseGateTests._free_entity_fixture(ent)
 
 
@@ -768,17 +734,13 @@ static func _run_treatment_channel_count_not_raw_hit_count(failures: PackedStrin
         return
     var channels: int = EntityMedical.get_treatment_channel_count(ent, "head")
     if channels != 1:
-        _fail(
-            failures, "treatment_channels: expected 1 channel for one sub_region got %d" % channels
-        )
+        _fail(failures, "treatment_channels: expected 1 channel for one sub_region got %d" % channels)
     var pack_s: float = EntityMedical._get_packing_application_time_seconds_for_part(ent, "head")
     var raw_pack: float = (
         BleedingConstants.PACKING_APPLICATION_TIME_SECONDS + BleedingConstants.PACKING_PER_WOUND_EXTRA_SECONDS * 5.0
     )
     if pack_s >= raw_pack - 0.01:
-        _fail(
-            failures, "treatment_channels: channel pack %.1f should beat six-hit raw %.1f" % [pack_s, raw_pack]
-        )
+        _fail(failures, "treatment_channels: channel pack %.1f should beat six-hit raw %.1f" % [pack_s, raw_pack])
     MedicalPhaseGateTests._free_entity_fixture(ent)
 
 
@@ -851,14 +813,10 @@ static func _run_dressings_still_offered_after_failure_out_of_peril(failures: Pa
     var ally_c: Dictionary = mgr.combatants[1]
     ally_c["failed_medical_parts"] = ["chest"]
     if not MedicalPhaseController.has_left_immediate_peril_permanently(mgr, ally_c):
-        _fail(
-            failures, "dressings_retry: ally should be out of immediate peril for this fixture"
-        )
+        _fail(failures, "dressings_retry: ally should be out of immediate peril for this fixture")
         return
     if not MedicalPhaseController.dressings_allowed_for_part(mgr, ally_c, "chest"):
-        _fail(
-            failures, "dressings_retry: must still allow dressings after failed attempt when out of peril"
-        )
+        _fail(failures, "dressings_retry: must still allow dressings after failed attempt when out of peril")
         return
     var acts: Array = MedicalPhaseController.get_ally_medical_actions(mgr, healer_c, ally_c, "chest")
     var mids: Array = []
@@ -866,9 +824,7 @@ static func _run_dressings_still_offered_after_failure_out_of_peril(failures: Pa
         if raw is Dictionary:
             mids.append(str((raw as Dictionary).get("move_id", "")))
     if CombatConstants.MOVE_ID_BANDAGE_SELF not in mids:
-        _fail(
-            failures, "dressings_retry: bandage_self should stay listed after failure (got %s)" % str(mids)
-        )
+        _fail(failures, "dressings_retry: bandage_self should stay listed after failure (got %s)" % str(mids))
     HarnessFixtures._free_manager(mgr)
 
 
@@ -894,9 +850,7 @@ static func _run_pending_retry_set_even_with_other_medics(failures: PackedString
     )
     var pending: Variant = healer_ac.get("pending_retry", null)
     if typeof(pending) != TYPE_DICTIONARY or (pending as Dictionary).is_empty():
-        _fail(
-            failures, "pending_retry: performer should keep retry hint after dressing failure"
-        )
+        _fail(failures, "pending_retry: performer should keep retry hint after dressing failure")
     elif (pending as Dictionary).get("part", "") != "chest":
         _fail(failures, "pending_retry: expected chest part in retry hint")
     var failed: Variant = ally_c.get("failed_medical_parts", null)
@@ -942,4 +896,3 @@ static func _run_medical_ai_prefers_dressing_over_stabilize_out_of_peril(failure
             "medical_ai_dressing: bandage weight %.3f should exceed stabilize %.3f out of peril" % [w_bandage, w_stab]
         )
     HarnessFixtures._free_manager(mgr)
-

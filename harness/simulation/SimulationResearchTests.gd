@@ -1,6 +1,6 @@
 class_name SimulationResearchTests
 extends CombatRegressionHarnessCore
-const _CombatRegressionHarness := preload("res://harness/regression/CombatRegressionHarness.gd")
+const CombatRegressionHarness := preload("res://harness/regression/CombatRegressionHarness.gd")
 
 ## Simulation realism track (S1—S10): `_run_sim_*`  -  docs/LIVE_PATHS.md#harness-prefixes.
 
@@ -636,7 +636,10 @@ static func _run_research_blunt_ke_budget_reduces_bone(failures: PackedStringArr
     if ke_to_bone >= j_anchor:
         SimulationCombatTests._fail(
             failures,
-            "research_blunt_ke: ke_to_bone %.1f at sub-anchor KE %.1f should be < anchor %.1f" % [ke_to_bone, ke_below, j_anchor]
+            (
+                "research_blunt_ke: ke_to_bone %.1f at sub-anchor KE %.1f should be < anchor %.1f"
+                % [ke_to_bone, ke_below, j_anchor]
+            )
         )
 
 
@@ -742,19 +745,22 @@ static func _run_research_arm_grip_sub_region_bands(failures: PackedStringArray)
     if not CombatConstants.FEATURE_ARM_WOUND_DEGRADATION:
         SimulationCombatTests._fail(failures, "research_grip: FEATURE_ARM_WOUND_DEGRADATION must be on")
     if not CombatResearchAnchors.arm_grip_sub_region_bands_ok():
-        SimulationCombatTests._fail(
-            failures,
-            (
+        (
+            SimulationCombatTests
+            . _fail(
+                failures,
                 (
-                    "research_grip_sub_region: severe loss%% hand=%.1f forearm=%.1f elbow=%.1f upper=%.1f outside "
-                    + "bands (hand 20-50, forearm 15-40, upper 10-30, elbow 25-60)"
+                    (
+                        "research_grip_sub_region: severe loss%% hand=%.1f forearm=%.1f elbow=%.1f upper=%.1f outside "
+                        + "bands (hand 20-50, forearm 15-40, upper 10-30, elbow 25-60)"
+                    )
+                    % [
+                        CombatResearchAnchors.arm_grip_loss_pct("hand", BleedingConstants.SEVERITY_SEVERE),
+                        CombatResearchAnchors.arm_grip_loss_pct("forearm", BleedingConstants.SEVERITY_SEVERE),
+                        CombatResearchAnchors.arm_grip_loss_pct("elbow", BleedingConstants.SEVERITY_SEVERE),
+                        CombatResearchAnchors.arm_grip_loss_pct("upper_arm", BleedingConstants.SEVERITY_SEVERE),
+                    ]
                 )
-                % [
-                    CombatResearchAnchors.arm_grip_loss_pct("hand", BleedingConstants.SEVERITY_SEVERE),
-                    CombatResearchAnchors.arm_grip_loss_pct("forearm", BleedingConstants.SEVERITY_SEVERE),
-                    CombatResearchAnchors.arm_grip_loss_pct("elbow", BleedingConstants.SEVERITY_SEVERE),
-                    CombatResearchAnchors.arm_grip_loss_pct("upper_arm", BleedingConstants.SEVERITY_SEVERE),
-                ]
             )
         )
 
@@ -765,19 +771,22 @@ static func _run_research_arm_grip_severity_bands(failures: PackedStringArray) -
     if not CombatConstants.FEATURE_ARM_WOUND_DEGRADATION:
         SimulationCombatTests._fail(failures, "research_grip: FEATURE_ARM_WOUND_DEGRADATION must be on")
     if not CombatResearchAnchors.arm_grip_severity_bands_ok():
-        SimulationCombatTests._fail(
-            failures,
-            (
+        (
+            SimulationCombatTests
+            . _fail(
+                failures,
                 (
-                    "research_grip_severity: minor_hand=%.1f want 10-20, severe_hand=%.1f want 30-50, "
-                    + "critical_hand=%.1f critical_forearm=%.1f want 50-70"
+                    (
+                        "research_grip_severity: minor_hand=%.1f want 10-20, severe_hand=%.1f want 30-50, "
+                        + "critical_hand=%.1f critical_forearm=%.1f want 50-70"
+                    )
+                    % [
+                        CombatResearchAnchors.arm_grip_loss_pct("hand", BleedingConstants.SEVERITY_MINOR),
+                        CombatResearchAnchors.arm_grip_loss_pct("hand", BleedingConstants.SEVERITY_SEVERE),
+                        CombatResearchAnchors.arm_grip_loss_pct("hand", BleedingConstants.SEVERITY_CRITICAL),
+                        CombatResearchAnchors.arm_grip_loss_pct("forearm", BleedingConstants.SEVERITY_CRITICAL),
+                    ]
                 )
-                % [
-                    CombatResearchAnchors.arm_grip_loss_pct("hand", BleedingConstants.SEVERITY_MINOR),
-                    CombatResearchAnchors.arm_grip_loss_pct("hand", BleedingConstants.SEVERITY_SEVERE),
-                    CombatResearchAnchors.arm_grip_loss_pct("hand", BleedingConstants.SEVERITY_CRITICAL),
-                    CombatResearchAnchors.arm_grip_loss_pct("forearm", BleedingConstants.SEVERITY_CRITICAL),
-                ]
             )
         )
 

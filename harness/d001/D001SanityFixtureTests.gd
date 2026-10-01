@@ -5,7 +5,7 @@ extends RefCounted
 ## `d001_presets`).
 
 const BattleScene := preload("res://ui/battle/BattleScene.gd")
-const _CombatRegressionHarness := preload("res://harness/regression/CombatRegressionHarness.gd")
+const CombatRegressionHarness := preload("res://harness/regression/CombatRegressionHarness.gd")
 
 const II6_PROBE_CUT: float = 22.0
 const II6_PROBE_BLUNT: float = 22.0

@@ -1,6 +1,6 @@
 class_name CombatRegressionHarnessMentalStackIntegrationTail
 extends RefCounted
-const _CombatRegressionHarness := preload("res://harness/regression/CombatRegressionHarness.gd")
+const CombatRegressionHarness := preload("res://harness/regression/CombatRegressionHarness.gd")
 
 ## Stacked-phase integration tests: verify layer precedence when multiple FEATURE flags are active.
 ## Tests that activate multiple phases simultaneously and check MENTAL_STACK_LAYER_* stamps.
@@ -70,15 +70,11 @@ static func _run_mental_stack_integration_exhausted_surrounded(failures: PackedS
 
     var picked: Dictionary = MentalStackDecider.try_pick(actions, fighter_id, mgr)
     if picked.is_empty():
-        HarnessFixtures._fail(
-            failures, "integration_exhausted_surrounded: expected exhaustion layer pick but got none"
-        )
+        HarnessFixtures._fail(failures, "integration_exhausted_surrounded: expected exhaustion layer pick but got none")
     else:
         var layer: String = str(fighter.get(CombatConstants.COMBATANT_KEY_MENTAL_STACK_LAYER, ""))
         if layer != CombatConstants.MENTAL_STACK_LAYER_EXHAUSTION:
-            HarnessFixtures._fail(
-                failures, "integration_exhausted_surrounded: want exhaustion layer got %s" % layer
-            )
+            HarnessFixtures._fail(failures, "integration_exhausted_surrounded: want exhaustion layer got %s" % layer)
 
     CombatConstants.set_feature_fight_exhaustion_index_load(-1)
     CombatConstants.set_feature_ms_positional_awareness_load(-1)
@@ -118,9 +114,7 @@ static func _run_mental_stack_integration_post_strike_surrounded_wounded(failure
     else:
         var layer: String = str(fighter.get(CombatConstants.COMBATANT_KEY_MENTAL_STACK_LAYER, ""))
         if layer != CombatConstants.MENTAL_STACK_LAYER_POST_STRIKE:
-            HarnessFixtures._fail(
-                failures, "integration_post_strike_surrounded: want post-strike layer got %s" % layer
-            )
+            HarnessFixtures._fail(failures, "integration_post_strike_surrounded: want post-strike layer got %s" % layer)
 
     CombatConstants.set_feature_ms_post_strike_load(-1)
     CombatConstants.set_feature_ms_positional_awareness_load(-1)
@@ -156,9 +150,7 @@ static func _run_mental_stack_integration_rout_medical_peril(failures: PackedStr
 
     var picked: Dictionary = MentalStackDecider.try_pick(actions, medic_id, mgr)
     if picked.is_empty():
-        HarnessFixtures._fail(
-            failures, "integration_rout_medical_peril: expected medical layer pick but got none"
-        )
+        HarnessFixtures._fail(failures, "integration_rout_medical_peril: expected medical layer pick but got none")
     else:
         var layer: String = str(medic.get(CombatConstants.COMBATANT_KEY_MENTAL_STACK_LAYER, ""))
         if layer != CombatConstants.MENTAL_STACK_LAYER_MEDICAL:
@@ -245,15 +237,11 @@ static func _run_mental_stack_integration_medical_escalation_rout(failures: Pack
 
     var picked: Dictionary = MentalStackDecider.try_pick(actions, medic_id, mgr)
     if picked.is_empty():
-        HarnessFixtures._fail(
-            failures, "integration_medical_escalation_rout: expected medical layer pick but got none"
-        )
+        HarnessFixtures._fail(failures, "integration_medical_escalation_rout: expected medical layer pick but got none")
     else:
         var layer: String = str(medic.get(CombatConstants.COMBATANT_KEY_MENTAL_STACK_LAYER, ""))
         if layer != CombatConstants.MENTAL_STACK_LAYER_MEDICAL:
-            HarnessFixtures._fail(
-                failures, "integration_medical_escalation_rout: want medical layer got %s" % layer
-            )
+            HarnessFixtures._fail(failures, "integration_medical_escalation_rout: want medical layer got %s" % layer)
 
     # Verify pack was picked over bandage (escalation bonus).
     var move_id: String = str(picked.get("move_id", ""))

@@ -130,7 +130,8 @@ static func _run_ms_l9_positional_awareness_disengage_when_surrounded(failures: 
     var player: Dictionary = mgr.combatants[0]
     var player_id: int = EntityAccess.id_int(player)
     # Make the player vulnerable: MS-L9 reads blood_volume (CombatantEntityAccess.get_blood_volume_from_node),
-    # NOT body_cutting (a tissue pool). Set blood below the L9 threshold (60) so the wounded->vulnerable path is exercised.
+    # NOT body_cutting (a tissue pool). Set blood below the L9 threshold (60) so the wounded->vulnerable path is
+    # exercised.
     var ent: CoreEntity = EntityAccess.scene_node(player) as CoreEntity
     if ent != null:
         ent.blood_volume = 40.0  # 40% remaining < 60% L9 threshold -> MS-L9 vulnerable

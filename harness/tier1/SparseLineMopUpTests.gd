@@ -1,6 +1,6 @@
 class_name Tier1SparseLineMopUpTests
 extends CombatRegressionHarnessCore
-const _CombatRegressionHarness := preload("res://harness/regression/CombatRegressionHarness.gd")
+const CombatRegressionHarness := preload("res://harness/regression/CombatRegressionHarness.gd")
 ## Tier 1 depth / engagement / targeting / surround / doctrine tests (compile split).
 ## Footing: not WF/PA owner  -  may call strike/listing paths that read **`form_str`**. Spec: LIVE_PATHS
 ## **`#wf-footing-doc-map`**.
@@ -51,9 +51,7 @@ static func _run_sparse_line_rotate_no_line_plug_weight_floor(failures: PackedSt
         return
     var w_rot: float = CombatAIActionPicker._get_action_weight(rot_act, survivor_id, mgr, true, {}, {}, reserve_only)
     if w_rot >= CombatConstants.AI_ROTATE_FILE_LINE_PLUG_MIN_WEIGHT - 0.001:
-        _fail(
-            failures, "sparse_no_plug_floor: want < line_plug min on sparse line got %.3f" % w_rot
-        )
+        _fail(failures, "sparse_no_plug_floor: want < line_plug min on sparse line got %.3f" % w_rot)
     HarnessFixtures._free_manager(mgr)
 
 
@@ -109,14 +107,10 @@ static func _run_sparse_line_swap_no_line_plug_weight_floor(failures: PackedStri
     if CombatFormationMoveListing.listed_action_is_formation_plug_pick(mgr, rear, swap_act, acts, rear_id):
         _fail(failures, "sparse_swap_plug: swap must not count as formation_plug pick")
     if CombatFormationMoveListing.swap_rank_action_legal(mgr, rear, front):
-        _fail(
-            failures, "sparse_swap_plug: line-plug relief swap should not list on sparse line"
-        )
+        _fail(failures, "sparse_swap_plug: line-plug relief swap should not list on sparse line")
     var hint: String = CombatPlayerTurnHints.front_gap_line_plug_hint(mgr, rear, acts)
     if not hint.is_empty():
-        _fail(
-            failures, "sparse_swap_plug: front_gap hint should stay empty on sparse got %s" % hint
-        )
+        _fail(failures, "sparse_swap_plug: front_gap hint should stay empty on sparse got %s" % hint)
     HarnessFixtures._free_manager(mgr)
 
 
@@ -199,9 +193,7 @@ static func _run_sparse_attempt_close_weight_zero_when_close_and_melee_listed(fa
         acts, CombatConstants.MOVE_ID_ATTEMPT_CLOSE, enemy_id
     )
     if not close_act.is_empty():
-        _fail(
-            failures, "sparse_close_weight: want attempt_close stripped from menu at CLOSE with melee listed"
-        )
+        _fail(failures, "sparse_close_weight: want attempt_close stripped from menu at CLOSE with melee listed")
         HarnessFixtures._free_manager(mgr)
         return
     HarnessFixtures._free_manager(mgr)
@@ -242,9 +234,7 @@ static func _run_sparse_strip_redundant_close_at_close(failures: PackedStringArr
         . first_action_move_vs_target(acts, CombatConstants.MOVE_ID_ATTEMPT_CLOSE, enemy_id)
         . is_empty()
     ):
-        _fail(
-            failures, "sparse_strip_close: want attempt_close removed when melee listed at CLOSE"
-        )
+        _fail(failures, "sparse_strip_close: want attempt_close removed when melee listed at CLOSE")
     HarnessFixtures._free_manager(mgr)
 
 
@@ -284,9 +274,7 @@ static func _run_hold_line_close_filter_omits_close_at_close_non_mop_up(failures
         . first_action_move_vs_target(close_pool, CombatConstants.MOVE_ID_ATTEMPT_CLOSE, enemy_id)
         . is_empty()
     ):
-        _fail(
-            failures, "hold_line_close_filter: non-mop-up CLOSE must omit attempt_close without melee"
-        )
+        _fail(failures, "hold_line_close_filter: non-mop-up CLOSE must omit attempt_close without melee")
     HarnessFixtures._free_manager(mgr)
 
 
@@ -389,9 +377,7 @@ static func _run_fight_finish_reserve_only_skips_hold_wait(failures: PackedStrin
     var layer: String = str(center.get(CombatConstants.COMBATANT_KEY_MENTAL_STACK_LAYER, ""))
     var mid: String = str(picked.get("move_id", ""))
     if layer == CombatConstants.MENTAL_STACK_LAYER_HOLD_LINE and mid == CombatConstants.MOVE_ID_WAIT:
-        _fail(
-            failures, "fight_finish_skip_wait: hold_line must not pick wait when close pool empty at CLOSE"
-        )
+        _fail(failures, "fight_finish_skip_wait: hold_line must not pick wait when close pool empty at CLOSE")
     HarnessFixtures._free_manager(mgr)
 
 
@@ -518,9 +504,7 @@ static func _run_fight_finish_rank0_swap_weight_zero(failures: PackedStringArray
     }
     var w_swap: float = CombatAIActionPicker._get_action_weight(swap_act, player_id, mgr, true, {}, {}, acts)
     if w_swap > 0.001:
-        _fail(
-            failures, "fight_finish_swap_weight: want 0 swap weight on rank-0 mop-up got %.3f" % w_swap
-        )
+        _fail(failures, "fight_finish_swap_weight: want 0 swap weight on rank-0 mop-up got %.3f" % w_swap)
     HarnessFixtures._free_manager(mgr)
 
 
@@ -605,9 +589,7 @@ static func _run_sparse_skirmish_line_fight_hint(failures: PackedStringArray) ->
     if CombatListedActions.action_list_has_hostile_melee_strike(acts, survivor_id):
         var hold_hint: String = CombatPlayerTurnHints.hold_line_focus_only_hint(mgr, survivor, acts)
         if "close in or strike" not in hold_hint:
-            _fail(
-                failures, "sparse_fight_hint: strikes_listed want hold-line finish copy got %s" % hold_hint
-            )
+            _fail(failures, "sparse_fight_hint: strikes_listed want hold-line finish copy got %s" % hold_hint)
         CombatPlayerTurnHints.sync_hold_line_focus_only_hint_on_combatant(mgr, survivor, acts)
         if str(survivor.get(CombatConstants.COMBATANT_KEY_HOLD_LINE_FOCUS_ONLY_HINT, "")).is_empty():
             _fail(failures, "sparse_fight_hint: want hold-line stamp on combatant dict")
@@ -657,9 +639,7 @@ static func _run_mop_up_sparse_fight_finish_hint(failures: PackedStringArray) ->
     if "close or strike" not in hint:
         _fail(failures, "mop_up_sparse_hint: want fight-first copy got %s" % hint)
     if "rotate with an adjacent" in hint:
-        _fail(
-            failures, "mop_up_sparse_hint: rotate shuffle copy should not show during fight-finish"
-        )
+        _fail(failures, "mop_up_sparse_hint: rotate shuffle copy should not show during fight-finish")
     HarnessFixtures._free_manager(mgr)
 
 
@@ -692,9 +672,7 @@ static func _run_sparse_line_hold_close_pick_eligible(failures: PackedStringArra
         HarnessFixtures._free_manager(mgr)
         return
     if not CombatDoctrine.hold_line_close_pick_eligible(mgr, survivor):
-        _fail(
-            failures, "sparse_close_eligible: want hold_line close eligible on sparse rank-0 survivor"
-        )
+        _fail(failures, "sparse_close_eligible: want hold_line close eligible on sparse rank-0 survivor")
     HarnessFixtures._free_manager(mgr)
 
 
@@ -803,9 +781,7 @@ static func _run_sparse_line_attrition_offense_exempt(failures: PackedStringArra
         return
     var mult: float = CombatAIActionPicker._attrition_offense_weight_mult(mgr, survivor)
     if absf(mult - 1.0) > 0.001:
-        _fail(
-            failures, "sparse_attrition: want 1.0 offense mult on sparse line got %.3f" % mult
-        )
+        _fail(failures, "sparse_attrition: want 1.0 offense mult on sparse line got %.3f" % mult)
     HarnessFixtures._free_manager(mgr)
 
 
@@ -828,9 +804,7 @@ static func _run_mop_up_underdog_attrition_offense_exempt(failures: PackedString
         _fail(failures, "mop_up_underdog_attrition: want underdog active on last enemy")
     var mult: float = CombatAIActionPicker._attrition_offense_weight_mult(mgr, enemy)
     if absf(mult - 1.0) > 0.001:
-        _fail(
-            failures, "mop_up_underdog_attrition: want 1.0 offense mult on underdog got %.3f" % mult
-        )
+        _fail(failures, "mop_up_underdog_attrition: want 1.0 offense mult on underdog got %.3f" % mult)
     HarnessFixtures._free_manager(mgr)
 
 
@@ -855,9 +829,7 @@ static func _run_mop_up_underdog_mental_stack_picks_offense(failures: PackedStri
     var enemy_id: int = CombatantEntityAccess.id_int(enemy)
     var acts: Array = AvailableActionsBuilder.build(mgr, enemy_id)
     if not CombatListedActions.action_list_has_hostile_strike(acts, enemy_id):
-        _fail(
-            failures, "mop_up_underdog_stack: want hostile strike or close listed for last enemy"
-        )
+        _fail(failures, "mop_up_underdog_stack: want hostile strike or close listed for last enemy")
         HarnessFixtures._free_manager(mgr)
         return
     var picked: Dictionary = MentalStackDecider.try_pick(acts, enemy_id, mgr)
@@ -915,9 +887,7 @@ static func _run_mop_up_finish_wait_below_offense_weight(failures: PackedStringA
     var w_offense: float = CombatAIActionPicker._get_action_weight(offense_act, player_id, mgr, true, {}, {}, acts)
     var w_wait: float = CombatAIActionPicker._get_action_weight(wait_act, player_id, mgr, true, {}, {}, acts)
     if w_offense <= w_wait:
-        _fail(
-            failures, "mop_up_wait_weight: want offense > wait got offense=%.3f wait=%.3f" % [w_offense, w_wait]
-        )
+        _fail(failures, "mop_up_wait_weight: want offense > wait got offense=%.3f wait=%.3f" % [w_offense, w_wait])
     HarnessFixtures._free_manager(mgr)
 
 ## Post-flee sparse: wait damped below listed offense when finishing on a sparse front.

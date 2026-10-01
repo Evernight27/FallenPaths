@@ -942,4 +942,3 @@ static func _run_kinematic_delivery_misaligned_guard_scales_sharp_and_blunt_pen(
 ## Tier 5.1 (optional long-tail): **`strike_mods.cut_damage_mult`** and **`blunt_damage_mult`** in
 ## **`compute_and_apply_damage`** — `pre_cut` * cut_damage_mult; `penetration_sharp` * sharp_penetration_mult^exp
 ## — swing delivery with parry redirection.
-

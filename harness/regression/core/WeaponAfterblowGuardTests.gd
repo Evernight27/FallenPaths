@@ -67,8 +67,8 @@ static func _run_weapon_move_coverage(failures: PackedStringArray) -> void:
                         _fail(failures, "weapon_audit: %s %s=%.2f outside valid range [0.7, 1.2]" % [wname, key, val])
 
 
-
 ## Tier 3.2 (weapon audit): verify parts mass_fraction sums to ~1.0 for each weapon.
+
 
 ## Tier 3.2 (weapon audit): verify parts mass_fraction sums to ~1.0 for each weapon.
 static func _run_weapon_parts_mass_sum(failures: PackedStringArray) -> void:
@@ -85,7 +85,6 @@ static func _run_weapon_parts_mass_sum(failures: PackedStringArray) -> void:
                 sum_f += float(part.get("mass_fraction", 0.0))
         if absf(sum_f - 1.0) > 0.01:
             _fail(failures, "weapon_audit: %s parts mass_fraction sum=%.3f (expected ~1.0)" % [wname, sum_f])
-
 
 
 ## Tier 3.2 (weapon audit): sharpness -> effective sharp contact width is physically grounded. A sharp edge has a
@@ -120,17 +119,32 @@ static func _run_weapon_sharpness_effective_contact_width(failures: PackedString
         if absf(sharp_w - apex) > 0.01:
             _fail(failures, "sharp_width: %s sharp width=%.3f want apex=%.3f" % [wname, sharp_w, apex])
         if absf(dull_w - geometric) > 0.01:
-            _fail(failures, "sharp_width: %s dull width=%.3f want geometric=%.3f (capped at blade)" % [wname, dull_w, geometric])
+            _fail(
+                failures,
+                "sharp_width: %s dull width=%.3f want geometric=%.3f (capped at blade)" % [wname, dull_w, geometric]
+            )
         if sharp_w >= dull_w:
-            _fail(failures, "sharp_width: %s sharp=%.3f should be < dull=%.3f (sharper = narrower)" % [wname, sharp_w, dull_w])
+            _fail(
+                failures,
+                "sharp_width: %s sharp=%.3f should be < dull=%.3f (sharper = narrower)" % [wname, sharp_w, dull_w]
+            )
         if dull_w > geometric + 0.01:
-            _fail(failures, "sharp_width: %s dull width=%.3f exceeds blade width=%.3f (impossible)" % [wname, dull_w, geometric])
+            _fail(
+                failures,
+                "sharp_width: %s dull width=%.3f exceeds blade width=%.3f (impossible)" % [wname, dull_w, geometric]
+            )
         if sharp_w < WeaponConstants.MIN_CONTACT_WIDTH_CM - 1e-6:
-            _fail(failures, "sharp_width: %s sharp width=%.3f below floor %.3f" % [wname, sharp_w, WeaponConstants.MIN_CONTACT_WIDTH_CM])
-
+            _fail(
+                failures,
+                (
+                    "sharp_width: %s sharp width=%.3f below floor %.3f"
+                    % [wname, sharp_w, WeaponConstants.MIN_CONTACT_WIDTH_CM]
+                )
+            )
 
 
 ## Tier 3.2 (weapon audit): verify each weapon has at least one feint move and one parry-counter move.
+
 
 ## Tier 3.2 (weapon audit): verify each weapon has at least one feint move and one parry-counter move.
 static func _run_weapon_feint_parry_coverage(failures: PackedStringArray) -> void:
@@ -158,8 +172,8 @@ static func _run_weapon_feint_parry_coverage(failures: PackedStringArray) -> voi
             _fail(failures, "weapon_audit: %s has no parry-counter move" % wname)
 
 
-
 ## Tier 3.2 (weapon audit): angle_variance_deg within expected range per weapon weight class.
+
 
 ## Tier 3.2 (weapon audit): angle_variance_deg within expected range per weapon weight class.
 static func _run_weapon_angle_variance_ranges(failures: PackedStringArray) -> void:
@@ -272,10 +286,11 @@ static func _afterblow_harness_seed_pending_cut(mgr: Node, attacker_index: int, 
     atk["pending_attack"] = pa
     defc.erase("off_balance_until")
     # Afterblow: attacker (index) executes against defender (index). The guard value must be set on the
-     # combatant that will DEFEND during _execute_attack -- i.e. the defender. In the harness tests,
+    # combatant that will DEFEND during _execute_attack -- i.e. the defender. In the harness tests,
     # _afterblow_harness_seed_pending_cut(mgr, 1, 0) sets up combatant 1 as initial attacker and
     # combatant 0 as initial defender. But afterblow reverses roles: combatant 0 attacks, combatant 1 defends.
-    # Set guard=0 on the actual defender (combatant at defender_index from caller's perspective = mgr.combatants[defender_index]).
+    # Set guard=0 on the actual defender (combatant at defender_index from caller's perspective =
+    # mgr.combatants[defender_index]).
     mgr.combatants[defender_index]["guard"] = 0.0
 
 
@@ -305,7 +320,12 @@ static func _run_afterblow_deflected_triggers_full_resolve_hit(failures: PackedS
         "final_blunt": 0.0,
         "final_bone": 0.0,
     }
-    print("[AFTERBLOW_DEBUG] deflected: tgt_state=%s tgt_guard=%s" % [EntityAccess.state_str(atk), str(mgr.combatants[0].get("guard","?"))])
+    print(
+        (
+            "[AFTERBLOW_DEBUG] deflected: tgt_state=%s tgt_guard=%s"
+            % [EntityAccess.state_str(atk), str(mgr.combatants[0].get("guard", "?"))]
+        )
+    )
     if not AfterblowHandler.try_afterblow(mgr, 0, tid, rd, 1.0):
         _fail(failures, "afterblow_deflected_hit: try_afterblow false (seed=%d)" % _AFTERBLOW_EXECUTE_HIT_SEED)
         mgr.remove_meta(HARNESS_META_RECORD_AFTERBLOW_MULT)

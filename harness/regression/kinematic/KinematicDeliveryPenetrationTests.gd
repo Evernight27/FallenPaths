@@ -649,8 +649,10 @@ static func _run_kinetic_delivery_blunt_penetration_contact_mirrors_damage_cap(f
     if absf(got_mace - WeaponConstants.BLUNT_HEAD_MAX_CONTACT_CM) > 0.0001:
         _fail(
             failures,
-            "kin_blunt_pen_cap: MACE penetration contact %.4f want damage-channel cap %.4f"
-            % [got_mace, WeaponConstants.BLUNT_HEAD_MAX_CONTACT_CM]
+            (
+                "kin_blunt_pen_cap: MACE penetration contact %.4f want damage-channel cap %.4f"
+                % [got_mace, WeaponConstants.BLUNT_HEAD_MAX_CONTACT_CM]
+            )
         )
     var raw_mace: float = mace.get_blunt_contact_cm("direct_blow")
     if raw_mace <= WeaponConstants.BLUNT_HEAD_MAX_CONTACT_CM + 0.0001:
@@ -670,7 +672,10 @@ static func _run_kinetic_delivery_blunt_penetration_contact_mirrors_damage_cap(f
     if absf(got_pommel - want_pommel) > 0.0001:
         _fail(
             failures,
-            "kin_blunt_pen_cap: SWORD pommel penetration contact %.4f want min(raw, cap)=%.4f" % [got_pommel, want_pommel]
+            (
+                "kin_blunt_pen_cap: SWORD pommel penetration contact %.4f want min(raw, cap)=%.4f"
+                % [got_pommel, want_pommel]
+            )
         )
 
 

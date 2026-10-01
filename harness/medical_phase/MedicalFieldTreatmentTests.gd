@@ -1,9 +1,14 @@
 class_name MedicalFieldTreatmentTests
+
 extends CombatRegressionHarnessCore
-## Tier 6.3 medical phase + treatment tests split from CombatRegressionHarness (compile size).
+
+## Tier 6.3 field-care + treatment: untreated baseline parity, pressure/bandage/pack
+## retention and ordering, dressing compression rules, stabilize semantics, research
+## anchors (clotting half-life, reference bleed), triage bleed peril and ambient pain/shock.
 
 const BattleScene := preload("res://ui/battle/BattleScene.gd")
-const _CombatRegressionHarness := preload("res://harness/regression/CombatRegressionHarness.gd")
+
+const CombatRegressionHarness := preload("res://harness/regression/CombatRegressionHarness.gd")
 
 
 static func _run_entity_untreated_matches_bridge(failures: PackedStringArray) -> void:
@@ -48,14 +53,13 @@ static func _run_pressure_held_until_dressed(failures: PackedStringArray) -> voi
 
 ## Field care: one procedure step advances sim bleed time (150 s), not UI label (120 s).
 
-
 ## Field care: one procedure step advances sim bleed time (150 s), not UI label (120 s).
+
+
 static func _run_field_care_procedure_sim_advance_seconds(failures: PackedStringArray) -> void:
     var want: float = MapFieldCare.FIELD_CARE_SIM_ADVANCE_SECONDS
     if not is_equal_approx(want, 150.0):
-        _fail(
-            failures, "field_care_sim: FIELD_CARE_SIM_ADVANCE_SECONDS want 150 got %.1f" % want
-        )
+        _fail(failures, "field_care_sim: FIELD_CARE_SIM_ADVANCE_SECONDS want 150 got %.1f" % want)
     var ent: Node = _new_entity("SWORD")
     ent.wounds["chest"] = [
         {
@@ -86,8 +90,9 @@ static func _run_field_care_procedure_sim_advance_seconds(failures: PackedString
 
 ## LIVE_PATHS S1: moderate venous may reach local hemostasis under sustained pressure over field-care window.
 
-
 ## LIVE_PATHS S1: moderate venous may reach local hemostasis under sustained pressure over field-care window.
+
+
 static func _run_field_care_venous_clot_under_procedure(failures: PackedStringArray) -> void:
     var ent: Node = _new_entity("SWORD")
     ent.wounds["left_leg"] = [
@@ -100,9 +105,7 @@ static func _run_field_care_venous_clot_under_procedure(failures: PackedStringAr
         },
     ]
     if not ent.apply_direct_pressure("left_leg"):
-        _fail(
-            failures, "field_care_venous_clot: apply_direct_pressure failed (need free hand for leg hold)"
-        )
+        _fail(failures, "field_care_venous_clot: apply_direct_pressure failed (need free hand for leg hold)")
         MedicalPhaseGateTests._free_entity_fixture(ent)
         return
     if ent.has_method("process_bleeding"):
@@ -125,8 +128,9 @@ static func _run_field_care_venous_clot_under_procedure(failures: PackedStringAr
 
 ## Arterial rates stay lethal under compression until dressed (pressure alone over one procedure).
 
-
 ## Arterial rates stay lethal under compression until dressed (pressure alone over one procedure).
+
+
 static func _run_field_care_arterial_stays_lethal_under_procedure(failures: PackedStringArray) -> void:
     var ent: Node = _new_entity("SWORD")
     ent.wounds["chest"] = [
@@ -145,16 +149,15 @@ static func _run_field_care_arterial_stays_lethal_under_procedure(failures: Pack
         ent.process_blood_loss(MapFieldCare.FIELD_CARE_SIM_ADVANCE_SECONDS)
     var rate: float = EntityWounds.get_bleeding_rate_for_part(ent, "chest")
     if rate <= BleedingConstants.BLEEDING_RATE_EPSILON:
-        _fail(
-            failures, "field_care_arterial: arterial should stay bleeding after one procedure got rate=%.4f" % rate
-        )
+        _fail(failures, "field_care_arterial: arterial should stay bleeding after one procedure got rate=%.4f" % rate)
     MedicalPhaseGateTests._free_entity_fixture(ent)
 
 
 ## Controlled moderate venous field procedure: blood volume stays ATLS class II+ (70% remaining).
 
-
 ## Controlled moderate venous field procedure: blood volume stays ATLS class II+ (70% remaining).
+
+
 static func _run_field_care_venous_blood_loss_bounded(failures: PackedStringArray) -> void:
     var ent: Node = _new_entity("SWORD")
     ent.blood_volume = BleedingConstants.MAX_BLOOD_VOLUME
@@ -185,8 +188,9 @@ static func _run_field_care_venous_blood_loss_bounded(failures: PackedStringArra
 
 ## TCCC: venous ~10% / arterial ~50% flow retained under sustained direct pressure (displayed bleed rate).
 
-
 ## TCCC: venous ~10% / arterial ~50% flow retained under sustained direct pressure (displayed bleed rate).
+
+
 static func _run_direct_pressure_flow_retention_venous_vs_arterial_parity(failures: PackedStringArray) -> void:
     var intrinsic: float = 0.4
     var venous: Node = _new_entity("SWORD")
@@ -249,8 +253,9 @@ static func _run_direct_pressure_flow_retention_venous_vs_arterial_parity(failur
 
 ## Camp-2.1 <-> combat: active bleed blocks field bandage until compression; matches medical-phase dressings gate.
 
-
 ## Camp-2.1 <-> combat: active bleed blocks field bandage until compression; matches medical-phase dressings gate.
+
+
 static func _run_field_care_pressure_before_bandage_parity(failures: PackedStringArray) -> void:
     var ent: Node = _new_entity("SWORD")
     ent.wounds["chest"] = [
@@ -263,13 +268,9 @@ static func _run_field_care_pressure_before_bandage_parity(failures: PackedStrin
     ]
     var member: Dictionary = {"name": "Fielder", "node_ref": ent}
     if not MapFieldCare.field_bandage_needs_pressure_first(member):
-        _fail(
-            failures, "field_pressure_first: active bleed without hold should wait on pressure"
-        )
+        _fail(failures, "field_pressure_first: active bleed without hold should wait on pressure")
     if not MapFieldCare.field_bandage_part_ready(member).is_empty():
-        _fail(
-            failures, "field_pressure_first: bandage-ready part should be empty until compressed"
-        )
+        _fail(failures, "field_pressure_first: bandage-ready part should be empty until compressed")
     var mgr: Node = CombatManager.new()
     var healer_ent := _new_entity("SWORD")
     mgr.register(healer_ent, "player")
@@ -278,45 +279,36 @@ static func _run_field_care_pressure_before_bandage_parity(failures: PackedStrin
     mgr.medical_phase_winner = "player"
     var ally_c: Dictionary = mgr.combatants[1]
     if MedicalPhaseController.dressings_allowed_for_part(mgr, ally_c, "chest"):
-        _fail(
-            failures, "field_pressure_first: combat dressings should block until pressure on chest"
-        )
+        _fail(failures, "field_pressure_first: combat dressings should block until pressure on chest")
     if not ent.apply_direct_pressure("chest"):
         _fail(failures, "field_pressure_first: apply_direct_pressure failed")
         HarnessFixtures._free_manager(mgr)
         MedicalPhaseGateTests._free_entity_fixture(ent)
         return
     if MapFieldCare.field_bandage_needs_pressure_first(member):
-        _fail(
-            failures, "field_pressure_first: compression held should clear pressure-first wait"
-        )
+        _fail(failures, "field_pressure_first: compression held should clear pressure-first wait")
     if MapFieldCare.field_bandage_part_ready(member) != "chest":
         _fail(
             failures,
             "field_pressure_first: want bandage-ready chest got '%s'" % MapFieldCare.field_bandage_part_ready(member)
         )
     if not MedicalPhaseController.dressings_allowed_for_part(mgr, ally_c, "chest"):
-        _fail(
-            failures, "field_pressure_first: combat dressings should allow after pressure held"
-        )
+        _fail(failures, "field_pressure_first: combat dressings should allow after pressure held")
     HarnessFixtures._free_manager(mgr)
 
 
 ## EntityMedical production gate: bandage/pack blocked on active bleed without compression (all call sites).
 
-
 ## EntityMedical production gate: bandage/pack blocked on active bleed without compression (all call sites).
+
+
 static func _run_entity_medical_dressing_requires_compression_when_bleeding(failures: PackedStringArray) -> void:
     var ent: Node = _new_entity("SWORD")
     MedicalPhaseGateTests._harness_wound_chest_for_packing(ent)
     if ent._can_apply_bandage("chest"):
-        _fail(
-            failures, "entity_dress_gate: bandage should require compression on active chest bleed"
-        )
+        _fail(failures, "entity_dress_gate: bandage should require compression on active chest bleed")
     if ent.can_apply_packing("chest"):
-        _fail(
-            failures, "entity_dress_gate: pack should require compression on active chest bleed"
-        )
+        _fail(failures, "entity_dress_gate: pack should require compression on active chest bleed")
     MedicalPhaseGateTests._harness_hold_pressure_if_bleeding(ent, "chest")
     if not ent.can_apply_packing("chest"):
         _fail(failures, "entity_dress_gate: pack should be legal once compression is held")
@@ -325,8 +317,9 @@ static func _run_entity_medical_dressing_requires_compression_when_bleeding(fail
 
 ## Camp-2.1 <-> combat: junctional pack waits on compression like bandage.
 
-
 ## Camp-2.1 <-> combat: junctional pack waits on compression like bandage.
+
+
 static func _run_field_care_pressure_before_pack_parity(failures: PackedStringArray) -> void:
     var ent: Node = _new_entity("SWORD")
     MedicalPhaseGateTests._harness_wound_chest_for_packing(ent)
@@ -338,16 +331,15 @@ static func _run_field_care_pressure_before_pack_parity(failures: PackedStringAr
         MedicalPhaseGateTests._free_entity_fixture(ent)
         return
     if MapFieldCare.field_pack_part_ready(member) != "chest":
-        _fail(
-            failures, "field_pack_gate: want pack-ready chest got '%s'" % MapFieldCare.field_pack_part_ready(member)
-        )
+        _fail(failures, "field_pack_gate: want pack-ready chest got '%s'" % MapFieldCare.field_pack_part_ready(member))
     MedicalPhaseGateTests._free_entity_fixture(ent)
 
 
 ## Stabilize-only success still counts as untreated (camp / bridge / field dress chain).
 
-
 ## Stabilize-only success still counts as untreated (camp / bridge / field dress chain).
+
+
 static func _run_stabilize_success_still_untreated_for_camp(failures: PackedStringArray) -> void:
     var ent: Node = _new_entity("SWORD")
     ent.wounds["chest"] = [
@@ -365,16 +357,15 @@ static func _run_stabilize_success_still_untreated_for_camp(failures: PackedStri
         MedicalPhaseGateTests._free_entity_fixture(ent)
         return
     if not EntityWounds.entity_has_untreated_wounds(ent):
-        _fail(
-            failures, "stabilize_untreated: stabilize-only must still block camp rest / travel dress"
-        )
+        _fail(failures, "stabilize_untreated: stabilize-only must still block camp rest / travel dress")
     MedicalPhaseGateTests._free_entity_fixture(ent)
 
 
 ## Failed pack keeps compression (TCCC retry path).
 
-
 ## Failed pack keeps compression (TCCC retry path).
+
+
 static func _run_failed_packing_retains_direct_pressure(failures: PackedStringArray) -> void:
     var ent: Node = _new_entity("SWORD")
     MedicalPhaseGateTests._harness_wound_chest_for_packing(ent)
@@ -391,8 +382,9 @@ static func _run_failed_packing_retains_direct_pressure(failures: PackedStringAr
 
 ## Research anchor: severity clot half-life ordering + bandaged hemostasis band (60 - 300 s).
 
-
 ## Research anchor: severity clot half-life ordering + bandaged hemostasis band (60 - 300 s).
+
+
 static func _run_research_anchor_clotting_half_life_physics(failures: PackedStringArray) -> void:
     if not CombatResearchAnchors.clotting_half_life_ordering_ok():
         _fail(failures, "clot_anchor: minor<moderate<severe<critical half-life ordering failed")
@@ -411,8 +403,9 @@ static func _run_research_anchor_clotting_half_life_physics(failures: PackedStri
 
 ## LIVE_PATHS bleeding physics: shipped reference bleed rate + BLOOD_LOSS_RATE_MULTIPLIER match research derivation.
 
-
 ## LIVE_PATHS bleeding physics: shipped reference bleed rate + BLOOD_LOSS_RATE_MULTIPLIER match research derivation.
+
+
 static func _run_research_anchor_reference_bleed_derivation_parity(failures: PackedStringArray) -> void:
     var deriv: Dictionary = CombatResearchAnchors.reference_bleed_rate_derivation()
     if not bool(deriv.get("matches_reference_const", false)):
@@ -452,8 +445,9 @@ static func _run_research_anchor_reference_bleed_derivation_parity(failures: Pac
 
 ## Reference uncontrolled bleed: danger/peril gates + PartyRowFormatter danger ETA match BleedingConstants TTD math.
 
-
 ## Reference uncontrolled bleed: danger/peril gates + PartyRowFormatter danger ETA match BleedingConstants TTD math.
+
+
 static func _run_medical_triage_reference_bleed_peril_parity(failures: PackedStringArray) -> void:
     var ref_rate: float = BleedingConstants.REFERENCE_UNCONTROLLED_BLEED_RATE
     var ref_ttd: float = CombatResearchAnchors.clinical_ttd_seconds(1.0)
@@ -520,16 +514,15 @@ static func _run_medical_triage_reference_bleed_peril_parity(failures: PackedStr
         )
     )
     if absf(eta_danger - want_danger_eta) > 0.05:
-        _fail(
-            failures, "triage_eta: PartyRowFormatter danger ETA got %.2f want %.2f" % [eta_danger, want_danger_eta]
-        )
+        _fail(failures, "triage_eta: PartyRowFormatter danger ETA got %.2f want %.2f" % [eta_danger, want_danger_eta])
     HarnessFixtures._free_manager(mgr)
 
 
 ## D-004 ambient path: sub-threshold pain clears accum; sustained NRS-shock-band pain accumulates delta.
 
-
 ## D-004 ambient path: sub-threshold pain clears accum; sustained NRS-shock-band pain accumulates delta.
+
+
 static func _run_ambient_pain_shock_tick_accum_physics(failures: PackedStringArray) -> void:
     var prior_flag: bool = CombatConstants.is_feature_ambient_pain_shock()
     CombatConstants.set_feature_ambient_pain_shock(true)
@@ -572,9 +565,7 @@ static func _run_ambient_pain_shock_tick_accum_physics(failures: PackedStringArr
     var eff: float = EntityPainConsciousness.get_effective_pain_for_thresholds(high)
     var shock_thresh: float = PainConsciousnessConstants.get_pain_shock_threshold()
     if eff <= shock_thresh:
-        _fail(
-            failures, "ambient_pain fixture: need effective pain > %.1f got %.2f" % [shock_thresh, eff]
-        )
+        _fail(failures, "ambient_pain fixture: need effective pain > %.1f got %.2f" % [shock_thresh, eff])
     high._ambient_pain_shock_accum = 0.0
     EntityPainConsciousness.try_ambient_pain_shock_tick(high, 1.0)
     if high._ambient_pain_shock_accum < 0.99:
@@ -592,8 +583,9 @@ static func _run_ambient_pain_shock_tick_accum_physics(failures: PackedStringArr
 
 ## D-004 ambient path: seeded RNG roll at interval enters pain shock (`_pain_shock_until_time` set).
 
-
 ## D-004 ambient path: seeded RNG roll at interval enters pain shock (`_pain_shock_until_time` set).
+
+
 static func _run_ambient_pain_shock_seeded_rng_enters_shock(failures: PackedStringArray) -> void:
     var prior_flag: bool = CombatConstants.is_feature_ambient_pain_shock()
     CombatConstants.set_feature_ambient_pain_shock(true)
@@ -620,9 +612,7 @@ static func _run_ambient_pain_shock_seeded_rng_enters_shock(failures: PackedStri
     var shock_thresh: float = PainConsciousnessConstants.get_pain_shock_threshold()
     shock_thresh += (float(ent.endurance) - 100.0) * 0.02
     if pain <= shock_thresh:
-        _fail(
-            failures, "ambient_shock_seed: need effective pain > %.1f got %.2f" % [shock_thresh, pain]
-        )
+        _fail(failures, "ambient_shock_seed: need effective pain > %.1f got %.2f" % [shock_thresh, pain])
         CombatConstants.set_feature_ambient_pain_shock(prior_flag)
         MedicalPhaseGateTests._free_entity_fixture(ent)
         return
@@ -668,9 +658,7 @@ static func _run_ambient_pain_shock_seeded_rng_enters_shock(failures: PackedStri
         ent._ambient_pain_shock_accum = interval - 0.001
         seed(lose_seed)
         if EntityPainConsciousness.try_ambient_pain_shock_tick(ent, 0.01):
-            _fail(
-                failures, "ambient_shock_seed: roll>=risk should not enter shock at seed=%d" % lose_seed
-            )
+            _fail(failures, "ambient_shock_seed: roll>=risk should not enter shock at seed=%d" % lose_seed)
     CombatConstants.set_feature_ambient_pain_shock(prior_flag)
     seed(_HARNESS_RESTORE_GLOBAL_SEED)
     MedicalPhaseGateTests._free_entity_fixture(ent)
@@ -678,8 +666,9 @@ static func _run_ambient_pain_shock_seeded_rng_enters_shock(failures: PackedStri
 
 ## D-004: ambient pain-shock rolls gated by **`FEATURE_AMBIENT_PAIN_SHOCK`**.
 
-
 ## D-004: ambient pain-shock rolls gated by **`FEATURE_AMBIENT_PAIN_SHOCK`**.
+
+
 static func _run_ambient_pain_shock_skips_when_feature_off(failures: PackedStringArray) -> void:
     var prior_flag: bool = CombatConstants.is_feature_ambient_pain_shock()
     CombatConstants.set_feature_ambient_pain_shock(false)
@@ -699,9 +688,10 @@ static func _run_ambient_pain_shock_skips_when_feature_off(failures: PackedStrin
 ## Stabilize (hemostatic hold) trims rate but does not mark injuries `is_stabilized`  -  definitive dress still
 ## required.
 
-
 ## Stabilize (hemostatic hold) trims rate but does not mark injuries `is_stabilized`  -  definitive dress still
 ## required.
+
+
 static func _run_stabilize_hold_does_not_mark_injury_stabilized(failures: PackedStringArray) -> void:
     var ent: Node = _new_entity("SWORD")
     ent.wounds["chest"] = [
@@ -724,20 +714,17 @@ static func _run_stabilize_hold_does_not_mark_injury_stabilized(failures: Packed
     if bool(ent.bandaged_parts.get("chest", false)):
         _fail(failures, "stabilize_flag: stabilize must not set bandaged_parts")
     if bool(ent.wounds["chest"][0].get("is_stabilized", false)):
-        _fail(
-            failures, "stabilize_flag: stabilize must not set is_stabilized (dress/pack only)"
-        )
+        _fail(failures, "stabilize_flag: stabilize must not set is_stabilized (dress/pack only)")
     if not EntityWounds.entity_has_untreated_wounds(ent):
-        _fail(
-            failures, "stabilize_flag: stabilize alone must still count as untreated for camp/field dress"
-        )
+        _fail(failures, "stabilize_flag: stabilize alone must still count as untreated for camp/field dress")
     MedicalPhaseGateTests._free_entity_fixture(ent)
 
 
 ## TCCC: intrinsic bleed may reach 0 under compression, but pressure stays until definitive dress.
 
-
 ## TCCC: intrinsic bleed may reach 0 under compression, but pressure stays until definitive dress.
+
+
 static func _run_dressings_allowed_when_locally_clotted_under_pressure(failures: PackedStringArray) -> void:
     var mgr: Node = CombatManager.new()
     var ally_ent := _new_entity("SWORD")
@@ -758,17 +745,13 @@ static func _run_dressings_allowed_when_locally_clotted_under_pressure(failures:
         ally_ent.process_blood_loss(MapFieldCare.FIELD_CARE_SIM_ADVANCE_SECONDS)
     var intrinsic: float = float(ally_ent.wounds["left_leg"][0].get("current_bleeding_rate", 0.0))
     if intrinsic > BleedingConstants.BLEEDING_RATE_EPSILON:
-        _fail(
-            failures, "local_clot_dress: fixture should clot intrinsically got rate=%.5f" % intrinsic
-        )
+        _fail(failures, "local_clot_dress: fixture should clot intrinsically got rate=%.5f" % intrinsic)
         HarnessFixtures._free_manager(mgr)
         MedicalPhaseGateTests._free_entity_fixture(ally_ent)
         MedicalPhaseGateTests._free_entity_fixture(healer_ent)
         return
     if ally_ent.self_direct_pressure_part != "left_leg":
-        _fail(
-            failures, "local_clot_dress: TCCC hold until dressed (part=%s)" % ally_ent.self_direct_pressure_part
-        )
+        _fail(failures, "local_clot_dress: TCCC hold until dressed (part=%s)" % ally_ent.self_direct_pressure_part)
     mgr.register(healer_ent, "player")
     mgr.register(ally_ent, "player")
     mgr.medical_phase = true
@@ -776,9 +759,7 @@ static func _run_dressings_allowed_when_locally_clotted_under_pressure(failures:
     var healer_c: Dictionary = mgr.combatants[0]
     var ally_c: Dictionary = mgr.combatants[1]
     if not MedicalPhaseController.dressings_allowed_for_part(mgr, ally_c, "left_leg"):
-        _fail(
-            failures, "local_clot_dress: dressings should be allowed when display bleed is controlled"
-        )
+        _fail(failures, "local_clot_dress: dressings should be allowed when display bleed is controlled")
     var acts: Array = MedicalPhaseController.get_ally_medical_actions(mgr, healer_c, ally_c, "left_leg")
     var has_bandage: bool = false
     for raw in acts:
@@ -788,857 +769,6 @@ static func _run_dressings_allowed_when_locally_clotted_under_pressure(failures:
         _fail(failures, "local_clot_dress: bandage should list after local clot under pressure")
     HarnessFixtures._free_manager(mgr)
 
-
 ## Field stabilize: hemostatic trim must apply before procedure sim advance (not after).
 
-
 ## Field stabilize: hemostatic trim must apply before procedure sim advance (not after).
-static func _run_field_stabilize_trim_before_procedure_advance(failures: PackedStringArray) -> void:
-    var wound_row: Dictionary = {
-        "current_bleeding_rate": 0.35,
-        "base_bleeding_rate": 0.8,
-        "severity": BleedingConstants.SEVERITY_MODERATE,
-        "is_arterial": false,
-        "is_stabilized": false,
-    }
-    var advance_only: Node = _new_entity("SWORD")
-    advance_only.wounds["chest"] = [wound_row.duplicate(true)]
-    if not advance_only.apply_direct_pressure("chest"):
-        _fail(failures, "field_stab_order: pressure setup failed")
-        MedicalPhaseGateTests._free_entity_fixture(advance_only)
-        return
-    if advance_only.has_method("process_bleeding"):
-        advance_only.process_bleeding(MapFieldCare.FIELD_CARE_SIM_ADVANCE_SECONDS)
-    if advance_only.has_method("process_blood_loss"):
-        advance_only.process_blood_loss(MapFieldCare.FIELD_CARE_SIM_ADVANCE_SECONDS)
-    var rate_advance_only: float = float(advance_only.wounds["chest"][0].get("current_bleeding_rate", 0.0))
-    var trim_then_advance: Node = _new_entity("SWORD")
-    trim_then_advance.wounds["chest"] = [wound_row.duplicate(true)]
-    if not trim_then_advance.apply_direct_pressure("chest"):
-        _fail(failures, "field_stab_order: pressure setup failed (trim path)")
-        MedicalPhaseGateTests._free_entity_fixture(advance_only)
-        MedicalPhaseGateTests._free_entity_fixture(trim_then_advance)
-        return
-    if not trim_then_advance._apply_stabilize("chest", 1.5):
-        _fail(failures, "field_stab_order: stabilize should succeed under pressure")
-        MedicalPhaseGateTests._free_entity_fixture(advance_only)
-        MedicalPhaseGateTests._free_entity_fixture(trim_then_advance)
-        return
-    if trim_then_advance.has_method("process_bleeding"):
-        trim_then_advance.process_bleeding(MapFieldCare.FIELD_CARE_SIM_ADVANCE_SECONDS)
-    if trim_then_advance.has_method("process_blood_loss"):
-        trim_then_advance.process_blood_loss(MapFieldCare.FIELD_CARE_SIM_ADVANCE_SECONDS)
-    var rate_trim_path: float = float(trim_then_advance.wounds["chest"][0].get("current_bleeding_rate", 0.0))
-    if rate_trim_path >= rate_advance_only - 0.0001:
-        _fail(
-            failures,
-            (
-                "field_stab_order: stabilize trim before advance should lower intrinsic rate got trim=%.5f advance=%.5f"
-                % [rate_trim_path, rate_advance_only]
-            )
-        )
-    MedicalPhaseGateTests._free_entity_fixture(advance_only)
-    MedicalPhaseGateTests._free_entity_fixture(trim_then_advance)
-
-
-## Field tourniquet: occlude limb hemorrhage before procedure sim advance (not 2 min open bleed first).
-
-
-## Field tourniquet: occlude limb hemorrhage before procedure sim advance (not 2 min open bleed first).
-static func _run_field_tourniquet_applies_before_procedure_advance(failures: PackedStringArray) -> void:
-    var wound_row: Dictionary = {
-        "current_bleeding_rate": 1.4,
-        "base_bleeding_rate": 2.0,
-        "severity": BleedingConstants.SEVERITY_SEVERE,
-        "is_arterial": true,
-        "is_stabilized": false,
-    }
-    var tq_first: Node = _new_entity("SWORD")
-    tq_first.blood_volume = BleedingConstants.MAX_BLOOD_VOLUME
-    tq_first.wounds["left_leg"] = [wound_row.duplicate(true)]
-    var bleed_first: Node = _new_entity("SWORD")
-    bleed_first.blood_volume = BleedingConstants.MAX_BLOOD_VOLUME
-    bleed_first.wounds["left_leg"] = [wound_row.duplicate(true)]
-    seed(884401)
-    var tq_ok: bool = tq_first._apply_tourniquet("left_leg", 1.5)
-    seed(_HARNESS_RESTORE_GLOBAL_SEED)
-    if not tq_ok:
-        _fail(failures, "field_tq_order: tourniquet setup should succeed")
-        MedicalPhaseGateTests._free_entity_fixture(tq_first)
-        MedicalPhaseGateTests._free_entity_fixture(bleed_first)
-        return
-    if tq_first.has_method("process_bleeding"):
-        tq_first.process_bleeding(MapFieldCare.FIELD_CARE_SIM_ADVANCE_SECONDS)
-    if tq_first.has_method("process_blood_loss"):
-        tq_first.process_blood_loss(MapFieldCare.FIELD_CARE_SIM_ADVANCE_SECONDS)
-    if bleed_first.has_method("process_bleeding"):
-        bleed_first.process_bleeding(MapFieldCare.FIELD_CARE_SIM_ADVANCE_SECONDS)
-    if bleed_first.has_method("process_blood_loss"):
-        bleed_first.process_blood_loss(MapFieldCare.FIELD_CARE_SIM_ADVANCE_SECONDS)
-    seed(884401)
-    bleed_first._apply_tourniquet("left_leg", 1.5)
-    seed(_HARNESS_RESTORE_GLOBAL_SEED)
-    if float(tq_first.blood_volume) <= float(bleed_first.blood_volume):
-        _fail(
-            failures,
-            (
-                "field_tq_order: TQ-before-advance should preserve more blood (tq_first=%.1f bleed_first=%.1f)"
-                % [float(tq_first.blood_volume), float(bleed_first.blood_volume)]
-            )
-        )
-    if not bleed_first.tourniquet_applied.has("left_leg"):
-        _fail(failures, "field_tq_order: bleed-first path should still end with TQ applied")
-    MedicalPhaseGateTests._free_entity_fixture(tq_first)
-    MedicalPhaseGateTests._free_entity_fixture(bleed_first)
-
-
-## Tourniquet ischemia: a TQ left on past the max duration is auto-released and causes ischemic soft-tissue
-## damage to the limb (necrosis / compartment injury). Models the real-world cost of a TQ left on too long.
-static func _run_tourniquet_ischemia_on_expiry(failures: PackedStringArray) -> void:
-    var ent: Node = _new_entity("SWORD")
-    var part: String = "left_leg"
-    var max_tissue: float = float(ent.body_max.get(part, 0.0))
-    if max_tissue <= 0.0:
-        _fail(failures, "tq_ischemia: fixture limb should have tissue max")
-        MedicalPhaseGateTests._free_entity_fixture(ent)
-        return
-    # A tourniquet can only be applied to a bleeding limb — seed a wound so _can_apply_tourniquet passes.
-    # wounds[part] is an ARRAY of injury dicts (EntityHealing._process_healing casts it to Array).
-    ent.wounds[part] = [
-        {
-            "severity": BleedingConstants.SEVERITY_SEVERE,
-            "current_bleeding_rate": 0.5,
-            "base_bleeding_rate": 0.5,
-            "is_arterial": false,
-            "is_stabilized": false,
-        }
-    ]
-    seed(884402)
-    ent._apply_tourniquet(part, 1.5)
-    seed(_HARNESS_RESTORE_GLOBAL_SEED)
-    if not ent.tourniquet_applied.has(part):
-        _fail(failures, "tq_ischemia: tourniquet should be applied")
-        MedicalPhaseGateTests._free_entity_fixture(ent)
-        return
-    var cut_before: float = ent.body_cutting.get(part, 0.0)
-    var blunt_before: float = ent.body_blunt.get(part, 0.0)
-    # Advance game time past the max TQ duration so the tourniquet expires (ischemia + auto-release).
-    ent._process_healing(BleedingConstants.TOURNIQUET_MAX_DURATION_SECONDS + 1.0)
-    if ent.tourniquet_applied.has(part):
-        _fail(failures, "tq_ischemia: expired tourniquet should be auto-released")
-    var cut_drop: float = cut_before - ent.body_cutting.get(part, 0.0)
-    var blunt_drop: float = blunt_before - ent.body_blunt.get(part, 0.0)
-    var want_damage: float = max_tissue * BleedingConstants.TOURNIQUET_ISCHEMIA_TISSUE_FRACTION
-    # Healing runs in the same advance, so the net drop is slightly less than the raw ischemic damage.
-    if cut_drop < 0.5 * want_damage:
-        _fail(failures, "tq_ischemia: cutting drop %.1f should be >= 50%% of expected %.1f" % [cut_drop, want_damage])
-    if blunt_drop < 0.5 * want_damage:
-        _fail(failures, "tq_ischemia: blunt drop %.1f should be >= 50%% of expected %.1f" % [blunt_drop, want_damage])
-    MedicalPhaseGateTests._free_entity_fixture(ent)
-
-
-## A tourniquet is released when the limb's LAST wound RESOLVES (not only at max-duration expiry). A
-## short-lived wound heals well inside the 3600s clamp window; leaving the TQ clamped afterward would
-## (a) skip the ischemia latch entirely (the max-duration loop latches had_ischemia onto a wound that
-## no longer exists) and (b) carry a stale `applied_at` into the next battle, where a new re-wound on
-## the same part instantly counts as an over-time clamp -- an hour-long tourniquet turns into an
-## immediate ischemic strike. Healed limb -> release the clamp, exactly like dressings at resolution.
-static func _run_resolved_wound_releases_tourniquet(failures: PackedStringArray) -> void:
-    var ent: Node = _new_entity("SWORD")
-    var part: String = "left_leg"
-    ent.wounds[part] = [
-        {
-            "severity": BleedingConstants.SEVERITY_SEVERE,
-            "current_bleeding_rate": 0.5,
-            "base_bleeding_rate": 0.5,
-            "is_arterial": false,
-            "is_stabilized": false,
-            "created_at_game_time": 0.0,
-            "healing_duration_seconds": 360.0,
-        }
-    ]
-    ent._apply_tourniquet(part, 1.5)
-    if not ent.tourniquet_applied.has(part):
-        _fail(failures, "tq_release: tourniquet should be applied")
-        MedicalPhaseGateTests._free_entity_fixture(ent)
-        return
-    # A 360s wound resolves at ~1078s (tau=120, progress 1-exp(-age/120)); a single 2000s advance sits
-    # well past resolution and well before the 3600s max-duration expiry -- only the resolution cleanup
-    # can release this clamp.
-    ent._process_healing(2000.0)
-    seed(_HARNESS_RESTORE_GLOBAL_SEED)
-    if ent.tourniquet_applied.has(part):
-        _fail(failures, "tq_release: a tourniquet must be released when its limb's last wound "
-                + "resolves (stale clamp on a healed limb)")
-    if ent.wounds.has(part):
-        _fail(failures, "tq_release: the wound should have resolved in the advance")
-    MedicalPhaseGateTests._free_entity_fixture(ent)
-
-
-## Every clamp release ends the clamp SESSION, and the failure counter dies with it. A clamp session
-## is one application attempt chain on a limb: the +15% retry bonus per prior failure models the medic
-## adjusting placement WITHIN that session. It must not ride into a future application -- a new wound
-## days later, or a freshly severed stump -- where old placement fumbles have no meaning. The three
-## release paths (expiry, wound-resolution cleanup, and the stump mint that severs the limb) all share
-## the release via EntityMedical._remove_tourniquet, which clears tourniquet_failures.
-static func _run_tourniquet_release_clears_failure_session(failures: PackedStringArray) -> void:
-    # (1) Expiry release: an over-limit clamp expires; the session's 2 fumbles must not persist.
-    var ent: Node = _new_entity("SWORD")
-    var part: String = "left_leg"
-    ent.wounds[part] = [{
-        "severity": BleedingConstants.SEVERITY_SEVERE,
-        "current_bleeding_rate": 0.5,
-        "base_bleeding_rate": 0.5,
-        "is_arterial": false,
-        "is_stabilized": false,
-        "created_at_game_time": 0.0,
-        "healing_duration_seconds": 21.0 * HealingConstants.SECONDS_PER_DAY,
-    }]
-    ent.tourniquet_applied[part] = {"applied_at": 0.0, "effectiveness": 1.0}
-    ent.tourniquet_failures[part] = 2
-    ent._process_healing(BleedingConstants.TOURNIQUET_MAX_DURATION_SECONDS + 100.0)
-    if ent.tourniquet_applied.has(part):
-        _fail(failures, "tq_session: expiry should remove the clamp")
-    if int(ent.tourniquet_failures.get(part, 0)) != 0:
-        _fail(failures, "tq_session: expiry must end the clamp session (stale failure count on a released clamp)")
-    MedicalPhaseGateTests._free_entity_fixture(ent)
-
-    # (2) Wound-resolution release: the healed limb's clamp is released with the dressing cleanup.
-    var ent_r: Node = _new_entity("SWORD")
-    ent_r.wounds[part] = [{
-        "severity": BleedingConstants.SEVERITY_SEVERE,
-        "current_bleeding_rate": 0.5,
-        "base_bleeding_rate": 0.5,
-        "is_arterial": false,
-        "is_stabilized": false,
-        "created_at_game_time": 0.0,
-        "healing_duration_seconds": 360.0,
-    }]
-    ent_r.tourniquet_applied[part] = {"applied_at": 0.0, "effectiveness": 1.0}
-    ent_r.tourniquet_failures[part] = 2
-    ent_r._process_healing(2000.0)
-    if int(ent_r.tourniquet_failures.get(part, 0)) != 0:
-        _fail(failures, "tq_session: wound-resolution release must end the clamp session (stale failure count)")
-    MedicalPhaseGateTests._free_entity_fixture(ent_r)
-
-    # (3) Stump mint release: severing the limb ends the pre-amputation clamp session -- a fresh stump
-    # clamp must not inherit the old limb's placement fumbles.
-    var ent_m: Node = _new_entity("SWORD")
-    ent_m.wounds[part] = [{
-        "severity": BleedingConstants.SEVERITY_SEVERE,
-        "current_bleeding_rate": 0.5,
-        "base_bleeding_rate": 0.5,
-        "is_arterial": false,
-        "is_stabilized": false,
-        "created_at_game_time": 0.0,
-        "healing_duration_seconds": 360.0,
-    }]
-    ent_m.tourniquet_failures[part] = 2
-    ent_m.body_cutting[part] = 0.0
-    ent_m.body_blunt[part] = 0.0
-    ent_m.bone_health[part] = 0.0
-    EntityWounds.ensure_stump_wound(ent_m, part)
-    if int(ent_m.tourniquet_failures.get(part, 0)) != 0:
-        _fail(failures, "tq_session: the stump mint must end the pre-amputation clamp session "
-                + "(stale failure count on the fresh limb)")
-    MedicalPhaseGateTests._free_entity_fixture(ent_m)
-
-
-## When a TQ is removed by wound resolution (NOT by expiry), no ischemia damage occurs and the
-## descriptor's had_ischemia must be false. This pins the false-positive where the old code
-## checked tourniquet_applied.has(part) at descriptor-build time (before _remove_tourniquet ran).
-static func _run_tourniquet_preexpiry_no_ischemia(failures: PackedStringArray) -> void:
-    var ent: Node = _new_entity("SWORD")
-    var part: String = "left_leg"
-    ent.wounds[part] = [{
-        "severity": BleedingConstants.SEVERITY_SEVERE,
-        "current_bleeding_rate": 0.5,
-        "base_bleeding_rate": 0.5,
-        "is_arterial": false,
-        "is_stabilized": false,
-        "created_at_game_time": 0.0,
-        "healing_duration_seconds": 360.0,
-    }]
-    ent._apply_tourniquet(part, 1.5)
-    if not ent.tourniquet_applied.has(part):
-        _fail(failures, "tq_preexp: tourniquet should be applied")
-        MedicalPhaseGateTests._free_entity_fixture(ent)
-        return
-    # 2000s: wound resolves (progress=1-exp(-2000/120)~1.0) but TQ (max 3600s) has NOT expired.
-    ent._process_healing(2000.0)
-    seed(_HARNESS_RESTORE_GLOBAL_SEED)
-    # TQ should have been removed by the resolution cleanup.
-    if ent.tourniquet_applied.has(part):
-        _fail(failures, "tq_preexp: TQ should be released when wound resolves before expiry")
-    # The stashed descriptor must NOT carry had_ischemia (TQ never expired -> no necrosis).
-    var found: bool = false
-    for desc in ent.resolved_wounds_this_advance:
-        if str(desc.get("part", "")) == part:
-            found = true
-            if bool(desc.get("had_ischemia", false)):
-                _fail(failures, "tq_preexp: descriptor should NOT have had_ischemia when TQ was released at resolution (no expiry occurred)")
-    if not found:
-        _fail(failures, "tq_preexp: expected a resolved-wound descriptor for %s" % part)
-    ent.clear_resolved_wounds()
-    MedicalPhaseGateTests._free_entity_fixture(ent)
-
-
-## When a TQ expires (max duration elapsed), apply_tourniquet_ischemia_damage must latch
-## had_ischemia=true on the wound so the scar-mint descriptor captures it even though the
-## tourniquet is no longer in tourniquet_applied.
-static func _run_tourniquet_ischemia_latches_on_wound(failures: PackedStringArray) -> void:
-    var ent: Node = _new_entity("SWORD")
-    var part: String = "right_arm"
-    ent.wounds[part] = [{
-        "severity": BleedingConstants.SEVERITY_SEVERE,
-        "current_bleeding_rate": 0.5,
-        "base_bleeding_rate": 0.5,
-        "is_arterial": false,
-        "is_stabilized": false,
-        "created_at_game_time": 0.0,
-        # Long healing duration ensures the wound does NOT resolve in this advance,
-        # so the TQ-expiry path (not the resolution path) removes the TQ.
-        "healing_duration_seconds": 86400.0,
-    }]
-    ent._apply_tourniquet(part, 1.5)
-    seed(_HARNESS_RESTORE_GLOBAL_SEED)
-    if not ent.tourniquet_applied.has(part):
-        _fail(failures, "tq_latch: tourniquet should be applied")
-        MedicalPhaseGateTests._free_entity_fixture(ent)
-        return
-    # Advance past TQ max duration (3600s) but well before wound resolves.
-    ent._process_healing(BleedingConstants.TOURNIQUET_MAX_DURATION_SECONDS + 10.0)
-    seed(_HARNESS_RESTORE_GLOBAL_SEED)
-    # TQ should have been auto-released by the expiry loop.
-    if ent.tourniquet_applied.has(part):
-        _fail(failures, "tq_latch: expired tourniquet should be auto-released")
-    # The wound should still exist (86400s healing >> 3610s elapsed).
-    if not ent.wounds.has(part) or ent.wounds[part].is_empty():
-        _fail(failures, "tq_latch: wound should still be present after TQ expiry")
-        MedicalPhaseGateTests._free_entity_fixture(ent)
-        return
-    var w: Dictionary = ent.wounds[part][0]
-    if not bool(w.get("had_ischemia", false)):
-        _fail(failures, "tq_latch: wound should carry had_ischemia=true after TQ expiry (latch for scar mint)")
-    MedicalPhaseGateTests._free_entity_fixture(ent)
-
-
-## Infection history survives a cure: a wound that infects (ever_infected latched at the 0->1 flip)
-## and is then dressed clean must still report was_infected=true in the resolved-wound descriptor.
-## This pins the false-negative where the descriptor read only the live infection_stage/is_infected
-## (both cleared by a successful dressing), losing the infection history and skipping the
-## infected-soft-tissue scar mint. ever_infected is the authoritative history latch.
-static func _run_was_infected_latches_survive_cure(failures: PackedStringArray) -> void:
-    var part: String = "left_arm"
-    var ent: Node = _new_entity("SWORD")
-    ent.wounds[part] = [{
-        "severity": BleedingConstants.SEVERITY_SEVERE,
-        "current_bleeding_rate": 0.5,
-        "base_bleeding_rate": 0.5,
-        "is_arterial": false,
-        "is_stabilized": false,
-        "injury_type": BleedingConstants.INJURY_TYPE_CUT,
-        # Fresh at the moment the infection dose is evaluated: after the 4-day advance
-        # _game_time_seconds == 4d, so created == 4d keeps age 0 (freshness 1.0) and the wound
-        # still >= 0 so it can later resolve. A 0.0 created_at would age the wound 4d (freshness
-        # ~0.6) and the dose would not reach infection in 4 days.
-        "created_at_game_time": 4.0 * HealingConstants.SECONDS_PER_DAY,
-        # 100 days: not resolved in the 4-day infection advance (progress ~0.11).
-        "healing_duration_seconds": 8640000.0,
-    }]
-    seed(44210)
-    ent._process_healing(4.0 * HealingConstants.SECONDS_PER_DAY)
-    seed(_HARNESS_RESTORE_GLOBAL_SEED)
-    var w: Dictionary = ent.wounds[part][0]
-    if not bool(w.get("ever_infected", false)):
-        _fail(failures, "was_inf: a wound that infected should have latched ever_infected (stage=%d)"
-                % int(w.get("infection_stage", 0)))
-    # Simulate a successful dressing clear (EntityMedical._apply_bandage resets stage/is_infected).
-    w["infection_stage"] = 0
-    w["is_infected"] = false
-    w["infection_progress"] = 0.0
-    # Advance to resolution; the descriptor must carry the infection history via the latch.
-    ent._process_healing(200.0 * HealingConstants.SECONDS_PER_DAY)
-    seed(_HARNESS_RESTORE_GLOBAL_SEED)
-    var found: bool = false
-    for desc in ent.resolved_wounds_this_advance:
-        if str(desc.get("part", "")) == part:
-            found = true
-            if not bool(desc.get("was_infected", false)):
-                _fail(failures, "was_inf: descriptor must carry was_infected=true after a cure (latch survives the dressing)")
-    if not found:
-        _fail(failures, "was_inf: expected a resolved-wound descriptor for %s" % part)
-    ent.clear_resolved_wounds()
-    MedicalPhaseGateTests._free_entity_fixture(ent)
-
-
-## A sepsis death latched in this advance must stop the tetanus pass too: the corpse must not arm
-## spore loads, flip is_tetanus, or take a second death roll mid-call. The mid-advance re-check
-## below the infection block guards the tissue/bone/blood pipeline, but the sepsis->tetanus
-## hand-off needs its own guard. A living member with the same giant advance keeps tetanus active.
-static func _run_sepsis_death_skips_tetanus_pass(failures: PackedStringArray) -> void:
-    var ent: Node = _new_entity("SWORD")
-    ent.is_septic = true
-    ent.is_tetanus = true
-    seed(77231)
-    EntityHealing._process_healing(ent, HealingConstants.SECONDS_PER_DAY * 1000.0)
-    seed(_HARNESS_RESTORE_GLOBAL_SEED)
-    if not ent.is_dead():
-        _fail(failures, "sepsis_skip: a 1000-day advance must kill a septic member")
-    if ent._tetanus_dead:
-        _fail(failures, "sepsis_skip: tetanus death roll must NOT run on a sepsis-killed corpse")
-    if not ent.is_tetanus:
-        _fail(failures, "sepsis_skip: is_tetanus must persist (the tetanus pass was skipped, not resolved)")
-    MedicalPhaseGateTests._free_entity_fixture(ent)
-
-
-## A corpse does not convalesce: a member whose death is registered does not heal, resolve wounds, or
-## stash resolution descriptors on a later day-advance — dead tissue heals nothing. The living control
-## with identical wounds resolves and stashes, proving the difference is the death gate, not the clock.
-static func _run_corpse_does_not_heal_or_resolve(failures: PackedStringArray) -> void:
-    var dead: Node = _new_entity("SWORD")
-    dead._game_time_seconds = 100000.0
-    dead.wounds["left_arm"] = [
-        {"created_at_game_time": 96000.0, "healing_duration_seconds": 3600.0,
-                "severity": BleedingConstants.SEVERITY_SEVERE, "injury_type": BleedingConstants.INJURY_TYPE_CUT},
-    ]
-    dead._sepsis_dead = true
-    EntityHealing._process_healing(dead, HealingConstants.SECONDS_PER_DAY)
-    if dead.resolved_wounds_this_advance.size() != 0:
-        _fail(failures, "corpse_heal: a dead member must not stash resolution descriptors (got %d)"
-                % dead.resolved_wounds_this_advance.size())
-    if not dead.wounds.has("left_arm"):
-        _fail(failures, "corpse_heal: a near-resolved wound on a corpse must not resolve away")
-    var alive: Node = _new_entity("SWORD")
-    alive._game_time_seconds = 100000.0
-    alive.wounds["left_arm"] = [
-        {"created_at_game_time": 96000.0, "healing_duration_seconds": 3600.0,
-                "severity": BleedingConstants.SEVERITY_SEVERE, "injury_type": BleedingConstants.INJURY_TYPE_CUT},
-    ]
-    EntityHealing._process_healing(alive, HealingConstants.SECONDS_PER_DAY)
-    if alive.resolved_wounds_this_advance.size() != 1:
-        _fail(failures, "corpse_heal: the living control should resolve and stash exactly one wound (got %d)"
-                % alive.resolved_wounds_this_advance.size())
-    if alive.wounds.has("left_arm"):
-        _fail(failures, "corpse_heal: the living control's near-resolved wound should have resolved away")
-    MedicalPhaseGateTests._free_entity_fixture(dead)
-    MedicalPhaseGateTests._free_entity_fixture(alive)
-
-
-## The third corpse sibling: a death-registered member does not run the bleeding sim either — its
-## wound rates must not clot-decay (the post-mortem wound snapshot freezes) and held direct pressure
-## must not auto-clear (who was still trying to save them survives as forensic state). The living
-## control's rate decays under clotting, proving the difference is the death gate, not the seed.
-static func _run_corpse_does_not_bleed_or_release(failures: PackedStringArray) -> void:
-    var part: String = "left_arm"
-    var dead: Node = _new_entity("SWORD")
-    dead.wounds[part] = [{
-        "severity": BleedingConstants.SEVERITY_SEVERE,
-        "current_bleeding_rate": 0.5,
-        "base_bleeding_rate": 0.5,
-        "is_arterial": false,
-        "is_stabilized": true,
-        "created_at_game_time": 0.0,
-        "healing_duration_seconds": 3600.0,
-    }]
-    dead.direct_pressure_part = part
-    dead._sepsis_dead = true
-    EntityWounds.process_bleeding(dead, HealingConstants.SECONDS_PER_DAY)
-    var dead_rate: float = float(dead.wounds[part][0].current_bleeding_rate)
-    if absf(dead_rate - 0.5) > 1e-9:
-        _fail(failures, "corpse_bleed: a corpse's open-bleed rate must not clot-decay (got %.3f)" % dead_rate)
-    if dead.direct_pressure_part.is_empty():
-        _fail(failures, "corpse_bleed: a corpse's held direct pressure must not auto-clear")
-    var alive: Node = _new_entity("SWORD")
-    alive.wounds[part] = [{
-        "severity": BleedingConstants.SEVERITY_SEVERE,
-        "current_bleeding_rate": 0.5,
-        "base_bleeding_rate": 0.5,
-        "is_arterial": false,
-        "is_stabilized": true,
-        "created_at_game_time": 0.0,
-        "healing_duration_seconds": 3600.0,
-    }]
-    alive.direct_pressure_part = part
-    EntityWounds.process_bleeding(alive, HealingConstants.SECONDS_PER_DAY)
-    var alive_rate: float = float(alive.wounds[part][0].current_bleeding_rate)
-    if alive_rate >= 0.25:
-        _fail(failures, "corpse_bleed: the living control's bleed rate should decay under clotting (got %.3f)"
-                % alive_rate)
-    MedicalPhaseGateTests._free_entity_fixture(dead)
-    MedicalPhaseGateTests._free_entity_fixture(alive)
-
-
-## Rest-day recovery honors decompensation: a non-bleeding member below DECOMPENSATION_BLOOD_THRESHOLD
-## self-replenishes only trace volume (DECOMPENSATED_RECOVERY_SUPPRESSION), mirroring the suppression
-## the battle-recovery term and the resuscitation bolus already carry — one rest day must not erase a
-## near-fatal hemorrhage back to full with no intervention. A compensated member recovers normally,
-## proving the suppression is the boundary, not the clock.
-static func _run_decompensated_rest_recovery_suppressed(failures: PackedStringArray) -> void:
-    var deep: Node = _new_entity("SWORD")
-    deep.blood_volume = 52.0
-    EntityHealing._process_healing(deep, HealingConstants.SECONDS_PER_DAY)
-    if float(deep.blood_volume) >= 60.0:
-        _fail(failures, "decomp_rest: a decompensated member must not self-fill a day's deficit (got %.1f)"
-                % float(deep.blood_volume))
-    var edge: Node = _new_entity("SWORD")
-    edge.blood_volume = 55.0
-    EntityHealing._process_healing(edge, HealingConstants.SECONDS_PER_DAY)
-    if float(edge.blood_volume) >= 65.0:
-        _fail(failures, "decomp_rest: just-below-threshold must still be suppressed (got %.1f)"
-                % float(edge.blood_volume))
-    var healthy: Node = _new_entity("SWORD")
-    healthy.blood_volume = 75.0
-    EntityHealing._process_healing(healthy, HealingConstants.SECONDS_PER_DAY)
-    if float(healthy.blood_volume) < 90.0:
-        _fail(failures, "decomp_rest: a compensated member should recover most of the deficit (got %.1f)"
-                % float(healthy.blood_volume))
-    MedicalPhaseGateTests._free_entity_fixture(deep)
-    MedicalPhaseGateTests._free_entity_fixture(edge)
-    MedicalPhaseGateTests._free_entity_fixture(healthy)
-
-
-## A resolved wound drops held pressure with the dressings: the pressure latches (ally-held, the ally's
-## on-ally record, self-held) die when the part's last wound resolves — nothing is left to press. A
-## stale latch would silently mark the NEXT fresh wound on that part as pressure-held (flow-retention
-## bleed factor + under-pressure clotting) with nobody holding anything.
-static func _run_resolved_wound_releases_held_pressure(failures: PackedStringArray) -> void:
-    var ally: Node = _new_entity("SWORD")
-    var pressed: Node = _new_entity("SWORD")
-    pressed._game_time_seconds = 100000.0
-    pressed.wounds["left_arm"] = [
-        {"created_at_game_time": 96000.0, "healing_duration_seconds": 3600.0,
-                "severity": BleedingConstants.SEVERITY_SEVERE, "injury_type": BleedingConstants.INJURY_TYPE_CUT},
-    ]
-    pressed.wounds["right_arm"] = [
-        {"created_at_game_time": 96000.0, "healing_duration_seconds": 3600.0,
-                "severity": BleedingConstants.SEVERITY_SEVERE, "injury_type": BleedingConstants.INJURY_TYPE_CUT},
-    ]
-    pressed.direct_pressure_part = "left_arm"
-    pressed.direct_pressure_held_by = ally
-    ally.direct_pressure_on_ally = {"node": pressed, "part": "left_arm"}
-    pressed.self_direct_pressure_part = "right_arm"
-    EntityHealing._process_healing(pressed, HealingConstants.SECONDS_PER_DAY)
-    if not pressed.direct_pressure_part.is_empty():
-        _fail(failures, "press_release: ally-held pressure must clear when the wound resolves (got %s)"
-                % str(pressed.direct_pressure_part))
-    if pressed.direct_pressure_held_by != null:
-        _fail(failures, "press_release: the held-by link must clear when the wound resolves")
-    if not ally.direct_pressure_on_ally.is_empty():
-        _fail(failures, "press_release: the ally's on-ally record must clear when the wound resolves")
-    if not pressed.self_direct_pressure_part.is_empty():
-        _fail(failures, "press_release: self-held pressure must clear when the wound resolves (got %s)"
-                % str(pressed.self_direct_pressure_part))
-    MedicalPhaseGateTests._free_entity_fixture(ally)
-    MedicalPhaseGateTests._free_entity_fixture(pressed)
-
-
-## A corpse releases its pressure bookkeeping on the first day-advance: nothing else clears a dead
-## casualty's latches (the hemostasis auto-release is gated off corpses, and clear_direct_pressure_scene
-## only runs when a holder takes a NEW move, not at battle end). A death must sever both roles -- the
-## corpse as casualty (its held/self latches + the medic's on-ally record) AND the corpse as holder
-## (a living ally with a dead holder is nobody's casualty anymore). The pass-20 death gate in
-## _process_healing is the guaranteed post-mortem choke before the camp burn/mint.
-static func _run_corpse_release_clears_pressure_bookkeeping(failures: PackedStringArray) -> void:
-    var medic: Node = _new_entity("SWORD")
-    var corpse: Node = _new_entity("SWORD")
-    corpse.wounds["left_arm"] = [
-        {"created_at_game_time": 100000.0, "healing_duration_seconds": 3600.0,
-                "severity": BleedingConstants.SEVERITY_SEVERE, "injury_type": BleedingConstants.INJURY_TYPE_CUT},
-    ]
-    corpse.blood_volume = 40.0
-    corpse.direct_pressure_part = "left_arm"
-    corpse.direct_pressure_held_by = medic
-    medic.direct_pressure_on_ally = {"node": corpse, "part": "left_arm"}
-    corpse.self_direct_pressure_part = "right_arm"
-    var live_pressed: Node = _new_entity("SWORD")
-    live_pressed.wounds["left_leg"] = [
-        {"created_at_game_time": 100000.0, "healing_duration_seconds": 120000.0,
-                "severity": BleedingConstants.SEVERITY_SEVERE, "injury_type": BleedingConstants.INJURY_TYPE_CUT},
-    ]
-    live_pressed.direct_pressure_part = "left_leg"
-    live_pressed.direct_pressure_held_by = corpse
-    corpse.direct_pressure_on_ally = {"node": live_pressed, "part": "left_leg"}
-    EntityHealing._process_healing(corpse, HealingConstants.SECONDS_PER_DAY)
-    if not corpse.direct_pressure_part.is_empty():
-        _fail(failures, "corpse_press: corpse's ally-held pressure must clear on the death gate (got %s)"
-                % str(corpse.direct_pressure_part))
-    if not corpse.self_direct_pressure_part.is_empty():
-        _fail(failures, "corpse_press: corpse's self-held pressure must clear on the death gate (got %s)"
-                % str(corpse.self_direct_pressure_part))
-    if corpse.direct_pressure_held_by != null:
-        _fail(failures, "corpse_press: corpse's held-by link must clear on the death gate")
-    if not medic.direct_pressure_on_ally.is_empty():
-        _fail(failures, "corpse_press: the medic's on-ally record must clear when the casualty dies")
-    if not corpse.direct_pressure_on_ally.is_empty():
-        _fail(failures, "corpse_press: a corpse must not keep its on-ally hold (dead holder)")
-    if not live_pressed.direct_pressure_part.is_empty():
-        _fail(failures, "corpse_press: living ally's pressure must clear when its holder dies (got %s)"
-                % str(live_pressed.direct_pressure_part))
-    if live_pressed.direct_pressure_held_by != null:
-        _fail(failures, "corpse_press: living ally's held-by must clear when its holder dies")
-    # A LIVING casualty keeps its holds through a day-advance (only the death gate clears them).
-    var live_holder: Node = _new_entity("SWORD")
-    var live_held: Node = _new_entity("SWORD")
-    live_held.wounds["right_leg"] = [
-        {"created_at_game_time": 100000.0, "healing_duration_seconds": 120000.0,
-                "severity": BleedingConstants.SEVERITY_SEVERE, "injury_type": BleedingConstants.INJURY_TYPE_CUT},
-    ]
-    live_held.direct_pressure_part = "right_leg"
-    live_held.direct_pressure_held_by = live_holder
-    live_holder.direct_pressure_on_ally = {"node": live_held, "part": "right_leg"}
-    EntityHealing._process_healing(live_held, HealingConstants.SECONDS_PER_DAY)
-    if live_held.direct_pressure_part != "right_leg" or live_held.direct_pressure_held_by == null:
-        _fail(failures, "corpse_press: a living casualty's pressure must survive a day-advance")
-    if live_holder.direct_pressure_on_ally.is_empty():
-        _fail(failures, "corpse_press: a living holder's on-ally record must survive a day-advance")
-    MedicalPhaseGateTests._free_entity_fixture(medic)
-    MedicalPhaseGateTests._free_entity_fixture(corpse)
-    MedicalPhaseGateTests._free_entity_fixture(live_pressed)
-    MedicalPhaseGateTests._free_entity_fixture(live_holder)
-    MedicalPhaseGateTests._free_entity_fixture(live_held)
-
-
-## A death roll that latches MID-ADVANCE (sepsis/tetanus) must stop the REST of the same advance:
-## the entry gate only protects later advances, so without this the tissue/bone regrow and the
-## blood-recovery blocks run on the fresh corpse — regrowing limb pools and popping blood_volume
-## back above the death clamp emit_death_once just set (the corpse keeps _sepsis_dead, so the pop
-## is invisible to is_dead() but poisons vitals logging / save data). The re-check also severs the
-## pressure coupling immediately, exactly like the entry death gate.
-static func _run_death_within_advance_stops_healing_pipeline(failures: PackedStringArray) -> void:
-    var septic: Node = _new_entity("SWORD")
-    var max_t: float = float(septic.body_max.get("left_arm", 0.0))
-    septic.body_cutting["left_arm"] = max_t * 0.5
-    septic.blood_volume = 55.0
-    septic.direct_pressure_part = "right_leg"
-    septic.wounds["left_arm"] = [
-        {
-            "created_at_game_time": 1000.0, "healing_duration_seconds": 1000000.0,
-            "severity": BleedingConstants.SEVERITY_CRITICAL, "injury_type": BleedingConstants.INJURY_TYPE_CUT,
-            "infection_stage": 2, "infection_progress": 1.0, "is_infected": true,
-        },
-    ]
-    septic.is_septic = true
-    var cut_before: float = septic.body_cutting.get("left_arm", 0.0)
-    seed(447712)
-    EntityHealing._process_healing(septic, HealingConstants.SECONDS_PER_DAY * 1000.0)
-    seed(_HARNESS_RESTORE_GLOBAL_SEED)
-    if not septic.is_dead():
-        _fail(failures, "death_advance: a 1000-day sepsis advance must kill a septic member")
-    if septic.blood_volume > BleedingConstants.BLOOD_LOSS_DEATH_THRESHOLD:
-        _fail(
-            failures,
-            "death_advance: corpse blood must stay at the death clamp after the kill advance (got %.1f)"
-            % septic.blood_volume
-        )
-    if septic.body_cutting.get("left_arm", 0.0) > cut_before + 0.001:
-        _fail(failures, "death_advance: corpse tissue must not regrow after a mid-advance death")
-    if not septic.direct_pressure_part.is_empty():
-        _fail(failures, "death_advance: mid-advance death must sever the pressure coupling")
-    # A LIVING member on the same giant advance recovers normally (blood back up, tissue regrown) —
-    # proving the re-check is strictly death-gated and does not freeze the convalescence pipeline.
-    var alive: Node = _new_entity("SWORD")
-    var alive_max: float = float(alive.body_max.get("left_arm", 0.0))
-    alive.body_cutting["left_arm"] = alive_max * 0.5
-    alive.blood_volume = 60.0
-    EntityHealing._process_healing(alive, HealingConstants.SECONDS_PER_DAY * 1000.0)
-    if alive.blood_volume <= 90.0:
-        _fail(failures, "death_advance: living member must recover blood on the giant advance (got %.1f)"
-                % alive.blood_volume)
-    if alive.body_cutting.get("left_arm", 0.0) <= alive_max * 0.5:
-        _fail(failures, "death_advance: living member must regrow tissue on the giant advance")
-    MedicalPhaseGateTests._free_entity_fixture(septic)
-    MedicalPhaseGateTests._free_entity_fixture(alive)
-
-
-## Wound infection: untreated wounds become infected over days (impairing healing); a clean definitive
-## dressing clears the infection. Progression is a deterministic per-day risk dose, campaign-only
-## (never advances during a battle). Minimal wound dicts lack created_at/healing_duration so they persist.
-static func _run_wound_infection_progression_slowdown_and_cure(failures: PackedStringArray) -> void:
-    var part: String = "right_arm"
-    var wound: Dictionary = {
-        "severity": BleedingConstants.SEVERITY_SEVERE,
-        "current_bleeding_rate": 0.5,
-        "base_bleeding_rate": 0.5,
-        "is_arterial": false,
-        "is_stabilized": false,
-    }
-    # --- Progression: a severe untreated wound (daily risk 0.30) infects over ~4 days. ---
-    var ent: Node = _new_entity("SWORD")
-    ent.wounds[part] = [wound.duplicate(true)]
-    ent._process_healing(4 * HealingConstants.SECONDS_PER_DAY)
-    var infected: bool = false
-    for injury in ent.wounds.get(part, []):
-        if injury.get("is_infected", false):
-            infected = true
-    if not infected:
-        _fail(failures, "wound_infection: severe untreated wound should be infected after 4 days")
-    MedicalPhaseGateTests._free_entity_fixture(ent)
-
-    # --- Healing slowdown: an infected wound heals less tissue than a clean one over the same day. ---
-    var clean: Node = _new_entity("SWORD")
-    var sick: Node = _new_entity("SWORD")
-    for e in [clean, sick]:
-        var max_t: float = float(e.body_max.get(part, 0.0))
-        e.body_cutting[part] = max_t * 0.5
-        e.body_blunt[part] = max_t * 0.5
-        e.wounds[part] = [wound.duplicate(true)]
-    for injury in sick.wounds[part]:
-        injury["is_infected"] = true
-        injury["infection_progress"] = 1.0
-    clean._process_healing(HealingConstants.SECONDS_PER_DAY)
-    sick._process_healing(HealingConstants.SECONDS_PER_DAY)
-    var clean_cut: float = clean.body_cutting.get(part, 0.0)
-    var sick_cut: float = sick.body_cutting.get(part, 0.0)
-    if sick_cut >= clean_cut:
-        _fail(
-            failures,
-            "wound_infection: infected wound should heal less (sick=%.1f clean=%.1f)" % [sick_cut, clean_cut]
-        )
-    MedicalPhaseGateTests._free_entity_fixture(clean)
-    MedicalPhaseGateTests._free_entity_fixture(sick)
-
-    # --- Cure: a successful definitive dressing resets the stage-1 infection dose (CAMP-INF-1);
-    #     a failed one does not. The clear roll is probabilistic, so after a successful bandage
-    #     the dose is always < 1.0 (0.0 if the clear landed, 0.5 if it missed); a failed bandage
-    #     never touches the dose. This is deterministic regardless of the seeded clear outcome. ---
-    var cured: Node = _new_entity("SWORD")
-    var infected_wound: Dictionary = wound.duplicate(true)
-    infected_wound["is_infected"] = true
-    infected_wound["infection_progress"] = 1.0
-    cured.wounds[part] = [infected_wound]
-    seed(884403)
-    var bandage_ok: bool = cured._apply_bandage(part, 1.5)
-    seed(_HARNESS_RESTORE_GLOBAL_SEED)
-    var cured_wound: Dictionary = cured.wounds.get(part, [{}])[0]
-    var prog_after: float = float(cured_wound.get("infection_progress", 1.0))
-    if bandage_ok and prog_after >= 1.0:
-        _fail(failures, "wound_infection: successful dressing should have reset infection dose (got %.2f)" % prog_after)
-    if not bandage_ok and prog_after < 1.0:
-        _fail(failures, "wound_infection: failed dressing should not touch infection dose (got %.2f)" % prog_after)
-    MedicalPhaseGateTests._free_entity_fixture(cured)
-
-
-## Active bleeding diverts repair resources: a part with an active (non-arterial) bleed heals tissue more
-## slowly than the same part with a stopped bleed. Campaign-only (never advances during a battle).
-static func _run_bleeding_slows_tissue_healing(failures: PackedStringArray) -> void:
-    var part: String = "right_arm"
-    var clean: Node = _new_entity("SWORD")
-    var bleeding: Node = _new_entity("SWORD")
-    for e in [clean, bleeding]:
-        var max_t: float = float(e.body_max.get(part, 0.0))
-        e.body_cutting[part] = max_t * 0.5
-        e.body_blunt[part] = max_t * 0.5
-    clean.wounds[part] = [
-        {"severity": BleedingConstants.SEVERITY_MODERATE, "current_bleeding_rate": 0.0, "is_arterial": false, "is_stabilized": true},
-    ]
-    bleeding.wounds[part] = [
-        {"severity": BleedingConstants.SEVERITY_MODERATE, "current_bleeding_rate": 1.0, "is_arterial": false, "is_stabilized": false},
-    ]
-    clean._process_healing(HealingConstants.SECONDS_PER_DAY)
-    bleeding._process_healing(HealingConstants.SECONDS_PER_DAY)
-    var clean_cut: float = clean.body_cutting.get(part, 0.0)
-    var bleed_cut: float = bleeding.body_cutting.get(part, 0.0)
-    if bleed_cut >= clean_cut:
-        _fail(
-            failures,
-            "bleed_heal: actively-bleeding part should heal less (bleed=%.1f clean=%.1f)" % [bleed_cut, clean_cut]
-        )
-    MedicalPhaseGateTests._free_entity_fixture(clean)
-    MedicalPhaseGateTests._free_entity_fixture(bleeding)
-
-
-## Untreated arterial stall: an open arterial wound cannot close while systolic pressure drives flow, so its
-## part's repair stalls (no tissue gain); the same wound with definitive hemostasis (bandage) heals.
-static func _run_arterial_untreated_stalls_healing(failures: PackedStringArray) -> void:
-    var part: String = "right_arm"
-    var open: Node = _new_entity("SWORD")
-    var treated: Node = _new_entity("SWORD")
-    for e in [open, treated]:
-        var max_t: float = float(e.body_max.get(part, 0.0))
-        e.body_cutting[part] = max_t * 0.5
-        e.body_blunt[part] = max_t * 0.5
-        e.wounds[part] = [
-            {"severity": BleedingConstants.SEVERITY_SEVERE, "current_bleeding_rate": 1.0, "is_arterial": true, "is_stabilized": false},
-        ]
-    treated.bandaged_parts[part] = true
-    var open_before: float = open.body_cutting.get(part, 0.0)
-    open._process_healing(HealingConstants.SECONDS_PER_DAY)
-    treated._process_healing(HealingConstants.SECONDS_PER_DAY)
-    var open_after: float = open.body_cutting.get(part, 0.0)
-    var treated_after: float = treated.body_cutting.get(part, 0.0)
-    if open_after > open_before + 0.01:
-        _fail(
-            failures,
-            "arterial_stall: untreated arterial wound should stall healing (before=%.1f after=%.1f)"
-            % [open_before, open_after]
-        )
-    if treated_after <= open_after:
-        _fail(
-            failures,
-            "arterial_stall: bandaged arterial wound should heal (treated=%.1f open=%.1f)"
-            % [treated_after, open_after]
-        )
-    MedicalPhaseGateTests._free_entity_fixture(open)
-    MedicalPhaseGateTests._free_entity_fixture(treated)
-
-
-## Stabilize requires intrinsic active bleed  -  not arterial label alone after local clot under compression.
-
-
-## Stabilize requires intrinsic active bleed  -  not arterial label alone after local clot under compression.
-static func _run_stabilize_requires_intrinsic_active_bleed(failures: PackedStringArray) -> void:
-    var ent: Node = _new_entity("SWORD")
-    # Start with low bleed so pressure reduces it below epsilon (simulating clot under sustained compression).
-    ent.wounds["chest"] = [
-        {
-            "current_bleeding_rate": 0.002,
-            "base_bleeding_rate": 0.8,
-            "severity": BleedingConstants.SEVERITY_MODERATE,
-            "is_arterial": true,
-            "is_stabilized": false,
-        },
-    ]
-    if not ent.apply_direct_pressure("chest"):
-        _fail(failures, "stabilize_intrinsic: pressure setup failed")
-        MedicalPhaseGateTests._free_entity_fixture(ent)
-        return
-    # Pressure immediate reduction (25% * 0.7 arterial mult ~= 17.5%) drops 0.002 -> ~0.0016;
-    # then simulate clotting under sustained compression to push below epsilon.
-    if ent.has_method("process_bleeding"):
-        ent.process_bleeding(60.0)  # 60s of clotting while pressure held
-    if ent._can_apply_stabilize("chest"):
-        _fail(
-            failures,
-            "stabilize_intrinsic: no hemostatic hold when intrinsic bleed already controlled under compression"
-        )
-    ent.wounds["chest"][0]["current_bleeding_rate"] = 0.15
-    if not ent._can_apply_stabilize("chest"):
-        _fail(
-            failures, "stabilize_intrinsic: stabilize should allow while intrinsic bleed remains active"
-        )
-    MedicalPhaseGateTests._free_entity_fixture(ent)
-
-
-## TQ-indicated limb: production gate blocks bandage/stabilize (combat `get_ally_medical_actions` parity).
-
-
-## TQ-indicated limb: production gate blocks bandage/stabilize (combat `get_ally_medical_actions` parity).
-static func _run_entity_medical_bandage_blocked_when_tourniquet_indicated(failures: PackedStringArray) -> void:
-    var ent: Node = _new_entity("SWORD")
-    ent.take_damage_split(12.0, 4.0, "right_leg")
-    if not EntityMedical._is_tourniquet_indicated_for_part(ent, "right_leg"):
-        _fail(failures, "tq_bandage_gate: fixture should be tourniquet-indicated on right_leg")
-        MedicalPhaseGateTests._free_entity_fixture(ent)
-        return
-    if not ent.apply_direct_pressure("right_leg"):
-        _fail(failures, "tq_bandage_gate: pressure setup failed")
-        MedicalPhaseGateTests._free_entity_fixture(ent)
-        return
-    if ent._can_apply_bandage("right_leg"):
-        _fail(failures, "tq_bandage_gate: bandage should not be legal on TQ-indicated limb")
-    if ent._can_apply_stabilize("right_leg"):
-        _fail(failures, "tq_bandage_gate: stabilize should not be legal on TQ-indicated limb")
-    MedicalPhaseGateTests._free_entity_fixture(ent)
-
-## Camp-2.1 MARCH: field care offers tourniquet before bandage when limb bleed is TQ-indicated.

@@ -1,6 +1,6 @@
 class_name Tier1DepthPolearmHostilePairTests
 extends CombatRegressionHarnessCore
-const _CombatRegressionHarness := preload("res://harness/regression/CombatRegressionHarness.gd")
+const CombatRegressionHarness := preload("res://harness/regression/CombatRegressionHarness.gd")
 ## Tier 1 depth / engagement / targeting / surround / doctrine tests (compile split).
 ## Footing: not WF/PA owner  -  may call strike/listing paths that read **`form_str`**. Spec: LIVE_PATHS
 ## **`#wf-footing-doc-map``.
@@ -20,9 +20,7 @@ static func _run_hostile_pair_cached_engagement_mode_matches_live(failures: Pack
     var em: float = CombatTargetScoring.engagement_mode_targeting_mult(mgr)
     var w_cached: float = CombatTargetScoring.hostile_pair_targeting_weight_mult(mgr, p, e, em)
     if not is_equal_approx(w_live, w_cached):
-        _fail(
-            failures, "hostile_pair_em_cache: live %.8f vs cached-arg %.8f (em=%.8f)" % [w_live, w_cached, em]
-        )
+        _fail(failures, "hostile_pair_em_cache: live %.8f vs cached-arg %.8f (em=%.8f)" % [w_live, w_cached, em])
     HarnessFixtures._free_manager(mgr)
 
 
@@ -35,9 +33,7 @@ static func _run_ai_targeting_stance_mult_ordering(failures: PackedStringArray) 
     var m_bal: float = CombatTargetScoring.stance_ai_targeting_mult({"stance": CombatConstants.STANCE_BALANCED})
     var m_agg: float = CombatTargetScoring.stance_ai_targeting_mult({"stance": CombatConstants.STANCE_AGGRESSIVE})
     if not (m_def < m_bal + 0.001 and m_bal < m_agg + 0.001):
-        _fail(
-            failures, "ai_targeting_stance: expected def<bal<agg got %.4f %.4f %.4f" % [m_def, m_bal, m_agg]
-        )
+        _fail(failures, "ai_targeting_stance: expected def<bal<agg got %.4f %.4f %.4f" % [m_def, m_bal, m_agg])
 
 
 ## Tier 1.6: `hostile_pair_targeting_weight_mult` ×  **`AI_TARGETING_INCAP_HOSTILE_MULT`** vs incapacitated opponent
@@ -241,9 +237,7 @@ static func _run_stalemate_melee_rank1_when_rank0_incap(failures: PackedStringAr
         HarnessFixtures._free_manager(mgr)
         return
     if not CombatListedActions.actions_any_vs_target(acts, e1id):
-        _fail(
-            failures, "stalemate_incap: expected at least one action vs rank1 enemy acts=%s" % str(acts)
-        )
+        _fail(failures, "stalemate_incap: expected at least one action vs rank1 enemy acts=%s" % str(acts))
     HarnessFixtures._free_manager(mgr)
 
 
@@ -386,9 +380,7 @@ static func _run_ordered_melee_opponents_actor_zone_cache_parity(failures: Packe
         ids_cached.append(CombatantEntityAccess.id_int(x))
     HarnessFixtures._free_manager(mgr)
     if ids_fresh != ids_cached:
-        _fail(
-            failures, "melee_order_ctx: fresh %s != cached %s" % [str(ids_fresh), str(ids_cached)]
-        )
+        _fail(failures, "melee_order_ctx: fresh %s != cached %s" % [str(ids_fresh), str(ids_cached)])
 
 
 ## **`AvailableActionsBuilder.build`** is deterministic across back-to-back calls on the same combat state.
@@ -455,14 +447,14 @@ static func _run_hostile_pair_opp_zone_cache_parity(failures: PackedStringArray)
 ## Tier 4.2: **`AttackWindUpStarter.start`** with **`feint_part`** / **`target_part`** options stamps
 ## **`pending_attack`** (incl. **`feint_target_reveal_at_progress`** when the move defines it), sets defender
 ## **`guard_zone`** to the telegraph (**`feint_part`** when present). Uses
-## **`_CombatRegressionHarness._FEINT_WINDUP_HARNESS_SEED`** for stable upstream wind-up rolls;
+## **`CombatRegressionHarness._FEINT_WINDUP_HARNESS_SEED`** for stable upstream wind-up rolls;
 ## restores **`_HARNESS_RESTORE_GLOBAL_SEED`** before teardown.
 
 
 ## Tier 4.2: **`AttackWindUpStarter.start`** with **`feint_part`** / **`target_part`** options stamps
 ## **`pending_attack`** (incl. **`feint_target_reveal_at_progress`** when the move defines it), sets defender
 ## **`guard_zone`** to the telegraph (**`feint_part`** when present). Uses
-## **`_CombatRegressionHarness._FEINT_WINDUP_HARNESS_SEED`** for stable upstream wind-up rolls;
+## **`CombatRegressionHarness._FEINT_WINDUP_HARNESS_SEED`** for stable upstream wind-up rolls;
 ## restores **`_HARNESS_RESTORE_GLOBAL_SEED`** before teardown.
 static func _run_depth_spear_tight_lane_parry_mult_invariant(failures: PackedStringArray) -> void:
     var m0: float = DefenseChoiceResolver.depth_spear_tight_lane_parry_c_d_mult({})
@@ -659,9 +651,7 @@ static func _run_depth_spear_thrust_closing_factor_invariant(failures: PackedStr
         )
     )
     if not is_equal_approx(f0, 1.0) or not is_equal_approx(f_cut, 1.0):
-        _fail(
-            failures, "depth_spear_closing: expected 1.0 for empty / non-stab got f0=%.4f f_cut=%.4f" % [f0, f_cut]
-        )
+        _fail(failures, "depth_spear_closing: expected 1.0 for empty / non-stab got f0=%.4f f_cut=%.4f" % [f0, f_cut])
     if not is_equal_approx(f_stab, CombatConstants.DEPTH_SPEAR_THRUST_CLOSING_SPEED_MULT):
         _fail(
             failures,
@@ -689,13 +679,9 @@ static func _run_depth_spear_thrust_closing_factor_invariant(failures: PackedStr
             )
         )
     if not is_equal_approx(f_stab_empty_tight, 1.0):
-        _fail(
-            failures, "depth_spear_closing: empty lane + allows_low false want 1.0 got %.4f" % f_stab_empty_tight
-        )
+        _fail(failures, "depth_spear_closing: empty lane + allows_low false want 1.0 got %.4f" % f_stab_empty_tight)
     if not is_equal_approx(f_stab_garbage_tight, 1.0):
-        _fail(
-            failures, "depth_spear_closing: unknown lane + allows_low false want 1.0 got %.4f" % f_stab_garbage_tight
-        )
+        _fail(failures, "depth_spear_closing: unknown lane + allows_low false want 1.0 got %.4f" % f_stab_garbage_tight)
     if not is_equal_approx(f_stab_open_ignores_allows, CombatConstants.DEPTH_SPEAR_THRUST_CLOSING_SPEED_MULT):
         _fail(
             failures,
@@ -725,9 +711,7 @@ static func _run_spear_lane_profile_preset_normalized(failures: PackedStringArra
         _fail(failures, "spear_lane_preset: expected open from alias 'full' got %s" % sp)
     var se: String = str(mgr.formations["enemy"].get(CombatConstants.FORMATION_KEY_SPEAR_LANE_PROFILE, ""))
     if se != CombatConstants.SPEAR_LANE_PROFILE_AUTO:
-        _fail(
-            failures, "spear_lane_preset: enemy default profile should be auto/empty got %s" % se
-        )
+        _fail(failures, "spear_lane_preset: enemy default profile should be auto/empty got %s" % se)
     HarnessFixtures._free_manager(mgr)
 
 
@@ -765,9 +749,7 @@ static func _run_depth_polearm_lane_open_false_for_non_eligible_weapon(failures:
     mgr.start(p_preset, e_preset)
     var depth_sw: Dictionary = mgr.combatants[1]
     if CombatDepthPolearm.depth_polearm_lane_open(mgr, depth_sw):
-        _fail(
-            failures, "depth_lane_non_eligible: rank-1 sword must not open depth polearm lane (rank-0 ally present)"
-        )
+        _fail(failures, "depth_lane_non_eligible: rank-1 sword must not open depth polearm lane (rank-0 ally present)")
     HarnessFixtures._free_manager(mgr)
 
 
@@ -823,9 +805,7 @@ static func _run_depth_polearm_lane_open_false_without_living_same_file_rank0(fa
     front_f1["alive"] = false
     mgr.recompute_zoc_and_distance()
     if CombatDepthPolearm.depth_polearm_lane_open(mgr, depth_f1):
-        _fail(
-            failures, "depth_lane_no_r0: rank-1 spear file 1 must not open lane when same-file rank-0 is dead"
-        )
+        _fail(failures, "depth_lane_no_r0: rank-1 spear file 1 must not open lane when same-file rank-0 is dead")
     var depth_f0: Dictionary = {}
     for c in mgr.combatants:
         if not CombatantEntityAccess.is_player_side(c):
@@ -881,9 +861,7 @@ static func _run_depth_polearm_lane_cache_matches_builder(failures: PackedString
         return
     front_f1["alive"] = false
     mgr2.recompute_zoc_and_distance()
-    HarnessFixtures._assert_depth_lane_open_cache_matches_builder(
-        mgr2, failures, "depth_lane_cache:2wide_dead_r0f1"
-    )
+    HarnessFixtures._assert_depth_lane_open_cache_matches_builder(mgr2, failures, "depth_lane_cache:2wide_dead_r0f1")
     HarnessFixtures._free_manager(mgr2)
 
 
@@ -911,9 +889,7 @@ static func _run_depth_polearm_lane_open_false_when_same_file_rank0_incap(failur
         HarnessFixtures._free_manager(mgr)
         return
     if CombatDepthPolearm.depth_polearm_lane_open(mgr, depth):
-        _fail(
-            failures, "depth_lane_r0_incap: rank-1 spear must not open lane when same-file rank-0 is incapacitated"
-        )
+        _fail(failures, "depth_lane_r0_incap: rank-1 spear must not open lane when same-file rank-0 is incapacitated")
     HarnessFixtures._assert_depth_lane_open_cache_matches_builder(mgr, failures, "depth_lane_cache:r0_incap")
     HarnessFixtures._free_manager(mgr)
 
@@ -971,14 +947,10 @@ static func _run_depth_polearm_allows_low_targets_strict_tight_when_lane_open(fa
     mgr.formations["player"]["density"] = "tight"
     mgr.formations["player"].erase(CombatConstants.FORMATION_KEY_SPEAR_LANE_PROFILE)
     if CombatDepthPolearm.depth_polearm_lane_allows_low_targets(mgr, depth):
-        _fail(
-            failures, "depth_allows_low: strict+tight+lane open+no wedge should not allow low targets"
-        )
+        _fail(failures, "depth_allows_low: strict+tight+lane open+no wedge should not allow low targets")
     mgr.formations["player"][CombatConstants.FORMATION_KEY_SPEAR_LANE_PROFILE] = CombatConstants.SPEAR_LANE_PROFILE_OPEN
     if not CombatDepthPolearm.depth_polearm_lane_allows_low_targets(mgr, depth):
-        _fail(
-            failures, "depth_allows_low: spear_lane_profile open should allow low targets on tight formation"
-        )
+        _fail(failures, "depth_allows_low: spear_lane_profile open should allow low targets on tight formation")
     HarnessFixtures._free_manager(mgr)
 
 ## Tier 1.9 / 3.1: **`stamp_attack_pair_geometry_on_dict`** **`pa`** depth keys match

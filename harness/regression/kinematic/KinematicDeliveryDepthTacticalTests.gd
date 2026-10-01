@@ -1,6 +1,6 @@
 class_name KinematicDeliveryDepthTacticalTests
 extends CombatRegressionHarnessCore
-const _CombatRegressionHarness := preload("res://harness/regression/CombatRegressionHarness.gd")
+const CombatRegressionHarness := preload("res://harness/regression/CombatRegressionHarness.gd")
 
 ## Tier 5.1 optional long-tail kinematic tests split from **`CombatRegressionHarness`** (Godot compile size).
 ## Footing: strike delivery / energy  -  may pass **`guard_line`** into path context; not L2 form or Tier 4.4 PA owner.
@@ -548,8 +548,10 @@ static func _run_kinematic_delivery_thrust_integration_pre_cut_scales_ke_pow(fai
     if absf(got_ratio - want_ratio) > 0.04:
         CombatRegressionHarness._fail(
             failures,
-            "kin_thrust_int: pre_cut ratio %.4f want ke^%.2f ratio %.4f"
-            % [got_ratio, WeaponConstants.CUT_DAMAGE_ENERGY_EXPONENT, want_ratio]
+            (
+                "kin_thrust_int: pre_cut ratio %.4f want ke^%.2f ratio %.4f"
+                % [got_ratio, WeaponConstants.CUT_DAMAGE_ENERGY_EXPONENT, want_ratio]
+            )
         )
 
 

@@ -1,10 +1,9 @@
 class_name ProficiencyAwardPersistenceTests
 extends CombatRegressionHarnessCore
-const _CombatRegressionHarness := preload("res://harness/regression/CombatRegressionHarness.gd")
+const CombatRegressionHarness := preload("res://harness/regression/CombatRegressionHarness.gd")
 
 ## XCamp-4: use-based stat proficiency system tests.
 ## All tests are gated by CompanyState.read_stub_proficiency_enabled() — proficiency_enabled defaults to true.
-
 
 ## Read _proficiency_bonus from a CoreEntity.
 
@@ -93,9 +92,7 @@ static func _run_stub_gating_off(failures: PackedStringArray) -> void:
     if ent._proficiency_bonus.get("strength", 0) == 0 and stats.get("strength") == 120:
         pass  # Stub effectively zeroed bonuses — expected when off or when entity has no bonus dict entries.
     elif not CompanyState.read_stub_proficiency_enabled():
-        _fail(
-            failures, "stub_off: bonus should be zero but got strength=%s" % str(stats.get("strength"))
-        )
+        _fail(failures, "stub_off: bonus should be zero but got strength=%s" % str(stats.get("strength")))
     HarnessFixtures._free_harness_node(ent)
 
 
@@ -122,13 +119,9 @@ static func _run_copy_core_stats_no_bonuses_when_off(failures: PackedStringArray
             )
         )
     if stats.get("agility", -1) != 95:
-        _fail(
-            failures, "stub_off_copy: agility should be 95 not %s" % str(stats.get("agility"))
-        )
+        _fail(failures, "stub_off_copy: agility should be 95 not %s" % str(stats.get("agility")))
     if stats.get("intelligence", -1) != 110:
-        _fail(
-            failures, "stub_off_copy: intelligence should be 110 not %s" % str(stats.get("intelligence"))
-        )
+        _fail(failures, "stub_off_copy: intelligence should be 110 not %s" % str(stats.get("intelligence")))
     HarnessFixtures._free_harness_node(ent)
 
 
@@ -154,21 +147,13 @@ static func _run_copy_core_stats_applies_bonuses_when_on(failures: PackedStringA
     var stats: Dictionary = {}
     CombatantStatsSync._copy_core_stats(ent, stats)
     if int(stats.get("strength", -1)) != 123:
-        _fail(
-            failures, "stub_on_copy: strength should be 123 (120+3), got %s" % str(stats.get("strength"))
-        )
+        _fail(failures, "stub_on_copy: strength should be 123 (120+3), got %s" % str(stats.get("strength")))
     if int(stats.get("agility", -1)) != 93:
-        _fail(
-            failures, "stub_on_copy: agility should be 93 (95-2), got %s" % str(stats.get("agility"))
-        )
+        _fail(failures, "stub_on_copy: agility should be 93 (95-2), got %s" % str(stats.get("agility")))
     if int(stats.get("intelligence", -1)) != 115:
-        _fail(
-            failures, "stub_on_copy: intelligence should be 115 (110+5), got %s" % str(stats.get("intelligence"))
-        )
+        _fail(failures, "stub_on_copy: intelligence should be 115 (110+5), got %s" % str(stats.get("intelligence")))
     if int(stats.get("endurance", -1)) != 106:
-        _fail(
-            failures, "stub_on_copy: endurance should be 106 (105+1), got %s" % str(stats.get("endurance"))
-        )
+        _fail(failures, "stub_on_copy: endurance should be 106 (105+1), got %s" % str(stats.get("endurance")))
     HarnessFixtures._free_harness_node(ent)
 
 
@@ -188,19 +173,13 @@ static func _run_copy_core_stats_preserves_fractional_bonus(failures: PackedStri
     # bonus 3.7 (< 5.0 threshold) -> untrained penalty = (1 - 3.7/5)*5 = 1.3
     # effective = 100 + 3.7 - 1.3 = 102.4  (int-truncation would give 100 + 3 - 1 = 102)
     if absf(s - 102.4) > 0.001:
-        _fail(
-            failures,
-            "frac_copy: strength should be 102.4 (100+3.7-1.3), got %s" % str(stats.get("strength"))
-        )
+        _fail(failures, "frac_copy: strength should be 102.4 (100+3.7-1.3), got %s" % str(stats.get("strength")))
     # A bonus above the threshold has no penalty: 12.3 -> 112.3 (int-truncation would give 112).
     ent._proficiency_bonus["strength"] = 12.3
     CombatantStatsSync._copy_core_stats(ent, stats)
     var s2: float = float(stats.get("strength", -1))
     if absf(s2 - 112.3) > 0.001:
-        _fail(
-            failures,
-            "frac_copy: strength should be 112.3 (100+12.3), got %s" % str(stats.get("strength"))
-        )
+        _fail(failures, "frac_copy: strength should be 112.3 (100+12.3), got %s" % str(stats.get("strength")))
     HarnessFixtures._free_harness_node(ent)
 
 
@@ -332,9 +311,7 @@ static func _run_apply_decay_inactive_mercenary(failures: PackedStringArray) -> 
     EntityProficiency.apply_decay(ent as CoreEntity, 1)  # 3 inactive days (day 1 - (-2) = 3).
     var decayed_str: float = ProficiencyAwardPersistenceTests._get_prof_bonus(ent, "strength")
     if decayed_str >= 12.0:
-        _fail(
-            failures, "decay: strength should decrease after 3 inactive days (got %.2f)" % decayed_str
-        )
+        _fail(failures, "decay: strength should decrease after 3 inactive days (got %.2f)" % decayed_str)
     # Decay below +10 should stop.
     ProficiencyAwardPersistenceTests._set_prof_bonus(ent, "strength", 9.0)
     EntityProficiency.apply_decay(ent as CoreEntity, 5)
@@ -398,16 +375,12 @@ static func _run_merge_training_pending(failures: PackedStringArray) -> void:
         ent.get("training_pending").get("strength", 0) if "strength" in ent.get("training_pending") else 0
     )
     if absf(pending_str - 0.0) > 0.01:
-        _fail(
-            failures, "merge: training_pending STR should be reset to 0 (got %.2f)" % pending_str
-        )
+        _fail(failures, "merge: training_pending STR should be reset to 0 (got %.2f)" % pending_str)
     var pending_int: float = float(
         ent.get("training_pending").get("intelligence", 0) if "intelligence" in ent.get("training_pending") else 0
     )
     if absf(pending_int - 0.0) > 0.01:
-        _fail(
-            failures, "merge: training_pending INT should be cleared to 0 (got %.2f)" % pending_int
-        )
+        _fail(failures, "merge: training_pending INT should be cleared to 0 (got %.2f)" % pending_int)
     CompanyState.proficiency_enabled = old_stub
     HarnessFixtures._free_harness_node(ent)
 
@@ -605,9 +578,7 @@ static func _run_base_medical_windup_speed_modifier(failures: PackedStringArray)
     # Base INT is 120, so med_eff = clampf(120/100.0, 0.5, 1.5) = 1.2
     var expected_med_eff: float = 1.2
     if absf(speed_mod - expected_med_eff) > 0.01:
-        _fail(
-            failures, "base_windup_speed: expected %.2f (base INT=120), got %.2f" % [expected_med_eff, speed_mod]
-        )
+        _fail(failures, "base_windup_speed: expected %.2f (base INT=120), got %.2f" % [expected_med_eff, speed_mod])
 
     HarnessFixtures._free_harness_node(mgr)
 
@@ -631,9 +602,7 @@ static func _run_formatter_proficiency_bonus_line(failures: PackedStringArray) -
         _fail(failures, "formatter: proficiency line should not be empty")
 
     if not line.contains("STR:") and not line.contains("AGI:"):
-        _fail(
-            failures, "formatter: proficiency line should contain stat abbreviations (got '%s')" % line
-        )
+        _fail(failures, "formatter: proficiency line should contain stat abbreviations (got '%s')" % line)
 
     # Empty bonuses should return empty string.
     var ent2: CoreEntity = _new_entity("SWORD")
@@ -644,9 +613,7 @@ static func _run_formatter_proficiency_bonus_line(failures: PackedStringArray) -
     }
     var line2: String = PartyRowFormatter.format_proficiency_bonus_line(member2)
     if not line2.is_empty():
-        _fail(
-            failures, "formatter: empty bonuses should return empty string (got '%s')" % line2
-        )
+        _fail(failures, "formatter: empty bonuses should return empty string (got '%s')" % line2)
 
     HarnessFixtures._free_harness_node(ent)
     HarnessFixtures._free_harness_node(ent2)
@@ -674,9 +641,7 @@ static func _run_persistence_round_trip(failures: PackedStringArray) -> void:
     if not serialized.has("proficiency_bonus"):
         _fail(failures, "persist: proficiency_bonus should be serialized")
     if int(serialized.get("last_fought_day", -1)) != 42:
-        _fail(
-            failures, "persist: last_fought_day should be 42 (got %s)" % str(serialized.get("last_fought_day"))
-        )
+        _fail(failures, "persist: last_fought_day should be 42 (got %s)" % str(serialized.get("last_fought_day")))
 
     # Simulate deserialization into a fresh entity.
     var fresh_ent: CoreEntity = _new_entity("SWORD")
@@ -697,20 +662,14 @@ static func _run_persistence_round_trip(failures: PackedStringArray) -> void:
         _fail(failures, "persist: restored strength should be 4.0 (got %.2f)" % restored_str)
     var restored_int: float = float(fresh_ent._proficiency_bonus.get("intelligence", -1))
     if absf(restored_int - 6.0) > 0.01:
-        _fail(
-            failures, "persist: restored intelligence should be 6.0 (got %.2f)" % restored_int
-        )
+        _fail(failures, "persist: restored intelligence should be 6.0 (got %.2f)" % restored_int)
     var restored_day: int = fresh_ent.last_fought_day
     if restored_day != 42:
-        _fail(
-            failures, "persist: restored last_fought_day should be 42 (got %d)" % restored_day
-        )
+        _fail(failures, "persist: restored last_fought_day should be 42 (got %d)" % restored_day)
 
     var restored_in_combat: bool = fresh_ent.last_fought_in_combat
     if restored_in_combat != true:
-        _fail(
-            failures, "persist: restored last_fought_in_combat should be true (got %s)" % str(restored_in_combat)
-        )
+        _fail(failures, "persist: restored last_fought_in_combat should be true (got %s)" % str(restored_in_combat))
 
     HarnessFixtures._free_harness_node(ent)
     HarnessFixtures._free_harness_node(fresh_ent)
@@ -737,9 +696,7 @@ static func _run_persistence_training_pending(failures: PackedStringArray) -> vo
 
     var restored_str: float = float(fresh_ent.training_pending.get("strength", -1))
     if absf(restored_str - 3.5) > 0.01:
-        _fail(
-            failures, "persist_train: restored strength should be 3.5 (got %.2f)" % restored_str
-        )
+        _fail(failures, "persist_train: restored strength should be 3.5 (got %.2f)" % restored_str)
 
     HarnessFixtures._free_harness_node(ent)
     HarnessFixtures._free_harness_node(fresh_ent)
@@ -825,15 +782,18 @@ static func _run_combat_dodge_awards_proficiency_gains(failures: PackedStringArr
         var bonus_str: float = float(player_ent._proficiency_bonus.get("strength", 0))
         if bonus_str < 0.1:
             _fail(
-                failures, "combat_dodge_gains: tracked attacker STR gain too low on dodged strike (got %.2f)" % bonus_str
+                failures,
+                "combat_dodge_gains: tracked attacker STR gain too low on dodged strike (got %.2f)" % bonus_str
             )
         # Untracked defender must NOT accrue AGI — the write-side gate keeps enemies at baseline.
         var bonus_agi: float = float(enemy_ent._proficiency_bonus.get("agility", 0))
         if absf(bonus_agi - enemy_agi_before) > 0.001:
             _fail(
                 failures,
-                "combat_dodge_gains: untracked defender should not gain AGI on dodge (before %.2f, got %.2f)"
-                % [enemy_agi_before, bonus_agi]
+                (
+                    "combat_dodge_gains: untracked defender should not gain AGI on dodge (before %.2f, got %.2f)"
+                    % [enemy_agi_before, bonus_agi]
+                )
             )
 
     ProficiencyAwardPersistenceTests._free_proficiency_combat(data)
@@ -921,13 +881,9 @@ static func _run_decay_rates_per_stat(failures: PackedStringArray) -> void:
 
     # END decay should be ~1.5x STR decay; AGI should be ~1.3x STR decay.
     if end_decay < str_decay * 1.2:
-        _fail(
-            failures, "decay_rates: END decay (%.4f) should be >1.2x STR decay (%.4f)" % [end_decay, str_decay]
-        )
+        _fail(failures, "decay_rates: END decay (%.4f) should be >1.2x STR decay (%.4f)" % [end_decay, str_decay])
     if agi_decay < str_decay * 1.0:
-        _fail(
-            failures, "decay_rates: AGI decay (%.4f) should be > STR decay (%.4f)" % [agi_decay, str_decay]
-        )
+        _fail(failures, "decay_rates: AGI decay (%.4f) should be > STR decay (%.4f)" % [agi_decay, str_decay])
 
     CompanyState.proficiency_enabled = old_stub
     HarnessFixtures._free_harness_node(ent_str)
@@ -935,4 +891,3 @@ static func _run_decay_rates_per_stat(failures: PackedStringArray) -> void:
     HarnessFixtures._free_harness_node(ent_agi)
 
 ## Parry deflect awards END gain for defender (absorbing recoil).
-

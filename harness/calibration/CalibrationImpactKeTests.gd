@@ -96,13 +96,18 @@ static func _append_soak_parry_section(lines: PackedStringArray, failures: Packe
             lines.append(msg % [partial_pct, total_parry, bind_pct, PARRY_MIX_MIN_SAMPLE])
         else:
             lines.append(
-                "brawl_parry_mix partial=%.0f%% of %d events (bind %.0f%% of clean)" % [partial_pct, total_parry, bind_pct]
+                (
+                    "brawl_parry_mix partial=%.0f%% of %d events (bind %.0f%% of clean)"
+                    % [partial_pct, total_parry, bind_pct]
+                )
             )
         lines.append(
             (
                 "clinical_read=partials dominate in multi-threat (misaligned guard); "
-                + "n=%d here is %s for pct stats"
-                % [total_parry, "insufficient" if total_parry < PARRY_MIX_MIN_SAMPLE else "sufficient"]
+                + (
+                    "n=%d here is %s for pct stats"
+                    % [total_parry, "insufficient" if total_parry < PARRY_MIX_MIN_SAMPLE else "sufficient"]
+                )
             )
         )
     if ctrl_mismatch > 0:
@@ -162,8 +167,13 @@ static func _append_impact_ke_section(lines: PackedStringArray, failures: Packed
     var pre_cut_commit: float = WeaponDamageHelper.compute_pre_armor_cut(sword, ai_commit, 100.0, 1.0)
     var commit_ke_ratio: float = ke_commit / ke_hi if ke_hi > 0.01 else 0.0
     lines.append(
-        "delivery_commit_formula=effective_intensity=intensity (commit no longer reduces velocity; affects damage coupling via StrikeRealismProfile); floor=%.2f"
-        % [WeaponDamageHelper.DELIVERY_INTENSITY_FLOOR]
+        (
+            (
+                "delivery_commit_formula=effective_intensity=intensity (commit no longer reduces velocity; affects "
+                + "damage coupling via StrikeRealismProfile); floor=%.2f"
+            )
+            % [WeaponDamageHelper.DELIVERY_INTENSITY_FLOOR]
+        )
     )
     lines.append(
         (
@@ -172,10 +182,21 @@ static func _append_impact_ke_section(lines: PackedStringArray, failures: Packed
         )
     )
     var arm_strict_commit: bool = CombatDesignAnchors.committed_strike_ke_in_strict_band(ke_commit)
-    lines.append("audit_KE_at_i1.0_committed_J=%.0f strict_65-145J=%s (pure physics KE; real combat uses damage coupling via StrikeRealismProfile)" % [ke_commit, str(arm_strict_commit).to_lower()])
+    lines.append(
+        (
+            (
+                "audit_KE_at_i1.0_committed_J=%.0f strict_65-145J=%s (pure physics KE; real combat uses damage "
+                + "coupling via StrikeRealismProfile)"
+            )
+            % [ke_commit, str(arm_strict_commit).to_lower()]
+        )
+    )
     var arm_strict: bool = CombatDesignAnchors.committed_strike_ke_in_strict_band(ke_hi)
     var arm_loose: bool = ke_hi >= 40.0 and ke_hi <= 250.0
-    var combat_realistic: bool = ke_hi >= CombatDesignAnchors.COMBAT_REALISTIC_KE_J_MIN and ke_hi <= CombatDesignAnchors.COMBAT_REALISTIC_KE_J_MAX
+    var combat_realistic: bool = (
+        ke_hi >= CombatDesignAnchors.COMBAT_REALISTIC_KE_J_MIN
+        and ke_hi <= CombatDesignAnchors.COMBAT_REALISTIC_KE_J_MAX
+    )
     var vs_design: float = ke_hi / CombatDesignAnchors.DESIGN_KE_ARM_J if ke_hi >= 0.0 else 0.0
     lines.append(
         (
@@ -183,8 +204,22 @@ static func _append_impact_ke_section(lines: PackedStringArray, failures: Packed
             % [ke_hi, vs_design, CombatDesignAnchors.DESIGN_KE_ARM_J]
         )
     )
-    lines.append("audit_KE_arm_strict_65-145J=%s (pure physics KE audit; damage coupling via StrikeRealismProfile)" % str(arm_strict).to_lower())
-    lines.append("audit_KE_arm_combat_realistic_%d-%dJ=%s" % [CombatDesignAnchors.COMBAT_REALISTIC_KE_J_MIN, CombatDesignAnchors.COMBAT_REALISTIC_KE_J_MAX, str(combat_realistic).to_lower()])
+    lines.append(
+        (
+            "audit_KE_arm_strict_65-145J=%s (pure physics KE audit; damage coupling via StrikeRealismProfile)"
+            % str(arm_strict).to_lower()
+        )
+    )
+    lines.append(
+        (
+            "audit_KE_arm_combat_realistic_%d-%dJ=%s"
+            % [
+                CombatDesignAnchors.COMBAT_REALISTIC_KE_J_MIN,
+                CombatDesignAnchors.COMBAT_REALISTIC_KE_J_MAX,
+                str(combat_realistic).to_lower()
+            ]
+        )
+    )
     lines.append("audit_KE_arm_loose_40-250J=%s" % str(arm_loose).to_lower())
     if ke_hi < 0.0:
         failures.append("impact_ke: no intensity 1.0 sample")
@@ -200,7 +235,9 @@ static func _append_impact_ke_section(lines: PackedStringArray, failures: Packed
             var ke_j: float = WeaponDamageHelper.compute_kinetic_energy_j(axe, ai_axe)
             if is_equal_approx(intensity, 1.0):
                 var axe_loose_ok: bool = ke_j >= 30.0 and ke_j <= 250.0
-                lines.append("axe_overhead_i=%.1f KE_J=%.0f loose_30-250J=%s" % [intensity, ke_j, str(axe_loose_ok).to_lower()])
+                lines.append(
+                    "axe_overhead_i=%.1f KE_J=%.0f loose_30-250J=%s" % [intensity, ke_j, str(axe_loose_ok).to_lower()]
+                )
                 if not axe_loose_ok:
                     failures.append("impact_ke: axe overhead i=1.0 KE %.0fJ outside 30-250J loose band" % ke_j)
             else:
@@ -215,7 +252,9 @@ static func _append_impact_ke_section(lines: PackedStringArray, failures: Packed
             var ke_j: float = WeaponDamageHelper.compute_kinetic_energy_j(mace, ai_mace)
             if is_equal_approx(intensity, 1.0):
                 var mace_loose_ok: bool = ke_j >= 40.0 and ke_j <= 250.0
-                lines.append("mace_direct_i=%.1f KE_J=%.0f loose_40-250J=%s" % [intensity, ke_j, str(mace_loose_ok).to_lower()])
+                lines.append(
+                    "mace_direct_i=%.1f KE_J=%.0f loose_40-250J=%s" % [intensity, ke_j, str(mace_loose_ok).to_lower()]
+                )
                 if not mace_loose_ok:
                     failures.append("impact_ke: mace direct i=1.0 KE %.0fJ outside 40-250J loose band" % ke_j)
             else:

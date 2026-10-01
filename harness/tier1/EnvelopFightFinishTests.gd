@@ -1,6 +1,6 @@
 class_name Tier1EnvelopFightFinishTests
 extends CombatRegressionHarnessCore
-const _CombatRegressionHarness := preload("res://harness/regression/CombatRegressionHarness.gd")
+const CombatRegressionHarness := preload("res://harness/regression/CombatRegressionHarness.gd")
 ## Tier 1 depth / engagement / targeting / surround / doctrine tests (compile split).
 ## Footing: not WF/PA owner  -  may call strike/listing paths that read **`form_str`**. Spec: LIVE_PATHS
 ## **`#wf-footing-doc-map`**.
@@ -60,9 +60,7 @@ static func _run_sparse_finish_wait_below_offense_weight(failures: PackedStringA
     var w_offense: float = CombatAIActionPicker._get_action_weight(offense_act, survivor_id, mgr, true, {}, {}, acts)
     var w_wait: float = CombatAIActionPicker._get_action_weight(wait_act, survivor_id, mgr, true, {}, {}, acts)
     if w_offense <= w_wait:
-        _fail(
-            failures, "sparse_wait_weight: want offense > wait got offense=%.3f wait=%.3f" % [w_offense, w_wait]
-        )
+        _fail(failures, "sparse_wait_weight: want offense > wait got offense=%.3f wait=%.3f" % [w_offense, w_wait])
     HarnessFixtures._free_manager(mgr)
 
 
@@ -96,9 +94,7 @@ static func _run_exhaustion_rank0_strikes_blocks_rotate_file(failures: PackedStr
         HarnessFixtures._free_manager(mgr)
         return
     if str(picked.get("move_id", "")) == CombatConstants.MOVE_ID_ROTATE_FILE:
-        _fail(
-            failures, "exhaustion_rank0_rotate: rotate_file must not win when strikes are listed on rank 0"
-        )
+        _fail(failures, "exhaustion_rank0_rotate: rotate_file must not win when strikes are listed on rank 0")
     if (
         str(fighter.get(CombatConstants.COMBATANT_KEY_MENTAL_STACK_LAYER, ""))
         != CombatConstants.MENTAL_STACK_LAYER_EXHAUSTION
@@ -157,21 +153,15 @@ static func _run_fight_finish_trust_menu_close_underdog(failures: PackedStringAr
         {"move_id": CombatConstants.MOVE_ID_ATTEMPT_CLOSE, "target_id": player_id},
     ]
     if not CombatDoctrine.fight_finish_tail_active(mgr, enemy, acts, enemy_id):
-        _fail(
-            failures, "fight_finish_trust_close: want fight_finish_tail_active on underdog menu"
-        )
+        _fail(failures, "fight_finish_trust_close: want fight_finish_tail_active on underdog menu")
         HarnessFixtures._free_manager(mgr)
         return
     var picked: Dictionary = MentalStackDecider.try_pick(acts, enemy_id, mgr)
     if str(picked.get("move_id", "")) != CombatConstants.MOVE_ID_ATTEMPT_CLOSE:
-        _fail(
-            failures, "fight_finish_trust_close: want attempt_close pick got %s" % str(picked.get("move_id", ""))
-        )
+        _fail(failures, "fight_finish_trust_close: want attempt_close pick got %s" % str(picked.get("move_id", "")))
     var close_w: float = CombatAIActionPicker._get_action_weight(acts[1], enemy_id, mgr, true, {}, {}, acts)
     if close_w < CombatConstants.AI_FIGHT_FINISH_TRUSTED_CLOSE_MIN_WEIGHT - 0.001:
-        _fail(
-            failures, "fight_finish_trust_close: want trusted close weight got %.3f" % close_w
-        )
+        _fail(failures, "fight_finish_trust_close: want trusted close weight got %.3f" % close_w)
     HarnessFixtures._free_manager(mgr)
 
 
@@ -215,9 +205,7 @@ static func _run_fight_finish_close_filter_trusts_menu(failures: PackedStringArr
         {"move_id": CombatConstants.MOVE_ID_ATTEMPT_CLOSE, "target_id": player_id},
     ]
     if not CombatDoctrine.fight_finish_tail_active(mgr, enemy, acts, enemy_id):
-        _fail(
-            failures, "fight_finish_close_filter: want fight_finish_tail_active on underdog menu"
-        )
+        _fail(failures, "fight_finish_close_filter: want fight_finish_tail_active on underdog menu")
         HarnessFixtures._free_manager(mgr)
         return
     var close_pool: Array = MentalStackDecider._filter_hold_line_close_actions(acts, enemy_id, mgr, enemy)
@@ -261,9 +249,7 @@ static func _run_fight_finish_skips_exhaustion_with_listed_offense(failures: Pac
         return
     var layer: String = str(player.get(CombatConstants.COMBATANT_KEY_MENTAL_STACK_LAYER, ""))
     if layer == CombatConstants.MENTAL_STACK_LAYER_EXHAUSTION:
-        _fail(
-            failures, "fight_finish_skip_exhaustion: exhaustion layer must not fire on fight-finish tail"
-        )
+        _fail(failures, "fight_finish_skip_exhaustion: exhaustion layer must not fire on fight-finish tail")
     if (
         (
             str(picked.get("move_id", ""))
@@ -370,9 +356,7 @@ static func _run_exhaustion_rank0_strikes_blocks_focus_line(failures: PackedStri
         HarnessFixtures._free_manager(mgr)
         return
     if CombatConstants.is_focus_line_move(str(picked.get("move_id", ""))):
-        _fail(
-            failures, "exhaustion_rank0_focus: focus must not win when strikes are listed on rank 0"
-        )
+        _fail(failures, "exhaustion_rank0_focus: focus must not win when strikes are listed on rank 0")
     if (
         str(fighter.get(CombatConstants.COMBATANT_KEY_MENTAL_STACK_LAYER, ""))
         != CombatConstants.MENTAL_STACK_LAYER_EXHAUSTION
@@ -424,13 +408,9 @@ static func _run_mop_up_rank0_exhaustion_prefers_fight_finish(failures: PackedSt
                 CombatConstants.MENTAL_STACK_LAYER_SPARSE_FIGHT,
             ]
         ):
-            _fail(
-                failures, "mop_up_rank0_exhaustion: reserve_only want hold_line or sparse_fight got %s" % layer
-            )
+            _fail(failures, "mop_up_rank0_exhaustion: reserve_only want hold_line or sparse_fight got %s" % layer)
         if mid != CombatConstants.MOVE_ID_ATTEMPT_CLOSE:
-            _fail(
-                failures, "mop_up_rank0_exhaustion: reserve_only want attempt_close got %s" % mid
-            )
+            _fail(failures, "mop_up_rank0_exhaustion: reserve_only want attempt_close got %s" % mid)
     else:
         if (
             mid
@@ -462,9 +442,7 @@ static func _run_envelop_mop_up_excludes_fled_allies(failures: PackedStringArray
         c["state"] = CombatConstants.STATE_FLED
         fled_count += 1
     if not CombatDoctrine.envelop_mop_up_active(mgr, "player"):
-        _fail(
-            failures, "envelop_mop_up_fled: want active with 4 standing vs 1 enemy got inactive"
-        )
+        _fail(failures, "envelop_mop_up_fled: want active with 4 standing vs 1 enemy got inactive")
     HarnessFixtures._free_manager(mgr)
 
 
@@ -516,9 +494,7 @@ static func _run_fled_enemy_distance_to_purged_after_recompute(failures: PackedS
     mgr.recompute_zoc_and_distance()
     var d_to: Dictionary = CombatantEntityAccess.nested_dictionary_read(player, "distance_to")
     if d_to.has(fled_id):
-        _fail(
-            failures, "fled_distance_to: want fled id purged from distance_to after recompute"
-        )
+        _fail(failures, "fled_distance_to: want fled id purged from distance_to after recompute")
     var ordered: Array = CombatTargetScoring.ordered_melee_opponents(mgr, player, mgr.combatants, 0)
     for opp in ordered:
         if CombatantEntityAccess.id_int(opp) == fled_id:
@@ -527,9 +503,7 @@ static func _run_fled_enemy_distance_to_purged_after_recompute(failures: PackedS
         _fail(failures, "fled_distance_to: want living enemy targets after one flee")
     CombatDistanceBands.purge_stale_distance_to_entries(mgr)
     if CombatantEntityAccess.nested_dictionary_read(player, "distance_to").has(fled_id):
-        _fail(
-            failures, "fled_distance_to: purge_stale_distance_to_entries should be idempotent safe"
-        )
+        _fail(failures, "fled_distance_to: purge_stale_distance_to_entries should be idempotent safe")
     HarnessFixtures._free_manager(mgr)
 
 
@@ -556,9 +530,7 @@ static func _run_incap_enemy_distance_to_purged_after_recompute(failures: Packed
     )
     mgr.recompute_zoc_and_distance()
     if CombatantEntityAccess.nested_dictionary_read(player, "distance_to").has(incap_id):
-        _fail(
-            failures, "incap_distance_to: want incap id purged from distance_to after recompute"
-        )
+        _fail(failures, "incap_distance_to: want incap id purged from distance_to after recompute")
     HarnessFixtures._free_manager(mgr)
 
 
@@ -580,9 +552,7 @@ static func _run_envelop_resolve_rotate_rejected_mop_up(failures: PackedStringAr
         if not CombatDoctrine.should_suppress_skirmish_rotate_file(mgr, cand, cand_acts):
             continue
         for delta in [-1, 1]:
-            var adj: Dictionary = HarnessFixtures._harness_find_living_at_rank_file(
-                mgr, "player", 0, file_i + delta
-            )
+            var adj: Dictionary = HarnessFixtures._harness_find_living_at_rank_file(mgr, "player", 0, file_i + delta)
             if adj.is_empty():
                 continue
             adj["gauge"] = 100.0
@@ -592,9 +562,7 @@ static func _run_envelop_resolve_rotate_rejected_mop_up(failures: PackedStringAr
         if not wing.is_empty():
             break
     if wing.is_empty() or partner.is_empty():
-        _fail(
-            failures, "envelop_resolve_rotate: need rank-0 pair with mop-up rotate suppress on live menu"
-        )
+        _fail(failures, "envelop_resolve_rotate: need rank-0 pair with mop-up rotate suppress on live menu")
         HarnessFixtures._free_manager(mgr)
         return
     var wing_id: int = CombatantEntityAccess.id_int(wing)
@@ -687,9 +655,7 @@ static func _run_envelop_melee_strike_listed_close_mop_up_reach_gap(failures: Pa
             )
         )
     if CombatListedActions.action_list_is_reserve_posture_only(acts):
-        _fail(
-            failures, "envelop_strike_close: reserve_only menu must not hold when strikes listed"
-        )
+        _fail(failures, "envelop_strike_close: reserve_only menu must not hold when strikes listed")
     var mgr_duel: Node = CombatManager.new()
     for _i in 2:
         mgr_duel.register(_new_entity("SWORD"), "player")
@@ -705,9 +671,7 @@ static func _run_envelop_melee_strike_listed_close_mop_up_reach_gap(failures: Pa
         var eff_duel: float = CombatPairGeometry.effective_pair_eff_dist(mgr_duel, p0, e0)
         if not CombatPairGeometry.melee_reach_covers_eff_dist(CombatMeleeListing.melee_weapon_reach(p0), eff_duel):
             if CombatMeleeListing.can_melee_threaten(mgr_duel, p0, e0):
-                _fail(
-                    failures, "envelop_strike_close: 1v1 must not bypass reach without mop-up"
-                )
+                _fail(failures, "envelop_strike_close: 1v1 must not bypass reach without mop-up")
     HarnessFixtures._free_manager(mgr_duel)
     HarnessFixtures._free_manager(mgr)
 
@@ -742,9 +706,7 @@ static func _run_pincer_wing_commitment_propagates_from_center(failures: PackedS
     CombatTargetScoring.on_combat_commitment(mgr, center_id, enemy_id)
     var got_tgt: int = int(wing.get("doctrine_target_commit_id", -1))
     if got_tgt != want_wing_tgt:
-        _fail(
-            failures, "pincer_propagate: wing commit want %d got %d" % [want_wing_tgt, got_tgt]
-        )
+        _fail(failures, "pincer_propagate: wing commit want %d got %d" % [want_wing_tgt, got_tgt])
     HarnessFixtures._free_manager(mgr)
 
 
@@ -806,13 +768,9 @@ static func _run_pincer_flank_omits_close_listing_at_close_band(failures: Packed
         CombatConstants.DISTANCE_CLOSE
     )
     if CombatDoctrine.envelop_close_allowed(mgr, wing, enemy_id):
-        _fail(
-            failures, "pincer_close_band: flank wing CLOSE must not envelop_close_allowed without mop-up"
-        )
+        _fail(failures, "pincer_close_band: flank wing CLOSE must not envelop_close_allowed without mop-up")
     if CombatMeleeListing.attempt_close_listed_for_pair(mgr, wing, enemy_id, CombatConstants.DISTANCE_CLOSE):
-        _fail(
-            failures, "pincer_close_band: flank wing CLOSE must not list attempt_close without mop-up"
-        )
+        _fail(failures, "pincer_close_band: flank wing CLOSE must not list attempt_close without mop-up")
     var acts: Array = [
         {"move_id": CombatConstants.MOVE_ID_WAIT, "target_id": wing_id},
         {"move_id": CombatConstants.MOVE_ID_ATTEMPT_CLOSE, "target_id": enemy_id},
@@ -823,9 +781,7 @@ static func _run_pincer_flank_omits_close_listing_at_close_band(failures: Packed
         . first_action_move_vs_target(close_pool, CombatConstants.MOVE_ID_ATTEMPT_CLOSE, enemy_id)
         . is_empty()
     ):
-        _fail(
-            failures, "pincer_close_band: hold_line close pool must omit CLOSE-band attempt_close without mop-up"
-        )
+        _fail(failures, "pincer_close_band: hold_line close pool must omit CLOSE-band attempt_close without mop-up")
     CombatantEntityAccess.nested_dictionary_for_mutation(wing, "distance_to")[enemy_id] = (
         CombatConstants.DISTANCE_LONG
     )
@@ -865,9 +821,7 @@ static func _run_pincer_close_arc_spread_mult(failures: PackedStringArray) -> vo
             "pincer_arc_spread: mid-file offset damp should be < preferred (got %.4f >= %.4f)" % [m_mid, m_pref]
         )
     if m_off >= m_mid:
-        _fail(
-            failures, "pincer_arc_spread: off-file offset damp should be < mid (got %.4f >= %.4f)" % [m_off, m_mid]
-        )
+        _fail(failures, "pincer_arc_spread: off-file offset damp should be < mid (got %.4f >= %.4f)" % [m_off, m_mid])
     # Non-wing combatant gets 1.0 always.
     var center: Dictionary = HarnessFixtures._harness_find_living_at_rank_file(mgr, "player", 0, 3)
     if not center.is_empty():
@@ -895,16 +849,12 @@ static func _run_posture_mirror_symmetric(failures: PackedStringArray) -> void:
     if fp.is_empty() or fe.is_empty():
         _fail(failures, "posture_mirror: missing posture player=%s enemy=%s" % [fp, fe])
     elif fp != fe:
-        _fail(
-            failures, "posture_mirror: symmetric presets expected same posture got %s vs %s" % [fp, fe]
-        )
+        _fail(failures, "posture_mirror: symmetric presets expected same posture got %s vs %s" % [fp, fe])
     CombatFormationEngagement.recompute_all(mgr)
     fp = str(mgr.formations["player"].get("engagement_posture", ""))
     fe = str(mgr.formations["enemy"].get("engagement_posture", ""))
     if fp != fe:
-        _fail(
-            failures, "posture_mirror: after recompute_all expected same posture got %s vs %s" % [fp, fe]
-        )
+        _fail(failures, "posture_mirror: after recompute_all expected same posture got %s vs %s" % [fp, fe])
     HarnessFixtures._free_manager(mgr)
 
 

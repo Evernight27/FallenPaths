@@ -1,6 +1,6 @@
 class_name SimulationMaterialTests
 extends CombatRegressionHarnessCore
-const _CombatRegressionHarness := preload("res://harness/regression/CombatRegressionHarness.gd")
+const CombatRegressionHarness := preload("res://harness/regression/CombatRegressionHarness.gd")
 
 ## Simulation realism track (S1—S10): `_run_sim_*`  -  docs/LIVE_PATHS.md#harness-prefixes.
 
@@ -12,7 +12,7 @@ static func _run_sim_depth_shallow_pen_lowers_severity(failures: PackedStringArr
     if not BleedingConstants.FEATURE_PENETRATION_DEPTH_SEVERITY:
         SimulationCombatTests._fail(failures, "sim_depth_severity: FEATURE_PENETRATION_DEPTH_SEVERITY must be on")
         return
-    var ent: CoreEntity = SimulationCombatTests._entity_for_species(HumanSpecies)
+    var ent: CoreEntity = SimulationCombatBase._entity_for_species(HumanSpecies)
     var part: String = "right_arm"
     var sub: String = "forearm"
     var dmg: float = 5.5
@@ -27,7 +27,7 @@ static func _run_sim_depth_shallow_pen_lowers_severity(failures: PackedStringArr
 
 ## S8: deep penetration reaches severe+ band where shallow stays moderate at tuned damage.
 static func _run_sim_depth_deep_pen_raises_severity(failures: PackedStringArray) -> void:
-    var ent: CoreEntity = SimulationCombatTests._entity_for_species(HumanSpecies)
+    var ent: CoreEntity = SimulationCombatBase._entity_for_species(HumanSpecies)
     var part: String = "right_arm"
     var sub: String = "forearm"
     var dmg: float = 5.5
@@ -530,11 +530,11 @@ static func _run_mat_production_joule_authoritative_matches_forced(failures: Pac
     }
     var extras_force: Dictionary = extras_prod.duplicate()
     extras_force["force_joule_armor_budget"] = true
-    var ent_prod: CoreEntity = SimulationCombatTests._sim_entity()
+    var ent_prod: CoreEntity = SimulationCombatBase._sim_entity()
     ent_prod.species = HumanSpecies
     ent_prod.apply_species()
     ent_prod.equip_armor(part, HarnessFixtures.get_cached_armor("CUIRASS"))
-    var ent_force: CoreEntity = SimulationCombatTests._sim_entity()
+    var ent_force: CoreEntity = SimulationCombatBase._sim_entity()
     ent_force.species = HumanSpecies
     ent_force.apply_species()
     ent_force.equip_armor(part, HarnessFixtures.get_cached_armor("CUIRASS"))
@@ -577,11 +577,11 @@ static func _run_mat_production_joule_disable_restores_scalar_armor(failures: Pa
     var extras_joule: Dictionary = {"strike_ke_j": strike_ke}
     var extras_scalar: Dictionary = extras_joule.duplicate()
     extras_scalar["disable_joule_armor_budget"] = true
-    var ent_j: CoreEntity = SimulationCombatTests._sim_entity()
+    var ent_j: CoreEntity = SimulationCombatBase._sim_entity()
     ent_j.species = HumanSpecies
     ent_j.apply_species()
     ent_j.equip_armor(part, armor)
-    var ent_s: CoreEntity = SimulationCombatTests._sim_entity()
+    var ent_s: CoreEntity = SimulationCombatBase._sim_entity()
     ent_s.species = HumanSpecies
     ent_s.apply_species()
     ent_s.equip_armor(part, armor)
@@ -618,10 +618,10 @@ static func _run_mat_production_blood_ml_pools_seeded(failures: PackedStringArra
     if not BleedingConstants.FEATURE_LITERAL_BLOOD_ML:
         return
     BloodVolumeMl._harness_force_literal_blood_ml = false
-    var human: CoreEntity = SimulationCombatTests._sim_entity()
+    var human: CoreEntity = SimulationCombatBase._sim_entity()
     human.species = HumanSpecies
     human.apply_species()
-    var goblin: CoreEntity = SimulationCombatTests._sim_entity()
+    var goblin: CoreEntity = SimulationCombatBase._sim_entity()
     goblin.species = GoblinSpecies
     goblin.apply_species()
     if not BloodVolumeMl.entity_uses_ml(human):
@@ -653,7 +653,7 @@ static func _run_mat_production_blood_ttd_matches_percent(failures: PackedString
     var rate: float = BleedingConstants.REFERENCE_UNCONTROLLED_BLEED_RATE
     var ttd_pct: float = BleedingConstants.seconds_to_exsanguination(rate, BleedingConstants.MAX_BLOOD_VOLUME, 1.0)
     BloodVolumeMl._harness_force_literal_blood_ml = false
-    var ent: CoreEntity = SimulationCombatTests._sim_entity()
+    var ent: CoreEntity = SimulationCombatBase._sim_entity()
     ent.species = HumanSpecies
     ent.apply_species()
     var max_ml: float = ent.blood_volume_ml_max
@@ -680,7 +680,7 @@ static func _run_mat_production_blood_sync_tick(failures: PackedStringArray) -> 
     if not BleedingConstants.FEATURE_LITERAL_BLOOD_ML:
         return
     BloodVolumeMl._harness_force_literal_blood_ml = false
-    var ent: CoreEntity = SimulationCombatTests._sim_entity()
+    var ent: CoreEntity = SimulationCombatBase._sim_entity()
     ent.species = HumanSpecies
     ent.apply_species()
     ent.take_damage_split(8.0, 2.0, "right_arm")

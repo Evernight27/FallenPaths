@@ -10,8 +10,8 @@ const HumanSpecies := preload("res://resources/species/human.tres")
 
 
 static func run_core(failures: PackedStringArray) -> void:
-    ParryActionResolvedTests._run_kinematic_delivery_override_and_mixed_ke_blend_brackets_thrust_swing(failures)
-    ParryActionResolvedTests._run_kinematic_delivery_velocity_from_intensity_bridges_get_effective_and_monotone(
+    KinematicDeliveryOverrideTests._run_kinematic_delivery_override_and_mixed_ke_blend_brackets_thrust_swing(failures)
+    KinematicDeliveryOverrideTests._run_kinematic_delivery_velocity_from_intensity_bridges_get_effective_and_monotone(
         failures
     )
     KinematicDeliveryPreArmorTests._run_kinematic_delivery_pre_armor_cut_sqrt_ke_ratio_and_blunt_rises_with_speed(
@@ -153,32 +153,24 @@ static func run(failures: PackedStringArray) -> void:
         failures
     )
     KinematicDeliveryClosingDefenseTests._run_kinematic_delivery_rear_afterblow_compose_on_strike_ke(failures)
-    KinematicDeliveryClosingDefenseTests._run_kinematic_delivery_weapon_form_damage_scales_pre_cut_integration(failures)
+    KinematicWeaponIntegrationTests._run_kinematic_delivery_weapon_form_damage_scales_pre_cut_integration(failures)
     KinematicDeliveryClosingDefenseTests._run_kinematic_delivery_closing_speed_engagement_angle_scales_pre_cut(failures)
     KinematicDeliveryClosingDefenseTests._run_kinematic_delivery_engagement_damage_multiplier_rear_hits_harder(failures)
-    KinematicDeliveryClosingDefenseTests._run_kinematic_delivery_mixed_integration_pre_cut_scales_ke_pow(failures)
+    KinematicWeaponIntegrationTests._run_kinematic_delivery_mixed_integration_pre_cut_scales_ke_pow(failures)
     KinematicDeliveryClosingDefenseTests._run_kinematic_delivery_closing_speed_clamps_at_ceiling(failures)
     KinematicDeliveryClosingDefenseTests._run_kinematic_delivery_variance_off_balance_and_stamina_compose(failures)
-    KinematicDeliveryClosingDefenseTests._run_kinematic_delivery_deflected_line_opposite_severity_bind(failures)
-    KinematicDeliveryClosingDefenseTests._run_kinematic_delivery_target_mass_scales_blunt_pre_armor(failures)
-    KinematicDeliveryClosingDefenseTests._run_kinematic_delivery_axe_integration_pre_cut_scales_ke_pow(failures)
-    KinematicDeliveryClosingDefenseTests._run_kinematic_delivery_cut_damage_mult_integration_scales_pre_cut_only(
-        failures
-    )
-    KinematicDeliveryClosingDefenseTests._run_kinematic_delivery_unarmed_afterblow_scales_pre_blunt(failures)
-    KinematicDeliveryClosingDefenseTests._run_kinematic_delivery_dagger_integration_pre_cut_scales_ke_pow(failures)
-    KinematicDeliveryClosingDefenseTests._run_kinematic_delivery_blunt_damage_mult_integration_scales_pre_blunt_only(
-        failures
-    )
-    KinematicDeliveryClosingDefenseTests._run_kinematic_delivery_deflected_line_stab_opposite_severity_bind(failures)
-    KinematicDeliveryClosingDefenseTests._run_kinematic_delivery_empty_arch_sword_thrust_infers_delivery(failures)
-    KinematicDeliveryClosingDefenseTests._run_kinematic_delivery_partial_parry_cut_to_blunt_integration_sword(failures)
-    KinematicDeliveryClosingDefenseTests._run_kinematic_delivery_pinned_vo_misalign_scales_pen_integration(failures)
-    KinematicDeliveryClosingDefenseTests._run_kinematic_delivery_striker_stamina_strike_ke_matches_sqrt_stamina_scale(
-        failures
-    )
-    KinematicDeliveryClosingDefenseTests._run_kinematic_delivery_afterblow_scales_pre_cut_integration(failures)
-    KinematicDeliveryClosingDefenseTests._run_kinematic_delivery_mace_blunt_contact_cm_matches_helper_integration(
-        failures
-    )
-    KinematicDeliveryClosingDefenseTests._run_kinematic_delivery_entity_split_total_includes_final_bone(failures)
+    KinematicDeflectParryTests._run_kinematic_delivery_deflected_line_opposite_severity_bind(failures)
+    KinematicDamageScalingTests._run_kinematic_delivery_target_mass_scales_blunt_pre_armor(failures)
+    KinematicWeaponIntegrationTests._run_kinematic_delivery_axe_integration_pre_cut_scales_ke_pow(failures)
+    KinematicDamageScalingTests._run_kinematic_delivery_cut_damage_mult_integration_scales_pre_cut_only(failures)
+    KinematicDamageScalingTests._run_kinematic_delivery_unarmed_afterblow_scales_pre_blunt(failures)
+    KinematicWeaponIntegrationTests._run_kinematic_delivery_dagger_integration_pre_cut_scales_ke_pow(failures)
+    KinematicDamageScalingTests._run_kinematic_delivery_blunt_damage_mult_integration_scales_pre_blunt_only(failures)
+    KinematicDeflectParryTests._run_kinematic_delivery_deflected_line_stab_opposite_severity_bind(failures)
+    KinematicWeaponIntegrationTests._run_kinematic_delivery_empty_arch_sword_thrust_infers_delivery(failures)
+    KinematicDeflectParryTests._run_kinematic_delivery_partial_parry_cut_to_blunt_integration_sword(failures)
+    KinematicDeflectParryTests._run_kinematic_delivery_pinned_vo_misalign_scales_pen_integration(failures)
+    KinematicDeflectParryTests._run_kinematic_delivery_striker_stamina_strike_ke_matches_sqrt_stamina_scale(failures)
+    KinematicDamageScalingTests._run_kinematic_delivery_afterblow_scales_pre_cut_integration(failures)
+    KinematicWeaponIntegrationTests._run_kinematic_delivery_mace_blunt_contact_cm_matches_helper_integration(failures)
+    KinematicDamageScalingTests._run_kinematic_delivery_entity_split_total_includes_final_bone(failures)

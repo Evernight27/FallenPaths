@@ -2,7 +2,7 @@ class_name MedicalCoordinationBattleTests
 extends CombatRegressionHarnessCore
 ## Tier 6.3 medical phase + treatment tests split from CombatRegressionHarness (compile size).
 const BattleScene := preload("res://ui/battle/BattleScene.gd")
-const _CombatRegressionHarness := preload("res://harness/regression/CombatRegressionHarness.gd")
+const CombatRegressionHarness := preload("res://harness/regression/CombatRegressionHarness.gd")
 const HarnessFixtures := preload("res://harness/HarnessFixtures.gd")
 
 
@@ -18,14 +18,10 @@ static func _run_field_care_tourniquet_before_bandage_parity(failures: PackedStr
     if MapFieldCare.can_offer_field_bandage(world, member):
         _fail(failures, "field_tq_first: bandage should not be offered on TQ-indicated limb")
     if not MapFieldCare.can_offer_field_tourniquet(world, member):
-        _fail(
-            failures, "field_tq_first: tourniquet should be offered after compression on severe limb"
-        )
+        _fail(failures, "field_tq_first: tourniquet should be offered after compression on severe limb")
     var next_hint: String = MapFieldCare.format_next_field_care_action(world, member)
     if not next_hint.to_lower().contains("tourniquet"):
-        _fail(
-            failures, "field_tq_first: next hint should prefer tourniquet got '%s'" % next_hint
-        )
+        _fail(failures, "field_tq_first: next hint should prefer tourniquet got '%s'" % next_hint)
     world.free()
     MedicalPhaseGateTests._free_entity_fixture(ent)
 
@@ -467,9 +463,7 @@ static func _run_medical_coordination_blocks_overlapping_treatment(failures: Pac
             continue
         var mid: String = str((raw as Dictionary).get("move_id", ""))
         if CombatConstants.is_tourniquet_move(mid) or CombatConstants.is_direct_pressure_move(mid):
-            _fail(
-                failures, "med_coord: listing must omit overlap moves during wind-up got %s" % mid
-            )
+            _fail(failures, "med_coord: listing must omit overlap moves during wind-up got %s" % mid)
     if not patient._apply_direct_pressure_from_ally("left_arm", healer_a):
         _fail(failures, "med_coord: setup ally pressure failed")
         HarnessFixtures._free_manager(mgr)
@@ -529,18 +523,14 @@ static func _run_medical_coordination_blocks_bandage_during_ally_windup(failures
     ):
         _fail(failures, "med_coord_bandage: second medic must not bandage during ally wind-up")
     if CombatMedicalCoordination.medical_action_allowed(mgr, hb_id, pt_id, "chest", CombatConstants.MOVE_ID_PACK_WOUND):
-        _fail(
-            failures, "med_coord_bandage: second medic must not pack during ally bandage wind-up"
-        )
+        _fail(failures, "med_coord_bandage: second medic must not pack during ally bandage wind-up")
     var acts: Array = MedicalPhaseController.get_ally_medical_actions(mgr, hb, pt, "chest")
     for raw in acts:
         if raw is not Dictionary:
             continue
         var mid: String = str((raw as Dictionary).get("move_id", ""))
         if mid == CombatConstants.MOVE_ID_BANDAGE_SELF or mid == CombatConstants.MOVE_ID_PACK_WOUND:
-            _fail(
-                failures, "med_coord_bandage: listing must omit dress moves during ally wind-up got %s" % mid
-            )
+            _fail(failures, "med_coord_bandage: listing must omit dress moves during ally wind-up got %s" % mid)
     HarnessFixtures._free_manager(mgr)
 
 
@@ -572,9 +562,7 @@ static func _run_medical_windup_prepare_preserves_ally_head_pressure(failures: P
         return
     var after: float = EntityWounds.get_bleeding_rate_for_part(patient, "head")
     if after > held + BleedingConstants.BLEEDING_RATE_EPSILON:
-        _fail(
-            failures, "windup_prepare: rebound during prepare held=%.3f after=%.3f" % [held, after]
-        )
+        _fail(failures, "windup_prepare: rebound during prepare held=%.3f after=%.3f" % [held, after])
     HarnessFixtures._free_harness_node(patient)
     HarnessFixtures._free_harness_node(ally)
 
@@ -638,9 +626,7 @@ static func _run_ms_mid_infight_ally_medical_listing(failures: PackedStringArray
         ):
             has_ally_pressure = true
     if not has_ally_pressure:
-        _fail(
-            failures, "ms_mid_listing: want ally chest pressure in mid-fight build got %d actions" % built.size()
-        )
+        _fail(failures, "ms_mid_listing: want ally chest pressure in mid-fight build got %d actions" % built.size())
     var saved: bool = CombatConstants.is_feature_ms_mid_infight_med_enabled()
     CombatConstants.set_feature_ms_mid_infight_med_load(false)
     var built_off: Array = AvailableActionsBuilder.build(mgr, medic_id)
@@ -670,9 +656,7 @@ static func _run_ms_mid_infight_ally_medical_listing(failures: PackedStringArray
             )
         )
     elif str(picked.get("move_id", "")) != CombatConstants.MOVE_ID_APPLY_DIRECT_PRESSURE:
-        _fail(
-            failures, "ms_mid_listing: want apply_direct_pressure got %s" % str(picked.get("move_id", ""))
-        )
+        _fail(failures, "ms_mid_listing: want apply_direct_pressure got %s" % str(picked.get("move_id", "")))
     var filtered: Array = CombatMedicalCoordination.filter_actions_for_pick(mgr, medic_id, built)
     var filtered_has_pressure: bool = false
     for raw in filtered:
@@ -685,9 +669,7 @@ static func _run_ms_mid_infight_ally_medical_listing(failures: PackedStringArray
         ):
             filtered_has_pressure = true
     if not filtered_has_pressure:
-        _fail(
-            failures, "ms_mid_listing: mid-fight pick filter dropped coordinated ally pressure"
-        )
+        _fail(failures, "ms_mid_listing: mid-fight pick filter dropped coordinated ally pressure")
     HarnessFixtures._free_manager_restore_global_rng(mgr)
 
 
@@ -727,9 +709,7 @@ static func _run_medical_phase_winner_locked_on_party_bleed_out(failures: Packed
     mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
     mgr._end_combat_phase("player", CombatantEntityAccess.scene_node(mgr.combatants[2]))
     if not mgr.medical_phase or mgr.medical_phase_winner != "player":
-        _fail(
-            failures, "medical_phase_winner_lock: expected player medical phase after victory"
-        )
+        _fail(failures, "medical_phase_winner_lock: expected player medical phase after victory")
         HarnessFixtures._free_manager(mgr)
         return
     if not MedicalPhaseController.should_apply_phase_end(mgr, "enemy"):
@@ -800,9 +780,7 @@ static func _run_medical_phase_tick_continues_after_locked_bleed_out(failures: P
             )
         )
     elif float(medic.get(DataKeys.PA_STATE_TIMER, 0.0)) < 0.01:
-        _fail(
-            failures, "medical_phase_tick_continue: medic state_timer should advance after tick"
-        )
+        _fail(failures, "medical_phase_tick_continue: medic state_timer should advance after tick")
     HarnessFixtures._free_manager(mgr)
 
 
@@ -821,17 +799,13 @@ static func _run_medical_phase_full_blood_loss_rate(failures: PackedStringArray)
     var loss: float = 60.0 - ent.blood_volume
     var want: float = rate * BleedingConstants.BLOOD_LOSS_RATE_MULTIPLIER * 1.0
     if absf(loss - want) > 0.05:
-        _fail(
-            failures, "med_phase_bleed: expect full ATLS drain rate got loss=%.4f want~=%.4f" % [loss, want]
-        )
+        _fail(failures, "med_phase_bleed: expect full ATLS drain rate got loss=%.4f want~=%.4f" % [loss, want])
     # No passive recovery without fluids (post-victory medical phase uses same physiology).
     ent.blood_volume = 55.0
     ent._set_combat_blood_recovery_per_s(0.06)
     ent.process_blood_loss(1.0)
     if ent.blood_volume > 55.01:
-        _fail(
-            failures, "med_phase_bleed: passive recovery should not run without explicit treatment"
-        )
+        _fail(failures, "med_phase_bleed: passive recovery should not run without explicit treatment")
     MedicalPhaseGateTests._free_entity_fixture(ent)
 
 
@@ -843,9 +817,7 @@ static func _run_pack_wound_apply_packing_marks_packed_parts(failures: PackedStr
     var ok: bool = ent._apply_packing("chest", 1.5)
     seed(_HARNESS_RESTORE_GLOBAL_SEED)
     if not ok:
-        _fail(
-            failures, "pack_wound_apply: apply_packing should succeed with high effectiveness"
-        )
+        _fail(failures, "pack_wound_apply: apply_packing should succeed with high effectiveness")
     if not bool(ent.packed_parts.get("chest", false)):
         _fail(failures, "pack_wound_apply: packed_parts[chest] should be set")
     MedicalPhaseGateTests._free_entity_fixture(ent)
@@ -885,9 +857,7 @@ static func _run_pack_wound_windup_complete_packed_outcome(failures: PackedStrin
     var packed_chest: bool = bool(ally_node.packed_parts.get("chest", false))
     HarnessFixtures._free_manager(mgr)
     if str(outcome_box[0]) != "packed" and str(outcome_box[0]) != "packing_failed":
-        _fail(
-            failures, "pack_wound_windup: want packed or packing_failed got '%s'" % str(outcome_box[0])
-        )
+        _fail(failures, "pack_wound_windup: want packed or packing_failed got '%s'" % str(outcome_box[0]))
     if str(outcome_box[0]) == "packed" and not packed_chest:
         _fail(failures, "pack_wound_windup: packed outcome should set packed_parts")
 
@@ -921,13 +891,9 @@ static func _run_instant_complete_finishes_in_progress_bandage(failures: PackedS
     if float(mgr.combat_clock) <= clock_before:
         _fail(failures, "instant_complete_bandage: fast-forward should advance combat_clock")
     if CombatantEntityAccess.state_str(mgr.combatants[0]) == CombatConstants.STATE_MEDICAL_WIND_UP:
-        _fail(
-            failures, "instant_complete_bandage: wind-up should finish via simulated time, not stay active"
-        )
+        _fail(failures, "instant_complete_bandage: wind-up should finish via simulated time, not stay active")
     if not bool(ally_ent.bandaged_parts.get("chest", false)):
-        _fail(
-            failures, "instant_complete_bandage: ally chest should be bandaged after instant complete"
-        )
+        _fail(failures, "instant_complete_bandage: ally chest should be bandaged after instant complete")
     HarnessFixtures._free_manager(mgr)
 
 ## Idle fast-forward tick must advance clock when winners wait at full gauge with open wounds.

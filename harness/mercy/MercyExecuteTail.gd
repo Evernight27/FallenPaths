@@ -2,7 +2,6 @@ class_name CombatRegressionHarnessMercyExecuteTail
 extends RefCounted
 ## Mercy & execution tests — downed predicate, personality mult, threat/grudge weights, listing, resolve.
 
-
 const MgrScript := preload("res://combat/CombatManager.gd")
 const Weapon := preload("res://resources/weapons/Weapon.gd")
 const CoreEntity := preload("res://core/CoreEntity.gd")
@@ -24,8 +23,8 @@ const BattleUIUpdater := preload("res://ui/battle/BattleUIUpdater.gd")
 const CombatLogFormatter := preload("res://ui/battle/CombatLogFormatter.gd")
 const FormationSlots := preload("res://combat/formation/FormationSlots.gd")
 
-
 ## Headless harness helper: appends to the failures PackedStringArray.
+
 
 static func _fail(failures: PackedStringArray, msg: String) -> void:
     failures.append(msg)
@@ -42,6 +41,7 @@ static func _free_manager_restore_global_rng(mgr: Node) -> void:
 
 
 # -- Downed predicate -------------------------------------------------------
+
 
 ## Phase 1b: downed = alive + on-field + opponent of executor + not standing.
 static func _run_is_downed_opponent_of_detects_cowering_enemy(failures: PackedStringArray) -> void:
@@ -81,6 +81,7 @@ static func _run_is_downed_opponent_of_detects_cowering_enemy(failures: PackedSt
 
 # -- Personality mult -------------------------------------------------------
 
+
 ## Phase 1b: ruthlessness 0 → min mult, 50 → 1.0, 100 → max mult.
 static func _run_personality_mult_linear_ramp(failures: PackedStringArray) -> void:
     var r0: float = CombatExecute.personality_mult(0.0)
@@ -88,11 +89,16 @@ static func _run_personality_mult_linear_ramp(failures: PackedStringArray) -> vo
     var r100: float = CombatExecute.personality_mult(100.0)
     var eps: float = 0.001
     if absf(r0 - CombatExecute.EXECUTE_RUTHLESSNESS_MULT_MIN) > eps:
-        _fail(failures, "personality_mult: ruth=0 want %.3f got %.3f" % [CombatExecute.EXECUTE_RUTHLESSNESS_MULT_MIN, r0])
+        _fail(
+            failures, "personality_mult: ruth=0 want %.3f got %.3f" % [CombatExecute.EXECUTE_RUTHLESSNESS_MULT_MIN, r0]
+        )
     if absf(r50 - 1.0) > eps:
         _fail(failures, "personality_mult: ruth=50 want 1.0 got %.3f" % r50)
     if absf(r100 - CombatExecute.EXECUTE_RUTHLESSNESS_MULT_MAX) > eps:
-        _fail(failures, "personality_mult: ruth=100 want %.3f got %.3f" % [CombatExecute.EXECUTE_RUTHLESSNESS_MULT_MAX, r100])
+        _fail(
+            failures,
+            "personality_mult: ruth=100 want %.3f got %.3f" % [CombatExecute.EXECUTE_RUTHLESSNESS_MULT_MAX, r100]
+        )
 
 
 ## Phase 1b: clamping at boundaries.
@@ -106,6 +112,7 @@ static func _run_personality_mult_clamps_negative_and_over_100(failures: PackedS
 
 
 # -- Threat mult ------------------------------------------------------------
+
 
 ## Phase 1c: no enemies in melee reach → threat mult = 1.0 (safe to execute).
 static func _run_threat_mult_safe_when_no_melee_opponents(failures: PackedStringArray) -> void:
@@ -129,6 +136,7 @@ static func _run_threat_mult_safe_when_no_melee_opponents(failures: PackedString
 
 # -- Grudge mult ------------------------------------------------------------
 
+
 ## Phase 1c: executor has damage in ledger for target → grudge boost.
 static func _run_grudge_mult_detects_damage_ledger(failures: PackedStringArray) -> void:
     var cid_a: int = 42
@@ -148,6 +156,7 @@ static func _run_grudge_mult_detects_damage_ledger(failures: PackedStringArray) 
 
 
 # -- Full execute weight ----------------------------------------------------
+
 
 ## Phase 1b/c: full weight formula returns 0 for non-downed targets.
 static func _run_execute_weight_zero_for_standing_target(failures: PackedStringArray) -> void:
@@ -184,12 +193,19 @@ static func _run_execute_weight_amplifies_with_ruthless_grudge(failures: PackedS
     var w: float = CombatExecute.execute_weight(mgr, attacker, target)
     # Weight should be > base (ruthlessness 80 → ~1.4×, grudge ×1.5, no threat dampen).
     if w <= CombatExecute.EXECUTE_BASE_AI_WEIGHT:
-        _fail(failures, "execute_weight: downed+grudge+ruthless must exceed base weight %.4f" % [CombatExecute.EXECUTE_BASE_AI_WEIGHT])
+        _fail(
+            failures,
+            (
+                "execute_weight: downed+grudge+ruthless must exceed base weight %.4f"
+                % [CombatExecute.EXECUTE_BASE_AI_WEIGHT]
+            )
+        )
     HarnessFixtures.flush_harness_live_nodes()
     _free_manager_restore_global_rng(mgr)
 
 
 # -- Listing integration ----------------------------------------------------
+
 
 ## Phase 1c: execute action listed for downed opponent in reach.
 static func _run_execute_listed_for_downed_in_reach(failures: PackedStringArray) -> void:
@@ -245,6 +261,7 @@ static func _run_execute_not_listed_without_attacking_arm(failures: PackedString
 
 
 # -- Resolve integration ----------------------------------------------------
+
 
 ## Phase 1c: resolve execute kills target instantly, sets dead state.
 static func _run_resolve_execute_sets_target_dead(failures: PackedStringArray) -> void:
@@ -309,20 +326,27 @@ static func _run_resolve_execute_emits_action_resolved_signal(failures: PackedSt
     attacker.gauge = 100.0
     target.state = CombatConstants.STATE_COWERING
     target.alive = true
-    var _signal_payload: Dictionary = {}
-    var on_resolved := func(_a, _b, payload): _signal_payload.merge(payload)
+    var signal_payload: Dictionary = {}
+    var on_resolved := func(_a, _b, payload): signal_payload.merge(payload)
     mgr.action_resolved.connect(on_resolved)
     CombatResolveAction.resolve(mgr, atk_id, tgt_id, CombatConstants.MOVE_ID_EXECUTE, {})
-    if not bool(_signal_payload.get("died", false)):
+    if not bool(signal_payload.get("died", false)):
         _fail(failures, "execute_resolve: action_resolved must have died=true")
-    if str(_signal_payload.get("outcome", "")) != "execute":
-        _fail(failures, "execute_resolve: action_resolved outcome must be 'execute' got '%s'" % str(_signal_payload.get("outcome", "")))
+    if str(signal_payload.get("outcome", "")) != "execute":
+        _fail(
+            failures,
+            (
+                "execute_resolve: action_resolved outcome must be 'execute' got '%s'"
+                % str(signal_payload.get("outcome", ""))
+            )
+        )
     HarnessFixtures.flush_harness_live_nodes()
     mgr.disconnect("action_resolved", on_resolved)
     _free_manager_restore_global_rng(mgr)
 
 
 # -- AI weight integration --------------------------------------------------
+
 
 ## Phase 1c: execute listed and assigned non-zero weight.
 static func _run_execute_has_nonzero_ai_weight(failures: PackedStringArray) -> void:
@@ -354,6 +378,7 @@ static func _run_execute_has_nonzero_ai_weight(failures: PackedStringArray) -> v
 
 # -- Combat log formatting --------------------------------------------------
 
+
 ## Phase 1c: combat log format for execute outcome.
 static func _run_combat_log_execute_outcome_format(failures: PackedStringArray) -> void:
     var line: String = CombatLogFormatter.format_action_line(
@@ -364,6 +389,7 @@ static func _run_combat_log_execute_outcome_format(failures: PackedStringArray) 
 
 
 # -- Feature flag toggle ----------------------------------------------------
+
 
 ## Phase 0/1c: FEATURE_MERCY_EXECUTE=false suppresses execute listing.
 static func _run_execute_suppressed_when_feature_flag_off(failures: PackedStringArray) -> void:
@@ -416,6 +442,7 @@ static func _run_execute_listing_idempotent(failures: PackedStringArray) -> void
 
 # -- UI / display -----------------------------------------------------------
 
+
 ## Phase 1c: dead unit shows "Dead" on gauge row after execute resolve.
 static func _run_execute_ui_gauge_label_dead(failures: PackedStringArray) -> void:
     var mgr: Node = CombatManager.new()
@@ -438,6 +465,7 @@ static func _run_execute_ui_gauge_label_dead(failures: PackedStringArray) -> voi
 
 
 # -- Suite runner -----------------------------------------------------------
+
 
 ## Stage-1 mercy-execute full suite (predicate, listing, weight, resolve).
 static func run(failures: PackedStringArray) -> void:

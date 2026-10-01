@@ -234,7 +234,11 @@ static func _run_iv11_enemy_pinch_outnumber_ai_weight_suite(failures: PackedStri
     for c in mgr.combatants:
         if not EntityAccess.is_living_on_side(c, "enemy"):
             continue
-        if c.get(DataKeys.COMBATANT_IS_ENEMY_LEADER, false) == true and EntityAccess.rank_int(c) == 0 and EntityAccess.file_int(c) == 0:
+        if (
+            c.get(DataKeys.COMBATANT_IS_ENEMY_LEADER, false) == true
+            and EntityAccess.rank_int(c) == 0
+            and EntityAccess.file_int(c) == 0
+        ):
             commander = c
             break
     if commander.is_empty():
@@ -337,7 +341,10 @@ static func _run_iv11_encounter_spawn_enemy_leader_suite(failures: PackedStringA
         return
     if enemies[1].get(DataKeys.COMBATANT_IS_ENEMY_LEADER) != true:
         _fail(failures, "iv11_enc_spawn: index 1 want is_enemy_leader true")
-    if enemies[0].get(DataKeys.COMBATANT_IS_ENEMY_LEADER) == true or enemies[2].get(DataKeys.COMBATANT_IS_ENEMY_LEADER) == true:
+    if (
+        enemies[0].get(DataKeys.COMBATANT_IS_ENEMY_LEADER) == true
+        or enemies[2].get(DataKeys.COMBATANT_IS_ENEMY_LEADER) == true
+    ):
         _fail(failures, "iv11_enc_spawn: only configured index may be commander")
     var mgr: Node = MgrScript.new()
     mgr.register(_new_entity("SWORD"), "player")

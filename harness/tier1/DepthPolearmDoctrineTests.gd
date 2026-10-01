@@ -1,6 +1,6 @@
 class_name Tier1DepthPolearmDoctrineTests
 extends CombatRegressionHarnessCore
-const _CombatRegressionHarness := preload("res://harness/regression/CombatRegressionHarness.gd")
+const CombatRegressionHarness := preload("res://harness/regression/CombatRegressionHarness.gd")
 
 ## Tier 1 depth / engagement / targeting / surround / doctrine tests (compile split).
 ## Footing: not WF/PA owner  -  may call strike/listing paths that read **`form_str`**. Spec: LIVE_PATHS
@@ -44,9 +44,7 @@ static func _run_stamp_attack_pair_geometry_depth_lane_flags_consistent(failures
         else CombatConstants.DEPTH_POLEARM_LANE_TYPE_OVER_SHOULDER
     )
     if lt != expect_lt:
-        _fail(
-            failures, "stamp_depth_geom: lane_type=%s expected %s (strict tight)" % [lt, expect_lt]
-        )
+        _fail(failures, "stamp_depth_geom: lane_type=%s expected %s (strict tight)" % [lt, expect_lt])
     mgr.formations["player"][CombatConstants.FORMATION_KEY_SPEAR_LANE_PROFILE] = CombatConstants.SPEAR_LANE_PROFILE_OPEN
     fd = ZoneOfControl.formation_for_combatant_cached(mgr, depth, null, fid)
     var live_open: bool = CombatDepthPolearm.depth_polearm_lane_allows_low_targets(mgr, depth, fid, fd, true)
@@ -67,9 +65,7 @@ static func _run_stamp_attack_pair_geometry_depth_lane_flags_consistent(failures
         else CombatConstants.DEPTH_POLEARM_LANE_TYPE_OVER_SHOULDER
     )
     if lt2 != expect_lt2:
-        _fail(
-            failures, "stamp_depth_geom: lane_type=%s expected %s (profile open)" % [lt2, expect_lt2]
-        )
+        _fail(failures, "stamp_depth_geom: lane_type=%s expected %s (profile open)" % [lt2, expect_lt2])
     HarnessFixtures._free_manager(mgr)
 
 
@@ -146,25 +142,17 @@ static func _run_depth_polearm_parts_filter_tracks_allows_low(failures: PackedSt
     var fid: String = ZoneOfControl.zone_geometry_fid_str(mgr, depth)
     var fd: Dictionary = ZoneOfControl.formation_for_combatant_cached(mgr, depth, null, fid)
     if CombatDepthPolearm.depth_polearm_lane_allows_low_targets(mgr, depth, fid, fd, true):
-        _fail(
-            failures, "depth_parts_al: strict+tight should not allow low targets before filter assert"
-        )
+        _fail(failures, "depth_parts_al: strict+tight should not allow low targets before filter assert")
     var filt_tight: Array = CombatDepthPolearm.depth_polearm_targetable_parts_filter(mgr, depth, parts_in)
     if filt_tight.has("left_leg") or filt_tight.has("right_leg"):
-        _fail(
-            failures, "depth_parts_al: filter should drop legs when allows_low false (got %s)" % str(filt_tight)
-        )
+        _fail(failures, "depth_parts_al: filter should drop legs when allows_low false (got %s)" % str(filt_tight))
     mgr.formations["player"][CombatConstants.FORMATION_KEY_SPEAR_LANE_PROFILE] = CombatConstants.SPEAR_LANE_PROFILE_OPEN
     fd = ZoneOfControl.formation_for_combatant_cached(mgr, depth, null, fid)
     if not CombatDepthPolearm.depth_polearm_lane_allows_low_targets(mgr, depth, fid, fd, true):
-        _fail(
-            failures, "depth_parts_al: open profile should allow low targets before filter assert"
-        )
+        _fail(failures, "depth_parts_al: open profile should allow low targets before filter assert")
     var filt_open: Array = CombatDepthPolearm.depth_polearm_targetable_parts_filter(mgr, depth, parts_in)
     if not filt_open.has("left_leg") or not filt_open.has("right_leg"):
-        _fail(
-            failures, "depth_parts_al: filter should keep legs when allows_low true (got %s)" % str(filt_open)
-        )
+        _fail(failures, "depth_parts_al: filter should keep legs when allows_low true (got %s)" % str(filt_open))
     HarnessFixtures._free_manager(mgr)
 
 
@@ -195,15 +183,11 @@ static func _run_depth_polearm_parts_filter_wedge_opens_legs_strict_tight(failur
     var fid: String = ZoneOfControl.zone_geometry_fid_str(mgr, depth)
     var fd: Dictionary = ZoneOfControl.formation_for_combatant_cached(mgr, depth, null, fid)
     if not CombatDepthPolearm.depth_polearm_lane_allows_low_targets(mgr, depth, fid, fd, true):
-        _fail(
-            failures, "depth_parts_wedge: lane stress should open low targets under strict+tight"
-        )
+        _fail(failures, "depth_parts_wedge: lane stress should open low targets under strict+tight")
     var parts_in: Array = ["head", "chest", "left_leg", "right_leg"]
     var filt: Array = CombatDepthPolearm.depth_polearm_targetable_parts_filter(mgr, depth, parts_in)
     if not filt.has("left_leg") or not filt.has("right_leg"):
-        _fail(
-            failures, "depth_parts_wedge: filter should keep legs when wedge opens lane (got %s)" % str(filt)
-        )
+        _fail(failures, "depth_parts_wedge: filter should keep legs when wedge opens lane (got %s)" % str(filt))
     HarnessFixtures._free_manager(mgr)
 
 
@@ -238,27 +222,19 @@ static func _run_depth_polearm_restricted_profile_requires_lane_stress_for_allow
     var fid: String = ZoneOfControl.zone_geometry_fid_str(mgr, depth)
     var fd: Dictionary = ZoneOfControl.formation_for_combatant_cached(mgr, depth, null, fid)
     if CombatDepthPolearm.depth_polearm_lane_allows_low_targets(mgr, depth, fid, fd, true):
-        _fail(
-            failures, "depth_prof_rest: restricted + loose should not allow lows without wedge"
-        )
+        _fail(failures, "depth_prof_rest: restricted + loose should not allow lows without wedge")
     var parts_in: Array = ["head", "left_leg", "right_leg"]
     var filt_no_w: Array = CombatDepthPolearm.depth_polearm_targetable_parts_filter(mgr, depth, parts_in)
     if filt_no_w.has("left_leg") or filt_no_w.has("right_leg"):
-        _fail(
-            failures, "depth_prof_rest: filter should drop legs without wedge (got %s)" % str(filt_no_w)
-        )
+        _fail(failures, "depth_prof_rest: filter should drop legs without wedge (got %s)" % str(filt_no_w))
     var df: int = CombatantEntityAccess.file_int(depth, 0)
     mgr.formations["player"]["lane_stress_by_file"] = {df: 0.85}
     fd = ZoneOfControl.formation_for_combatant_cached(mgr, depth, null, fid)
     if not CombatDepthPolearm.depth_polearm_lane_allows_low_targets(mgr, depth, fid, fd, true):
-        _fail(
-            failures, "depth_prof_rest: lane stress should allow lows under restricted profile"
-        )
+        _fail(failures, "depth_prof_rest: lane stress should allow lows under restricted profile")
     var filt_w: Array = CombatDepthPolearm.depth_polearm_targetable_parts_filter(mgr, depth, parts_in)
     if not filt_w.has("left_leg") or not filt_w.has("right_leg"):
-        _fail(
-            failures, "depth_prof_rest: filter should keep legs after wedge (got %s)" % str(filt_w)
-        )
+        _fail(failures, "depth_prof_rest: filter should keep legs after wedge (got %s)" % str(filt_w))
     HarnessFixtures._free_manager(mgr)
 
 
@@ -352,9 +328,7 @@ static func _run_depth_polearm_parts_filter_pass_through_when_no_depth_lane_use(
     var parts1: Array = ["head", "left_leg"]
     var out1: Array = CombatDepthPolearm.depth_polearm_targetable_parts_filter(m1, atk1, parts1)
     if out1 != parts1:
-        _fail(
-            failures, "depth_parts_pass: lane closed should not filter parts (got %s)" % str(out1)
-        )
+        _fail(failures, "depth_parts_pass: lane closed should not filter parts (got %s)" % str(out1))
     HarnessFixtures._free_manager(m1)
 
 
@@ -388,18 +362,14 @@ static func _run_depth_polearm_allows_low_assume_skips_closed_lane_guard(failure
     var without_assume: bool = CombatDepthPolearm.depth_polearm_lane_allows_low_targets(mgr, depth, fid, null, false)
     var with_assume: bool = CombatDepthPolearm.depth_polearm_lane_allows_low_targets(mgr, depth, fid, null, true)
     if not without_assume:
-        _fail(
-            failures, "depth_al_assume: lane closed + assume false should return true (depth lane N/A)"
-        )
+        _fail(failures, "depth_al_assume: lane closed + assume false should return true (depth lane N/A)")
     if with_assume:
         _fail(
             failures,
             "depth_al_assume: strict+tight + assume true should evaluate lane rules -> false (no open profile)"
         )
     if without_assume == with_assume:
-        _fail(
-            failures, "depth_al_assume: assume flag must change result when lane closed vs strict+tight body"
-        )
+        _fail(failures, "depth_al_assume: assume flag must change result when lane closed vs strict+tight body")
     HarnessFixtures._free_manager(mgr)
 
 
@@ -485,15 +455,11 @@ static func _run_depth_polearm_auto_lane_discipline_posture(failures: PackedStri
     mgr.formations["player"]["line_discipline"] = CombatConstants.LINE_DISCIPLINE_STRICT
     var f_strict: Array = CombatDepthPolearm.depth_polearm_targetable_parts_filter(mgr, depth, parts_in)
     if f_strict.has("left_leg") or f_strict.has("right_leg"):
-        _fail(
-            failures, "depth_auto_lane: strict discipline + tight should filter legs (got %s)" % str(f_strict)
-        )
+        _fail(failures, "depth_auto_lane: strict discipline + tight should filter legs (got %s)" % str(f_strict))
     mgr.formations["player"]["line_discipline"] = CombatConstants.LINE_DISCIPLINE_LOOSE
     var f_loose_disc: Array = CombatDepthPolearm.depth_polearm_targetable_parts_filter(mgr, depth, parts_in)
     if not f_loose_disc.has("left_leg"):
-        _fail(
-            failures, "depth_auto_lane: loose discipline + tight should allow legs (got %s)" % str(f_loose_disc)
-        )
+        _fail(failures, "depth_auto_lane: loose discipline + tight should allow legs (got %s)" % str(f_loose_disc))
     mgr.formations["player"]["line_discipline"] = CombatConstants.LINE_DISCIPLINE_NORMAL
     mgr.formations["player"]["density"] = "loose"
     mgr.formations["player"]["line_discipline"] = CombatConstants.LINE_DISCIPLINE_STRICT
@@ -508,15 +474,11 @@ static func _run_depth_polearm_auto_lane_discipline_posture(failures: PackedStri
     mgr.formations["player"]["engagement_posture"] = CombatConstants.ENGAGEMENT_POSTURE_OPEN
     var f_open_post: Array = CombatDepthPolearm.depth_polearm_targetable_parts_filter(mgr, depth, parts_in)
     if not f_open_post.has("left_leg"):
-        _fail(
-            failures, "depth_auto_lane: OPEN posture + tight should allow legs (got %s)" % str(f_open_post)
-        )
+        _fail(failures, "depth_auto_lane: OPEN posture + tight should allow legs (got %s)" % str(f_open_post))
     mgr.formations["player"]["engagement_posture"] = CombatConstants.ENGAGEMENT_POSTURE_DUEL
     var f_duel_post: Array = CombatDepthPolearm.depth_polearm_targetable_parts_filter(mgr, depth, parts_in)
     if not f_duel_post.has("left_leg"):
-        _fail(
-            failures, "depth_auto_lane: DUEL posture + tight should allow legs (got %s)" % str(f_duel_post)
-        )
+        _fail(failures, "depth_auto_lane: DUEL posture + tight should allow legs (got %s)" % str(f_duel_post))
     # LINE posture + normal discipline + tight: auto profile stays over-shoulder (stamped `pa` agrees).
     mgr.formations["player"]["density"] = "tight"
     mgr.formations["player"]["line_discipline"] = CombatConstants.LINE_DISCIPLINE_NORMAL
@@ -531,9 +493,7 @@ static func _run_depth_polearm_auto_lane_discipline_posture(failures: PackedStri
     var en0: Dictionary = mgr.combatants[2]
     CombatStrikeStamping.stamp_attack_pair_geometry_on_dict(mgr, depth, en0, pa_ln)
     if bool(pa_ln.get("depth_polearm_allows_low_targets", true)):
-        _fail(
-            failures, "depth_auto_lane: stamped allows_low false for LINE+normal+tight depth attack"
-        )
+        _fail(failures, "depth_auto_lane: stamped allows_low false for LINE+normal+tight depth attack")
     if str(pa_ln.get("depth_polearm_lane_type", "")) != CombatConstants.DEPTH_POLEARM_LANE_TYPE_OVER_SHOULDER:
         _fail(
             failures,
@@ -704,9 +664,7 @@ static func _run_depth_polearm_ai_doctrine_mults_encounter_preset(failures: Pack
     var w1: float = CombatAIActionPicker._depth_polearm_action_weight_mult(mgr1, depth1, "spear_thrust")
     var expect_enc: float = CombatConstants.DEPTH_POLEARM_AI_STAB_WEIGHT_MULT * 1.26
     if not is_equal_approx(w1, expect_enc):
-        _fail(
-            failures, "depth_ai_mults: encounter pinch override want %.6f got %.6f" % [expect_enc, w1]
-        )
+        _fail(failures, "depth_ai_mults: encounter pinch override want %.6f got %.6f" % [expect_enc, w1])
     if not is_equal_approx(w1 / w0, 1.26 / pinch_def):
         _fail(failures, "depth_ai_mults: encounter ratio vs default pinch")
     var p_preset: Dictionary = {
@@ -726,9 +684,7 @@ static func _run_depth_polearm_ai_doctrine_mults_encounter_preset(failures: Pack
     var w2: float = CombatAIActionPicker._depth_polearm_action_weight_mult(mgr2, depth2, "spear_thrust")
     var expect_preset: float = CombatConstants.DEPTH_POLEARM_AI_STAB_WEIGHT_MULT * 1.44
     if not is_equal_approx(w2, expect_preset):
-        _fail(
-            failures, "depth_ai_mults: preset should win over encounter want %.6f got %.6f" % [expect_preset, w2]
-        )
+        _fail(failures, "depth_ai_mults: preset should win over encounter want %.6f got %.6f" % [expect_preset, w2])
     var mgr3: Node = CombatManager.new()
     mgr3.encounter[CombatConstants.ENCOUNTER_KEY_DEPTH_POLEARM_AI_MULTS_ENEMY] = {pinch_k: 1.11}
     mgr3.register(_new_entity("SWORD"), "player")
@@ -813,9 +769,7 @@ static func _run_depth_polearm_ai_weight_mult_requires_valid_line_to_any_rank0(f
         return
     var w_boost: float = CombatAIActionPicker._depth_polearm_action_weight_mult(mgr3, depth3, "spear_thrust")
     if w_boost <= 1.001:
-        _fail(
-            failures, "ai_vlt_any: standard layout should boost stab mult got %s" % str(w_boost)
-        )
+        _fail(failures, "ai_vlt_any: standard layout should boost stab mult got %s" % str(w_boost))
     HarnessFixtures._free_manager(mgr3)
 
 
@@ -843,9 +797,7 @@ static func _run_doctrine_hollow_center_pinch_heuristic(failures: PackedStringAr
         return
     (en_by_file[1] as Dictionary)["alive"] = false
     if not CombatDoctrine.enemy_line_hollow_center_for_pinch(mgr, "player"):
-        _fail(
-            failures, "doctrine_hollow: 3-file line with dead center should read as hollow for pinch"
-        )
+        _fail(failures, "doctrine_hollow: 3-file line with dead center should read as hollow for pinch")
     (en_by_file[1] as Dictionary)["alive"] = true
     if CombatDoctrine.enemy_line_hollow_center_for_pinch(mgr, "player"):
         _fail(failures, "doctrine_hollow: full enemy front should not be hollow")
@@ -867,9 +819,7 @@ static func _run_doctrine_hollow_center_pinch_heuristic(failures: PackedStringAr
     for kill_i in [1, 2]:
         (en4[kill_i] as Dictionary)["alive"] = false
     if not CombatDoctrine.enemy_line_hollow_center_for_pinch(mgr4, "player"):
-        _fail(
-            failures, "doctrine_hollow: 4-file empty middle pair + living wings should be hollow"
-        )
+        _fail(failures, "doctrine_hollow: 4-file empty middle pair + living wings should be hollow")
     HarnessFixtures._free_manager(mgr4)
 
 
@@ -900,9 +850,7 @@ static func _run_doctrine_normalize_and_manager_roundtrip(failures: PackedString
     mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
     mgr.set_formation_doctrine("player", "  pincer  ")
     if mgr.get_formation_doctrine("player") != CombatConstants.DOCTRINE_PINCH_CENTER:
-        _fail(
-            failures, "doctrine_roundtrip: player got %s want pinch_center" % mgr.get_formation_doctrine("player")
-        )
+        _fail(failures, "doctrine_roundtrip: player got %s want pinch_center" % mgr.get_formation_doctrine("player"))
     mgr.set_formation_doctrine("player", "  probing  ")
     if mgr.get_formation_doctrine("player") != CombatConstants.DOCTRINE_PROBING:
         _fail(

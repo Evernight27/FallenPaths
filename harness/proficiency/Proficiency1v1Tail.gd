@@ -1,6 +1,6 @@
 class_name CombatRegressionHarnessProficiency1v1Tail
 extends RefCounted
-const _CombatRegressionHarness := preload("res://harness/regression/CombatRegressionHarness.gd")
+const CombatRegressionHarness := preload("res://harness/regression/CombatRegressionHarness.gd")
 
 ## Standalone 1v1 proficiency test harness for combat number tuning.
 ## Runs full attack cycles between two combatants and reports per-stat gains.

@@ -5,7 +5,7 @@ extends RefCounted
 
 const HumanSpecies := preload("res://resources/species/human.tres")
 const GoblinSpecies := preload("res://resources/species/goblin.tres")
-const _CombatRegressionHarness := preload("res://harness/regression/CombatRegressionHarness.gd")
+const CombatRegressionHarness := preload("res://harness/regression/CombatRegressionHarness.gd")
 
 const REPORT_FILENAME := ".calibration_audit.txt"
 const BIND_THRESHOLD := CombatConstants.PARRY_BIND_CONTROL_THRESHOLD

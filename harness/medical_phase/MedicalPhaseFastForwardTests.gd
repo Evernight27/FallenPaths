@@ -3,7 +3,7 @@ extends CombatRegressionHarnessCore
 ## Tier 6.3 medical phase + treatment tests split from CombatRegressionHarness (compile size).
 
 const BattleScene := preload("res://ui/battle/BattleScene.gd")
-const _CombatRegressionHarness := preload("res://harness/regression/CombatRegressionHarness.gd")
+const CombatRegressionHarness := preload("res://harness/regression/CombatRegressionHarness.gd")
 
 
 static func _run_fast_forward_idle_unsticks_waiting_triage(failures: PackedStringArray) -> void:
@@ -114,13 +114,9 @@ static func _run_fast_forward_sim_cap_terminates(failures: PackedStringArray) ->
     MedicalPhaseController.instant_complete_on_early_exit(mgr, cap)
     seed(_HARNESS_RESTORE_GLOBAL_SEED)
     if MedicalPhaseController.medical_fast_forward_active(mgr):
-        _fail(
-            failures, "fast_forward_sim_cap: fast-forward meta should clear after capped pass"
-        )
+        _fail(failures, "fast_forward_sim_cap: fast-forward meta should clear after capped pass")
     if MedicalPhaseController.can_end_medical_phase(mgr):
-        _fail(
-            failures, "fast_forward_sim_cap: capped pass should not fully dress all wounds in harness"
-        )
+        _fail(failures, "fast_forward_sim_cap: capped pass should not fully dress all wounds in harness")
     HarnessFixtures._free_manager(mgr)
 
 
@@ -202,13 +198,9 @@ static func _run_finish_battle_campaign_medical_exit_refreshes_camp(failures: Pa
     battle.free()
     world.free()
     if exit_log != 1:
-        _fail(
-            failures, "finish_battle_camp_exit: want 1 campaign_medical_exit log got %d" % exit_log
-        )
+        _fail(failures, "finish_battle_camp_exit: want 1 campaign_medical_exit log got %d" % exit_log)
     if camp_med_pass < 1:
-        _fail(
-            failures, "finish_battle_camp_exit: want camp_medical_exit supplement pass got %d" % camp_med_pass
-        )
+        _fail(failures, "finish_battle_camp_exit: want camp_medical_exit supplement pass got %d" % camp_med_pass)
 
 
 ## F5: finish_battle after deferred medical must flush soak_coverage (no medical picks required).
@@ -238,9 +230,7 @@ static func _run_finish_battle_flushes_deferred_soak_coverage(failures: PackedSt
     OperationalLog.end_play_session()
     HarnessFixtures._free_manager(mgr)
     if cov_ok != 1:
-        _fail(
-            failures, "finish_battle_deferred_cov: want 1 soak_coverage ok= after early exit got %d" % cov_ok
-        )
+        _fail(failures, "finish_battle_deferred_cov: want 1 soak_coverage ok= after early exit got %d" % cov_ok)
 
 
 ## Campaign-only: incomplete fast-forward warning must not fire on soak / dev fights.
@@ -261,9 +251,7 @@ static func _run_finish_battle_incomplete_hint_campaign_only(failures: PackedStr
     mgr.combat_ui_hint.connect(func(m: String) -> void: hints.append(m))
     mgr.call("_notify_incomplete_campaign_medical_fast_forward_if_needed")
     if not hints.is_empty():
-        _fail(
-            failures, "finish_battle_incomplete_hint: soak fight should not emit campaign hint got %s" % str(hints)
-        )
+        _fail(failures, "finish_battle_incomplete_hint: soak fight should not emit campaign hint got %s" % str(hints))
     var world: Node2D = Node2D.new()
     world.set_meta(CompanyState.WORLD_META_ACTIVE_CONTRACT, {"contract_title": "Scout"})
     var battle: Node = BattleScene.new()
@@ -272,13 +260,9 @@ static func _run_finish_battle_incomplete_hint_campaign_only(failures: PackedStr
     hints.clear()
     mgr.call("_notify_incomplete_campaign_medical_fast_forward_if_needed")
     if hints.is_empty():
-        _fail(
-            failures, "finish_battle_incomplete_hint: campaign fight should emit incomplete hint"
-        )
+        _fail(failures, "finish_battle_incomplete_hint: campaign fight should emit incomplete hint")
     elif str(hints[0]) != BattleUIConstants.CAMPAIGN_MEDICAL_FAST_FORWARD_INCOMPLETE_HINT:
-        _fail(
-            failures, "finish_battle_incomplete_hint: want campaign incomplete copy got '%s'" % str(hints[0])
-        )
+        _fail(failures, "finish_battle_incomplete_hint: want campaign incomplete copy got '%s'" % str(hints[0]))
     OperationalLog.begin_play_session("headless://incomplete_ff_parts", "", false, false)
     OperationalLog.set_capture_enabled(true)
     hints.clear()
@@ -291,9 +275,7 @@ static func _run_finish_battle_incomplete_hint_campaign_only(failures: PackedStr
     OperationalLog.set_capture_enabled(false)
     OperationalLog.end_play_session()
     if not world_logged:
-        _fail(
-            failures, "finish_battle_incomplete_hint: world log should include parts_left count"
-        )
+        _fail(failures, "finish_battle_incomplete_hint: world log should include parts_left count")
     HarnessFixtures._free_manager(mgr)
     BattleScene._destroy_battle_ui_for_harness(battle as BattleScene)
     battle.free()
@@ -403,13 +385,9 @@ static func _run_finish_battle_campaign_batch_completes_windup(failures: PackedS
     battle.free()
     world.free()
     if not bandaged_chest:
-        _fail(
-            failures, "finish_battle_campaign_batch: ally chest should be bandaged after batch exit"
-        )
+        _fail(failures, "finish_battle_campaign_batch: ally chest should be bandaged after batch exit")
     if not batch_exit_log:
-        _fail(
-            failures, "finish_battle_campaign_batch: want campaign_medical_exit batch_resolve=true"
-        )
+        _fail(failures, "finish_battle_campaign_batch: want campaign_medical_exit batch_resolve=true")
     if not batch_summary_log:
         _fail(failures, "finish_battle_campaign_batch: want medical_batch_resolve log line")
 
@@ -440,9 +418,7 @@ static func _run_finish_battle_instant_completes_medical_windup(failures: Packed
     var medical_phase_cleared: bool = not bool(mgr.medical_phase)
     HarnessFixtures._free_manager(mgr)
     if not bandaged_chest:
-        _fail(
-            failures, "finish_battle_instant: ally chest should be bandaged after finish_battle"
-        )
+        _fail(failures, "finish_battle_instant: ally chest should be bandaged after finish_battle")
     if not medical_phase_cleared:
         _fail(failures, "finish_battle_instant: medical_phase should clear on stop")
 

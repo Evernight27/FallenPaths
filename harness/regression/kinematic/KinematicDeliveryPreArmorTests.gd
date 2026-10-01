@@ -207,15 +207,15 @@ static func _run_kinematic_delivery_penetration_sharp_ke_exponent_and_blunt_mpa_
     if mpa_lo <= 0.0 or mpa_hi <= mpa_lo + 1e-6:
         _fail(failures, "kin_pen_blunt: expected rising momentum/area lo=%.4f hi=%.4f" % [mpa_lo, mpa_hi])
 
+
 ## Body-coupled thrust mass: every weapon template with a STAB move gets an explicit body-transfer mass in
 ## **`strike_mass_kg`** (SPEAR 3.5 / MACE 2.5 / AXE 2.0 / SWORD 1.5 / DAGGER 0.28 kg). Dagger uses a much lower
 ## thrust mass because its short blade means the arm+shoulder drive couples differently — at v=[4,10] m/s,
 ## ½×0.28×v² yields [5.6, 14]J which sits correctly within the [3, 55]J audit band (unlike the old 1.0 kg that
 ## produced ~98J at 14 m/s, double the band cap). Mass ordering: SPEAR > MACE > AXE > SWORD >> DAGGER.
 
-static func _run_kinematic_delivery_thrust_body_coupled_strike_mass_and_ke_rising(
-    failures: PackedStringArray
-) -> void:
+
+static func _run_kinematic_delivery_thrust_body_coupled_strike_mass_and_ke_rising(failures: PackedStringArray) -> void:
     var rows: Array = [
         {"def": "SWORD", "move": "thrust", "expect_m": 1.5, "v_lo": 6.0, "v_hi": 14.0, "pfx": "kin_thrust_sw"},
         {"def": "MACE", "move": "thrust", "expect_m": 2.5, "v_lo": 6.0, "v_hi": 13.0, "pfx": "kin_thrust_mc"},
@@ -251,34 +251,46 @@ static func _run_kinematic_delivery_thrust_body_coupled_strike_mass_and_ke_risin
     if float(resolved_mass["kin_thrust_sp"]) <= float(resolved_mass["kin_thrust_mc"]) + 1e-4:
         _fail(
             failures,
-            "kin_thrust_order: SPEAR %.4f should exceed MACE %.4f" % [
-                resolved_mass["kin_thrust_sp"],
-                resolved_mass["kin_thrust_mc"],
-            ]
+            (
+                "kin_thrust_order: SPEAR %.4f should exceed MACE %.4f"
+                % [
+                    resolved_mass["kin_thrust_sp"],
+                    resolved_mass["kin_thrust_mc"],
+                ]
+            )
         )
     if float(resolved_mass["kin_thrust_mc"]) <= float(resolved_mass["kin_thrust_ax"]) + 1e-4:
         _fail(
             failures,
-            "kin_thrust_order: MACE %.4f should exceed AXE %.4f" % [
-                resolved_mass["kin_thrust_mc"],
-                resolved_mass["kin_thrust_ax"],
-            ]
+            (
+                "kin_thrust_order: MACE %.4f should exceed AXE %.4f"
+                % [
+                    resolved_mass["kin_thrust_mc"],
+                    resolved_mass["kin_thrust_ax"],
+                ]
+            )
         )
     if float(resolved_mass["kin_thrust_ax"]) <= float(resolved_mass["kin_thrust_sw"]) + 1e-4:
         _fail(
             failures,
-            "kin_thrust_order: AXE %.4f should exceed SWORD %.4f" % [
-                resolved_mass["kin_thrust_ax"],
-                resolved_mass["kin_thrust_sw"],
-            ]
+            (
+                "kin_thrust_order: AXE %.4f should exceed SWORD %.4f"
+                % [
+                    resolved_mass["kin_thrust_ax"],
+                    resolved_mass["kin_thrust_sw"],
+                ]
+            )
         )
     if float(resolved_mass["kin_thrust_dg"]) <= float(resolved_mass["kin_thrust_sw"]) + 1e-4:
         _fail(
             failures,
-            "kin_thrust_order: DAGGER %.4f should exceed SWORD %.4f (body-coupled arm+shoulder)" % [
-                resolved_mass["kin_thrust_dg"],
-                resolved_mass["kin_thrust_sw"],
-            ]
+            (
+                "kin_thrust_order: DAGGER %.4f should exceed SWORD %.4f (body-coupled arm+shoulder)"
+                % [
+                    resolved_mass["kin_thrust_dg"],
+                    resolved_mass["kin_thrust_sw"],
+                ]
+            )
         )
 
 
@@ -286,6 +298,7 @@ static func _run_kinematic_delivery_thrust_body_coupled_strike_mass_and_ke_risin
 ## **`strike_mass_kg`** derives from the isolated striking-part mass × 3 (torso/shoulder drive), clamped to
 ## [0.5, 1.5] kg -  never the bare 0.40 kg thrust default. Locked with a synthetic weapon whose parts give a
 ## known blade part-mass (0.6 × 1.0 kg = 0.6 kg → expect 1.5 kg clamped) and an unknown weapon_type.
+
 
 static func _run_kinetic_delivery_thrust_mass_fallback_for_unknown_templates(failures: PackedStringArray) -> void:
     var w := Weapon.new()
@@ -308,8 +321,7 @@ static func _run_kinetic_delivery_thrust_mass_fallback_for_unknown_templates(fai
     var cut_m: float = WeaponDamageHelper.strike_mass_kg(w, ai_cut)
     if absf(cut_m - part_m) > 1e-4:
         _fail(
-            failures,
-            "kin_thrust_fallback: non-stab path must stay at part mass (got %.4f want %.4f)" % [cut_m, part_m]
+            failures, "kin_thrust_fallback: non-stab path must stay at part mass (got %.4f want %.4f)" % [cut_m, part_m]
         )
 
 
@@ -331,7 +343,8 @@ static func _run_kinetic_delivery_uniform_rod_inertia_parallel_axis(failures: Pa
     var m_total: float = 1.0
     var got: float = WeaponSwingPhysics.inertia_from_parts_kg_m2(parts, m_total)
     # blade: m=0.6, d=max(MIN_LEVER_M(0.12), 0.6-0.2)=0.4, L=0.4 -> 0.6*0.16 + 0.6*0.16/12 = 0.096 + 0.008 = 0.104
-    # handle: m=0.4, d=max(MIN_LEVER_M(0.12), 0.6-0.5)=max(0.12, 0.1)=0.12, L=0.2 -> 0.4*0.0144 + 0.4*0.04/12 = 0.00576 + 0.001333 = 0.007093
+    # handle: m=0.4, d=max(MIN_LEVER_M(0.12), 0.6-0.5)=max(0.12, 0.1)=0.12, L=0.2 -> 0.4*0.0144 + 0.4*0.04/12 = 0.00576
+    # + 0.001333 = 0.007093
     var want_rod: float = 0.6 * 0.4 * 0.4 + (0.6 * 0.4 * 0.4) / 12.0 + 0.4 * 0.12 * 0.12 + (0.4 * 0.2 * 0.2) / 12.0
     if absf(got - want_rod) > 1e-4:
         _fail(failures, "kin_rod_inertia: got %.6f want parallel-axis %.6f" % [got, want_rod])
@@ -340,8 +353,10 @@ static func _run_kinetic_delivery_uniform_rod_inertia_parallel_axis(failures: Pa
     if got <= point_mass + 1e-6:
         _fail(
             failures,
-            "kin_rod_inertia: rod inertia %.6f must exceed point-mass %.6f by the (1/12)mL² distributed term"
-            % [got, point_mass]
+            (
+                "kin_rod_inertia: rod inertia %.6f must exceed point-mass %.6f by the (1/12)mL² distributed term"
+                % [got, point_mass]
+            )
         )
     var w := Weapon.new()
     w.weapon_type = "FAUX"
@@ -383,28 +398,34 @@ static func _run_kinetic_delivery_mass_scaled_band_max(failures: PackedStringArr
     w_light.mass = 0.5
     var f_light: float = ImpactVelocityModel.mass_scaling_factor(w_light)
     if absf(f_light - ImpactVelocityModel.MASS_SCALING_MAX_FACTOR) > 1e-4:
-        _fail(failures, "kin_mass_band_light: factor %.4f want clamp max %.4f" % [f_light, ImpactVelocityModel.MASS_SCALING_MAX_FACTOR])
+        _fail(
+            failures,
+            (
+                "kin_mass_band_light: factor %.4f want clamp max %.4f"
+                % [f_light, ImpactVelocityModel.MASS_SCALING_MAX_FACTOR]
+            )
+        )
     var band_light: Vector2 = ImpactVelocityModel.resolve_band_m_s(w_light, ct)
     if absf(band_light.x - 7.5) > 0.01:
         _fail(failures, "kin_mass_band_light: min must stay unscaled %.4f want 7.5" % band_light.x)
     if band_light.y <= band_ref.y + 0.01:
-        _fail(
-            failures,
-            "kin_mass_band_light: lighter max %.4f should exceed ref %.4f" % [band_light.y, band_ref.y]
-        )
+        _fail(failures, "kin_mass_band_light: lighter max %.4f should exceed ref %.4f" % [band_light.y, band_ref.y])
     # Heavier weapon (3.0 kg): factor sqrt(1.3/3.0)=0.658 → clamped to 0.7; max falls below reference.
     var w_heavy := Weapon.new()
     w_heavy.weapon_type = "SWORD"
     w_heavy.mass = 3.0
     var f_heavy: float = ImpactVelocityModel.mass_scaling_factor(w_heavy)
     if absf(f_heavy - ImpactVelocityModel.MASS_SCALING_MIN_FACTOR) > 1e-4:
-        _fail(failures, "kin_mass_band_heavy: factor %.4f want clamp min %.4f" % [f_heavy, ImpactVelocityModel.MASS_SCALING_MIN_FACTOR])
-    var band_heavy: Vector2 = ImpactVelocityModel.resolve_band_m_s(w_heavy, ct)
-    if band_heavy.y >= band_ref.y - 0.01:
         _fail(
             failures,
-            "kin_mass_band_heavy: heavier max %.4f should be below ref %.4f" % [band_heavy.y, band_ref.y]
+            (
+                "kin_mass_band_heavy: factor %.4f want clamp min %.4f"
+                % [f_heavy, ImpactVelocityModel.MASS_SCALING_MIN_FACTOR]
+            )
         )
+    var band_heavy: Vector2 = ImpactVelocityModel.resolve_band_m_s(w_heavy, ct)
+    if band_heavy.y >= band_ref.y - 0.01:
+        _fail(failures, "kin_mass_band_heavy: heavier max %.4f should be below ref %.4f" % [band_heavy.y, band_ref.y])
     # In-range mass (1.8 kg): unscaled factor sqrt(1.3/1.8)=0.850; max = 16*0.850 within tolerance.
     var w_mid := Weapon.new()
     w_mid.weapon_type = "SWORD"
@@ -449,17 +470,16 @@ static func _run_kinematic_delivery_impact_contact_time_speed_dependent(failures
         if prev_dt >= 0.0 and dt >= prev_dt - 1e-6:
             _fail(
                 failures,
-                "kin_impact_dt_monotone: dt must fall with speed (v=%.1f dt=%.6f after v_prev dt=%.6f)"
-                % [float(s), dt, prev_dt]
+                (
+                    "kin_impact_dt_monotone: dt must fall with speed (v=%.1f dt=%.6f after v_prev dt=%.6f)"
+                    % [float(s), dt, prev_dt]
+                )
             )
         prev_dt = dt
     var dt_fast: float = WeaponDamageHelper.impact_contact_time_s(20.0)
     var dt_slow: float = WeaponDamageHelper.impact_contact_time_s(4.0)
     if dt_fast >= want_ref or dt_slow <= want_ref:
-        _fail(
-            failures,
-            "kin_impact_dt_order: fast %.6f must be < ref %.6f < slow %.6f" % [dt_fast, want_ref, dt_slow]
-        )
+        _fail(failures, "kin_impact_dt_order: fast %.6f must be < ref %.6f < slow %.6f" % [dt_fast, want_ref, dt_slow])
     var dt_min_band: float = WeaponDamageHelper.impact_contact_time_s(2.5)
     if dt_min_band < WeaponConstants.BLUNT_CONTACT_TIME_MIN_S - 1e-6:
         _fail(failures, "kin_impact_dt_clamp_lo: %.6f below min band" % dt_min_band)
@@ -520,22 +540,24 @@ static func _run_kinetic_delivery_sub_band_energy_consistency(failures: PackedSt
         # The cut also carries a contact_factor (effective sharp width vs baseline), so the expected
         # value must include it to stay consistent with compute_pre_armor_cut.
         var contact_cm: float = maxf(
-            WeaponDamageHelper._get_effective_sharp_contact_cm(sword, move_cut),
-            WeaponConstants.MIN_CONTACT_WIDTH_CM
+            WeaponDamageHelper._get_effective_sharp_contact_cm(sword, move_cut), WeaponConstants.MIN_CONTACT_WIDTH_CM
         )
         var contact_factor: float = minf(
             pow(WeaponConstants.BASELINE_CONTACT_CM / contact_cm, WeaponConstants.CONTACT_DAMAGE_EXPONENT),
             WeaponConstants.CONTACT_DAMAGE_FACTOR_MAX
         )
         var want_cut_ke: float = (
-            WeaponConstants.CUT_DAMAGE_KE_SCALE * pow(maxf(0.0, ke_raw * f), WeaponConstants.CUT_DAMAGE_ENERGY_EXPONENT)
+            WeaponConstants.CUT_DAMAGE_KE_SCALE
+            * pow(maxf(0.0, ke_raw * f), WeaponConstants.CUT_DAMAGE_ENERGY_EXPONENT)
             * contact_factor
         )
         if want_cut_ke > 0.5 and absf(cut / want_cut_ke - 1.0) > 0.05:
             _fail(
                 failures,
-                "%s: cut %.4f should track (raw*factor)^%.2f*contact=%.4f (contact_factor=%.3f)"
-                % [pfx, cut, WeaponConstants.CUT_DAMAGE_ENERGY_EXPONENT, want_cut_ke, contact_factor]
+                (
+                    "%s: cut %.4f should track (raw*factor)^%.2f*contact=%.4f (contact_factor=%.3f)"
+                    % [pfx, cut, WeaponConstants.CUT_DAMAGE_ENERGY_EXPONENT, want_cut_ke, contact_factor]
+                )
             )
     var ai_hi: AttackInstance = AttackInstance.new(move_cut, 0.5)
     ai_hi.archetype = arch_swing
@@ -557,6 +579,7 @@ static func _run_kinetic_delivery_sub_band_energy_consistency(failures: PackedSt
 ## (`½mv²` thrust, `½Iω²` swing). KE ratio between e_mult=1.0 and e_mult=N should be ~1.0 for all weapons and
 ## delivery types (swing, thrust, mixed). Cut damage does NOT scale with AttackInstance.strike_energy_mult either —
 ## it uses cut_damage_mult from StrikeRealismProfile instead.
+
 
 static func _run_kinematic_delivery_strike_energy_mult_scales_ke_and_pre_armor_cut_sqrt(
     failures: PackedStringArray
@@ -754,6 +777,3 @@ static func _run_kinematic_delivery_strike_momentum_mult_scales_blunt_damage_and
 ## **`get_effective_velocity_m_s`** is independent of momentum/damage multipliers (pure velocity path)
 ## -  same blunt-channel >= on **MACE** **`direct_blow`** and **SWORD** / **AXE** / **DAGGER** cut swing (pinned
 ## **`v`**)  -  orthogonal energy vs momentum paths.
-
-
-

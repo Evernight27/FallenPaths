@@ -2,7 +2,7 @@ class_name CombatRegressionHarnessMedicalMobilityTail
 extends RefCounted
 ## Tier 6.1 medical mobility + cowering tests split from CombatRegressionHarness (compile size).
 
-const _CombatRegressionHarness := preload("res://harness/regression/CombatRegressionHarness.gd")
+const CombatRegressionHarness := preload("res://harness/regression/CombatRegressionHarness.gd")
 
 
 ## Tier 6.1: **`can_flee_or_fall_back`**  -  leg **`MOBILITY_FLEE_THRESHOLD`** and unconscious gate.
@@ -366,18 +366,14 @@ static func _run_medical_mobility_cowering_depth_lists_wait_not_fall_back(failur
         acts, cid_depth, CombatConstants.MOVE_ID_FALL_BACK
     )
     if not has_wait:
-        HarnessFixtures._fail(
-            failures, "med_mobility_depth: rank-1 cowering want wait in build (acts=%s)" % str(acts)
-        )
+        HarnessFixtures._fail(failures, "med_mobility_depth: rank-1 cowering want wait in build (acts=%s)" % str(acts))
     if has_fb:
         HarnessFixtures._fail(failures, "med_mobility_depth: rank-1 cowering must not solo fall_back")
     var depth_hint: String = CombatPlayerTurnHints.cowering_retreat_hint_if_applicable(mgr, c, acts)
     if depth_hint.is_empty():
         HarnessFixtures._fail(failures, "med_mobility_depth: want retreat hint got empty")
     elif not depth_hint.contains("holding position") and not depth_hint.contains("flee abandons"):
-        HarnessFixtures._fail(
-            failures, "med_mobility_depth: want holding-position or flee hint got '%s'" % depth_hint
-        )
+        HarnessFixtures._fail(failures, "med_mobility_depth: want holding-position or flee hint got '%s'" % depth_hint)
     HarnessFixtures._free_manager_restore_global_rng(mgr)
 
 
@@ -438,9 +434,7 @@ static func _run_medical_mobility_cowering_player_retreat_ui_hint(failures: Pack
     var acts: Array = AvailableActionsBuilder.build(mgr, CombatantEntityAccess.id_int(front_c))
     var fb_hint: String = CombatPlayerTurnHints.cowering_retreat_hint_if_applicable(mgr, front_c, acts)
     if fb_hint.is_empty() or not fb_hint.contains("fall back"):
-        HarnessFixtures._fail(
-            failures, "med_mobility_hint: fall_back listed want retreat hint got '%s'" % fb_hint
-        )
+        HarnessFixtures._fail(failures, "med_mobility_hint: fall_back listed want retreat hint got '%s'" % fb_hint)
     var enemy_c: Dictionary = {}
     for row in mgr.combatants:
         if CombatantEntityAccess.is_enemy_side(row):
@@ -481,9 +475,7 @@ static func _run_medical_mobility_cowering_ai_fall_back_weight_beats_wait(failur
             failures, "med_mobility_ai_w: cowering fall_back want > wait got fb=%.3f wait=%.3f" % [w_fb, w_wait]
         )
     if absf(w_fb - CombatConstants.COWERING_SOLO_FALL_BACK_AI_WEIGHT) > 0.001:
-        HarnessFixtures._fail(
-            failures, "med_mobility_ai_w: want COWERING_SOLO_FALL_BACK_AI_WEIGHT got %.3f" % w_fb
-        )
+        HarnessFixtures._fail(failures, "med_mobility_ai_w: want COWERING_SOLO_FALL_BACK_AI_WEIGHT got %.3f" % w_fb)
     HarnessFixtures._free_manager_restore_global_rng(mgr)
 
 
@@ -546,9 +538,7 @@ static func _run_medical_mobility_cowering_arm_recovery_clears_state(failures: P
             failures, "med_mobility_recover: want STATE_WAITING got %s" % CombatantEntityAccess.state_str(c)
         )
     if CombatantEntityAccess.gauge_float(c) > 5.0:
-        HarnessFixtures._fail(
-            failures, "med_mobility_recover: gauge should reset on arm recovery (harness tolerance)"
-        )
+        HarnessFixtures._fail(failures, "med_mobility_recover: gauge should reset on arm recovery (harness tolerance)")
     HarnessFixtures._free_manager_restore_global_rng(mgr)
 
 
@@ -605,9 +595,7 @@ static func _run_medical_mobility_cowering_resolve_blocks_melee_wind_up(failures
     if CombatantEntityAccess.state_str(c) == CombatConstants.STATE_WIND_UP:
         HarnessFixtures._fail(failures, "med_mobility_resolve: must not enter wind-up without functional arm")
     if not CombatantEntityAccess.nested_dictionary_read(c, "pending_attack").is_empty():
-        HarnessFixtures._fail(
-            failures, "med_mobility_resolve: must not stamp pending_attack without functional arm"
-        )
+        HarnessFixtures._fail(failures, "med_mobility_resolve: must not stamp pending_attack without functional arm")
     HarnessFixtures._free_manager_restore_global_rng(mgr)
 
 
@@ -661,9 +649,7 @@ static func _run_medical_mobility_cowering_stale_action_ready_cancelled_on_recov
     if CombatantEntityAccess.state_str(c) == CombatConstants.STATE_WIND_UP:
         HarnessFixtures._fail(failures, "med_mobility_stale_ready: must not wind up from stale ACTION_READY")
     if CombatEventScheduler.get_next_action_ready_at(mgr, cid) < 0.0 and CombatantEntityAccess.can_flee_or_fall_back(c):
-        HarnessFixtures._fail(
-            failures, "med_mobility_stale_ready: mobile cowering should reschedule ACTION_READY"
-        )
+        HarnessFixtures._fail(failures, "med_mobility_stale_ready: mobile cowering should reschedule ACTION_READY")
     c.gauge = 100.0
     var acts: Array = AvailableActionsBuilder.build(mgr, cid)
     _harness_assert_retreat_only_action_list(failures, acts, "med_mobility_stale_ready: post-recovery build")
@@ -717,9 +703,7 @@ static func _run_medical_mobility_cowering_mid_windup_arm_loss_aborts_melee(fail
     HarnessFixtures._harness_destroy_limb(ent, "left_arm")
     CombatEventDispatch.handle_melee_attack(mgr, p)
     if CombatantEntityAccess.state_str(p) == CombatConstants.STATE_WIND_UP:
-        HarnessFixtures._fail(
-            failures, "med_mobility_windup_abort: must leave WIND_UP after arm loss at melee event"
-        )
+        HarnessFixtures._fail(failures, "med_mobility_windup_abort: must leave WIND_UP after arm loss at melee event")
     var chest_after: float = float(en_ent.body_cutting.get("chest", 0.0))
     if chest_after < chest_before - 0.01:
         HarnessFixtures._fail(
@@ -748,9 +732,7 @@ static func _run_medical_mobility_cowering_react_after_hit_arm_loss(failures: Pa
             failures, "med_mobility_react: want STATE_COWERING got %s" % CombatantEntityAccess.state_str(def)
         )
     if CombatEventScheduler.get_next_action_ready_at(mgr, def_id) < 0.0:
-        HarnessFixtures._fail(
-            failures, "med_mobility_react: should reschedule ACTION_READY for mobile cowering"
-        )
+        HarnessFixtures._fail(failures, "med_mobility_react: should reschedule ACTION_READY for mobile cowering")
     HarnessFixtures._free_manager_restore_global_rng(mgr)
 
 
@@ -785,9 +767,7 @@ static func _run_medical_mobility_cowering_afterblow_aborts_destroyed_attacking_
         "final_bone": 0.0,
     }
     if AfterblowHandler.try_afterblow(mgr, 0, tid, rd, 1.0):
-        HarnessFixtures._fail(
-            failures, "med_mobility_afterblow_arm: try_afterblow must be false when arm destroyed"
-        )
+        HarnessFixtures._fail(failures, "med_mobility_afterblow_arm: try_afterblow must be false when arm destroyed")
     if CombatantEntityAccess.state_str(striker) == CombatConstants.STATE_WIND_UP:
         HarnessFixtures._fail(failures, "med_mobility_afterblow_arm: must leave WIND_UP")
     if not CombatantEntityAccess.nested_dictionary_read(striker, "pending_attack").is_empty():
@@ -873,9 +853,7 @@ static func _run_medical_mobility_cowering_parry_riposte_skips_no_arm_defender(f
     }
     AttackResultApplier.apply_result(mgr, atk_id, result)
     if CombatEventScheduler.get_next_action_ready_at(mgr, def_id) >= 0.0:
-        HarnessFixtures._fail(
-            failures, "med_mobility_parry: must not schedule riposte ACTION_READY without arms"
-        )
+        HarnessFixtures._fail(failures, "med_mobility_parry: must not schedule riposte ACTION_READY without arms")
     HarnessFixtures._free_manager_restore_global_rng(mgr)
 
 

@@ -625,7 +625,6 @@ static func ii2b_worksheet_prefill_text(stats: Dictionary, headless_signed: bool
 
 ## Mandatory **D-001** tracks satisfied by headless runner (no F5).
 
-
 ## Mandatory **D-001** tracks satisfied by headless runner (no F5).
 
 

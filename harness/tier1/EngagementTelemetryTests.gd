@@ -1,6 +1,6 @@
 class_name Tier1EngagementTelemetryTests
 extends CombatRegressionHarnessCore
-const _CombatRegressionHarness := preload("res://harness/regression/CombatRegressionHarness.gd")
+const CombatRegressionHarness := preload("res://harness/regression/CombatRegressionHarness.gd")
 ## Tier 1 depth / engagement / targeting / surround / doctrine tests (compile split).
 ## Footing: not WF/PA owner  -  may call strike/listing paths that read **`form_str`**. Spec: LIVE_PATHS
 ## **`#wf-footing-doc-map`**.
@@ -99,9 +99,7 @@ static func _run_engagement_mode_cache_reset_on_second_start(failures: PackedStr
     mgr.start({"files": 2, "ranks": 2, "density": "normal"}, {"files": 2, "ranks": 2, "density": "normal"})
     var m0: String = CombatEngagementMode.engagement_mode(mgr)
     if m0 != CombatConstants.ENGAGEMENT_MODE_FORMATION:
-        _fail(
-            failures, "mode_cache_reset: expected first start formation-line mode got %s" % m0
-        )
+        _fail(failures, "mode_cache_reset: expected first start formation-line mode got %s" % m0)
     # Rebuild as tiny duel on the **same** manager node.
     for c in mgr.combatants:
         var n: Node = CombatantEntityAccess.scene_node(c)
@@ -113,9 +111,7 @@ static func _run_engagement_mode_cache_reset_on_second_start(failures: PackedStr
     mgr.start({"files": 1, "ranks": 1}, {"files": 1, "ranks": 1})
     var m1: String = CombatEngagementMode.engagement_mode(mgr)
     if m1 != CombatConstants.ENGAGEMENT_MODE_DUEL:
-        _fail(
-            failures, "mode_cache_reset: after 1v1 restart expected duel got %s (stale formation cache?)" % m1
-        )
+        _fail(failures, "mode_cache_reset: after 1v1 restart expected duel got %s (stale formation cache?)" % m1)
     HarnessFixtures._free_manager(mgr)
 
 
@@ -186,9 +182,7 @@ static func _run_telemetry_lock_multi_seed(failures: PackedStringArray) -> void:
             mgr.register(_new_entity("SWORD"), "enemy")
         mgr.start({}, {})
         if not mgr.has_meta(TacticalCombat.META_COMBAT_TELEMETRY):
-            _fail(
-                failures, "telemetry_lock seed=%d: missing combat telemetry meta" % scenario_seed
-            )
+            _fail(failures, "telemetry_lock seed=%d: missing combat telemetry meta" % scenario_seed)
         else:
             var tel: Dictionary = mgr.get_meta(TacticalCombat.META_COMBAT_TELEMETRY) as Dictionary
             var mode: String = CombatEngagementMode.engagement_mode(mgr)
@@ -233,9 +227,7 @@ static func _run_telemetry_lock_multi_seed(failures: PackedStringArray) -> void:
         if mgr.has_meta("_tactical_mode_snapshot"):
             var ts: Dictionary = mgr.get_meta("_tactical_mode_snapshot") as Dictionary
             if not ts.has("telemetry"):
-                _fail(
-                    failures, "telemetry_lock seed=%d: _tactical_mode_snapshot missing telemetry" % scenario_seed
-                )
+                _fail(failures, "telemetry_lock seed=%d: _tactical_mode_snapshot missing telemetry" % scenario_seed)
             else:
                 var emb: Dictionary = ts["telemetry"] as Dictionary
                 var mode2: String = CombatEngagementMode.engagement_mode(mgr)
@@ -245,9 +237,7 @@ static func _run_telemetry_lock_multi_seed(failures: PackedStringArray) -> void:
                         "telemetry_lock seed=%d: snapshot.telemetry last_resolved_mode mismatch" % scenario_seed
                     )
                 if not emb.has("invalid_melee_resolve_blocked") or not emb.has("invalid_close_resolve_blocked"):
-                    _fail(
-                        failures, "telemetry_lock seed=%d: embedded telemetry missing invalid_* keys" % scenario_seed
-                    )
+                    _fail(failures, "telemetry_lock seed=%d: embedded telemetry missing invalid_* keys" % scenario_seed)
                 if (
                     int(emb.get("invalid_melee_resolve_blocked", -1)) != 0
                     or int(emb.get("invalid_close_resolve_blocked", -1)) != 0
@@ -290,9 +280,7 @@ static func _run_depth_polearm_band_vs_actions_fuzz(failures: PackedStringArray)
             continue
         var depth: Dictionary = mgr.combatants[depth_idx]
         if not CombatDepthPolearm.depth_polearm_lane_open(mgr, depth):
-            _fail(
-                failures, "depth_polearm_band_acts seed=%d: expected open lane pf=%d fs=%d" % [scenario_seed, pf, fs]
-            )
+            _fail(failures, "depth_polearm_band_acts seed=%d: expected open lane pf=%d fs=%d" % [scenario_seed, pf, fs])
             HarnessFixtures._free_manager(mgr)
             continue
         depth["gauge"] = 100.0
@@ -388,9 +376,7 @@ static func _run_telemetry_invalid_melee_resolve_blocked(failures: PackedStringA
     (p["distance_to"] as Dictionary)[e_id] = CombatConstants.DISTANCE_LONG
     var res: Dictionary = AttackResolver.resolve_attack(mgr, p_id)
     if str(res.get("action", "")) != "skip":
-        _fail(
-            failures, "telemetry_melee_geom: expected skip when LONG+threaten false got %s" % str(res)
-        )
+        _fail(failures, "telemetry_melee_geom: expected skip when LONG+threaten false got %s" % str(res))
     if float(res.get("recovery_duration", 0.0)) <= 0.0:
         _fail(failures, "telemetry_melee_geom: expected positive recovery on abort")
     if not mgr.has_meta(TacticalCombat.META_COMBAT_TELEMETRY):
@@ -398,9 +384,7 @@ static func _run_telemetry_invalid_melee_resolve_blocked(failures: PackedStringA
     else:
         var tel: Dictionary = mgr.get_meta(TacticalCombat.META_COMBAT_TELEMETRY) as Dictionary
         if int(tel.get("invalid_melee_resolve_blocked", 0)) < 1:
-            _fail(
-                failures, "telemetry_melee_geom: expected invalid_melee_resolve_blocked >= 1 got %s" % str(tel)
-            )
+            _fail(failures, "telemetry_melee_geom: expected invalid_melee_resolve_blocked >= 1 got %s" % str(tel))
     HarnessFixtures._free_manager(mgr)
 
 
@@ -430,9 +414,7 @@ static func _run_telemetry_invalid_close_resolve_blocked(failures: PackedStringA
     else:
         var tel: Dictionary = mgr.get_meta(TacticalCombat.META_COMBAT_TELEMETRY) as Dictionary
         if int(tel.get("invalid_close_resolve_blocked", 0)) < 1:
-            _fail(
-                failures, "telemetry_close: expected invalid_close_resolve_blocked >= 1 got %s" % str(tel)
-            )
+            _fail(failures, "telemetry_close: expected invalid_close_resolve_blocked >= 1 got %s" % str(tel))
     HarnessFixtures._free_manager(mgr)
 
 
@@ -460,9 +442,7 @@ static func _run_attempt_close_listed_only_at_long(failures: PackedStringArray) 
     (en["distance_to"] as Dictionary)[p_id] = CombatConstants.DISTANCE_MID
     var acts_mid: Array = AvailableActionsBuilder.build(mgr, p_id)
     if CombatListedActions.actions_include_move_vs_target(acts_mid, e_id, CombatConstants.MOVE_ID_ATTEMPT_CLOSE):
-        _fail(
-            failures, "attempt_close_list: must not list close vs MID opponent (target %d)" % e_id
-        )
+        _fail(failures, "attempt_close_list: must not list close vs MID opponent (target %d)" % e_id)
         HarnessFixtures._free_manager(mgr)
         return
     (p["distance_to"] as Dictionary)[e_id] = CombatConstants.DISTANCE_LONG
@@ -535,9 +515,7 @@ static func _run_attempt_close_ai_weight_zero_when_pair_blocked(failures: Packed
         "move_id": CombatConstants.MOVE_ID_ATTEMPT_CLOSE,
     }
     if CombatAIActionPicker._get_action_weight(a_close, p_id, mgr, true) > 0.001:
-        _fail(
-            failures, "attempt_close_blocked_weight: want zero weight when pair cooldown active"
-        )
+        _fail(failures, "attempt_close_blocked_weight: want zero weight when pair cooldown active")
     HarnessFixtures._free_manager(mgr)
 
 
@@ -585,14 +563,10 @@ static func _run_attempt_close_ai_weight_zero_when_not_long(failures: PackedStri
     )
     if in_swing:
         if w_long > 0.001:
-            _fail(
-                failures, "attempt_close_weight: in-swing LONG should zero weight got %.6f" % w_long
-            )
+            _fail(failures, "attempt_close_weight: in-swing LONG should zero weight got %.6f" % w_long)
     else:
         if w_long <= 0.001:
-            _fail(
-                failures, "attempt_close_weight: out-of-reach LONG should allow positive weight got %.6f" % w_long
-            )
+            _fail(failures, "attempt_close_weight: out-of-reach LONG should allow positive weight got %.6f" % w_long)
     HarnessFixtures._free_manager(mgr)
 
 
@@ -627,9 +601,7 @@ static func _run_envelop_focus_ai_weight_damp_mop_up(failures: PackedStringArray
     var open_id: int = CombatantEntityAccess.id_int(open_player)
     var w_open: float = CombatAIActionPicker._get_action_weight(a_focus, open_id, mgr_open, true)
     if w_mop >= w_open * 0.99:
-        _fail(
-            failures, "focus_weight_mop_up: want damped weight got mop=%.6f open=%.6f" % [w_mop, w_open]
-        )
+        _fail(failures, "focus_weight_mop_up: want damped weight got mop=%.6f open=%.6f" % [w_mop, w_open])
     HarnessFixtures._free_manager(mgr_mop)
     HarnessFixtures._free_manager(mgr_open)
 
@@ -722,14 +694,10 @@ static func _run_close_contest_failed_emits_reason(failures: PackedStringArray) 
     if str(r.get("outcome", "")) != "close_failed":
         _fail(failures, "close_contest: expected close_failed got %s" % str(r))
     elif str(r.get("reason", "")) != "contest_failed":
-        _fail(
-            failures, "close_contest: expected reason contest_failed got %s" % str(r.get("reason", ""))
-        )
+        _fail(failures, "close_contest: expected reason contest_failed got %s" % str(r.get("reason", "")))
     var line: String = CombatLogFormatter.format_action_line("P", "player", "E", "enemy", r)
     if not line.contains("measure"):
-        _fail(
-            failures, "close_contest: formatter should mention defender measure got %s" % line
-        )
+        _fail(failures, "close_contest: formatter should mention defender measure got %s" % line)
     HarnessFixtures._free_manager(mgr)
 
 
@@ -763,9 +731,7 @@ static func _run_resolve_close_no_emit_when_target_incap(failures: PackedStringA
     mgr.action_resolved.connect(func(_a: int, _t: int, _r: Dictionary) -> void: fired_box[0] = int(fired_box[0]) + 1)
     CombatEngagementResolver.resolve_close_attempt(mgr, p_id, e_id)
     if int(fired_box[0]) != 0:
-        _fail(
-            failures, "close_skip_incap: expected no action_resolved got fired=%d" % int(fired_box[0])
-        )
+        _fail(failures, "close_skip_incap: expected no action_resolved got fired=%d" % int(fired_box[0]))
     HarnessFixtures._free_manager(mgr)
 
 
@@ -783,21 +749,15 @@ static func _run_parry_deflect_formatter_clash_context_branches(failures: Packed
     var line_ctx: String = CombatLogFormatter.format_action_line("A", "player", "D", "enemy", with_ctx)
     if CombatConstants.COMBAT_DEBUG_CALIBRATION:
         if not line_ctx.contains("thrust") or not line_ctx.contains("meas=") or not line_ctx.contains("bind="):
-            _fail(
-                failures, "parry_fmt: calibration on expected thrust/meas/bind in %s" % line_ctx
-            )
+            _fail(failures, "parry_fmt: calibration on expected thrust/meas/bind in %s" % line_ctx)
     else:
         if line_ctx != line0:
-            _fail(
-                failures, "parry_fmt: calibration off expected identical lines got\n%s\nvs\n%s" % [line_ctx, line0]
-            )
+            _fail(failures, "parry_fmt: calibration off expected identical lines got\n%s\nvs\n%s" % [line_ctx, line0])
     var empty_ctx: Dictionary = base_r.duplicate(true)
     empty_ctx["parry_clash_context"] = {}
     var line_empty: String = CombatLogFormatter.format_action_line("A", "player", "D", "enemy", empty_ctx)
     if line_empty != line0:
-        _fail(
-            failures, "parry_fmt: empty parry_clash_context should match baseline got %s vs %s" % [line_empty, line0]
-        )
+        _fail(failures, "parry_fmt: empty parry_clash_context should match baseline got %s vs %s" % [line_empty, line0])
 
 
 ## `CombatLogFormatter`  -  **`parry_partial`**: non-empty **`parry_clash_context`** unchanged unless
@@ -812,13 +772,9 @@ static func _run_parry_partial_formatter_clash_context_branches(failures: Packed
     }
     var line_pp0: String = CombatLogFormatter.format_action_line("A", "player", "D", "enemy", base_pp)
     if line_pp0.contains("meas=") or line_pp0.contains("[size=10]"):
-        _fail(
-            failures, "parry_partial_fmt: baseline should not include clash suffix got %s" % line_pp0
-        )
+        _fail(failures, "parry_partial_fmt: baseline should not include clash suffix got %s" % line_pp0)
     if not line_pp0.contains("partially parried"):
-        _fail(
-            failures, "parry_partial_fmt: baseline should say partially parried got %s" % line_pp0
-        )
+        _fail(failures, "parry_partial_fmt: baseline should say partially parried got %s" % line_pp0)
     var with_pp: Dictionary = base_pp.duplicate(true)
     with_pp["parry_clash_context"] = {
         "kinematic_delivery": "thrust", "strike_measure_ratio": 1.2, "parry_control": 0.75, "remaining_ratio": 0.11
@@ -831,9 +787,7 @@ static func _run_parry_partial_formatter_clash_context_branches(failures: Packed
             or not line_pp_ctx.contains("bind=")
             or not line_pp_ctx.contains("rem=")
         ):
-            _fail(
-                failures, "parry_partial_fmt: calibration on expected thrust/meas/bind/rem in %s" % line_pp_ctx
-            )
+            _fail(failures, "parry_partial_fmt: calibration on expected thrust/meas/bind/rem in %s" % line_pp_ctx)
     else:
         if line_pp_ctx != line_pp0:
             _fail(
@@ -936,9 +890,7 @@ static func _run_parry_pack_flank_effective_spacing(failures: PackedStringArray)
         )
     var m_adj: float = ZoneOfControl.get_engagement_parry_multiplier(mgr, p_id, e_id)
     if is_equal_approx(m_adj, CombatConstants.FLANK_PARRY_MOD):
-        _fail(
-            failures, "parry_pack_flank: adjacent files should not apply flank mod (got %.4f)" % m_adj
-        )
+        _fail(failures, "parry_pack_flank: adjacent files should not apply flank mod (got %.4f)" % m_adj)
     mgr.combatants[1]["file"] = 2
     mgr.recompute_zoc_and_distance()
     var e_far: Dictionary = mgr.combatants[1]

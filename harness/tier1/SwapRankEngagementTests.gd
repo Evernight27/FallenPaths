@@ -1,6 +1,6 @@
 class_name Tier1SwapRankEngagementTests
 extends CombatRegressionHarnessCore
-const _CombatRegressionHarness := preload("res://harness/regression/CombatRegressionHarness.gd")
+const CombatRegressionHarness := preload("res://harness/regression/CombatRegressionHarness.gd")
 ## Tier 1 depth / engagement / targeting / surround / doctrine tests (compile split).
 ## Footing: not WF/PA owner  -  may call strike/listing paths that read **`form_str`**. Spec: LIVE_PATHS
 ## **`#wf-footing-doc-map``.
@@ -36,9 +36,7 @@ static func _run_engagement_reach_audit_close_bind_and_wing_gap(failures: Packed
     )
     var eff_bind: float = CombatPairGeometry.effective_pair_eff_dist(wide, p_wing, e_wing)
     if eff_bind > melee:
-        _fail(
-            failures, "reach_audit: CLOSE bind want eff_dist <= reach got eff=%.3f reach=%.3f" % [eff_bind, melee]
-        )
+        _fail(failures, "reach_audit: CLOSE bind want eff_dist <= reach got eff=%.3f reach=%.3f" % [eff_bind, melee])
         HarnessFixtures._free_manager(wide)
         return
     if not CombatMeleeListing.can_melee_threaten(wide, p_wing, e_wing):
@@ -83,15 +81,11 @@ static func _run_listing_strikes_when_in_swing_at_long_band(failures: PackedStri
     p_inner["gauge"] = 100.0
     var acts: Array = wide.get_available_actions(p_id)
     if not CombatListedActions.action_list_has_hostile_melee_strike(acts, p_id):
-        _fail(
-            failures, "listing_swing_long: want melee strike listed at LONG when reach covers"
-        )
+        _fail(failures, "listing_swing_long: want melee strike listed at LONG when reach covers")
     if not (
         CombatListedActions.first_action_move_vs_target(acts, CombatConstants.MOVE_ID_ATTEMPT_CLOSE, e_id).is_empty()
     ):
-        _fail(
-            failures, "listing_swing_long: must not list attempt_close when in-swing at LONG band"
-        )
+        _fail(failures, "listing_swing_long: must not list attempt_close when in-swing at LONG band")
     HarnessFixtures._free_manager(wide)
 
 
@@ -186,9 +180,7 @@ static func _run_close_success_wing_lists_strikes_without_recompute(failures: Pa
     p_wing["gauge"] = 100.0
     var acts: Array = wide.get_available_actions(p_id)
     if not CombatListedActions.action_list_has_hostile_melee_strike(acts, p_id):
-        _fail(
-            failures, "close_success_wing: want strikes listed after close bind without recompute"
-        )
+        _fail(failures, "close_success_wing: want strikes listed after close bind without recompute")
     if not (
         CombatListedActions.first_action_move_vs_target(acts, CombatConstants.MOVE_ID_ATTEMPT_CLOSE, e_id).is_empty()
     ):
@@ -267,9 +259,7 @@ static func _run_attempt_close_listed_for_pair_omit_in_swing_long(failures: Pack
         return
     var e_wing_id: int = CombatantEntityAccess.id_int(e_right)
     if not CombatMeleeListing.attempt_close_listed_for_pair(wide, p_wing, e_wing_id, CombatConstants.DISTANCE_LONG):
-        _fail(
-            failures, "close_listed_in_swing: outer wing out of reach should list close at LONG"
-        )
+        _fail(failures, "close_listed_in_swing: outer wing out of reach should list close at LONG")
     HarnessFixtures._free_manager(wide)
 
 
@@ -352,9 +342,7 @@ static func _run_hold_line_close_pick_mapped_wing_out_of_reach(failures: PackedS
         HarnessFixtures._free_manager(wide)
         return
     if not CombatDoctrine.hold_line_close_pick_eligible(wide, p_wing):
-        _fail(
-            failures, "hold_line_wing_close: mapped out-of-reach wing want close_pick_eligible"
-        )
+        _fail(failures, "hold_line_wing_close: mapped out-of-reach wing want close_pick_eligible")
     if CombatDoctrine.hold_line_close_pick_eligible(wide, p_center):
         _fail(failures, "hold_line_wing_close: center in-swing should not need bind-close pick")
     var wing_id: int = CombatantEntityAccess.id_int(p_wing)
@@ -371,9 +359,7 @@ static func _run_hold_line_close_pick_mapped_wing_out_of_reach(failures: PackedS
     ]
     var picked: Dictionary = MentalStackDecider.try_pick(acts, wing_id, wide)
     if str(picked.get("move_id", "")) != CombatConstants.MOVE_ID_ATTEMPT_CLOSE:
-        _fail(
-            failures, "hold_line_wing_close: want attempt_close pick got %s" % str(picked.get("move_id", ""))
-        )
+        _fail(failures, "hold_line_wing_close: want attempt_close pick got %s" % str(picked.get("move_id", "")))
     HarnessFixtures._free_manager(wide)
 
 
@@ -412,20 +398,14 @@ static func _run_bind_close_rotate_suppressed_and_close_weight(failures: PackedS
     if not CombatDoctrine.should_suppress_skirmish_rotate_file(wide, p_wing, menu):
         _fail(failures, "bind_close_ai: want rotate suppressed on bind-close wing")
     if CombatAIActionPicker._long_close_only_offense_menu(wide, p_wing, wing_id, menu):
-        _fail(
-            failures, "bind_close_ai: bind-close wing must not use long close-only shuffle helper"
-        )
+        _fail(failures, "bind_close_ai: bind-close wing must not use long close-only shuffle helper")
     var w_rot: float = CombatAIActionPicker._get_action_weight(menu[2], wing_id, wide, true, {}, {}, menu)
     if w_rot > 0.001:
-        _fail(
-            failures, "bind_close_ai: rotate weight should be 0 when suppressed got %.4f" % w_rot
-        )
+        _fail(failures, "bind_close_ai: rotate weight should be 0 when suppressed got %.4f" % w_rot)
     var w_close: float = CombatAIActionPicker._get_action_weight(menu[1], wing_id, wide, true, {}, {}, menu)
     var w_wait: float = CombatAIActionPicker._get_action_weight(menu[0], wing_id, wide, true, {}, {}, menu)
     if w_close <= w_wait * 1.05:
-        _fail(
-            failures, "bind_close_ai: close should beat wait got close=%.4f wait=%.4f" % [w_close, w_wait]
-        )
+        _fail(failures, "bind_close_ai: close should beat wait got close=%.4f wait=%.4f" % [w_close, w_wait])
     HarnessFixtures._free_manager(wide)
 
 
@@ -465,17 +445,13 @@ static func _run_opposition_equal_width_same_index(failures: PackedStringArray) 
         if pp.is_empty() or ee.is_empty():
             _fail(failures, "opposition_offset: 3v3 missing file %d fixtures" % fi)
         elif not EngagementOpposition.is_mapped_file_opposed(eq, pp, ee):
-            _fail(
-                failures, "opposition_offset: 3v3 file %d should oppose same-index enemy only" % fi
-            )
+            _fail(failures, "opposition_offset: 3v3 file %d should oppose same-index enemy only" % fi)
         for fj in 3:
             if fi == fj:
                 continue
             var ee_off: Dictionary = HarnessFixtures._harness_find_living_at_rank_file(eq, "enemy", 0, fj)
             if EngagementOpposition.is_mapped_file_opposed(eq, pp, ee_off):
-                _fail(
-                    failures, "opposition_offset: 3v3 file %d should not map to enemy file %d" % [fi, fj]
-                )
+                _fail(failures, "opposition_offset: 3v3 file %d should not map to enemy file %d" % [fi, fj])
     eq.start({"files": 2, "ranks": 2}, {"files": 4, "ranks": 1})
     if EngagementOpposition.opposition_file_offset(eq, "player") != -1:
         _fail(
@@ -763,13 +739,9 @@ static func _run_rotate_file_depth_recheck_both_columns(failures: PackedStringAr
     var delay1: float = CombatEventScheduler.get_next_action_ready_at(mgr, rear1_id) - mgr.combat_clock
     HarnessFixtures._free_manager(mgr)
     if absf(delay0 - want) > 0.05:
-        _fail(
-            failures, "rotate_depth_recheck: file-0 reserve want delay %.2f got %.2f" % [want, delay0]
-        )
+        _fail(failures, "rotate_depth_recheck: file-0 reserve want delay %.2f got %.2f" % [want, delay0])
     if absf(delay1 - want) > 0.05:
-        _fail(
-            failures, "rotate_depth_recheck: file-1 reserve want delay %.2f got %.2f" % [want, delay1]
-        )
+        _fail(failures, "rotate_depth_recheck: file-1 reserve want delay %.2f got %.2f" % [want, delay1])
 
 
 ## III-6: Skirmish rotate gauge suffix when rank-0 gap and **`rotate_file`** listed.
@@ -803,9 +775,7 @@ static func _run_skirmish_rotate_gauge_suffix_when_listed(failures: PackedString
     var stamp: String = str(rot_src.get(CombatConstants.COMBATANT_KEY_FORMATION_MOVES_TURN_HINT, "")).strip_edges()
     HarnessFixtures._free_manager(mgr)
     if "Line gap" not in stamp:
-        _fail(
-            failures, "skirmish_rotate_gauge: want rotate gap suffix on gauge stamp got %s" % stamp
-        )
+        _fail(failures, "skirmish_rotate_gauge: want rotate gap suffix on gauge stamp got %s" % stamp)
 
 
 ## III-6: **`swap_rank`** resolve rechecks rank-2+ reserves in the swapped column.
@@ -842,9 +812,7 @@ static func _run_swap_rank_depth_recheck_rank2_after_resolve(failures: PackedStr
     if absf(delay2 - want) > 0.05:
         _fail(failures, "swap_depth_recheck: rank-2 want delay %.2f got %.2f" % [want, delay2])
     if absf(delay1 - prom) > 0.05:
-        _fail(
-            failures, "swap_depth_recheck: demoted rank-1 want promotion %.2f got %.2f" % [prom, delay1]
-        )
+        _fail(failures, "swap_depth_recheck: demoted rank-1 want promotion %.2f got %.2f" % [prom, delay1])
 
 
 ## III-6: **`reschedule_same_file_depth_rank2_plus`** wakes rank-2+ in a column (wired from swap / fall_back resolve).
@@ -875,9 +843,7 @@ static func _run_same_file_depth_rank2_plus_scheduler(failures: PackedStringArra
     var delay2: float = CombatEventScheduler.get_next_action_ready_at(mgr, rank2_id) - mgr.combat_clock
     HarnessFixtures._free_manager(mgr)
     if absf(delay2 - want) > 0.05:
-        _fail(
-            failures, "rank2_plus_scheduler: rank-2 want delay %.2f got %.2f" % [want, delay2]
-        )
+        _fail(failures, "rank2_plus_scheduler: rank-2 want delay %.2f got %.2f" % [want, delay2])
 
 
 ## III-6: lone rank-0 **`fall_back_solo`** demotes when the rear slot in-column is empty (ii5-style).

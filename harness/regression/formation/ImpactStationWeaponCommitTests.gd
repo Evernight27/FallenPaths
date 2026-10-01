@@ -389,7 +389,8 @@ static func _run_iii1_incoming_parry_sector_tiebreak(failures: PackedStringArray
 ## III-3: deflect/bind calibration loop  -  canonical thresholds, helper gates, ii2b plausibility band.
 static func _run_iii3_deflect_bind_calibration_suite(failures: PackedStringArray) -> void:
     var TrackSpecs := preload("res://harness/d001/CombatD001TrackSpecs.gd")
-    ## Phase 4a: deflect threshold lowered to 0.45 (well-timed parry with sufficient force deflects -- HEMA leverage redirects with less than full momentum absorption).
+    ## Phase 4a: deflect threshold lowered to 0.45 (well-timed parry with sufficient force deflects -- HEMA leverage
+    ## redirects with less than full momentum absorption).
     if not is_equal_approx(CombatConstants.PARRY_DEFLECT_THRESHOLD, 0.45):
         _fail(
             failures,
@@ -564,7 +565,14 @@ static func _run_weapon_extended_parry_dampens_defender_recovering_from_attack(f
     if absf(cd_ext - expected_ext) > cd_wait * 0.08:
         _fail(
             failures,
-            "weapon_pos: extended recover want c_d≈%.4f (factor=(WEAPON_EXT*RECOVER_PR)/guard=%.3fx%.2f/0.55) got %.4f" % [expected_ext, CombatConstants.WEAPON_EXTENDED_PARRY_MULT, 0.3, cd_wait]
+            (
+                (
+                    "weapon_pos: extended recover want c_d≈%.4f (factor=(WEAPON_EXT*RECOVER_PR)/guard=%.3fx%.2f/0.55) "
+                    + "got "
+                    + "%.4f"
+                )
+                % [expected_ext, CombatConstants.WEAPON_EXTENDED_PARRY_MULT, 0.3, cd_wait]
+            )
         )
     # parry_deflect/parry_partial normalize to attack_deflect → weapon stays near body (full c_d ≈ waiting).
     defender["recovery_cause"] = "parry_deflect"
@@ -762,10 +770,7 @@ static func _run_impact_station_mean_zero_spread_equals_move_mean(failures: Pack
     if absf(got - expected) > 0.025:
         _fail(
             failures,
-            (
-                "impact_station: spear_thrust want %.3f got %.3f (mean %.2f focus %.3f)"
-                % [expected, got, want_mean, focus]
-            )
+            "impact_station: spear_thrust want %.3f got %.3f (mean %.2f focus %.3f)" % [expected, got, want_mean, focus]
         )
 
 
@@ -838,7 +843,9 @@ static func _run_impact_station_mean_windup_stamps_move_override(failures: Packe
     var hi: float = clampf(move_mean + 0.04, 0.06, 0.99)
     if station < lo or station > hi:
         _fail(failures, "impact_station_windup: spear_thrust station %.3f outside [%.3f, %.3f]" % [station, lo, hi])
-    var weapon_default: float = float(HarnessFixtures.get_cached_weapon("SPEAR").strike_physics.get("station_mean", 0.0))
+    var weapon_default: float = float(
+        HarnessFixtures.get_cached_weapon("SPEAR").strike_physics.get("station_mean", 0.0)
+    )
     if station <= weapon_default + 0.12:
         _fail(
             failures,

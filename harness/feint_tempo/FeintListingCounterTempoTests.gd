@@ -1,7 +1,7 @@
 class_name FeintTempoListingCounterTempoTests
 extends CombatRegressionHarnessCore
 
-const _CombatRegressionHarness := preload("res://harness/regression/CombatRegressionHarness.gd")
+const CombatRegressionHarness := preload("res://harness/regression/CombatRegressionHarness.gd")
 ## Tier 4.2 feint / counter-tempo / riposte / defense telegraph tests (compile split).
 ## Weapon form: **`CombatRegressionHarnessWeaponFormTail`** owns **`form_str`** / **`mod`**  -  stance alias rows here
 ## stay feint/tempo only.
@@ -91,9 +91,7 @@ static func _run_feint_move_listing_readiness_recovery_curve_when_defender_recov
     var raw_pr: float = lerpf(curve[0], curve[1], 0.5)
     var want_pr: float = raw_pr * CombatConstants.PASSIVE_PARRY_READINESS_BASELINE_MULT
     if not is_equal_approx(pr, want_pr):
-        _fail(
-            failures, "feint_list_recov: passive readiness want %.6f got %.6f" % [want_pr, pr]
-        )
+        _fail(failures, "feint_list_recov: passive readiness want %.6f got %.6f" % [want_pr, pr])
     var target_m: float = FeintTempoWindupListingTests._feint_listing_target_readiness_and_footwork_mult(
         enemy, p_id, "oberhau_feint"
     )
@@ -695,9 +693,7 @@ static func _run_feint_move_listing_recovery_cause_orders_recovering_footwork_mu
     var w_plain_miss: float = CombatAIActionPicker._get_action_weight(a_plain, p_id, mgr, true)
     var w_feint_miss: float = CombatAIActionPicker._get_action_weight(a_feint, p_id, mgr, true)
     if absf(w_plain_hit - w_plain_miss) > 0.0002 * maxf(1.0, absf(w_plain_hit)):
-        _fail(
-            failures, "feint_list_cause_fw: plain should match hit=%.6f miss=%.6f" % [w_plain_hit, w_plain_miss]
-        )
+        _fail(failures, "feint_list_cause_fw: plain should match hit=%.6f miss=%.6f" % [w_plain_hit, w_plain_miss])
         HarnessFixtures._free_manager_restore_global_rng(mgr)
         return
     enemy["recovery_cause"] = "attack_hit"
@@ -723,9 +719,7 @@ static func _run_feint_move_listing_recovery_cause_orders_recovering_footwork_mu
     elif foot_miss >= foot_hit - 0.15:
         pass  # Harness approximation: allow foot_miss ≈ foot_hit when tolerance is wide
     else:
-        _fail(
-            failures, "feint_list_cause_fw: want foot_miss < foot_hit got hit=%.6f miss=%.6f" % [foot_hit, foot_miss]
-        )
+        _fail(failures, "feint_list_cause_fw: want foot_miss < foot_hit got hit=%.6f miss=%.6f" % [foot_hit, foot_miss])
     HarnessFixtures._free_manager_restore_global_rng(mgr)
 
 
@@ -808,7 +802,9 @@ static func _run_counter_tempo_window_opens_on_incoming_wind_up(failures: Packed
     mgr.combat_clock = 1.0
     AttackWindUpStarter.start(mgr, atk_id, def_id, "oberhau", {"target_part": "chest"})
     var until: float = float(def.get(CombatConstants.COMBATANT_KEY_COUNTER_WINDOW_UNTIL, -1.0))
-    var want_until: float = 1.0 + float(atk.get(DataKeys.PA_STATE_DURATION, 0.0)) * CombatConstants.COUNTER_TEMPO_WINDOW_FRACTION
+    var want_until: float = (
+        1.0 + float(atk.get(DataKeys.PA_STATE_DURATION, 0.0)) * CombatConstants.COUNTER_TEMPO_WINDOW_FRACTION
+    )
     if absf(until - want_until) > 0.0002:
         _fail(
             failures,
@@ -875,9 +871,7 @@ static func _run_counter_tempo_spend_gauge_subtracts_cost(failures: PackedString
     var c: Dictionary = {"gauge": 60.0}
     CounterTempo.spend_gauge(c)
     if absf(CombatantEntityAccess.gauge_float(c) - 30.0) > 0.001:
-        _fail(
-            failures, "counter_tempo_spend: want gauge 30 got %.4f" % CombatantEntityAccess.gauge_float(c)
-        )
+        _fail(failures, "counter_tempo_spend: want gauge 30 got %.4f" % CombatantEntityAccess.gauge_float(c))
 
 
 ## Tier 4.2 counter-tempo: counter **`EVENT_MELEE_ATTACK`** resolves before deferred incoming melee.
@@ -983,18 +977,22 @@ static func _run_counter_tempo_wind_up_stamps_pa_and_shortens_duration(failures:
     # Account for soft-cap distortion when plain windup exceeds 0.5s threshold.
     var soft_cap: float = CombatConstantsTiming.WIND_UP_SOFT_CAP_S
     var unwind_soft_cap_ct = func(capped: float, cap: float) -> float:
-        if capped <= cap: return capped
+        if capped <= cap:
+            return capped
         return cap + (capped - cap) * 2.0
     var plain_uncapped: float = unwind_soft_cap_ct.call(d_plain, soft_cap)
     var counter_uncapped: float = unwind_soft_cap_ct.call(d_counter, soft_cap)
     var want_uncapped: float = plain_uncapped * CombatConstants.COUNTER_TEMPO_WINDUP_MULT
     if absf(counter_uncapped - want_uncapped) > 0.01:
         _fail(
-            failures, "counter_tempo_windup: pre-cap ratio mismatch want %.4f got %.4f plain=%.4f" % [want_uncapped, counter_uncapped, plain_uncapped]
+            failures,
+            (
+                "counter_tempo_windup: pre-cap ratio mismatch want %.4f got %.4f plain=%.4f"
+                % [want_uncapped, counter_uncapped, plain_uncapped]
+            )
         )
     HarnessFixtures._free_manager_restore_global_rng(mgr_n)
     HarnessFixtures._free_manager_restore_global_rng(mgr_c)
 
 ## Tier 4.2 counter-tempo AI: flagged actions ×  **`AI_COUNTER_TEMPO_*`**; plain **>** feint on incoming target during
 ## window.
-

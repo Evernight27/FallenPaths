@@ -1,42 +1,55 @@
 class_name MeisterhauCounterIntentTests
+
 extends RefCounted
+
 ## A2: Meisterhäue counter-intent scaling — decisive counter-strikes scale form_counter_mult by yomi confidence.
 ## Also tests meisterhau_readthrough feint defense mod on schielhau read-through threshold.
-
 const HarnessCore := preload("res://harness/regression/core/CombatRegressionHarnessCore.gd")
+
 const CombatConstants := preload("res://combat/CombatConstants.gd")
+
 const CombatManager := preload("res://combat/CombatManager.gd")
+
 const HarnessFixtures := preload("res://harness/HarnessFixtures.gd")
+
 const CombatWeaponForm := preload("res://combat/weapon_form/CombatWeaponForm.gd")
+
 const CombatantEntityAccess := preload("res://combat/access/CombatantEntityAccess.gd")
+
+const WeaponConstants := preload("res://resources/weapons/WeaponConstants.gd")
+
+const WeaponFormDefs := preload("res://combat/weapon_form/CombatWeaponFormDefsShared.gd")
+
+const SwordFormDefs := preload("res://combat/weapon_form/CombatWeaponFormDefsSword.gd")
+
+static var _mgr_ref: Node = null
 
 
 static func run_meisterhau_family_mapping(failures: PackedStringArray) -> void:
-    var wf := preload("res://combat/weapon_form/CombatWeaponForm.gd")
     # Meisterhau IDs get "meisterhau" family; oberhau gets "high_cut".
     _assert(
-        wf._move_family_for_move_id("zornhau") == "meisterhau",
+        CombatWeaponForm._move_family_for_move_id("zornhau") == "meisterhau",
         failures,
         "meisterhau_family: zornhau -> meisterhau"
     )
     _assert(
-        wf._move_family_for_move_id("scheitelhau") == "meisterhau",
+        CombatWeaponForm._move_family_for_move_id("scheitelhau") == "meisterhau",
         failures,
         "meisterhau_family: scheitelhau -> meisterhau"
     )
     _assert(
-        wf._move_family_for_move_id("krumphau") == "meisterhau",
+        CombatWeaponForm._move_family_for_move_id("krumphau") == "meisterhau",
         failures,
         "meisterhau_family: krumphau -> meisterhau"
     )
     ## Schielhau is a feint — its family is "feint" (caught by is_feint_move before meisterhau list).
     _assert(
-        wf._move_family_for_move_id("schielhau") == "feint",
+        CombatWeaponForm._move_family_for_move_id("schielhau") == "feint",
         failures,
         "meisterhau_family: schielhau -> feint (not meisterhau)"
     )
     _assert(
-        wf._move_family_for_move_id("oberhau") == "high_cut",
+        CombatWeaponForm._move_family_for_move_id("oberhau") == "high_cut",
         failures,
         "meisterhau_family: oberhau should stay high_cut (not meisterhau)"
     )
@@ -64,9 +77,7 @@ static func run_meisterhau_counter_mult_no_crash_with_inferred_form(failures: Pa
     cache[str(CombatantEntityAccess.id_int(atk))] = "wrath"
     def[CombatConstants.COMBATANT_KEY_INFERRED_OPP_FORM_BY_ID] = cache
     # Should not crash and should return 1.0 (no family match).
-    var mh_mult: float = CombatWeaponForm.form_counter_mult(
-        "wall", "wrath", "zornhau"
-    )
+    var mh_mult: float = CombatWeaponForm.form_counter_mult("wall", "wrath", "zornhau")
     _assert(
         mh_mult == 1.0,
         failures,
@@ -77,9 +88,8 @@ static func run_meisterhau_counter_mult_no_crash_with_inferred_form(failures: Pa
 
 static func run_oberhau_vs_meisterhau_family_distinction(failures: PackedStringArray) -> void:
     # Verify oberhau stays "high_cut" family while zornhau is "meisterhau".
-    var wf := preload("res://combat/weapon_form/CombatWeaponForm.gd")
-    var oh_family = wf._move_family_for_move_id("oberhau")
-    var zh_family = wf._move_family_for_move_id("zornhau")
+    var oh_family = CombatWeaponForm._move_family_for_move_id("oberhau")
+    var zh_family = CombatWeaponForm._move_family_for_move_id("zornhau")
     _assert(
         oh_family != zh_family,
         failures,
@@ -98,12 +108,8 @@ static func run_oberhau_vs_meisterhau_family_distinction(failures: PackedStringA
                 opp_c = c as Dictionary
     CombatWeaponForm.assign_form(mgr, def_c, "plow", "harness_baseline")
     CombatWeaponForm.assign_form(mgr, opp_c, "wrath", "harness_baseline")
-    var plow_vs_wrath_oberhau: float = CombatWeaponForm.form_counter_mult(
-        "plow", "wrath", "oberhau"
-    )
-    var plow_vs_wrath_zornhau: float = CombatWeaponForm.form_counter_mult(
-        "plow", "wrath", "zornhau"
-    )
+    var plow_vs_wrath_oberhau: float = CombatWeaponForm.form_counter_mult("plow", "wrath", "oberhau")
+    var plow_vs_wrath_zornhau: float = CombatWeaponForm.form_counter_mult("plow", "wrath", "zornhau")
     _assert(
         plow_vs_wrath_oberhau >= 1.0,
         failures,
@@ -112,63 +118,46 @@ static func run_oberhau_vs_meisterhau_family_distinction(failures: PackedStringA
     _assert(
         plow_vs_wrath_zornhau == 1.0,
         failures,
-        "meisterhau_distinct: plow vs wrath zornhau should NOT get counter bonus (meisterhau != thrust/high_cut) got %.4f" % plow_vs_wrath_zornhau
+        (
+            (
+                "meisterhau_distinct: plow vs wrath zornhau should NOT get counter bonus (meisterhau != "
+                + "thrust/high_cut) "
+                + "got %.4f"
+            )
+            % plow_vs_wrath_zornhau
+        )
     )
     HarnessCore._free_manager_restore_global_rng(mgr)
 
 
 static func run_meisterhau_move_definitions_exist(failures: PackedStringArray) -> void:
-    var wc := preload("res://resources/weapons/WeaponConstants.gd")
     for mid in ["zornhau", "scheitelhau", "krumphau", "schielhau"]:
-        var md = wc.get_move(mid)
-        _assert(
-            not md.is_empty(),
-            failures,
-            "meisterhau_defs: %s should exist in move definitions" % mid
-        )
+        var md = WeaponConstants.get_move(mid)
+        _assert(not md.is_empty(), failures, "meisterhau_defs: %s should exist in move definitions" % mid)
     # zornhau is overhead archetype (not feint).
-    var zorn = wc.get_move("zornhau")
-    _assert(
-        not zorn.get("is_feint", false),
-        failures,
-        "meisterhau_defs: zornhau should NOT be a feint"
-    )
+    var zorn = WeaponConstants.get_move("zornhau")
+    _assert(not zorn.get("is_feint", false), failures, "meisterhau_defs: zornhau should NOT be a feint")
     # schielhau IS a feint (peeking cut).
-    var schiel = wc.get_move("schielhau")
-    _assert(
-        schiel.get("is_feint", false),
-        failures,
-        "meisterhau_defs: schielhau should be a feint"
-    )
+    var schiel = WeaponConstants.get_move("schielhau")
+    _assert(schiel.get("is_feint", false), failures, "meisterhau_defs: schielhau should be a feint")
 
 
 static func run_meisterhau_readthrough_in_neutral_mod(failures: PackedStringArray) -> void:
-    var WeaponFormDefs := preload(
-        "res://combat/weapon_form/CombatWeaponFormDefsSwordAxeMace.gd"
-    )
     var neutral = WeaponFormDefs._neutral_mod()
-    _assert(
-        "meisterhau_readthrough" in neutral,
-        failures,
-        "meisterhau_readthrough should be in _neutral_mod()"
-    )
-    _assert(
-        neutral["meisterhau_readthrough"] == 1.0,
-        failures,
-        "meisterhau_readthrough default should be 1.0"
-    )
+    _assert("meisterhau_readthrough" in neutral, failures, "meisterhau_readthrough should be in _neutral_mod()")
+    _assert(neutral["meisterhau_readthrough"] == 1.0, failures, "meisterhau_readthrough default should be 1.0")
 
 
 static func run_meisterhau_readthrough_wall_has_bonus(failures: PackedStringArray) -> void:
-    var WeaponFormDefs := preload(
-        "res://combat/weapon_form/CombatWeaponFormDefsSwordAxeMace.gd"
-    )
-    var sword_forms = WeaponFormDefs._sword_forms()
+    var sword_forms = SwordFormDefs._sword_forms()
     var wall_mods = sword_forms["wall"].get("mod", {})
     _assert(
         wall_mods.get("meisterhau_readthrough", 1.0) > 1.0,
         failures,
-        "meisterhau_rt: wall should have > 1.0 meisterhau_readthrough bonus got %.2f" % wall_mods.get("meisterhau_readthrough", 1.0)
+        (
+            "meisterhau_rt: wall should have > 1.0 meisterhau_readthrough bonus got %.2f"
+            % wall_mods.get("meisterhau_readthrough", 1.0)
+        )
     )
 
 
@@ -178,8 +167,6 @@ static func _assert(cond: bool, failures: PackedStringArray, msg: String) -> voi
 
 
 # -- Helpers ---------------------------------------------------------------
-
-static var _mgr_ref: Node = null
 
 
 static func _make_1v1_sword() -> Node:
@@ -195,5 +182,4 @@ static func _make_1v1_sword() -> Node:
 
 
 static func _set_form(mgr: Node, c: Dictionary, form: String) -> void:
-    var WF := preload("res://combat/weapon_form/CombatWeaponForm.gd")
-    WF.assign_form(mgr, c, form, "harness_baseline")
+    CombatWeaponForm.assign_form(mgr, c, form, "harness_baseline")

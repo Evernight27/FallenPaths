@@ -1,7 +1,7 @@
 class_name AttentionFootworkAttentionLoadTests
 extends CombatRegressionHarnessCore
 const Bp := preload("res://core/BodyPartConstants.gd")
-const _CombatRegressionHarness := preload("res://harness/regression/CombatRegressionHarness.gd")
+const CombatRegressionHarness := preload("res://harness/regression/CombatRegressionHarness.gd")
 
 ## Tier 4.2 - 4.4 attention / mental stack / footwork / battle UI hint tests (compile split).
 ## Footing harness: **`_run_footwork_*`** (Tier 4.4 PA) . **`_run_focus_line_*`** / **`_run_guard_*`** (L3 guard) .
@@ -114,9 +114,7 @@ static func _run_focus_intensity_scales_feint_readthrough_and_guard_zone(failure
     CombatAttention.set_focus(def, "chest")
     var right_m: float = CombatAttention.focus_line_mult_for_feint(def, pa)
     if wrong_m >= right_m:
-        _fail(
-            failures, "focus_line_mult: wrong %.4f should be < correct %.4f" % [wrong_m, right_m]
-        )
+        _fail(failures, "focus_line_mult: wrong %.4f should be < correct %.4f" % [wrong_m, right_m])
     if absf(wrong_m - CombatConstants.FOCUS_WRONG_LINE_READTHROUGH_MULT) > 0.0001:
         _fail(
             failures,
@@ -182,7 +180,10 @@ static func _run_mental_stack_medical_overrides_attack(failures: PackedStringArr
     if ally_bv > BleedingConstants.MEDICAL_TRIAGE_PERIL_BLOOD_REMAINING:
         _fail(
             failures,
-            "mental_stack_medical diag: ally blood_volume=%.1f > %s threshold  -  peril won't trigger" % [ally_bv, BleedingConstants.MEDICAL_TRIAGE_PERIL_BLOOD_REMAINING]
+            (
+                "mental_stack_medical diag: ally blood_volume=%.1f > %s threshold  -  peril won't trigger"
+                % [ally_bv, BleedingConstants.MEDICAL_TRIAGE_PERIL_BLOOD_REMAINING]
+            )
         )
         HarnessFixtures._free_manager_restore_global_rng(mgr)
         return
@@ -191,9 +192,7 @@ static func _run_mental_stack_medical_overrides_attack(failures: PackedStringArr
     var ally_peril: bool = CombatantEntityAccess.is_in_immediate_peril(mgr, ally)
     ctx += " peril=%s|" % str(ally_peril)
     if not ally_peril:
-        _fail(
-            failures, "mental_stack_medical diag: is_in_immediate_peril(ally)=false  -  expected true"
-        )
+        _fail(failures, "mental_stack_medical diag: is_in_immediate_peril(ally)=false  -  expected true")
         HarnessFixtures._free_manager_restore_global_rng(mgr)
         return
 
@@ -201,9 +200,7 @@ static func _run_mental_stack_medical_overrides_attack(failures: PackedStringArr
     var medic_peril: bool = CombatantEntityAccess.is_in_immediate_peril(mgr, medic)
     ctx += " medic_peril=%s|" % str(medic_peril)
     if medic_peril:
-        _fail(
-            failures, "mental_stack_medical diag: is_in_immediate_peril(medic)=true  -  should be false"
-        )
+        _fail(failures, "mental_stack_medical diag: is_in_immediate_peril(medic)=true  -  should be false")
         HarnessFixtures._free_manager_restore_global_rng(mgr)
         return
 
@@ -211,9 +208,7 @@ static func _run_mental_stack_medical_overrides_attack(failures: PackedStringArr
     var l1_ally_peril: bool = CombatAttention.ally_in_immediate_peril(mgr, medic_id)
     ctx += " l1_peril=%s|" % str(l1_ally_peril)
     if not l1_ally_peril:
-        _fail(
-            failures, "mental_stack_medical diag: ally_in_immediate_peril(medic)=false  -  expected true"
-        )
+        _fail(failures, "mental_stack_medical diag: ally_in_immediate_peril(medic)=false  -  expected true")
         HarnessFixtures._free_manager_restore_global_rng(mgr)
         return
 
@@ -279,9 +274,7 @@ static func _run_mental_stack_medical_overrides_attack(failures: PackedStringArr
     ctx += " pick=%s|" % str(picked)
 
     if picked.is_empty():
-        _fail(
-            failures, "mental_stack_medical: expected stack pick (all layers returned empty). ctx=" + ctx
-        )
+        _fail(failures, "mental_stack_medical: expected stack pick (all layers returned empty). ctx=" + ctx)
         HarnessFixtures._free_manager_restore_global_rng(mgr)
         return
 
@@ -291,9 +284,7 @@ static func _run_mental_stack_medical_overrides_attack(failures: PackedStringArr
     ctx += " move=%s layer=%s" % [picked_move, picked_layer]
 
     if not mgr._is_medical_move(picked_move):
-        _fail(
-            failures, "mental_stack_medical: want medical move got '%s' (ctx=%s)" % [picked_move, ctx]
-        )
+        _fail(failures, "mental_stack_medical: want medical move got '%s' (ctx=%s)" % [picked_move, ctx])
         HarnessFixtures._free_manager_restore_global_rng(mgr)
         return
 
@@ -394,9 +385,7 @@ static func _run_mental_stack_counter_over_plain_attack_when_window_open(failure
         HarnessFixtures._free_manager_restore_global_rng(mgr)
         return
     if not bool(picked.get(CombatConstants.ACTION_KEY_COUNTER_TEMPO, false)):
-        _fail(
-            failures, "mental_stack_counter: want counter_tempo action got %s" % str(picked.get("move_id", ""))
-        )
+        _fail(failures, "mental_stack_counter: want counter_tempo action got %s" % str(picked.get("move_id", "")))
     HarnessFixtures._free_manager_restore_global_rng(mgr)
 
 
@@ -530,9 +519,7 @@ static func _run_yomi_focus_drift_sets_habitual_part_on_ai(failures: PackedStrin
     CombatAttention.record_attack_toward_defender(null, atk_id, def, "head")
     CombatAttention.apply_yomi_focus_drift(null, def, atk_id)
     if CombatAttention.get_focus_part(def) != "head":
-        _fail(
-            failures, "yomi_focus_drift: want focus head got %s" % CombatAttention.get_focus_part(def)
-        )
+        _fail(failures, "yomi_focus_drift: want focus head got %s" % CombatAttention.get_focus_part(def))
 
 
 ## Tier 4.3: mismatched feint telegraph line keeps habitual focus (not bait part).
@@ -551,9 +538,7 @@ static func _run_yomi_focus_drift_keeps_habit_when_telegraph_line_mismatches(fai
     CombatAttention.record_attack_toward_defender(null, atk_id, def, "head")
     CombatAttention.apply_yomi_focus_drift(null, def, atk_id)
     if CombatAttention.get_focus_part(def) != "head":
-        _fail(
-            failures, "yomi_focus_drift_mismatch: want habit head got %s" % CombatAttention.get_focus_part(def)
-        )
+        _fail(failures, "yomi_focus_drift_mismatch: want habit head got %s" % CombatAttention.get_focus_part(def))
 
 
 ## Tier 4.3: explicit guard move updates **`focus_part`** with **`guard_zone`**.
@@ -568,13 +553,9 @@ static func _run_guard_from_move_syncs_focus_part_with_guard_line(failures: Pack
     }
     GuardLineUpdater.set_guard_from_line(c, "low")
     if str(c.get("guard_zone", "")) != "left_leg":
-        _fail(
-            failures, "guard_focus_sync: want guard_zone left_leg got %s" % str(c.get("guard_zone"))
-        )
+        _fail(failures, "guard_focus_sync: want guard_zone left_leg got %s" % str(c.get("guard_zone")))
     if CombatAttention.get_focus_part(c) != "left_leg":
-        _fail(
-            failures, "guard_focus_sync: want focus left_leg got %s" % CombatAttention.get_focus_part(c)
-        )
+        _fail(failures, "guard_focus_sync: want focus left_leg got %s" % CombatAttention.get_focus_part(c))
 
 
 ## Tier 4.3: mental stack stamps **`COMBATANT_KEY_MENTAL_STACK_LAYER`** on layer pick.
@@ -660,9 +641,7 @@ static func _run_mental_stack_self_peril_before_ally_medical(failures: PackedStr
             )
         )
     if int(picked.get("target_id", -1)) != medic_id:
-        _fail(
-            failures, "mental_stack_self: want self target %d got %d" % [medic_id, int(picked.get("target_id", -1))]
-        )
+        _fail(failures, "mental_stack_self: want self target %d got %d" % [medic_id, int(picked.get("target_id", -1))])
     HarnessFixtures._free_manager_restore_global_rng(mgr)
 
 
@@ -699,9 +678,7 @@ static func _run_mental_stack_hold_line_only_picks_focus_or_wait(failures: Packe
             )
         )
     if str(picked.get("move_id", "")) != CombatConstants.MOVE_ID_WAIT:
-        _fail(
-            failures, "mental_stack_hold: no telegraph want wait got %s" % str(picked.get("move_id", ""))
-        )
+        _fail(failures, "mental_stack_hold: no telegraph want wait got %s" % str(picked.get("move_id", "")))
     back[CombatConstants.COMBATANT_KEY_INCOMING_ATTACK_TELEGRAPH_PART] = "head"
     # Simulate wind-up targeting without full manager telegraph wiring  -  layer only checks key + targeted.
     if not CombatAttention.is_being_wind_up_targeted(mgr, back_id):
@@ -731,8 +708,8 @@ static func _run_mental_stack_hold_line_attempt_close_wing(failures: PackedStrin
     for _j in 3:
         mgr.register(_new_entity("SWORD"), "enemy")
     mgr.start({"files": 5, "ranks": 2, "density": "normal"}, {"files": 3, "ranks": 1, "density": "normal"})
-    var wing: Dictionary =HarnessFixtures._harness_find_living_at_rank_file(mgr, "player", 0, 0)
-    var enemy: Dictionary =HarnessFixtures._harness_find_living_at_rank_file(mgr, "enemy", 0, 1)
+    var wing: Dictionary = HarnessFixtures._harness_find_living_at_rank_file(mgr, "player", 0, 0)
+    var enemy: Dictionary = HarnessFixtures._harness_find_living_at_rank_file(mgr, "enemy", 0, 1)
     if wing.is_empty() or enemy.is_empty():
         _fail(failures, "mental_stack_close_wing: missing wing/enemy fixtures")
         HarnessFixtures._free_manager_restore_global_rng(mgr)
@@ -774,14 +751,12 @@ static func _run_mental_stack_hold_line_attempt_close_wing(failures: PackedStrin
             )
         )
     if str(picked.get("move_id", "")) != CombatConstants.MOVE_ID_ATTEMPT_CLOSE:
-        _fail(
-            failures, "mental_stack_close_wing: want attempt_close got %s" % str(picked.get("move_id", ""))
-        )
+        _fail(failures, "mental_stack_close_wing: want attempt_close got %s" % str(picked.get("move_id", "")))
     var hint: String = CombatPlayerTurnHints.hold_line_focus_only_hint(mgr, wing, actions)
     if hint.is_empty() or not hint.contains("close"):
         _fail(failures, "mental_stack_close_wing: want wing close hint got '%s'" % hint)
     # Mapped-opposed center (rank-0 vs rank-0) still defaults to wait when reserve-only without close need.
-    var center: Dictionary =HarnessFixtures._harness_find_living_at_rank_file(mgr, "player", 0, 2)
+    var center: Dictionary = HarnessFixtures._harness_find_living_at_rank_file(mgr, "player", 0, 2)
     var e_front: Dictionary = {}
     for c in mgr.combatants:
         if CombatantEntityAccess.side_str(c) == "enemy" and CombatantEntityAccess.file_int(c) == 1:
@@ -830,7 +805,7 @@ static func _run_mental_stack_hold_line_attempt_close_mop_up(failures: PackedStr
         _fail(failures, "mental_stack_close_mop_up: setup want envelop_mop_up_active")
         HarnessFixtures._free_manager_restore_global_rng(mgr)
         return
-    var center: Dictionary =HarnessFixtures._harness_find_living_at_rank_file(mgr, "player", 0, 3)
+    var center: Dictionary = HarnessFixtures._harness_find_living_at_rank_file(mgr, "player", 0, 3)
     var enemy: Dictionary = {}
     for c in mgr.combatants:
         if CombatantEntityAccess.is_living_on_side(c, "enemy"):
@@ -856,9 +831,7 @@ static func _run_mental_stack_hold_line_attempt_close_mop_up(failures: PackedStr
         _fail(failures, "mental_stack_close_mop_up: want hold_line_close_pick_eligible")
     var picked: Dictionary = MentalStackDecider.try_pick(actions, center_id, mgr)
     if str(picked.get("move_id", "")) != CombatConstants.MOVE_ID_ATTEMPT_CLOSE:
-        _fail(
-            failures, "mental_stack_close_mop_up: want attempt_close got %s" % str(picked.get("move_id", ""))
-        )
+        _fail(failures, "mental_stack_close_mop_up: want attempt_close got %s" % str(picked.get("move_id", "")))
     HarnessFixtures._free_manager_restore_global_rng(mgr)
 
 
@@ -879,7 +852,7 @@ static func _run_mental_stack_hold_line_attempt_close_mop_up_mid(failures: Packe
             enemy_ids.append(CombatantEntityAccess.id_int(c))
     for k in range(mini(2, enemy_ids.size())):
         HarnessFixtures._soak_kill_combatant(mgr, int(enemy_ids[k]))
-    var center: Dictionary =HarnessFixtures._harness_find_living_at_rank_file(mgr, "player", 0, 3)
+    var center: Dictionary = HarnessFixtures._harness_find_living_at_rank_file(mgr, "player", 0, 3)
     var enemy: Dictionary = {}
     for c in mgr.combatants:
         if CombatantEntityAccess.is_living_on_side(c, "enemy"):
@@ -902,9 +875,7 @@ static func _run_mental_stack_hold_line_attempt_close_mop_up_mid(failures: Packe
         _fail(failures, "mental_stack_close_mop_up_mid: setup want close listed at MID")
     var picked: Dictionary = MentalStackDecider.try_pick(actions, center_id, mgr)
     if str(picked.get("move_id", "")) != CombatConstants.MOVE_ID_ATTEMPT_CLOSE:
-        _fail(
-            failures, "mental_stack_close_mop_up_mid: want attempt_close got %s" % str(picked.get("move_id", ""))
-        )
+        _fail(failures, "mental_stack_close_mop_up_mid: want attempt_close got %s" % str(picked.get("move_id", "")))
     HarnessFixtures._free_manager_restore_global_rng(mgr)
 
 ## III-4 **3e**: mop-up close beats focus retarget even under incoming telegraph (no focus_* tail loop).
