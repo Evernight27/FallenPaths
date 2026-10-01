@@ -142,7 +142,11 @@ static func armor_durability_from_entity(entity: Node) -> Dictionary:
         for layer in (piece as ArmorPiece).layers:
             if layer is Dictionary:
                 durs.append(
-                    float(layer.get(ArmorConstants.ARMOR_LAYER_KEY_DURABILITY, ArmorConstants.DEFAULT_ARMOR_LAYER_DURABILITY))
+                    float(
+                        layer.get(
+                            ArmorConstants.ARMOR_LAYER_KEY_DURABILITY, ArmorConstants.DEFAULT_ARMOR_LAYER_DURABILITY
+                        )
+                    )
                 )
         if not durs.is_empty():
             out[str(part)] = durs
@@ -150,10 +154,7 @@ static func armor_durability_from_entity(entity: Node) -> Dictionary:
 
 
 static func apply_equipment_snapshot(
-    character: Node,
-    weapon_id: String,
-    armor_by_part: Dictionary,
-    armor_durability_by_part: Dictionary = {}
+    character: Node, weapon_id: String, armor_by_part: Dictionary, armor_durability_by_part: Dictionary = {}
 ) -> void:
     if character == null:
         return
@@ -185,8 +186,12 @@ static func _restore_armor_layer_durability(piece: ArmorPiece, durability_by_par
             break
         if piece.layers[i] is Dictionary:
             (piece.layers[i] as Dictionary)["durability"] = float(
-                (arr[i] as float) if (arr[i] is float) or (arr[i] is int) else (piece.layers[i] as Dictionary).get(
-                    "max_durability", ArmorConstants.DEFAULT_ARMOR_LAYER_DURABILITY
+                (
+                    (arr[i] as float)
+                    if (arr[i] is float) or (arr[i] is int)
+                    else (piece.layers[i] as Dictionary).get(
+                        "max_durability", ArmorConstants.DEFAULT_ARMOR_LAYER_DURABILITY
+                    )
                 )
             )
 

@@ -252,4 +252,3 @@ static func _trigger_company_collapsed(world: Node2D, reason: String) -> void:
     _get_state().set_bankrupt(world, true)
     if world.has_method("_company_run_end"):
         world.call_deferred("_company_run_end", reason)
-

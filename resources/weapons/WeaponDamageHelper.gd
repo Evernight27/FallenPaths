@@ -12,9 +12,9 @@ const DELIVERY_INTENSITY_FLOOR := 0.05
 ## hard cutoff below that so strikes genuinely below band minimum deal no energy. The same factor scales
 ## BOTH the reported KE and the pre-armor damage (sqrt for cut, linear for blunt momentum) so a weak
 ## strike can't report low energy while still dealing full tissue deformation.
-const SUB_BAND_MINIMUM_RATIO := 0.30    # hard cutoff: below this fraction of band-min KE → 0
-const SUB_BAND_RAMP_FULL_RATIO := 1.0   # at/above band-min KE → full energy, no penalty
-const SUB_BAND_RAMP_FLOOR := 0.25       # damage/KE fraction at the ramp floor (ratio=0.30)
+const SUB_BAND_MINIMUM_RATIO := 0.30  # hard cutoff: below this fraction of band-min KE → 0
+const SUB_BAND_RAMP_FULL_RATIO := 1.0  # at/above band-min KE → full energy, no penalty
+const SUB_BAND_RAMP_FLOOR := 0.25  # damage/KE fraction at the ramp floor (ratio=0.30)
 ## NOTE: a separate "sharp-weapon low-KE recovery" bonus was removed. The sharp-point penetration advantage at
 ## low KE is already modeled by the contact-area factor (compute_pre_armor_cut / compute_penetration): a narrow
 ## point has a tiny contact area, so pressure = force/area stays high even at sub-band KE. A separate recovery
@@ -22,7 +22,6 @@ const SUB_BAND_RAMP_FLOOR := 0.25       # damage/KE fraction at the ramp floor (
 ## Hard cap for cut ratio on blunt-damage weapons (mace, pollarm). Prevents archetype overrides from giving
 ## these weapons significant cutting capability — they can nick skin but remain primarily blunt tools.
 const CUT_RATIO_BLUNT_WEAPON_MAX := 0.15
-
 
 ## The point-mass cap (m_strike * r²) was double-counting geometry because the velocity bands
 ## already account for the reference radius; using I_full with omega = v/r gives correct KE.
@@ -52,7 +51,9 @@ const UNARMED_FIST_EFFECTIVE_MASS_KG := 0.55
 const UNARMED_TYPICAL_HAND_SPEED_M_S := 7.0
 const UNARMED_MOMENTUM_TO_PREARMOR := 2.10
 
-# --- Impact speed: Tier A default tip-speed bands per weapon template + Tier C per-weapon overrides; see ImpactVelocityModel.gd.
+# --- Impact speed: Tier A default tip-speed bands per weapon template + Tier C per-weapon overrides; see
+# ImpactVelocityModel.gd.
+
 
 ## Two-body collision: effective mass for linear momentum when target presents finite inertia (blunt).
 static func reduced_mass_pair_kg(m_weapon: float, m_target: float) -> float:
@@ -336,7 +337,8 @@ static func _ke_swing_rotational(weapon: RefCounted, attack_instance: RefCounted
         var inertia_full: float = WeaponSwingPhysics.inertia_about_grip_kg_m2(weapon)
         var r: float = maxf(WeaponSwingPhysics.MIN_LEVER_M, WeaponSwingPhysics.strike_lever_arm_m(weapon, ct))
         ## Velocity bands are tip-speed at the strike lever; omega = v/r converts to angular velocity.
-        ## Previous code rescaled via r_tip (v * r / r_tip / r) which introduced geometry-dependent error when lever ≠ tip length.
+        ## Previous code rescaled via r_tip (v * r / r_tip / r) which introduced geometry-dependent error when lever ≠
+        ## tip length.
         var omega: float = v / r
         return WeaponSwingPhysics.rotational_ke_j(inertia_full, omega)
     return _ke_thrust_point_mass(weapon, attack_instance, v)
@@ -344,7 +346,8 @@ static func _ke_swing_rotational(weapon: RefCounted, attack_instance: RefCounted
 
 # Kinetic energy (J): thrust -> 1/2 m_strike v^2; swing -> 1/2 I omega^2 (full I); mixed -> blend. Unarmed/no parts uses
 # thrust path on swing fallback. strike_energy_mult is intentionally NOT applied here — it models damage transfer
-# efficiency, not kinetic energy. The same information lives in cut_damage_mult/blunt_damage_mult from StrikeRealismProfile.
+# efficiency, not kinetic energy. The same information lives in cut_damage_mult/blunt_damage_mult from
+# StrikeRealismProfile.
 static func _raw_kinetic_energy_j(weapon: RefCounted, attack_instance: RefCounted) -> float:
     if weapon == null:
         return 0.0
@@ -364,9 +367,7 @@ static func _raw_kinetic_energy_j(weapon: RefCounted, attack_instance: RefCounte
                 if bm is float or bm is int:
                     b = clampf(float(bm), 0.0, 1.0)
             return lerpf(
-                _ke_thrust_point_mass(weapon, attack_instance, v),
-                _ke_swing_rotational(weapon, attack_instance, v),
-                b
+                _ke_thrust_point_mass(weapon, attack_instance, v), _ke_swing_rotational(weapon, attack_instance, v), b
             )
         _:
             return _ke_swing_rotational(weapon, attack_instance, v)
@@ -420,7 +421,8 @@ static func compute_pre_armor_cut(
     var strength_mod: float = maxf(0.1, float(strength) / 100.0)
     # Cut scales as KE^CUT_DAMAGE_ENERGY_EXPONENT (Williams-consistent), re-anchored at 100 J -> 35.
     var raw: float = (
-        WeaponConstants.CUT_DAMAGE_KE_SCALE * pow(maxf(0.0, ke_j), WeaponConstants.CUT_DAMAGE_ENERGY_EXPONENT)
+        WeaponConstants.CUT_DAMAGE_KE_SCALE
+        * pow(maxf(0.0, ke_j), WeaponConstants.CUT_DAMAGE_ENERGY_EXPONENT)
         * strength_mod
         * arm_mod
     )
@@ -477,9 +479,12 @@ static func compute_pre_armor_blunt_momentum_raw(
     ## Contact area A derived from contact_cm (already computed below); Δt = BLUNT_IMPACT_CONTACT_TIME_MS.
     var contact_cm: float = _get_blunt_contact_for_damage(weapon, attack_instance)
     contact_cm = maxf(contact_cm, WeaponConstants.MIN_CONTACT_WIDTH_CM)
-    var contact_area_m2: float = PI * (contact_cm / 200.0) * (contact_cm / 200.0)   # diameter in cm → radius in m → circular area
+    var contact_area_m2: float = PI * (contact_cm / 200.0) * (contact_cm / 200.0)
+    # diameter in cm → radius in m → circular area
     var delta_t_s: float = impact_contact_time_s(v)
-    var pressure_pa: float = momentum / (maxf(contact_area_m2, 0.0001) * maxf(delta_t_s, WeaponConstants.BLUNT_CONTACT_TIME_MIN_S))
+    var pressure_pa: float = (
+        momentum / (maxf(contact_area_m2, 0.0001) * maxf(delta_t_s, WeaponConstants.BLUNT_CONTACT_TIME_MIN_S))
+    )
     var raw: float = pressure_pa * WeaponConstants.BLUNT_DAMAGE_PER_UNIT_PRESSURE * strength_mod * arm_mod
     # Blunt damage is linear in momentum (v), so the sub-band ramp applies linearly — matching the KE factor
     # that cut damage receives through sqrt(KE). Keeps weak strikes' blunt channel consistent with reported energy.
@@ -543,10 +548,13 @@ static func compute_penetration(
         var area_factor: float = pow(
             WeaponConstants.BASELINE_CONTACT_CM / contact_cm, WeaponConstants.CONTACT_AREA_EXPONENT
         )
-        ## Effective KE adjusted for historical steel (1.6× more penetrable than RHA) and average combat angle (÷1.1 effective armor thickness).
+        ## Effective KE adjusted for historical steel (1.6× more penetrable than RHA) and average combat angle (÷1.1
+        ## effective armor thickness).
         ## Since pen ∝ KE^PENETRATION_EXPONENT (=0.6), the 1.45× net KE multiplier (1.6/1.1) yields 1.45^0.6 ≈ 1.25×
         ## penetration increase — consistent with softer medieval steel vs RHA.
-        var ke_effective: float = ke_j * WeaponConstants.WILLIAMS_MATERIAL_CORRECTION / WeaponConstants.WILLIAMS_OBLIQUITY_FACTOR
+        var ke_effective: float = (
+            ke_j * WeaponConstants.WILLIAMS_MATERIAL_CORRECTION / WeaponConstants.WILLIAMS_OBLIQUITY_FACTOR
+        )
         var pen_mm_rha: float = (
             pow(ke_effective / WeaponConstants.J_PER_MM_BASE, WeaponConstants.PENETRATION_EXPONENT) * area_factor
         )
@@ -637,7 +645,7 @@ static func _compute_blunt_momentum_per_area_with_contact(
     if weapon == null or contact_cm <= 0.0:
         return -1.0
     var d_m: float = contact_cm / 100.0 if contact_cm > 0 else 0.01
-    var area_m2: float = PI * (d_m / 2.0) * (d_m / 2.0)   # diameter in m → radius → circular area
+    var area_m2: float = PI * (d_m / 2.0) * (d_m / 2.0)  # diameter in m → radius → circular area
     area_m2 = maxf(area_m2, WeaponConstants.MIN_BLUNT_AREA_M2)
     var mass_kg: float = strike_mass_kg(weapon, attack_instance)
     if target_effective_mass_kg > 0.0:
@@ -646,9 +654,6 @@ static func _compute_blunt_momentum_per_area_with_contact(
     var p_mult: float = _attack_float_or_default(attack_instance, "strike_momentum_mult", 1.0)
     var momentum: float = mass_kg * v * maxf(0.05, p_mult)
     return momentum / area_m2 if area_m2 > 0 else 0.0
-
-
-
 
 
 # Damage type for this attack (SHARP or BLUNT).

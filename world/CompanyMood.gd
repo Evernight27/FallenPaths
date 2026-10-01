@@ -185,4 +185,3 @@ static func format_settlement_low_mood_stance_hint(world: Node2D) -> String:
         )
         % low
     )
-

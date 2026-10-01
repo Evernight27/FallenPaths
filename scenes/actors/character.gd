@@ -431,4 +431,3 @@ func _process(delta: float) -> void:
             moved.emit()
         else:
             position = position.move_toward(target_position, TILE_SIZE * 8 * delta)
-

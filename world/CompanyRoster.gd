@@ -103,15 +103,18 @@ static func try_hire_rookie(world: Node2D, rng: RandomNumberGenerator = null, fr
     _get_state().refresh_hud(world)
     _get_state().try_autosave(world)
     if OperationalLog.is_play_session_active():
-        OperationalLog.play_world(
-            (
-                "hire_rookie name=%s quality=%s gold=%d living=%d"
-                % [
-                    PlayerCompanionSetup.resolve_fighter_display_name(hired),
-                    PlayerCompanionSetup.recruit_quality_label(_get_state().get_renown(world)),
-                    _get_state().get_gold(world),
-                    _get_state().count_living_roster(world),
-                ]
+        (
+            OperationalLog
+            . play_world(
+                (
+                    "hire_rookie name=%s quality=%s gold=%d living=%d"
+                    % [
+                        PlayerCompanionSetup.resolve_fighter_display_name(hired),
+                        PlayerCompanionSetup.recruit_quality_label(_get_state().get_renown(world)),
+                        _get_state().get_gold(world),
+                        _get_state().count_living_roster(world),
+                    ]
+                )
             )
         )
     return true
@@ -185,9 +188,12 @@ static func format_surgeon_hire_tooltip(world: Node2D, from_party_menu: bool = f
         return ""
     if can_offer_surgeon_hire(world, from_party_menu):
         return (
-            "Hire medical staff (-%dg). The surgeon never fights; they ride into campaign battles "
-            + "and unlock full field TCCC in the post-victory medical phase (separate slot, no roster cost)."
-        ) % surgeon_hire_cost()
+            (
+                "Hire medical staff (-%dg). The surgeon never fights; they ride into campaign battles "
+                + "and unlock full field TCCC in the post-victory medical phase (separate slot, no roster cost)."
+            )
+            % surgeon_hire_cost()
+        )
     return format_surgeon_hire_block_reason(world, from_party_menu)
 
 
@@ -208,14 +214,17 @@ static func try_hire_surgeon(world: Node2D, rng: RandomNumberGenerator = null, f
     _get_state().refresh_hud(world)
     _get_state().try_autosave(world)
     if OperationalLog.is_play_session_active():
-        OperationalLog.play_world(
-            (
-                "hire_surgeon name=%s gold=%d living=%d"
-                % [
-                    PlayerCompanionSetup.resolve_fighter_display_name(hired),
-                    _get_state().get_gold(world),
-                    _get_state().count_living_roster(world),
-                ]
+        (
+            OperationalLog
+            . play_world(
+                (
+                    "hire_surgeon name=%s gold=%d living=%d"
+                    % [
+                        PlayerCompanionSetup.resolve_fighter_display_name(hired),
+                        _get_state().get_gold(world),
+                        _get_state().count_living_roster(world),
+                    ]
+                )
             )
         )
     return true
@@ -389,9 +398,7 @@ static func award_fame_for_victory(world: Node) -> int:
     world.set_meta(CampaignTypes.WORLD_META_LAST_FAME_PROMOTIONS, promotions)
     if OperationalLog.is_play_session_active():
         OperationalLog.play_world(
-            "fame_award survivors=%d sponsor_gold=%d [%s]" % [
-                log_parts.size(), sponsor_gold, " ".join(log_parts)
-            ]
+            "fame_award survivors=%d sponsor_gold=%d [%s]" % [log_parts.size(), sponsor_gold, " ".join(log_parts)]
         )
     return sponsor_gold
 

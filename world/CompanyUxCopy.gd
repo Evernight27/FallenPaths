@@ -46,11 +46,7 @@ static func format_end_day_button_label(world: Node2D = null) -> String:
     var base: String = "End day"
     if CompanyState.persistence_uses_disk_autosave():
         base = "End day (saves progress)"
-    return (
-        base
-        + format_wage_day_tick_suffix(world)
-        + format_provisions_day_tick_suffix(world)
-    )
+    return base + format_wage_day_tick_suffix(world) + format_provisions_day_tick_suffix(world)
 
 
 static func format_wage_day_tick_suffix(world: Node2D) -> String:

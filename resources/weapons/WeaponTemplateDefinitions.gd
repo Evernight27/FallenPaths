@@ -1,23 +1,28 @@
 class_name WeaponTemplateDefinitions
+
 extends RefCounted
 
 ## Per-weapon move defs + Expand WF spawn keys: **`default_form`** / **`allowed_forms[]`** feed
 ## **`CombatWeaponForm.seed_combatant_form`** (resolution step 4). LIVE_PATHS **`#spawn→reset-path-wf-1a`**.
 ## **`#wf-assign-form-contract`**.
-
 # Damage types (also in CombatConstants; defined here to avoid circular preload)
 const DAMAGE_TYPE_SHARP: String = "sharp"
+
 const DAMAGE_TYPE_BLUNT: String = "blunt"
 
 # Attack types: stab (point), cut/slash (edge), blunt/swing (head).
 # Contact area per attack: stab -> point_width, cut -> blade_width, blunt -> head_diameter.
 const ATTACK_TYPE_STAB: String = "stab"
+
 const ATTACK_TYPE_CUT: String = "cut"
+
 const ATTACK_TYPE_BLUNT: String = "blunt"
 
 # Default baseline for physical modifier (contact area, cm)
 const BASELINE_CONTACT_CM: float = 2.0
+
 const BASELINE_MASS_KG: float = 1.0
+
 const DEFAULT_COOLDOWN: float = 1.5
 
 # --- Attack archetypes: velocity arc, cut ratio, recovery/windup multiplier ---
@@ -25,26 +30,40 @@ const DEFAULT_COOLDOWN: float = 1.5
 # cut_ratio: 0-1 (rest blunt). Overridden by weapon blade_cut_ratio (slash/cut) or stab_cut_ratio (stab) when -1.
 # recovery_multiplier / windup_multiplier: scale state-machine timing.
 const ARCHETYPE_STAB: String = "stab"
+
 const ARCHETYPE_SLASH: String = "slash"
+
 const ARCHETYPE_OVERHEAD: String = "overhead"
+
 const ARCHETYPE_QUICK_SLASH: String = "quick_slash"
+
 const ARCHETYPE_POMMEL: String = "pommel_strike"
+
 const ARCHETYPE_HEAVY_BLUNT: String = "heavy_blunt"
+
 const ARCHETYPE_THRUSTING_BLUNT: String = "thrusting_blunt"
+
 const ARCHETYPE_POLE_SWING: String = "pole_swing"
+
 const ARCHETYPE_POLE_SLASH: String = "pole_slash"
+
 const ARCHETYPE_POLL_STRIKE: String = "poll_strike"
 
 ## Kinematic delivery for `WeaponDamageHelper` (abstract  -  no unit positions): thrust = linear band + point-mass KE;
 ## swing = (lever-swing)—lever + rotational KE; mixed = blend (`kinematic_mixed_blend` 0..1).
 const KINEMATIC_DELIVERY_THRUST := "thrust"
+
 const KINEMATIC_DELIVERY_SWING := "swing"
+
 const KINEMATIC_DELIVERY_MIXED := "mixed"
+
+static var _measure_curves_cache: Dictionary = {}
 
 
 static func _weapon_definitions_build() -> Dictionary:
     return {
-        # Longsword / arming sword: thrust, cuts, pommel, parry-counters (German tradition). Mass ~1.3 kg per Oakeshott museum measurements of 14th-15th century swords.
+        # Longsword / arming sword: thrust, cuts, pommel, parry-counters (German tradition). Mass ~1.3 kg per Oakeshott
+        # museum measurements of 14th-15th century swords.
         "SWORD":
         {
             "name": "Sword",
@@ -63,7 +82,13 @@ static func _weapon_definitions_build() -> Dictionary:
             "melee_range": 1.5,
             "parts":
             [
-                {"id": "blade", "length_cm": 90, "mass_fraction": 0.6, "parry_eligible": true, "striking_for": ["stab", "cut"]},
+                {
+                    "id": "blade",
+                    "length_cm": 90,
+                    "mass_fraction": 0.6,
+                    "parry_eligible": true,
+                    "striking_for": ["stab", "cut"]
+                },
                 {"id": "handle", "length_cm": 30, "mass_fraction": 0.4, "parry_eligible": false}
             ],
             "parry_part_id": "blade",
@@ -208,7 +233,13 @@ static func _weapon_definitions_build() -> Dictionary:
                     "parry_eligible": false,
                     "striking_for": ["blunt"]
                 },
-                {"id": "shaft", "length_cm": 55, "mass_fraction": 0.3, "parry_eligible": true, "striking_for": ["blunt"]}
+                {
+                    "id": "shaft",
+                    "length_cm": 55,
+                    "mass_fraction": 0.3,
+                    "parry_eligible": true,
+                    "striking_for": ["blunt"]
+                }
             ],
             "parry_part_id": "shaft",
             # Committed-velocity band. Max raised 12.0 -> 14.0 m/s so a committed mace clears the
@@ -269,11 +300,19 @@ static func _weapon_definitions_build() -> Dictionary:
             "head_diameter": 2.5,
             "edge_width": 0.0,
             "blade_cut_ratio": 0.7,
-            "stab_cut_ratio": 0.75,  # Rondel dagger thrusts are primarily cutting along the wound channel; withdrawal slicing adds edge damage (Fiore's rondel dagger techniques)
+            "stab_cut_ratio": 0.75,
+            # Rondel dagger thrusts are primarily cutting along the wound channel; withdrawal slicing adds edge
+            # damage (Fiore's rondel dagger techniques)
             "melee_range": 0.8,
             "parts":
             [
-                {"id": "blade", "length_cm": 20, "mass_fraction": 0.55, "parry_eligible": true, "striking_for": ["stab", "cut"]},
+                {
+                    "id": "blade",
+                    "length_cm": 20,
+                    "mass_fraction": 0.55,
+                    "parry_eligible": true,
+                    "striking_for": ["stab", "cut"]
+                },
                 {"id": "handle", "length_cm": 12, "mass_fraction": 0.45, "parry_eligible": false}
             ],
             "parry_part_id": "blade",
@@ -341,13 +380,7 @@ static func _weapon_definitions_build() -> Dictionary:
                     "parry_eligible": false,
                     "striking_for": ["stab"]
                 },
-                {
-                    "id": "blade",
-                    "length_cm": 60,
-                    "mass_fraction": 0.2,
-                    "parry_eligible": true,
-                    "striking_for": ["cut"]
-                },
+                {"id": "blade", "length_cm": 60, "mass_fraction": 0.2, "parry_eligible": true, "striking_for": ["cut"]},
                 {
                     "id": "shaft",
                     "length_cm": 175,
@@ -415,10 +448,10 @@ static func _archetype_definitions_build() -> Dictionary:
             "kinematic_delivery": KINEMATIC_DELIVERY_SWING
         },
         ARCHETYPE_OVERHEAD:
+        # High-commitment swing moves — calibrated at reference velocity. strike_energy_mult is stored for
+        # diagnostic/tuning reference only — it is NOT consumed by the KE or damage pipeline (pure physics).
+        # For high-inertia weapons like axe poll_strike use ARCHETYPE_POLL_STRIKE instead which has reduced
         {
-            # High-commitment swing moves — calibrated at reference velocity. strike_energy_mult is stored for
-            # diagnostic/tuning reference only — it is NOT consumed by the KE or damage pipeline (pure physics).
-            # For high-inertia weapons like axe poll_strike use ARCHETYPE_POLL_STRIKE instead which has reduced
             # velocity_factor for realistic rotational KE.
             "velocity_factor": 1.0,
             "velocity_intensity_curve": 1.1,
@@ -447,9 +480,9 @@ static func _archetype_definitions_build() -> Dictionary:
             "kinematic_delivery": KINEMATIC_DELIVERY_SWING
         },
         ARCHETYPE_HEAVY_BLUNT:
+        # Mace poll/handle strikes — moderate inertia weapon. strike_energy_mult is stored for diagnostic/tuning
+        # reference only — it is NOT consumed by the KE or damage pipeline (pure physics).
         {
-            # Mace poll/handle strikes — moderate inertia weapon. strike_energy_mult is stored for diagnostic/tuning
-            # reference only — it is NOT consumed by the KE or damage pipeline (pure physics).
             # Velocity_factor=1.0 produces realistic KE for mace geometry.
             "velocity_factor": 1.0,
             "velocity_intensity_curve": 0.95,
@@ -469,10 +502,10 @@ static func _archetype_definitions_build() -> Dictionary:
             "kinematic_delivery": KINEMATIC_DELIVERY_THRUST
         },
         ARCHETYPE_POLE_SWING:
+        # Polearm shaft/butt strikes — very high inertia weapon (I≈3.81 kg·m²) with long lever arm r=1.015m.
+        # At full commitment vf=0.62 gives KE≈128J (in 45-130J band). At i=0.6 typical exchange: v≈9.2 m/s
+        # → ω≈9.1 rad/s → KE≈158J capped to ~130J by band; at i=0.45 lands ~75J comfortably in-band.
         {
-            # Polearm shaft/butt strikes — very high inertia weapon (I≈3.81 kg·m²) with long lever arm r=1.015m.
-            # At full commitment vf=0.62 gives KE≈128J (in 45-130J band). At i=0.6 typical exchange: v≈9.2 m/s
-            # → ω≈9.1 rad/s → KE≈158J capped to ~130J by band; at i=0.45 lands ~75J comfortably in-band.
             # Removed strike_energy_mult (was 0.45) — it models damage transfer efficiency, not kinetic energy.
             "velocity_factor": 0.62,
             "velocity_intensity_curve": 0.95,
@@ -482,11 +515,11 @@ static func _archetype_definitions_build() -> Dictionary:
             "kinematic_delivery": KINEMATIC_DELIVERY_SWING
         },
         ARCHETYPE_POLE_SLASH:
+        # Long-lever polearm CUT (blade strikes at the tip, r≈2.05m). KE = ½·I·(v/r)² is suppressed
+        # by the 1/r² lever penalty, so this needs a higher velocity_factor than POLE_SWING (which is
+        # calibrated for the short-lever shaft-butt blunt, r≈1.0m). Sharing POLE_SWING's vf=0.62 dropped
+        # the committed spear slash to ~17-30J (below the 45J floor). With the spear's Tier C cut band
         {
-            # Long-lever polearm CUT (blade strikes at the tip, r≈2.05m). KE = ½·I·(v/r)² is suppressed
-            # by the 1/r² lever penalty, so this needs a higher velocity_factor than POLE_SWING (which is
-            # calibrated for the short-lever shaft-butt blunt, r≈1.0m). Sharing POLE_SWING's vf=0.62 dropped
-            # the committed spear slash to ~17-30J (below the 45J floor). With the spear's Tier C cut band
             # (5-14 m/s), vf=0.80 lands committed slashes at ~55-66J (in the 45-130J spear band).
             "velocity_factor": 0.80,
             "velocity_intensity_curve": 0.95,
@@ -496,8 +529,8 @@ static func _archetype_definitions_build() -> Dictionary:
             "kinematic_delivery": KINEMATIC_DELIVERY_SWING
         },
         ARCHETYPE_POLL_STRIKE:
+        # Axe poll strike — very high inertia weapon (I≈2.64 kg·m²) with short effective lever r=0.76m.
         {
-            # Axe poll strike — very high inertia weapon (I≈2.64 kg·m²) with short effective lever r=0.76m.
             # At vf=1.0, KE≈388J which far exceeds the 40-155J axe band; vf=0.62 caps to ~151J.
             "velocity_factor": 0.62,
             "velocity_intensity_curve": 0.95,
@@ -521,11 +554,13 @@ static func _weapon_template_id(weapon: Variant) -> String:
             return str(wt).strip_edges().to_upper()
     return ""
 
+
 ## Per-weapon measure curves: optimal engagement distance profiles.
 ## measure_curve: {"optimal_ratio": 0.85, "effective_range_m": 1.5, "overextend_threshold": 1.15}
 ##—optimal_ratio: measure ratio where damage/velocity peaks (0.78-0.92 typical)
 ##—effective_range_m: max distance for full effectiveness
 ##—overextend_threshold: measure ratio beyond which penalties apply
+
 
 static func _measure_curves_build() -> Dictionary:
     return {
@@ -536,13 +571,12 @@ static func _measure_curves_build() -> Dictionary:
         "SPEAR": {"optimal_ratio": 0.75, "effective_range_m": 2.8, "overextend_threshold": 1.20},
     }
 
-static var _measure_curves_cache: Dictionary = {}
-
 
 static func measure_curve(weapon_type: String) -> Dictionary:
     if _measure_curves_cache.is_empty():
         _measure_curves_cache = _measure_curves_build()
-    return _measure_curves_cache.get(weapon_type, {"optimal_ratio": 0.85, "effective_range_m": 1.5, "overextend_threshold": 1.15})
+    return _measure_curves_cache.get(
+        weapon_type, {"optimal_ratio": 0.85, "effective_range_m": 1.5, "overextend_threshold": 1.15}
+    )
 
 ## Legacy encounter / mood keys -> weapon-native form id (e.g. axe `wrath` -> `demi_hache`).
-

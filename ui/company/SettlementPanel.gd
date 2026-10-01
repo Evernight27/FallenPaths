@@ -364,4 +364,3 @@ static func _disable_overworld_input(world: Node2D, enabled: bool) -> void:
     var pb: Control = CombatFlow._find_party_button(world)
     if pb != null:
         pb.visible = enabled
-

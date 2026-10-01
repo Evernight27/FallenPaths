@@ -44,8 +44,7 @@ static func _readiness_hint_suffix(c: Dictionary) -> String:
         result = " . Ready"
     elif gauge_pct > 0:
         result = " . Rdy %d%%" % gauge_pct
-    var mf := preload("res://combat/flow/CombatMuscleFatigue.gd")
-    var msc_suffix: String = mf.gauge_hint_suffix(c)
+    var msc_suffix: String = CombatMuscleFatigue.gauge_hint_suffix(c)
     if not msc_suffix.is_empty():
         if not result.is_empty():
             result += msc_suffix
@@ -76,7 +75,10 @@ static func gauge_label_text_for_combatant(c: Dictionary, manager: Node = null) 
     # Partial snapshot rows omit `alive`; treat missing as living (matches `_sync_gauge_label` tooltips).
     if not CombatantEntityAccess.alive_bool(c, true):
         return "Defeated"
-    if c.get(DataKeys.COMBATANT_COMBAT_ABSENT, false) or CombatantEntityAccess.state_str(c) == CombatConstants.STATE_FLED:
+    if (
+        c.get(DataKeys.COMBATANT_COMBAT_ABSENT, false)
+        or CombatantEntityAccess.state_str(c) == CombatConstants.STATE_FLED
+    ):
         return "Fled"
     var state: String = CombatantEntityAccess.state_str(c, "waiting")
     var state_timer: float = c.get(DataKeys.PA_STATE_TIMER, 0.0)

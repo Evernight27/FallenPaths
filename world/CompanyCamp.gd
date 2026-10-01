@@ -1,25 +1,33 @@
 class_name CompanyCamp
+
 extends RefCounted
 
 ## CompanyCamp -- camp healing gates/execution, tool repair, field care formatting/status.
-
 ## CAMP_HEAL_ENTRY.
 const CAMP_HEAL_ENTRY: String = "both"
+
 ## A camp rest is "+1 day" (the day counter advances by 1), so it must apply one full day of healing.
 ## Healing durations are defined in days (HealingConstants.SECONDS_PER_DAY = 86400 s), so the rest feeds a
 ## full day of game-time into the exponential healing/bleeding advance. (The old 600 s x 3.0 = 1800 s applied
 ## only ~30 min of healing per "day", decoupling healing from the day counter by 48x — a 6-week bone break
 ## needed ~2000 in-game days.)
 const CAMP_HEAL_SECONDS: float = HealingConstants.SECONDS_PER_DAY
+
 ## CAMP_HEAL_MULTIPLIER.
 const CAMP_HEAL_MULTIPLIER: float = 1.0
+
 ## FIELD_CARE_MARCH_CHAIN.
 const FIELD_CARE_MARCH_CHAIN: String = "pressure (free) → bandage/pack/TQ"
 
+const TRAIN_STATS: Array = EntityStatsUtil.PROFICIENCY_STATS
+
 # Runtime preload -- circular dependency (CompanyState preloads CompanyCamp).
 static var _company_state_cache: Variant = null
+
 static var _company_economy_cache: Variant = null
+
 static var _company_mood_cache: Variant = null
+
 static var _combat_flow_cache: Variant = null
 
 
@@ -78,9 +86,6 @@ static func _try_merge_training_pending(world: Node2D) -> void:
             EntityProficiency.merge_weapon_training_pending(entity)
 
 
-const TRAIN_STATS: Array = EntityStatsUtil.PROFICIENCY_STATS
-
-
 static func can_train_stat(world: Node2D, node_ref: Node, stat: String) -> bool:
     if not _get_state().read_stub_proficiency_enabled():
         return false
@@ -93,6 +98,8 @@ static func can_train_stat(world: Node2D, node_ref: Node, stat: String) -> bool:
 
 ## Drills a stat for a party member: charges gold, queues +1 into training_pending.
 ## The queued gain is applied to _proficiency_bonus at next camp rest.
+
+
 static func train_stat(world: Node2D, node_ref: Node, stat: String) -> bool:
     if not can_train_stat(world, node_ref, stat):
         return false
@@ -108,13 +115,17 @@ static func train_stat(world: Node2D, node_ref: Node, stat: String) -> bool:
     _get_state().refresh_hud(world)
     if OperationalLog.is_play_session_active():
         OperationalLog.play_world(
-        "train_stat %s %s pending=%.1f gold_left=%d"
-        % [str(node_ref.name), stat, current + 1.0, _get_economy().get_gold(world)]
-    )
+            (
+                "train_stat %s %s pending=%.1f gold_left=%d"
+                % [str(node_ref.name), stat, current + 1.0, _get_economy().get_gold(world)]
+            )
+        )
     return true
 
 
 ## XCamp-6: can a fighting form be drilled for a party member? (proficiency on, form non-empty, gold covers the drill)
+
+
 static func can_train_form(world: Node2D, node_ref: Node, form: String) -> bool:
     if not _get_state().read_stub_proficiency_enabled():
         return false
@@ -127,6 +138,8 @@ static func can_train_form(world: Node2D, node_ref: Node, form: String) -> bool:
 
 ## XCamp-6: drills a fighting form for a party member: charges gold, queues +1 into _form_training_pending.
 ## The queued gain is applied to _form_proficiency at next camp rest (merge_form_training_pending).
+
+
 static func train_form(world: Node2D, node_ref: Node, form: String) -> bool:
     if not can_train_form(world, node_ref, form):
         return false
@@ -143,13 +156,17 @@ static func train_form(world: Node2D, node_ref: Node, form: String) -> bool:
     _get_state().refresh_hud(world)
     if OperationalLog.is_play_session_active():
         OperationalLog.play_world(
-            "train_form %s %s pending=%.1f gold_left=%d"
-            % [str(node_ref.name), form_id, current + 1.0, _get_economy().get_gold(world)]
+            (
+                "train_form %s %s pending=%.1f gold_left=%d"
+                % [str(node_ref.name), form_id, current + 1.0, _get_economy().get_gold(world)]
+            )
         )
     return true
 
 
 ## XCamp-6: can a weapon type be drilled for a party member?
+
+
 static func can_train_weapon(world: Node2D, node_ref: Node, weapon_id: String) -> bool:
     if not _get_state().read_stub_proficiency_enabled():
         return false
@@ -162,6 +179,8 @@ static func can_train_weapon(world: Node2D, node_ref: Node, weapon_id: String) -
 
 ## XCamp-6: drills a weapon type for a party member: charges gold, queues +1 into _weapon_training_pending.
 ## Applied to _weapon_proficiency at next camp rest (merge_weapon_training_pending).
+
+
 static func train_weapon(world: Node2D, node_ref: Node, weapon_id: String) -> bool:
     if not can_train_weapon(world, node_ref, weapon_id):
         return false
@@ -178,8 +197,10 @@ static func train_weapon(world: Node2D, node_ref: Node, weapon_id: String) -> bo
     _get_state().refresh_hud(world)
     if OperationalLog.is_play_session_active():
         OperationalLog.play_world(
-            "train_weapon %s %s pending=%.1f gold_left=%d"
-            % [str(node_ref.name), wid, current + 1.0, _get_economy().get_gold(world)]
+            (
+                "train_weapon %s %s pending=%.1f gold_left=%d"
+                % [str(node_ref.name), wid, current + 1.0, _get_economy().get_gold(world)]
+            )
         )
     return true
 
@@ -396,7 +417,10 @@ static func try_camp_heal(world: Node2D, from_party_menu: bool = false) -> bool:
             OperationalLog
             . play_world(
                 (
-                    "camp_heal seconds=%.0f mult=%.1f med_left=%d day=%d->%d rest_quality=%.2f all_dressed=true mood=+%.0f"
+                    (
+                        "camp_heal seconds=%.0f mult=%.1f med_left=%d day=%d->%d rest_quality=%.2f all_dressed=true "
+                        + "mood=+%.0f"
+                    )
                     % [
                         CAMP_HEAL_SECONDS,
                         CAMP_HEAL_MULTIPLIER,
@@ -464,6 +488,8 @@ static func _advance_party_healing(world: Node2D, seconds: float, multiplier: fl
 ## Rest quality (0..1) from current provisions: a well-fed company (enough food for the roster) rests
 ## well (1.0); a starving company rests poorly (REST_QUALITY_FLOOR). This is a snapshot of "are we
 ## well-provisioned right now?" and is taken before the day advance consumes the day's rations.
+
+
 static func compute_rest_quality(world: Node2D) -> float:
     var roster: int = _get_state().count_living_roster(world)
     if roster <= 0:
@@ -479,6 +505,8 @@ static func compute_rest_quality(world: Node2D) -> float:
 ## Campaign weariness: a night's rest at camp recovers accumulated fatigue by the rest quality. A
 ## well-provisioned camp (quality 1.0) fully clears it; a poor camp recovers only a fraction, leaving
 ## residual weariness that lowers the next battle's stamina cap.
+
+
 static func _apply_roster_rest_quality(world: Node2D, quality: float) -> void:
     for n in CampaignEncounterBridge.get_fightable_party_nodes(world):
         var entity: Node = CampaignEncounterBridge.health_entity_from_character(n)
@@ -487,6 +515,8 @@ static func _apply_roster_rest_quality(world: Node2D, quality: float) -> void:
 
 
 ## Weapon edge wear: a rest at camp lets the company sharpen its weapons (edge restored to full).
+
+
 static func _sharpen_roster_weapons(world: Node2D) -> void:
     for n in CampaignEncounterBridge.get_fightable_party_nodes(world):
         var entity: Node = CampaignEncounterBridge.health_entity_from_character(n)
@@ -496,6 +526,8 @@ static func _sharpen_roster_weapons(world: Node2D) -> void:
 
 ## Camp rest clears per-limb muscle exertion pools (FEATURE_MUSCLE_GROUP_FATIGUE campaign bridge):
 ## a rested fighter enters the next fight with fresh limbs.
+
+
 static func _restore_roster_muscle_fatigue(world: Node2D) -> void:
     for n in CampaignEncounterBridge.get_fightable_party_nodes(world):
         var entity: Node = CampaignEncounterBridge.health_entity_from_character(n)

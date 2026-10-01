@@ -390,12 +390,7 @@ static func sell_equipped_weapon(world: Node2D, node_ref: Node) -> int:
     _get_state().refresh_hud(world)
     if OperationalLog.is_play_session_active():
         OperationalLog.play_world(
-            "sell_weapon %s %s +%dg gold=%d" % [
-                str(node_ref.name),
-                wid,
-                value,
-                _get_economy().get_gold(world)
-            ]
+            "sell_weapon %s %s +%dg gold=%d" % [str(node_ref.name), wid, value, _get_economy().get_gold(world)]
         )
     return value
 
@@ -421,12 +416,9 @@ static func sell_equipped_armor(world: Node2D, node_ref: Node, part: String) -> 
     _get_state().refresh_hud(world)
     if OperationalLog.is_play_session_active():
         OperationalLog.play_world(
-            "sell_armor %s %s %s +%dg gold=%d" % [
-                str(node_ref.name),
-                part,
-                piece_id,
-                value,
-                _get_economy().get_gold(world)
-            ]
+            (
+                "sell_armor %s %s %s +%dg gold=%d"
+                % [str(node_ref.name), part, piece_id, value, _get_economy().get_gold(world)]
+            )
         )
     return value

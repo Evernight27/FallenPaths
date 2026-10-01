@@ -28,15 +28,21 @@ const MASS_SCALING_MAX_FACTOR := 1.40
 
 ## Calibrated bands: max produces realistic KE at committed intensity with full rotational inertia.
 ## Band values represent achievable tip speed (m/s) at _REFERENCE_STRIKE_RADIUS_M for each weapon type.
-## Band MAX = peak velocity at full commitment (i≈1.0 + extension); typical exchanges produce lower effective speeds (~70-85% of max).
+## Band MAX = peak velocity at full commitment (i≈1.0 + extension); typical exchanges produce lower effective speeds
+## (~70-85% of max).
 ## No geometry multiplier is applied — the rotational KE path converts v -> omega via actual lever arm.
-## SWORD: I≈0.42 (approx; actual computed from weapon geometry), r=0.75, cut_band_max=16.0 → KE≈93J at committed (mass=1.30 kg; HEMA force-plate shows typical cuts 8-14 m/s); stab_band_max=13.0 → thrust KE≈127J
-## AXE:   I≈1.07 (approx; actual computed from weapon geometry), r=1.11, band_max=14.0 → KE≈82J at committed with inertia_scale=0.80 (heavy head swings slower); stab_band_max=12.0 → thrust KE≈144J
-## MACE:  I≈0.50 (approx; actual computed from weapon geometry), r=0.63, band_max=14.0 → KE≈123J at committed (heavy weapon; peak combat velocities ~8-14 m/s per Lehmann HEMA studies); stab_band_max=10.0 → thrust KE≈125J
-## DAGGER: I≈0.013 (blade 20cm×0.55 + handle 12cm×0.45 at mass=0.45 kg), r=0.29, stab band [3.5,7.5] m/s with body-coupled mass 2.5 kg → KE≈39-70J (matches audit band 15-70J for Fiore's dente di porco thrusts).
+## SWORD: I≈0.42 (approx; actual computed from weapon geometry), r=0.75, cut_band_max=16.0 → KE≈93J at committed
+## (mass=1.30 kg; HEMA force-plate shows typical cuts 8-14 m/s); stab_band_max=13.0 → thrust KE≈127J
+## AXE: I≈1.07 (approx; actual computed from weapon geometry), r=1.11, band_max=14.0 → KE≈82J at committed with
+## inertia_scale=0.80 (heavy head swings slower); stab_band_max=12.0 → thrust KE≈144J
+## MACE: I≈0.50 (approx; actual computed from weapon geometry), r=0.63, band_max=14.0 → KE≈123J at committed (heavy
+## weapon; peak combat velocities ~8-14 m/s per Lehmann HEMA studies); stab_band_max=10.0 → thrust KE≈125J
+## DAGGER: I≈0.013 (blade 20cm×0.55 + handle 12cm×0.45 at mass=0.45 kg), r=0.29, stab band [3.5,7.5] m/s with
+## body-coupled mass 2.5 kg → KE≈39-70J (matches audit band 15-70J for Fiore's dente di porco thrusts).
 ## SPEAR: shaft mass dominates. Swing tip speeds (cut/blunt) capped ~12 m/s by physics; THRUST tip
 ## speed is far lower (5-8.0 m/s — a linear push, not a lever arc), so thrust KE (½·3.5kg·v² with body
-## transfer) lands in the 40-130 J band at full commitment (audit band Vector2(40,130)). Swing uses full rotational inertia (~3.05 kg·m² after parts);
+## transfer) lands in the 40-130 J band at full commitment (audit band Vector2(40,130)). Swing uses full rotational
+## inertia (~3.05 kg·m² after parts);
 ## thrust uses ~3.5 kg body-transfer effective mass (braced linear thrust: 3-6 kg torso/shoulder drive).
 static var _default_bands: Dictionary = {
     "SWORD": {"stab": Vector2(5.5, 13.0), "cut": Vector2(7.5, 16.0), "blunt": Vector2(6.0, 14.0)},

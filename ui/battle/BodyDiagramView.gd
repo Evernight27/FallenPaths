@@ -26,86 +26,80 @@ var _oy: float = 0.0
 
 
 func _init() -> void:
-	custom_minimum_size = Vector2(MIN_W, MIN_H)
+    custom_minimum_size = Vector2(MIN_W, MIN_H)
 
 
 func set_part_health(part: String, ratio: float) -> void:
-	_health[part] = clampf(ratio, 0.0, 1.0)
-	queue_redraw()
+    _health[part] = clampf(ratio, 0.0, 1.0)
+    queue_redraw()
 
 
 func clear() -> void:
-	_health.clear()
-	queue_redraw()
+    _health.clear()
+    queue_redraw()
 
 
 func _region_color(part: String) -> Color:
-	var ratio: float = clampf(_health.get(part, 1.0), 0.0, 1.0)
-	if ratio <= 0.001:
-		return DESTROYED
-	return PartyRowFormatter.formation_health_bar_fill_color(ratio)
+    var ratio: float = clampf(_health.get(part, 1.0), 0.0, 1.0)
+    if ratio <= 0.001:
+        return DESTROYED
+    return PartyRowFormatter.formation_health_bar_fill_color(ratio)
 
 
 func _art(x: float, y: float) -> Vector2:
-	return Vector2(_ox + x * _scale, _oy + y * _scale)
+    return Vector2(_ox + x * _scale, _oy + y * _scale)
 
 
 func _draw() -> void:
-	_scale = minf(size.x / ART_W, size.y / ART_H)
-	if _scale <= 0.0 or not is_finite(_scale):
-		_scale = 1.0
-	_ox = (size.x - ART_W * _scale) / 2.0
-	_oy = (size.y - ART_H * _scale) / 2.0
-	draw_rect(Rect2(0, 0, size.x, size.y), BACKDROP)
-	# Head sits in front of the torso top; torso drawn first so shoulders peek under the chest.
-	_draw_polygon(_chest_pts(), "chest")
-	_draw_polygon(_leg_pts(true), "right_leg")
-	_draw_polygon(_leg_pts(false), "left_leg")
-	_draw_arm(true)
-	_draw_arm(false)
-	# Head last so it reads as the topmost region.
-	var head_c: Vector2 = _art(50.0, 18.0)
-	var radius: float = 9.0 * _scale
-	draw_circle(head_c, radius, _region_color("head"))
-	draw_arc(head_c, radius, 0.0, TAU, 24, OUTLINE, 1.0 * _scale, true)
+    _scale = minf(size.x / ART_W, size.y / ART_H)
+    if _scale <= 0.0 or not is_finite(_scale):
+        _scale = 1.0
+    _ox = (size.x - ART_W * _scale) / 2.0
+    _oy = (size.y - ART_H * _scale) / 2.0
+    draw_rect(Rect2(0, 0, size.x, size.y), BACKDROP)
+    # Head sits in front of the torso top; torso drawn first so shoulders peek under the chest.
+    _draw_polygon(_chest_pts(), "chest")
+    _draw_polygon(_leg_pts(true), "right_leg")
+    _draw_polygon(_leg_pts(false), "left_leg")
+    _draw_arm(true)
+    _draw_arm(false)
+    # Head last so it reads as the topmost region.
+    var head_c: Vector2 = _art(50.0, 18.0)
+    var radius: float = 9.0 * _scale
+    draw_circle(head_c, radius, _region_color("head"))
+    draw_arc(head_c, radius, 0.0, TAU, 24, OUTLINE, 1.0 * _scale, true)
 
 
 func _draw_polygon(poly: PackedVector2Array, part: String) -> void:
-	if poly.size() < 3:
-		return
-	draw_colored_polygon(poly, _region_color(part))
-	draw_polyline(_closed(poly), OUTLINE, 1.0, true)
+    if poly.size() < 3:
+        return
+    draw_colored_polygon(poly, _region_color(part))
+    draw_polyline(_closed(poly), OUTLINE, 1.0, true)
 
 
 func _closed(poly: PackedVector2Array) -> PackedVector2Array:
-	var closed: PackedVector2Array = poly.duplicate()
-	closed.append(closed[0])
-	return closed
+    var closed: PackedVector2Array = poly.duplicate()
+    closed.append(closed[0])
+    return closed
 
 
 func _chest_pts() -> PackedVector2Array:
-	return PackedVector2Array(
-		[_art(40.0, 32.0), _art(60.0, 32.0), _art(64.0, 56.0), _art(36.0, 56.0)]
-	)
+    return PackedVector2Array([_art(40.0, 32.0), _art(60.0, 32.0), _art(64.0, 56.0), _art(36.0, 56.0)])
 
 
 func _leg_pts(is_right: bool) -> PackedVector2Array:
-	if is_right:
-		return PackedVector2Array(
-			[_art(38.0, 54.0), _art(50.0, 54.0), _art(46.0, 120.0), _art(32.0, 118.0)]
-		)
-	return PackedVector2Array(
-		[_art(50.0, 54.0), _art(62.0, 54.0), _art(68.0, 118.0), _art(54.0, 120.0)]
-	)
+    if is_right:
+        return PackedVector2Array([_art(38.0, 54.0), _art(50.0, 54.0), _art(46.0, 120.0), _art(32.0, 118.0)])
+    return PackedVector2Array([_art(50.0, 54.0), _art(62.0, 54.0), _art(68.0, 118.0), _art(54.0, 120.0)])
 
 
 func _draw_arm(is_right: bool) -> void:
-	var part: String = "right_arm" if is_right else "left_arm"
-	if is_right:
-		_draw_polygon(
-			PackedVector2Array([_art(57.0, 32.0), _art(69.0, 34.0), _art(74.0, 80.0), _art(61.0, 72.0)]), part
-		)
-	else:
-		_draw_polygon(
-			PackedVector2Array([_art(43.0, 32.0), _art(31.0, 34.0), _art(26.0, 80.0), _art(39.0, 72.0)]), part
-		)
+    var part: String = "right_arm" if is_right else "left_arm"
+    if is_right:
+        _draw_polygon(
+            PackedVector2Array([_art(57.0, 32.0), _art(69.0, 34.0), _art(74.0, 80.0), _art(61.0, 72.0)]), part
+        )
+    else:
+        _draw_polygon(
+            PackedVector2Array([_art(43.0, 32.0), _art(31.0, 34.0), _art(26.0, 80.0), _art(39.0, 72.0)]), part
+        )

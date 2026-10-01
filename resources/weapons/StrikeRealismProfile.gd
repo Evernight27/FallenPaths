@@ -115,7 +115,8 @@ static func _station_cut_draw_mult(station: float) -> float:
 
 static func _sharpness_station_interaction(sharpness: float, station: float, contact: String) -> float:
     ## Dull blades (low sharpness) lose effectiveness most at blade tip/foible (station < 0.3 and station > 0.75).
-    ## Mid-blade strikes retain more cut quality even when dull — this models how a worn edge still bites near the guard.
+    ## Mid-blade strikes retain more cut quality even when dull — this models how a worn edge still bites near the
+    ## guard.
     if contact != WeaponConstants.ATTACK_TYPE_CUT:
         return 1.0
     var s: float = clampf(sharpness, 0.0, 1.0)
@@ -133,7 +134,6 @@ static func sharpness_for_weapon(weapon: RefCounted) -> float:
     if raw_sharp is float or raw_sharp is int:
         return clampf(float(raw_sharp), 0.0, 1.0)
     return 1.0
-
 
 
 static func compute_strike_modifiers(

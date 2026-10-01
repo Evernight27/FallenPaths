@@ -3,10 +3,12 @@ extends RefCounted
 
 ## CompanyEconomy -- state accessors, gold, supplies, wages, renown, provisions, med supply wiring.
 
-## Starting economy: 500g = ~23 days of wages for default 7-member company (15g/day) + buffer for 1 battle at default size.
+## Starting economy: 500g = ~23 days of wages for default 7-member company (15g/day) + buffer for 1 battle at default
+## size.
 const DEFAULT_GOLD: int = 500
 ## Daily wage per mercenary — calibrated so a 7-merc company burns ~105g/day in wages alone.
-## At 500g starting gold + average contract payout of ~150-300g, this yields ~2-3 week campaign pacing before player must actively earn income.
+## At 500g starting gold + average contract payout of ~150-300g, this yields ~2-3 week campaign pacing before player
+## must actively earn income.
 const DEFAULT_WAGE_PER_MEMBER: int = 15
 const DEFAULT_MEDICAL_SUPPLIES: int = 15
 ## Victory med resupply per successful contract — offsets medical supply consumption from post-battle healing.

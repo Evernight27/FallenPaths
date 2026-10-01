@@ -69,23 +69,15 @@ static func _medical_procedure_log_line(
     if success:
         if not procedure_verb.is_empty():
             var suffix: String = (" (%d%% effective)" % eff) if eff_detail else ""
-            return (
-                "[color=teal]%s %s %s's %s%s.[/color]"
-                % [who, procedure_verb, target_name, part_label, suffix]
-            )
+            return "[color=teal]%s %s %s's %s%s.[/color]" % [who, procedure_verb, target_name, part_label, suffix]
         var suffix2: String = (" (%d%% effective)" % eff) if eff_detail else ""
-        return (
-            "[color=teal]%s %s%s.[/color]" % [who, success_clause % [target_name, part_label], suffix2]
-        )
+        return "[color=teal]%s %s%s.[/color]" % [who, success_clause % [target_name, part_label], suffix2]
     if eff_detail:
         return (
             "[color=orange]%s couldn't properly %s %s (only %d%% effective; %s).[/color]"
             % [who, fail_verb, target_part, eff, fail_note]
         )
-    return (
-        "[color=orange]%s couldn't properly %s %s (%s).[/color]"
-        % [who, fail_verb, target_part, fail_note]
-    )
+    return "[color=orange]%s couldn't properly %s %s (%s).[/color]" % [who, fail_verb, target_part, fail_note]
 
 
 ## True when resolved hit carried meaningful physical damage (integer **`dmg`** or fractional **`total_physical`**).
@@ -399,7 +391,10 @@ static func format_action_line(
                         line_pd += " [size=10][color=gray](%s meas=%.2f bind=%.2f)[/color][/size]" % [kdel, sm, pc]
             return line_pd
         "parry_partial":
-            var line_pp: String = "[color=cyan]%s (%s) partially parried %s (%s)'s attack.[/color]" % [attacker_name, attacker_side, target_name, target_side]
+            var line_pp: String = (
+                "[color=cyan]%s (%s) partially parried %s (%s)'s attack.[/color]"
+                % [attacker_name, attacker_side, target_name, target_side]
+            )
             var ctx_pp: Variant = result.get("parry_clash_context", null)
             if ctx_pp is Dictionary:
                 var dpp: Dictionary = ctx_pp
@@ -554,7 +549,9 @@ static func format_action_line(
             if has_resolved_physical_damage(result):
                 dmg_g = " · %s damage" % format_resolved_damage(result)
             var glance_label: String = (
-                "Glancing (partially deflected)" if bool(result.get("pa_parry_partial_follow_through", false)) else "Glancing"
+                "Glancing (partially deflected)"
+                if bool(result.get("pa_parry_partial_follow_through", false))
+                else "Glancing"
             )
             var line_g: String = (
                 "[color=orange]%s: [b]%s[/b]%s  -  %s%s[/color]"

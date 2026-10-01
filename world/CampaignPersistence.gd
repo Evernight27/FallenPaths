@@ -287,7 +287,8 @@ static func _serialize_entity(entity: Node) -> Dictionary:
         # XCamp-6: queued form/weapon camp drills (applied at next camp rest); round-trip so a save
         # between drill and rest does not lose the pending gain.
         "form_training_pending": _deep_dup(entity._form_training_pending) if "_form_training_pending" in entity else {},
-        "weapon_training_pending": _deep_dup(entity._weapon_training_pending) if "_weapon_training_pending" in entity else {},
+        "weapon_training_pending":
+        _deep_dup(entity._weapon_training_pending) if "_weapon_training_pending" in entity else {},
         "last_fought_day": int(entity.last_fought_day) if "last_fought_day" in entity else 0,
         "last_decay_day": int(entity.last_decay_day) if "last_decay_day" in entity else 0,
         "last_fought_in_combat": bool(entity.last_fought_in_combat) if "last_fought_in_combat" in entity else false,
@@ -305,12 +306,15 @@ static func _serialize_entity(entity: Node) -> Dictionary:
         # Sepsis/tetanus are entity-level and survive the seeding wound resolving, so they must round-trip.
         "game_time_seconds": float(entity.get("_game_time_seconds")) if "_game_time_seconds" in entity else 0.0,
         "is_septic": bool(entity.get("is_septic")) if "is_septic" in entity else false,
-        "sepsis_resolve_progress": float(entity.get("sepsis_resolve_progress")) if "sepsis_resolve_progress" in entity else 0.0,
+        "sepsis_resolve_progress":
+        float(entity.get("sepsis_resolve_progress")) if "sepsis_resolve_progress" in entity else 0.0,
         "sepsis_recovered": bool(entity.get("sepsis_recovered")) if "sepsis_recovered" in entity else false,
         "_sepsis_dead": bool(entity.get("_sepsis_dead")) if "_sepsis_dead" in entity else false,
         "is_tetanus": bool(entity.get("is_tetanus")) if "is_tetanus" in entity else false,
-        "tetanus_incubation_days": float(entity.get("tetanus_incubation_days")) if "tetanus_incubation_days" in entity else -1.0,
-        "tetanus_resolve_progress": float(entity.get("tetanus_resolve_progress")) if "tetanus_resolve_progress" in entity else 0.0,
+        "tetanus_incubation_days":
+        float(entity.get("tetanus_incubation_days")) if "tetanus_incubation_days" in entity else -1.0,
+        "tetanus_resolve_progress":
+        float(entity.get("tetanus_resolve_progress")) if "tetanus_resolve_progress" in entity else 0.0,
         "_tetanus_dead": bool(entity.get("_tetanus_dead")) if "_tetanus_dead" in entity else false,
         "weapon_id": EncounterSpawner.weapon_id_from_entity(entity),
         "armor_by_part": EncounterSpawner.armor_ids_from_entity(entity),

@@ -93,7 +93,8 @@ static func inertia_about_grip_kg_m2(weapon: Object) -> float:
             else 1.2
         )
         ## Effective lever arm for inertia: I = m·r_eff² where r_eff captures mass concentration toward grip.
-        ## Combined shortened lever and mass profile into single 0.35 factor (merged from old eff_radius*0.48 × 0.25 correction).
+        ## Combined shortened lever and mass profile into single 0.35 factor (merged from old eff_radius*0.48 × 0.25
+        ## correction).
         var eff_radius: float = l_total * WeaponConstants.INERTIA_EFF_RADIUS_FRACTION
         return maxf(MIN_INERTIA_KG_M2, total_mass * eff_radius * eff_radius)
     var parts: Array = weapon.parts
@@ -134,5 +135,3 @@ static func inertia_from_parts_kg_m2(parts: Array, total_mass: float) -> float:
 ## Rotational kinetic energy at angular velocity ω (rad/s).
 static func rotational_ke_j(inertia_kg_m2: float, omega_rad_s: float) -> float:
     return 0.5 * maxf(MIN_INERTIA_KG_M2, inertia_kg_m2) * omega_rad_s * omega_rad_s
-
-

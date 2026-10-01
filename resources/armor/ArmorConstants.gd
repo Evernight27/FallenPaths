@@ -173,9 +173,12 @@ const LAYER_MAIL: Dictionary = {
 
 # Plate: medieval steel. Williams: 2 mm=175 J, 3.5 mm'380 J. Rigid -> area coupling (mace > thrust).
 # Blunt transmission reduced from 0.72 to ~0.38 so plate armor transmits LESS blunt force than cloth/mail.
-# Historical: hard plate on padded gambeson deflects/shatters blow energy; soft clothing alone transmits more impact shock.
-## Further reduced to 0.28 for improved realism — hardened steel plate with gambeson underlayer significantly dampens shock transmission.
-# Updated to 0.45 based on HEMA experimental data: flat-plate mace/hammer impacts transmit 30-60% energy; 0.45 sits in the middle of this range (Rupsil drop-hammer tests, MIT HMIT studies).
+# Historical: hard plate on padded gambeson deflects/shatters blow energy; soft clothing alone transmits more impact
+# shock.
+## Further reduced to 0.28 for improved realism — hardened steel plate with gambeson underlayer significantly dampens
+## shock transmission.
+# Updated to 0.45 based on HEMA experimental data: flat-plate mace/hammer impacts transmit 30-60% energy; 0.45 sits in
+# the middle of this range (Rupsil drop-hammer tests, MIT HMIT studies).
 const LAYER_PLATE: Dictionary = {
     "sharp_resistance_rha_mm": 3.5,
     "blunt_cushion": 0.15,
@@ -227,7 +230,8 @@ static func get_piece_definition(piece_id: String) -> Dictionary:
 
 static func _piece_definitions_build() -> Dictionary:
     return {
-        # Head: bascinet = plate skull + cloth aventail/cap under metal; mail coif = mail + cloth; leather cap; cloth coif
+        # Head: bascinet = plate skull + cloth aventail/cap under metal; mail coif = mail + cloth; leather cap; cloth
+        # coif
         "KETTLE_HELM":
         {"name": "Bascinet", "body_part": "head", "layers": [LAYER_PLATE.duplicate(), LAYER_CLOTH.duplicate()]},
         "MAIL_COIF":
@@ -255,9 +259,17 @@ static func _piece_definitions_build() -> Dictionary:
             "layers": [LAYER_PLATE.duplicate(), LAYER_CLOTH.duplicate()]
         },
         "MAIL_SLEEVES_RIGHT":
-        {"name": "Mail Sleeves (R)", "body_part": "right_arm", "layers": [LAYER_MAIL.duplicate(), LAYER_CLOTH.duplicate()]},
+        {
+            "name": "Mail Sleeves (R)",
+            "body_part": "right_arm",
+            "layers": [LAYER_MAIL.duplicate(), LAYER_CLOTH.duplicate()]
+        },
         "MAIL_SLEEVES_LEFT":
-        {"name": "Mail Sleeves (L)", "body_part": "left_arm", "layers": [LAYER_MAIL.duplicate(), LAYER_CLOTH.duplicate()]},
+        {
+            "name": "Mail Sleeves (L)",
+            "body_part": "left_arm",
+            "layers": [LAYER_MAIL.duplicate(), LAYER_CLOTH.duplicate()]
+        },
         "LEATHER_BRACERS_RIGHT":
         {"name": "Leather Bracers (R)", "body_part": "right_arm", "layers": [LAYER_LEATHER.duplicate()]},
         "LEATHER_BRACERS_LEFT":
@@ -266,25 +278,23 @@ static func _piece_definitions_build() -> Dictionary:
         "ARM_WRAPS_LEFT": {"name": "Arm Wraps (L)", "body_part": "left_arm", "layers": [LAYER_CLOTH.duplicate()]},
         # Legs: greaves = plate + cloth; mail chausses = mail + cloth; leather chausses = leather; cloth wraps = cloth
         "GREAVES_RIGHT":
-        {
-            "name": "Greaves (R)",
-            "body_part": "right_leg",
-            "layers": [LAYER_PLATE.duplicate(), LAYER_CLOTH.duplicate()]
-        },
+        {"name": "Greaves (R)", "body_part": "right_leg", "layers": [LAYER_PLATE.duplicate(), LAYER_CLOTH.duplicate()]},
         "GREAVES_LEFT":
-        {
-            "name": "Greaves (L)",
-            "body_part": "left_leg",
-            "layers": [LAYER_PLATE.duplicate(), LAYER_CLOTH.duplicate()]
-        },
+        {"name": "Greaves (L)", "body_part": "left_leg", "layers": [LAYER_PLATE.duplicate(), LAYER_CLOTH.duplicate()]},
         "MAIL_CHAUSSES_RIGHT":
-        {"name": "Mail Chausses (R)", "body_part": "right_leg", "layers": [LAYER_MAIL.duplicate(), LAYER_CLOTH.duplicate()]},
+        {
+            "name": "Mail Chausses (R)",
+            "body_part": "right_leg",
+            "layers": [LAYER_MAIL.duplicate(), LAYER_CLOTH.duplicate()]
+        },
         "MAIL_CHAUSSES_LEFT":
-        {"name": "Mail Chausses (L)", "body_part": "left_leg", "layers": [LAYER_MAIL.duplicate(), LAYER_CLOTH.duplicate()]},
-        "LEG_WRAPS_RIGHT":
-        {"name": "Leg Wraps (R)", "body_part": "right_leg", "layers": [LAYER_CLOTH.duplicate()]},
-        "LEG_WRAPS_LEFT":
-        {"name": "Leg Wraps (L)", "body_part": "left_leg", "layers": [LAYER_CLOTH.duplicate()]},
+        {
+            "name": "Mail Chausses (L)",
+            "body_part": "left_leg",
+            "layers": [LAYER_MAIL.duplicate(), LAYER_CLOTH.duplicate()]
+        },
+        "LEG_WRAPS_RIGHT": {"name": "Leg Wraps (R)", "body_part": "right_leg", "layers": [LAYER_CLOTH.duplicate()]},
+        "LEG_WRAPS_LEFT": {"name": "Leg Wraps (L)", "body_part": "left_leg", "layers": [LAYER_CLOTH.duplicate()]},
         "LEATHER_GREAVES_RIGHT":
         {"name": "Leather Chausses (R)", "body_part": "right_leg", "layers": [LAYER_LEATHER.duplicate()]},
         "LEATHER_GREAVES_LEFT":

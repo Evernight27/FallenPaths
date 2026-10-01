@@ -153,8 +153,8 @@ static func _move_definitions_build() -> Dictionary:
             "impact_station_spread": 0.05
         },
         "zornhau":
+        # Liechtenauer Meisterhäue — decisive counter-strikes with yomi-intent scaling.
         {
-            # Liechtenauer Meisterhäue — decisive counter-strikes with yomi-intent scaling.
             # Zornhau: parry high-right, cut low-left (wound from above through guard).
             "name": "Zornhau (wrath strike)",
             "contact_type": ATTACK_TYPE_CUT,
@@ -252,8 +252,8 @@ static func _move_definitions_build() -> Dictionary:
             "impact_station_spread": 0.06
         },
         "poll_strike":
+        # Axe poll strike uses blunt haft contact — swing path with long lever creates excess KE due to high inertia;
         {
-            # Axe poll strike uses blunt haft contact — swing path with long lever creates excess KE due to high inertia;
             # ARCHETYPE_POLL_STRIKE has velocity_factor=0.62 to cap rotational KE to ~151J (in 40-155J axe band).
             "name": "Back-of-head strike (blunt)",
             "contact_type": ATTACK_TYPE_BLUNT,
@@ -421,9 +421,9 @@ static func _move_definitions_build() -> Dictionary:
             "impact_station_spread": 0.04
         },
         "spear_slash":
+        # Spear cut: very long lever (2.05m) suppresses KE via the 1/r² penalty. Uses ARCHETYPE_POLE_SLASH
+        # (vf=0.80, swing) + the spear's Tier C cut band (5-14 m/s) so committed slashes land ~55-66J
         {
-            # Spear cut: very long lever (2.05m) suppresses KE via the 1/r² penalty. Uses ARCHETYPE_POLE_SLASH
-            # (vf=0.80, swing) + the spear's Tier C cut band (5-14 m/s) so committed slashes land ~55-66J
             # (in the 45-130J spear band) instead of the ~17-30J the shared POLE_SWING vf=0.62 produced.
             "name": "Slash with spearhead",
             "contact_type": ATTACK_TYPE_CUT,
@@ -438,8 +438,8 @@ static func _move_definitions_build() -> Dictionary:
             "strike_energy_mult_override": 1.5
         },
         "pole_swing":
+        # Pole swing uses shaft butt/head — long weapon but strike occurs near grip (shaft COM).
         {
-            # Pole swing uses shaft butt/head — long weapon but strike occurs near grip (shaft COM).
             # ARCHETYPE_POLE_SWING has velocity_factor=0.62 and inertia_scale=0.85 to keep KE in realistic range.
             "name": "Pole swing (blunt)",
             "contact_type": ATTACK_TYPE_BLUNT,
@@ -774,8 +774,8 @@ static func _move_definitions_build() -> Dictionary:
             "impact_station_spread": 0.03
         },
         "shaft_thrust":
+        # Spear shaft butt strike — uses body mass transfer through the long shaft;
         {
-            # Spear shaft butt strike — uses body mass transfer through the long shaft;
             # default BLUNT strike_mass (0.55 kg) is too low for this move type.
             "name": "Shaft butt strike",
             "contact_type": ATTACK_TYPE_BLUNT,
@@ -831,6 +831,3 @@ static func _move_definitions_build() -> Dictionary:
 # point, head blade 2 - 3 cm.
 # No weapon has 0% cutting (MIN_CUT_RATIO); each component uses get_sharp_contact_cm / get_blunt_contact_cm for its
 # damage type.
-
-
-

@@ -24,7 +24,8 @@ const DERIVED_BONE_TO_TISSUE_LEG := 12.0 / 16.0
 #   Human: segment-mass (de Leva/Plagenhoef) — chest > leg > head = arm.
 #   Goblin: top-heavy, spindly limbs — large head/chest share, thin arms/legs.
 #   (Future: e.g. Orc = limb-heavy; Elf = lean limbs, smaller chest.)
-# Mass proportions: clinical segment models; calibration → docs/LIVE_PATHS.md#species-calibration · docs/LIVE_PATHS.md#5-literal-blood-volume-ml.
+# Mass proportions: clinical segment models; calibration → docs/LIVE_PATHS.md#species-calibration ·
+# docs/LIVE_PATHS.md#5-literal-blood-volume-ml.
 # docs/LIVE_PATHS.md#5-literal-blood-volume-ml.
 @export var name: String = "Unknown"
 @export var head: int = 10  # human ~9% of total; goblin larger share

@@ -344,24 +344,34 @@ static func format_proficiency_mastery_line(member: Dictionary, world: Node2D = 
         return ""
     var parts := []
     if weapon_val > 0.0:
-        parts.append(
-            "%s %.0f/%.0f (%s)"
-            % [
-                str(CompanyGear.WEAPON_SHORT_NAMES.get(weapon_id, weapon_id)),
-                weapon_val,
-                EntityProficiency.WEAPON_PROF_VETERAN_MAX,
-                _proficiency_rank_from_value(weapon_val),
-            ]
+        (
+            parts
+            . append(
+                (
+                    "%s %.0f/%.0f (%s)"
+                    % [
+                        str(CompanyGear.WEAPON_SHORT_NAMES.get(weapon_id, weapon_id)),
+                        weapon_val,
+                        EntityProficiency.WEAPON_PROF_VETERAN_MAX,
+                        _proficiency_rank_from_value(weapon_val),
+                    ]
+                )
+            )
         )
     if form_val > 0.0:
-        parts.append(
-            "%s %.0f/%.0f (%s)"
-            % [
-                CombatWeaponForm.display_name(form),
-                form_val,
-                EntityProficiency.FORM_PROF_VETERAN_MAX,
-                _proficiency_rank_from_value(form_val),
-            ]
+        (
+            parts
+            . append(
+                (
+                    "%s %.0f/%.0f (%s)"
+                    % [
+                        CombatWeaponForm.display_name(form),
+                        form_val,
+                        EntityProficiency.FORM_PROF_VETERAN_MAX,
+                        _proficiency_rank_from_value(form_val),
+                    ]
+                )
+            )
         )
     var skill: float = EntityProficiency.melee_skill_for(entity, weapon_id, form)
     parts.append("Combat skill %d" % int(roundf(skill)))
