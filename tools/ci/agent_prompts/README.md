@@ -8,7 +8,7 @@
 | Combat | [`agent_combat.md`](agent_combat.md) ([3e](agent_combat.md#specialty-iii-4-3e-fight-finish) · [line plug](agent_combat.md#specialty-iii-6-line-plug)) | `PHASE0: PASS` |
 | Enhance | [`agent_enhance.md`](agent_enhance.md) | `PHASE0: PASS` |
 | Playtest | [`agent_playtest.md`](agent_playtest.md) | validator + `human_signoff: READY` |
-| Campaign | [`agent_campaign.md`](agent_campaign.md) | CompanyStateChecks **558** or Phase 0 + ship audit |
+| Campaign | [`agent_campaign.md`](agent_campaign.md) | CompanyStateChecks **783** or Phase 0 + ship audit |
 | Hygiene | [`agent_hygiene.md`](agent_hygiene.md) | no production `.gd` |
 | Audit | [`agent_audit.md`](agent_audit.md) | Phase 0 + company |
 | Medical | [`agent_medical.md`](agent_medical.md) | `PHASE0: PASS` |
@@ -20,9 +20,10 @@
 
 ## Session contract (all streams)
 
-- **Budget:** ≤1 doc section + ≤3 owning `.gd` before first edit.
+- **Budget:** read ≤1 production code path (doc section) before first edit — for behavior changes, so a sibling live path isn't left dormant. Research / realism anchors (`RESEARCH_*.md` + your stream's named research docs) are **exempt** — read as many as the change needs to stay grounded. Pure code motion (split/move, no logic edits) is exempt but limited to **one module per pass** with a mandatory re-gate ([`ARCHITECTURE`](../../../docs/ARCHITECTURE.md)).
 - **Escalation:** out-of-ownership → report `FINDING` / `SITES` / `CANONICAL` / `FIX` — do not edit.
 - **Regression:** if gate was green then red after your change → revert, re-gate, report. Do not chase pre-existing harness fails outside your module.
+- **Re-gate (fast path):** re-check with your stream's fast mode, not the full gate — Combat `-HarnessMode regression` (+`d001` for soak/AI) · Medical `-HarnessMode medical` (+`calibration`) · Campaign `run_company_state_checks.sh` · Hygiene doc-links + `git status`. Run the full `PHASE0: PASS` gate at session start and on any Expand / `FEATURE_*` change.
 - **Success:** gate green · one logical change · stream PR prefix.
 - **Frozen:** [`PLANNING#harness-and-flags`](../../../docs/PLANNING.md#harness-and-flags) · [`FEATURE_PRESERVATION`](../../../docs/FEATURE_PRESERVATION.md).
 

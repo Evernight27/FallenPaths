@@ -8,6 +8,6 @@ if (-not $SkipWarmup) { Invoke-FallenPathsGodotImportWarmup }
 $out = @(& $Godot --headless --path $Root -s "res://tools/ci/run_company_state_checks.gd" 2>&1 | ForEach-Object { "$_" })
 $out | Write-Output
 if ($out -match "FP_HARNESS_OK:\s+CompanyStateChecks") {
-	exit 0
+    exit 0
 }
 exit 1

@@ -260,7 +260,7 @@ Replace/update existing `_run_muscle_fatigue_formation_damp_tired_legs` to verif
 - **Do NOT** change the exertion accumulation formulas — only the *effects* of accumulated fatigue.
 - **Preserve** existing behavior when leg_fatigue = 0 (all multipliers must return 1.0).
 - **Preserve** `MUSCLE_FATIGUE_DODGE_CHANCE_FLOOR = 0.4` as a named constant for legacy reference / UI display, even if the functional dodge mult uses the new curve.
-- **Follow** the session contract: ≤1 doc section + ≤3 `.gd` files before first edit.
+- **Follow** the session contract: ≤1 doc section before first edit.
 
 ---
 

@@ -224,8 +224,7 @@ static func _run_camp_2_bridge_spot_checks(failures: PackedStringArray) -> void:
         _pass()
     if aff_line.contains("Stamina f -") or aff_line.contains("Pain f -"):
         _fail(
-            failures,
-            "Camp-2.4: snapshot effect line must not reprint the remaining-value artifact got '%s'" % aff_line
+            failures, "Camp-2.4: snapshot effect line must not reprint the remaining-value artifact got '%s'" % aff_line
         )
     else:
         _pass()
@@ -510,11 +509,7 @@ static func _run_camp_2_bridge_spot_checks(failures: PackedStringArray) -> void:
         var cond1: bool = CompanyState.get_medical_supplies(retry_world) == med_before
         var cond2: bool = not bool(retry_ent.bandaged_parts.get("chest", false))
         var cond3: bool = EntityMedical.has_direct_pressure_on_part(retry_ent, "chest")
-        if (
-            cond1
-            and cond2
-            and cond3
-        ):
+        if cond1 and cond2 and cond3:
             saw_fail_refund = true
             break
     if not saw_fail_refund:

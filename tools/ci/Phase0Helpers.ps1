@@ -8,73 +8,73 @@
 
 function Invoke-Phase0GodotHarnessWithTimeout {
 
-	param(
+    param(
 
-		[string]$Root,
+        [string]$Root,
 
-		[string]$HarnessMode,
+        [string]$HarnessMode,
 
-		[string]$TeeLog,
+        [string]$TeeLog,
 
-		[string]$ExitFile,
+        [string]$ExitFile,
 
-		[int]$TimeoutSeconds = 900,
+        [int]$TimeoutSeconds = 900,
 
-		[string]$F5BackupPath = "",
+        [string]$F5BackupPath = "",
 
-		[bool]$RestoreF5 = $false
+        [bool]$RestoreF5 = $false
 
-	)
+    )
 
-	$Godot = Get-FallenPathsGodot
-
-
-
-	if ($RestoreF5 -and (Test-Path $F5BackupPath)) {
-
-		Copy-Item $F5BackupPath (Join-Path $Root ".f5_soak_in.txt") -Force
-
-	}
+    $Godot = Get-FallenPathsGodot
 
 
 
-	$args = @("--headless", "--path", $Root, "-s", "res://tools/ci/run_all_combat_checks.gd")
+    if ($RestoreF5 -and (Test-Path $F5BackupPath)) {
 
-	$proc = Start-Process -FilePath $Godot -ArgumentList $args -NoNewWindow -PassThru -Wait:$false
+        Copy-Item $F5BackupPath (Join-Path $Root ".f5_soak_in.txt") -Force
 
-
-
-	$finished = $proc.WaitForExit($TimeoutSeconds * 1000)
-
-	if (-not $finished) {
-
-		Write-Host "  [HARNESS:$HarnessMode] TIMEOUT after ${TimeoutSeconds}s (PID=$($proc.Id))" -ForegroundColor Red
-
-		Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
-
-		Set-Content -Path $ExitFile -Value "-1" -Encoding utf8
-
-		if ($TeeLog -ne "") {
-
-			@("TIMEOUT after ${TimeoutSeconds}s", "Mode: $HarnessMode") | Set-Content -Path $TeeLog -Encoding utf8
-
-		}
-
-		return $false
-
-	}
+    }
 
 
 
-	if ($TeeLog -ne "") {
+    $args = @("--headless", "--path", $Root, "-s", "res://tools/ci/run_all_combat_checks.gd")
 
-		@("Exit code: $($proc.ExitCode)", "Mode: $HarnessMode", "Duration: ${TimeoutSeconds}s max") | Set-Content -Path $TeeLog -Encoding utf8
+    $proc = Start-Process -FilePath $Godot -ArgumentList $args -NoNewWindow -PassThru -Wait:$false
 
-	}
 
-	Set-Content -Path $ExitFile -Value $proc.ExitCode -Encoding utf8
 
-	return $true
+    $finished = $proc.WaitForExit($TimeoutSeconds * 1000)
+
+    if (-not $finished) {
+
+        Write-Host "  [HARNESS:$HarnessMode] TIMEOUT after ${TimeoutSeconds}s (PID=$($proc.Id))" -ForegroundColor Red
+
+        Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
+
+        Set-Content -Path $ExitFile -Value "-1" -Encoding utf8
+
+        if ($TeeLog -ne "") {
+
+            @("TIMEOUT after ${TimeoutSeconds}s", "Mode: $HarnessMode") | Set-Content -Path $TeeLog -Encoding utf8
+
+        }
+
+        return $false
+
+    }
+
+
+
+    if ($TeeLog -ne "") {
+
+        @("Exit code: $($proc.ExitCode)", "Mode: $HarnessMode", "Duration: ${TimeoutSeconds}s max") | Set-Content -Path $TeeLog -Encoding utf8
+
+    }
+
+    Set-Content -Path $ExitFile -Value $proc.ExitCode -Encoding utf8
+
+    return $true
 
 }
 
@@ -82,21 +82,21 @@ function Invoke-Phase0GodotHarnessWithTimeout {
 
 function Invoke-Phase0DocLinkCheck {
 
-	param([string]$Root)
+    param([string]$Root)
 
-	$script = Join-Path $Root "tools\ci\check_doc_links.ps1"
+    $script = Join-Path $Root "tools\ci\check_doc_links.ps1"
 
-	if (Test-Path $script) {
+    if (Test-Path $script) {
 
-		& $script
+        & $script
 
-		return $LASTEXITCODE -eq 0
+        return $LASTEXITCODE -eq 0
 
-	}
+    }
 
-	Write-Host "  SKIP: no doc link checker found"
+    Write-Host "  SKIP: no doc link checker found"
 
-	return $true
+    return $true
 
 }
 
@@ -104,61 +104,61 @@ function Invoke-Phase0DocLinkCheck {
 
 function Invoke-Phase0CompanyState {
 
-	param(
+    param(
 
-		[string]$Root,
+        [string]$Root,
 
-		[string]$SummaryPath,
+        [string]$SummaryPath,
 
-		[System.Collections.Generic.List[string]]$Lines,
+        [System.Collections.Generic.List[string]]$Lines,
 
-		[bool]$SkipWarmup = $false
+        [bool]$SkipWarmup = $false
 
-	)
+    )
 
-	if (-not $SkipWarmup) {
+    if (-not $SkipWarmup) {
 
-		Write-Host "=== Godot import warmup ==="
+        Write-Host "=== Godot import warmup ==="
 
-		Invoke-FallenPathsGodotImportWarmup -SleepSeconds 0
+        Invoke-FallenPathsGodotImportWarmup -SleepSeconds 0
 
-		Write-Host ""
+        Write-Host ""
 
-	} else {
+    } else {
 
-		$env:FP_SKIP_GODOT_WARMUP = "1"
+        $env:FP_SKIP_GODOT_WARMUP = "1"
 
-	}
-
-
-
-	Write-Host "=== CompanyStateChecks (558 tests) ==="
-
-	$companyOut = @(& (Join-Path $Root "tools\ci\run_company_state_checks.ps1") 2>&1 | ForEach-Object { "$_" })
-
-	$companyOut | ForEach-Object { Write-Host $_ }
-
-	$companyOk = $companyOut | Where-Object { $_ -match "FP_HARNESS_OK:\s+CompanyStateChecks" } | Select-Object -Last 1
-
-	$companyExit = $LASTEXITCODE
+    }
 
 
 
-	if ($companyExit -ne 0 -or -not $companyOk) {
+    Write-Host "=== CompanyStateChecks (558 tests) ==="
 
-		$Lines.Add("COMPANY_STATE: FAIL exit=$companyExit")
+    $companyOut = @(& (Join-Path $Root "tools\ci\run_company_state_checks.ps1") 2>&1 | ForEach-Object { "$_" })
 
-		return $false
+    $companyOut | ForEach-Object { Write-Host $_ }
 
-	}
+    $companyOk = $companyOut | Where-Object { $_ -match "FP_HARNESS_OK:\s+CompanyStateChecks" } | Select-Object -Last 1
 
-	$Lines.Add("COMPANY_STATE: PASS")
+    $companyExit = $LASTEXITCODE
 
-	if ($companyOk) { $Lines.Add([string]$companyOk) }
 
-	Write-Host ""
 
-	return $true
+    if ($companyExit -ne 0 -or -not $companyOk) {
+
+        $Lines.Add("COMPANY_STATE: FAIL exit=$companyExit")
+
+        return $false
+
+    }
+
+    $Lines.Add("COMPANY_STATE: PASS")
+
+    if ($companyOk) { $Lines.Add([string]$companyOk) }
+
+    Write-Host ""
+
+    return $true
 
 }
 
@@ -166,58 +166,58 @@ function Invoke-Phase0CompanyState {
 
 function Invoke-Phase0RegressionHarness {
 
-	param(
+    param(
 
-		[string]$Root,
+        [string]$Root,
 
-		[string]$SummaryPath,
+        [string]$SummaryPath,
 
-		[System.Collections.Generic.List[string]]$Lines,
+        [System.Collections.Generic.List[string]]$Lines,
 
-		[string]$TeeLog = ".phase0_fast_regression.txt"
+        [string]$TeeLog = ".phase0_fast_regression.txt"
 
-	)
+    )
 
-	Write-Host "=== CombatRegressionHarness (quick smoke) ==="
+    Write-Host "=== CombatRegressionHarness (quick smoke) ==="
 
-	$teePath = Join-Path $Root $TeeLog
+    $teePath = Join-Path $Root $TeeLog
 
-	$null = Invoke-FallenPathsGodotScript -HarnessMode "regression"
+    $null = Invoke-FallenPathsGodotScript -HarnessMode "regression"
 
-	$exitCode = Get-FallenPathsGodotExitCode
+    $exitCode = Get-FallenPathsGodotExitCode
 
 
 
-	$harnessReportPath = Join-Path $Root ".harness_out.txt"
+    $harnessReportPath = Join-Path $Root ".harness_out.txt"
 
-	if (Test-Path $harnessReportPath) {
+    if (Test-Path $harnessReportPath) {
 
-		$out = @(Get-Content -Path $harnessReportPath -Encoding utf8)
+        $out = @(Get-Content -Path $harnessReportPath -Encoding utf8)
 
-		$ok = [bool]($out | Where-Object { $_ -match "ok=true" } | Select-Object -Last 1)
-		$nameMatch = [bool]($out | Where-Object { $_ -match "^name=CombatRegressionHarness$" } | Select-Object -Last 1)
+        $ok = [bool]($out | Where-Object { $_ -match "ok=true" } | Select-Object -Last 1)
+        $nameMatch = [bool]($out | Where-Object { $_ -match "^name=CombatRegressionHarness$" } | Select-Object -Last 1)
 
-		if (-not $ok -or -not $nameMatch) {
+        if (-not $ok -or -not $nameMatch) {
 
-			$Lines.Add("REGRESSION: FAIL (harness report invalid)")
+            $Lines.Add("REGRESSION: FAIL (harness report invalid)")
 
-			return $false
+            return $false
 
-		}
+        }
 
-		$Lines.Add("REGRESSION: PASS")
+        $Lines.Add("REGRESSION: PASS")
 
-	} else {
+    } else {
 
-		$Lines.Add("REGRESSION: FAIL (no output)")
+        $Lines.Add("REGRESSION: FAIL (no output)")
 
-		return $false
+        return $false
 
-	}
+    }
 
-	Write-Host ""
+    Write-Host ""
 
-	return $true
+    return $true
 
 }
 
@@ -225,85 +225,85 @@ function Invoke-Phase0RegressionHarness {
 
 function Invoke-Phase0D001LightHarness {
 
-	param(
+    param(
 
-		[string]$Root,
+        [string]$Root,
 
-		[string]$SummaryPath,
+        [string]$SummaryPath,
 
-		[System.Collections.Generic.List[string]]$Lines,
+        [System.Collections.Generic.List[string]]$Lines,
 
-		[string]$TeeLog = ".phase0_d001_light.txt"
+        [string]$TeeLog = ".phase0_d001_light.txt"
 
-	)
+    )
 
-	Write-Host "=== CombatD001SoakRunner (light mode) ==="
+    Write-Host "=== CombatD001SoakRunner (light mode) ==="
 
-	$f5b_path = Join-Path $Root ".f5_soak_in.f5_backup.txt"
+    $f5b_path = Join-Path $Root ".f5_soak_in.f5_backup.txt"
 
-	if (Test-Path (Join-Path $Root ".f5_soak_in.txt")) {
+    if (Test-Path (Join-Path $Root ".f5_soak_in.txt")) {
 
-		Copy-Item (Join-Path $Root ".f5_soak_in.txt") $f5b_path -Force
+        Copy-Item (Join-Path $Root ".f5_soak_in.txt") $f5b_path -Force
 
-	}
-
-
-
-	Invoke-FallenPathsGodotScript -HarnessMode "d001_light" -TeeLog $TeeLog *> $null
-
-	$exitCode = Get-FallenPathsGodotExitCode
+    }
 
 
 
-	if (Test-Path $TeeLog) {
+    Invoke-FallenPathsGodotScript -HarnessMode "d001_light" -TeeLog $TeeLog *> $null
 
-		$out = @(Get-Content -Path $TeeLog -Encoding utf8)
-
-		$out | ForEach-Object { Write-Host $_ }
-
-		$ok = $false
-
-		foreach ($line in $out) {
-
-			if ($line -match "FP_HARNESS_OK:\s+CombatD001Light") {
-
-				$ok = $true
-
-				break
-
-			}
-
-		}
-
-		if (-not $ok) {
-
-			$Lines.Add("D001_LIGHT: FAIL (exit=$exitCode)")
-
-			return $false
-
-		}
-
-		$Lines.Add("D001_LIGHT: PASS")
-
-	} else {
-
-		$Lines.Add("D001_LIGHT: FAIL (no output)")
-
-		return $false
-
-	}
+    $exitCode = Get-FallenPathsGodotExitCode
 
 
 
-	if (Test-Path $f5b_path) {
+    if (Test-Path $TeeLog) {
 
-		Copy-Item $f5b_path (Join-Path $Root ".f5_soak_in.txt") -Force
+        $out = @(Get-Content -Path $TeeLog -Encoding utf8)
 
-	}
+        $out | ForEach-Object { Write-Host $_ }
 
-	Write-Host ""
+        $ok = $false
 
-	return $true
+        foreach ($line in $out) {
+
+            if ($line -match "FP_HARNESS_OK:\s+CombatD001Light") {
+
+                $ok = $true
+
+                break
+
+            }
+
+        }
+
+        if (-not $ok) {
+
+            $Lines.Add("D001_LIGHT: FAIL (exit=$exitCode)")
+
+            return $false
+
+        }
+
+        $Lines.Add("D001_LIGHT: PASS")
+
+    } else {
+
+        $Lines.Add("D001_LIGHT: FAIL (no output)")
+
+        return $false
+
+    }
+
+
+
+    if (Test-Path $f5b_path) {
+
+        Copy-Item $f5b_path (Join-Path $Root ".f5_soak_in.txt") -Force
+
+    }
+
+    Write-Host ""
+
+    return $true
 
 }
 

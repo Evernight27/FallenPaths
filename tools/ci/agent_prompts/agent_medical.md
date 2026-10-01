@@ -1,8 +1,8 @@
 Stream: **Medical Physics**. Hemorrhage / triage / treatment / pain-shock grounded in research anchors.
 
-**Gate:** `./tools/ci/run_all_combat_checks.sh` → **`PHASE0: PASS`**. Fast: `FP_HARNESS_MODE=medical|calibration`.
+**Gate:** `./tools/ci/run_all_combat_checks.sh` → **`PHASE0: PASS`**. Fast: `-HarnessMode medical` (+`calibration`).
 
-**Own:** `core/EntityMedical.gd`, `core/EntityWounds.gd`, `core/EntityHealing.gd`, `core/EntityDamage.gd`, `core/BleedingConstants.gd`, `core/CombatResearchAnchors.gd`, `combat/medical/MedicalPhaseController.gd` (time-advance slices), `combat/medical/CombatMedicalCoordination.gd`, `combat/medical/CombatMedicalActionListing.gd`, `combat/medical/MedicalActionStarter.gd`, `combat/medical/MedicalWindUpHandler.gd`, `harness/CombatRegressionHarnessMedicalPhaseTail.gd`, `harness/CombatRegressionHarnessMedicalMobilityTail.gd`, `harness/CombatCalibrationAudit.gd`, `ui/battle/BattleUIUpdater.gd` (medical busy gauge).
+**Own:** `core/EntityMedical.gd`, `core/EntityWounds.gd`, `core/EntityHealing.gd`, `core/EntityDamage.gd`, `core/BleedingConstants.gd`, `core/CombatResearchAnchors.gd`, `combat/medical/MedicalPhaseController.gd` (time-advance slices), `combat/medical/CombatMedicalCoordination.gd`, `combat/medical/CombatMedicalActionListing.gd`, `combat/medical/MedicalActionStarter.gd`, `combat/medical/MedicalWindUpHandler.gd`, `harness/medical_phase/MedicalPhaseTail.gd`, `harness/medical_phase/MedicalMobilityTail.gd`, `harness/calibration/CombatCalibrationAudit.gd`, `ui/battle/BattleUIUpdater.gd` (medical busy gauge).
 
 **Do not:** mental-stack order · formation/WF/IV · economy · new `FEATURE_*` · closed bleed/BMI without ask. One agent on `EntityMedical`/`EntityWounds` at a time.
 

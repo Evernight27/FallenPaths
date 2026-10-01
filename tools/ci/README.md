@@ -12,7 +12,7 @@ Expect **`PHASE0: PASS`**. Do not pipe stdout to `grep`. Windows: `.\tools\ci\ru
 |--------|------|
 | `run_all_combat_checks.sh` / `.ps1` | Full Phase 0 gate |
 | `run_fast_phase0.sh` / `.ps1` | Fast gate (docs + company + regression); CI PRs. `--full` / **-Full** = full Phase 0; **-D001Light** PS1-only |
-| `run_company_state_checks.sh` / `.ps1` | Camp-1 economy (**558** tests); exit = `FP_HARNESS_OK: CompanyStateChecks` |
+| `run_company_state_checks.sh` / `.ps1` | Camp-1 economy (**783** tests); exit = `FP_HARNESS_OK: CompanyStateChecks` |
 | `run_campaign_ship_audit.sh` / `.ps1` | Camp-3.4/5 standalone; `-TailOnly` skips company checks |
 | `run_playtest.sh` / `.ps1` | Playtest dispatcher (F5 / Camp closeout) — see below |
 | `run_q_feel.sh` / `.ps1` | F5 feel checklist (`Camp` \| `Q1` \| `Q2`) |

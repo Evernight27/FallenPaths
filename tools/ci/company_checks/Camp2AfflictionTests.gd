@@ -711,9 +711,7 @@ static func _run_camp_2_bridge_spot_checks(failures: PackedStringArray) -> void:
     CompanyState.set_medical_supplies(resus_world, 2)
     var pm_resus: Node = resus_world.get_meta("party_manager")
     var resus_ent: Node = _add_living_entity_member(pm_resus, "Resus")
-    var resus_member: Dictionary = PartyMemberSnapshot.snapshot_from_member(
-        {"name": "Resus", "node_ref": resus_ent}
-    )
+    var resus_member: Dictionary = PartyMemberSnapshot.snapshot_from_member({"name": "Resus", "node_ref": resus_ent})
     # Healthy (full-blood) member: not offered.
     if MapFieldCare.can_offer_field_resuscitation(resus_world, resus_member):
         _fail(failures, "Camp-2.7: resuscitation should not be offered to a full-blood member")
@@ -734,8 +732,10 @@ static func _run_camp_2_bridge_spot_checks(failures: PackedStringArray) -> void:
     if resus_ent.blood_volume < BleedingConstants.DECOMPENSATION_BLOOD_THRESHOLD:
         _fail(
             failures,
-            "Camp-2.7: resuscitation should lift blood above the decompensation threshold (got %.1f)"
-            % resus_ent.blood_volume
+            (
+                "Camp-2.7: resuscitation should lift blood above the decompensation threshold (got %.1f)"
+                % resus_ent.blood_volume
+            )
         )
     else:
         _pass()

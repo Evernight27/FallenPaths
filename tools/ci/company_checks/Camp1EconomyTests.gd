@@ -798,18 +798,14 @@ static func _run_camp_rest_quality_starvation_partial_recovery(failures: PackedS
     if absf(starve_quality - CoreEntity.REST_QUALITY_FLOOR) > 0.001:
         _fail(
             failures,
-            "Rest-quality: starving quality want floor %.3f got %.3f"
-            % [CoreEntity.REST_QUALITY_FLOOR, starve_quality]
+            "Rest-quality: starving quality want floor %.3f got %.3f" % [CoreEntity.REST_QUALITY_FLOOR, starve_quality]
         )
     else:
         _pass()
     ent.apply_rest_quality(starve_quality)
     var residual: float = ent.campaign_fatigue
     if not (residual > 0.0 and residual < 1.0):
-        _fail(
-            failures,
-            "Rest-quality: starving rest should partially recover (0 < residual < 1) got %.3f" % residual
-        )
+        _fail(failures, "Rest-quality: starving rest should partially recover (0 < residual < 1) got %.3f" % residual)
     else:
         _pass()
     _free_harness_world(world)
@@ -844,7 +840,10 @@ static func _run_weapon_edge_wear_sharpening(failures: PackedStringArray) -> voi
     ent.apply_weapon_edge_wear_to_weapon()
     if float(w.sharpness) >= fresh_sharpness:
         var worn_sharpness: float = float(w.sharpness)
-        _fail(failures, "Weapon-wear: worn edge should lower sharpness (fresh=%.3f worn=%.3f)" % [fresh_sharpness, worn_sharpness])
+        _fail(
+            failures,
+            "Weapon-wear: worn edge should lower sharpness (fresh=%.3f worn=%.3f)" % [fresh_sharpness, worn_sharpness]
+        )
     else:
         _pass()
     # Repeated battles clamp wear at 1.0 -> sharpness at the dull floor.
@@ -858,8 +857,10 @@ static func _run_weapon_edge_wear_sharpening(failures: PackedStringArray) -> voi
     if absf(float(w.sharpness) - CoreEntity.WEAPON_EDGE_WEAR_DULL_SHARPNESS) > 0.001:
         _fail(
             failures,
-            "Weapon-wear: maxed sharpness want %.3f got %.3f"
-            % [CoreEntity.WEAPON_EDGE_WEAR_DULL_SHARPNESS, float(w.sharpness)]
+            (
+                "Weapon-wear: maxed sharpness want %.3f got %.3f"
+                % [CoreEntity.WEAPON_EDGE_WEAR_DULL_SHARPNESS, float(w.sharpness)]
+            )
         )
     else:
         _pass()
@@ -872,7 +873,10 @@ static func _run_weapon_edge_wear_sharpening(failures: PackedStringArray) -> voi
     ent.apply_weapon_edge_wear_to_weapon()
     var restored_sharpness: float = float(w.sharpness)
     if absf(restored_sharpness - fresh_sharpness) > 0.001:
-        _fail(failures, "Weapon-wear: after sharpening sharpness want %.3f got %.3f" % [fresh_sharpness, restored_sharpness])
+        _fail(
+            failures,
+            "Weapon-wear: after sharpening sharpness want %.3f got %.3f" % [fresh_sharpness, restored_sharpness]
+        )
     else:
         _pass()
     _free_harness_world(world)

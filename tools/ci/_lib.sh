@@ -11,7 +11,7 @@ fp_root() { fp_project_root; }
 fp_die() { echo "$*" >&2; exit "${2:-1}"; }
 
 fp_abs() {
-	local p="$1"
-	[[ "$p" == /* ]] && { echo "$p"; return; }
-	echo "$(fp_root)/$p"
+    local p="$1"
+    [[ "$p" == /* ]] && { echo "$p"; return; }
+    echo "$(fp_root)/$p"
 }

@@ -44,7 +44,7 @@ Post-rout mop-up / sparse skirmish: rotate suppress, L4b `sparse_fight`, fight-f
 
 **Extra gate:** `ii_envelop_mopup: PASS`.
 
-**Read:** `CombatDoctrine` → `MentalStackDecider` (L4b) → `CombatAIActionPicker` → `CombatMeleeListing` → `harness/CombatRegressionHarnessTier1Tail.gd`.
+**Read:** `CombatDoctrine` → `MentalStackDecider` (L4b) → `CombatAIActionPicker` → `CombatMeleeListing` → `harness/tier1/Tier1Tail.gd`.
 
 **Do not:** `world/*` · new `FEATURE_*` · regress rotate on full lines.
 

@@ -30,9 +30,9 @@
 
 param(
 
-	[switch]$Full,
+    [switch]$Full,
 
-	[switch]$D001Light
+    [switch]$D001Light
 
 )
 
@@ -50,11 +50,11 @@ $Root = Get-FallenPathsRoot
 
 if ($Full) {
 
-	Write-Host "=== Fast mode disabled: running full Phase 0 ==="
+    Write-Host "=== Fast mode disabled: running full Phase 0 ==="
 
-	& (Join-Path $Root "tools\ci\run_all_combat_checks.ps1")
+    & (Join-Path $Root "tools\ci\run_all_combat_checks.ps1")
 
-	exit $LASTEXITCODE
+    exit $LASTEXITCODE
 
 }
 
@@ -64,127 +64,127 @@ if ($Full) {
 
 if ($D001Light) {
 
-	Write-Host "=== Fast Phase 0 + D001 Light (regression + company state + D001 presets+unit) ==="
+    Write-Host "=== Fast Phase 0 + D001 Light (regression + company state + D001 presets+unit) ==="
 
-	Write-Host ""
+    Write-Host ""
 
-	$SummaryPath = Join-Path $Root ".phase0_fast_d001_light.txt"
+    $SummaryPath = Join-Path $Root ".phase0_fast_d001_light.txt"
 
-	$lines = New-Object System.Collections.Generic.List[string]
+    $lines = New-Object System.Collections.Generic.List[string]
 
-	$fail = 0
+    $fail = 0
 
 
 
-	# Step 1: Doc link check
+    # Step 1: Doc link check
 
-	Write-Host "=== Doc link check ==="
+    Write-Host "=== Doc link check ==="
 
-	if (-not (Invoke-Phase0DocLinkCheck $Root)) {
+    if (-not (Invoke-Phase0DocLinkCheck $Root)) {
 
-		$lines.Add("DOC_LINKS: FAIL")
+        $lines.Add("DOC_LINKS: FAIL")
 
-		$fail = 1
+        $fail = 1
 
-	} else {
+    } else {
 
-		$lines.Add("DOC_LINKS: PASS")
+        $lines.Add("DOC_LINKS: PASS")
 
-	}
+    }
 
-	Write-Host ""
+    Write-Host ""
 
 
 
-	if ($fail -eq 0) {
+    if ($fail -eq 0) {
 
-		# Step 2-3: CompanyStateChecks (with warmup)
+        # Step 2-3: CompanyStateChecks (with warmup)
 
-		if (-not (Invoke-Phase0CompanyState $Root $SummaryPath $lines)) {
+        if (-not (Invoke-Phase0CompanyState $Root $SummaryPath $lines)) {
 
-			$fail = 1
+            $fail = 1
 
-		}
+        }
 
-	}
+    }
 
 
 
-	# Step 4: Regression harness
+    # Step 4: Regression harness
 
-	if ($fail -eq 0) {
+    if ($fail -eq 0) {
 
-		if (-not (Invoke-Phase0RegressionHarness $Root $SummaryPath $lines ".phase0_fast_d001_light_regression.txt")) {
+        if (-not (Invoke-Phase0RegressionHarness $Root $SummaryPath $lines ".phase0_fast_d001_light_regression.txt")) {
 
-			$fail = 1
+            $fail = 1
 
-		}
+        }
 
-	}
+    }
 
 
 
-	# Step 5: D001 Light
+    # Step 5: D001 Light
 
-	if ($fail -eq 0) {
+    if ($fail -eq 0) {
 
-		if (-not (Invoke-Phase0D001LightHarness $Root $SummaryPath $lines ".phase0_fast_d001_light.txt.d001")) {
+        if (-not (Invoke-Phase0D001LightHarness $Root $SummaryPath $lines ".phase0_fast_d001_light.txt.d001")) {
 
-			$fail = 1
+            $fail = 1
 
-		}
+        }
 
-	}
+    }
 
 
 
-	# Summary
+    # Summary
 
-	if ($fail -ne 0) {
+    if ($fail -ne 0) {
 
-		$lines.Add("FAST_PHASE0_D001_LIGHT: FAIL")
+        $lines.Add("FAST_PHASE0_D001_LIGHT: FAIL")
 
-		$lines.Add("ran_at=$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')")
+        $lines.Add("ran_at=$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')")
 
-		$lines | Set-Content -Path $SummaryPath -Encoding utf8
+        $lines | Set-Content -Path $SummaryPath -Encoding utf8
 
-		Write-Host "=== FAST_PHASE0_D001_LIGHT: FAIL ==="
+        Write-Host "=== FAST_PHASE0_D001_LIGHT: FAIL ==="
 
-		exit 1
+        exit 1
 
-	}
+    }
 
 
 
-	$lines.Add("FAST_PHASE0_D001_LIGHT: PASS")
+    $lines.Add("FAST_PHASE0_D001_LIGHT: PASS")
 
-	$lines.Add("ran_at=$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')")
+    $lines.Add("ran_at=$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')")
 
-	$lines | Set-Content -Path $SummaryPath -Encoding utf8
+    $lines | Set-Content -Path $SummaryPath -Encoding utf8
 
 
 
-	Write-Host "=== FAST_PHASE0_D001_LIGHT: PASS ==="
+    Write-Host "=== FAST_PHASE0_D001_LIGHT: PASS ==="
 
-	Write-Host ""
+    Write-Host ""
 
-	Write-Host "Fast Phase 0 + D001 Light covers regression + company state + D001 presets+unit checks."
+    Write-Host "Fast Phase 0 + D001 Light covers regression + company state + D001 presets+unit checks."
 
-	Write-Host "For full PHASE0 (regression + D001 soak + calibration + campaign audit):"
+    Write-Host "For full PHASE0 (regression + D001 soak + calibration + campaign audit):"
 
-	Write-Host "  .\tools\ci\run_all_combat_checks.ps1"
+    Write-Host "  .\tools\ci\run_all_combat_checks.ps1"
 
-	Write-Host ""
+    Write-Host ""
 
-	Write-Host "Reports:"
+    Write-Host "Reports:"
 
-	Write-Host "  .phase0_fast_d001_light.txt          (this summary)"
+    Write-Host "  .phase0_fast_d001_light.txt          (this summary)"
 
-	Write-Host "  .phase0_fast_d001_light_regression.txt (regression output)"
+    Write-Host "  .phase0_fast_d001_light_regression.txt (regression output)"
 
-	Write-Host "  .phase0_fast_d001_light.txt.d001     (D001 light output)"
+    Write-Host "  .phase0_fast_d001_light.txt.d001     (D001 light output)"
 
-	exit 0
+    exit 0
 
 }
 
@@ -210,13 +210,13 @@ Write-Host "=== Doc link check ==="
 
 if (-not (Invoke-Phase0DocLinkCheck $Root)) {
 
-	$lines.Add("DOC_LINKS: FAIL")
+    $lines.Add("DOC_LINKS: FAIL")
 
-	$fail = 1
+    $fail = 1
 
 } else {
 
-	$lines.Add("DOC_LINKS: PASS")
+    $lines.Add("DOC_LINKS: PASS")
 
 }
 
@@ -228,11 +228,11 @@ Write-Host ""
 
 if ($fail -eq 0) {
 
-	if (-not (Invoke-Phase0CompanyState $Root $SummaryPath $lines)) {
+    if (-not (Invoke-Phase0CompanyState $Root $SummaryPath $lines)) {
 
-		$fail = 1
+        $fail = 1
 
-	}
+    }
 
 }
 
@@ -242,11 +242,11 @@ if ($fail -eq 0) {
 
 if ($fail -eq 0) {
 
-	if (-not (Invoke-Phase0RegressionHarness $Root $SummaryPath $lines ".phase0_fast_regression_out.txt")) {
+    if (-not (Invoke-Phase0RegressionHarness $Root $SummaryPath $lines ".phase0_fast_regression_out.txt")) {
 
-		$fail = 1
+        $fail = 1
 
-	}
+    }
 
 }
 
@@ -256,15 +256,15 @@ if ($fail -eq 0) {
 
 if ($fail -ne 0) {
 
-	$lines.Add("FAST_PHASE0: FAIL")
+    $lines.Add("FAST_PHASE0: FAIL")
 
-	$lines.Add("ran_at=$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')")
+    $lines.Add("ran_at=$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')")
 
-	$lines | Set-Content -Path $SummaryPath -Encoding utf8
+    $lines | Set-Content -Path $SummaryPath -Encoding utf8
 
-	Write-Host "=== FAST_PHASE0: FAIL ==="
+    Write-Host "=== FAST_PHASE0: FAIL ==="
 
-	exit 1
+    exit 1
 
 }
 
