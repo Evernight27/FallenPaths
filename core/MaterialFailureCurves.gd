@@ -59,7 +59,10 @@ static func blunt_bone_damage_from_ke(ke_j: float, part: String, sub_region: Str
     var j_anchor: float = CombatDamageMechanism.blunt_fracture_j_anchor(part, sub_region)
     if ke_j < j_anchor:
         return 0.0
-    return maxf(CombatDamageMechanism.MFB_BLUNT_FRACTURE_GAME_DAMAGE_FLOOR, CombatDamageMechanism.j_excess_to_bone_damage(ke_j - j_anchor))
+    return maxf(
+        CombatDamageMechanism.MFB_BLUNT_FRACTURE_GAME_DAMAGE_FLOOR,
+        CombatDamageMechanism.j_excess_to_bone_damage(ke_j - j_anchor)
+    )
 
 
 ## Cut-dominant bone gate — now uses tissue depth instead of RHA penetration for anatomical accuracy.
@@ -112,7 +115,8 @@ static func allocate_bone_and_tissue(
             if strike_ke_j >= 0.0:
                 to_bone = maxf(to_bone, blunt_bone_damage_from_ke(strike_ke_j, part, sub_region))
             ## Sharp-dominant bone cap: bone damage cannot exceed 45% of total final damage.
-            ## Prevents cut weapons from dealing disproportionate bone vs tissue — clinically, clean cuts spare bone integrity.
+            ## Prevents cut weapons from dealing disproportionate bone vs tissue — clinically, clean cuts spare bone
+            ## integrity.
             to_bone = minf(to_bone, total_final * 0.45)
         "blunt":
             to_bone = blunt_bone_damage_from_ke(ke_blunt, part, sub_region)

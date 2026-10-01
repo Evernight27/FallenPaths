@@ -179,13 +179,20 @@ static func append_research_benchmark_lines(lines: PackedStringArray) -> void:
     )
     lines.append(
         (
-            "cut_bone_pen_gate_mm game_MFB=%.1f curve_graze_yield=%.1f literature_deep_laceration_reaches_cortex note=abstract_RHA_mm_not_CT"
+            (
+                "cut_bone_pen_gate_mm game_MFB=%.1f curve_graze_yield=%.1f literature_deep_laceration_reaches_cortex "
+                + "note=abstract_RHA_mm_not_CT"
+            )
             % [CombatDamageMechanism.MFB_CUT_BONE_MIN_PENETRATION_MM, MaterialFailureCurves.CUT_TISSUE_YIELD_PEN_MM]
         )
     )
     lines.append(
         (
-            "forearm_blunt_fracture_anchor_J game=%.0f committed_oberhau_J=%.0f bone_damage_at_anchor=%.2f literature=Nm_not_1:1_J verdict=note" % [forearm_j, ke_commit, bone_at_ke]
+            (
+                "forearm_blunt_fracture_anchor_J game=%.0f committed_oberhau_J=%.0f bone_damage_at_anchor=%.2f "
+                + "literature=Nm_not_1:1_J verdict=note"
+            )
+            % [forearm_j, ke_commit, bone_at_ke]
         )
     )
     lines.append(
@@ -813,27 +820,33 @@ static func append_research_benchmark_lines(lines: PackedStringArray) -> void:
             )
         )
     )
-    lines.append(
-        (
-            "arm_grip_parry_ratio=%.3f literature 10/15_parry_ratio doc_line_91 verdict=%s"
-            % [
-                LITERATURE_GRIP_PARRY_ATTACK_RATIO,
-                "pass" if arm_grip_parry_ratio_applied() else "warn",
-            ]
+    (
+        lines
+        . append(
+            (
+                "arm_grip_parry_ratio=%.3f literature 10/15_parry_ratio doc_line_91 verdict=%s"
+                % [
+                    LITERATURE_GRIP_PARRY_ATTACK_RATIO,
+                    "pass" if arm_grip_parry_ratio_applied() else "warn",
+                ]
+            )
         )
     )
-    lines.append(
-        (
+    (
+        lines
+        . append(
             (
-                "riposte_chain_window_s=%.1f == counter_tempo_windup_max_s=%.1f < full_deflect_bonus=%.1fs "
-                + "windup_mult=%.1f indes_in_the_bind_immediacy_qualitative_only verdict=note"
+                (
+                    "riposte_chain_window_s=%.1f == counter_tempo_windup_max_s=%.1f < full_deflect_bonus=%.1fs "
+                    + "windup_mult=%.1f indes_in_the_bind_immediacy_qualitative_only verdict=note"
+                )
+                % [
+                    CombatConstants.RIPOSTE_CHAIN_WINDOW_S,
+                    CombatConstants.COUNTER_TEMPO_WINDUP_MAX_S,
+                    CombatConstants.PARRY_BONUS_AFTER_DEFLECT_S,
+                    CombatConstants.RIPOSTE_CHAIN_WINDUP_MULT,
+                ]
             )
-            % [
-                CombatConstants.RIPOSTE_CHAIN_WINDOW_S,
-                CombatConstants.COUNTER_TEMPO_WINDUP_MAX_S,
-                CombatConstants.PARRY_BONUS_AFTER_DEFLECT_S,
-                CombatConstants.RIPOSTE_CHAIN_WINDUP_MULT,
-            ]
         )
     )
     append_research_verdict_summary(lines)

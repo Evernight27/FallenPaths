@@ -722,10 +722,26 @@ static func _in_band(value: float, lo: float, hi: float) -> bool:
 ## Severe-loss% per sub-region must land in the design table bands (plan_balance_tuning.md lines 541-544).
 static func arm_grip_sub_region_bands_ok() -> bool:
     return (
-        _in_band(arm_grip_loss_pct("hand", BleedingConstants.SEVERITY_SEVERE), LITERATURE_GRIP_HAND_BAND_MIN, LITERATURE_GRIP_HAND_BAND_MAX)
-        and _in_band(arm_grip_loss_pct("forearm", BleedingConstants.SEVERITY_SEVERE), LITERATURE_GRIP_FOREARM_BAND_MIN, LITERATURE_GRIP_FOREARM_BAND_MAX)
-        and _in_band(arm_grip_loss_pct("upper_arm", BleedingConstants.SEVERITY_SEVERE), LITERATURE_GRIP_UPPER_BAND_MIN, LITERATURE_GRIP_UPPER_BAND_MAX)
-        and _in_band(arm_grip_loss_pct("elbow", BleedingConstants.SEVERITY_SEVERE), LITERATURE_GRIP_ELBOW_BAND_MIN, LITERATURE_GRIP_ELBOW_BAND_MAX)
+        _in_band(
+            arm_grip_loss_pct("hand", BleedingConstants.SEVERITY_SEVERE),
+            LITERATURE_GRIP_HAND_BAND_MIN,
+            LITERATURE_GRIP_HAND_BAND_MAX
+        )
+        and _in_band(
+            arm_grip_loss_pct("forearm", BleedingConstants.SEVERITY_SEVERE),
+            LITERATURE_GRIP_FOREARM_BAND_MIN,
+            LITERATURE_GRIP_FOREARM_BAND_MAX
+        )
+        and _in_band(
+            arm_grip_loss_pct("upper_arm", BleedingConstants.SEVERITY_SEVERE),
+            LITERATURE_GRIP_UPPER_BAND_MIN,
+            LITERATURE_GRIP_UPPER_BAND_MAX
+        )
+        and _in_band(
+            arm_grip_loss_pct("elbow", BleedingConstants.SEVERITY_SEVERE),
+            LITERATURE_GRIP_ELBOW_BAND_MIN,
+            LITERATURE_GRIP_ELBOW_BAND_MAX
+        )
     )
 
 
@@ -733,10 +749,26 @@ static func arm_grip_sub_region_bands_ok() -> bool:
 ## severe hand tendon severance 30-50%, critical hand + forearm nerve/artery 50-70%.
 static func arm_grip_severity_bands_ok() -> bool:
     return (
-        _in_band(arm_grip_loss_pct("hand", BleedingConstants.SEVERITY_MINOR), LITERATURE_GRIP_MINOR_HAND_MIN, LITERATURE_GRIP_MINOR_HAND_MAX)
-        and _in_band(arm_grip_loss_pct("hand", BleedingConstants.SEVERITY_SEVERE), LITERATURE_GRIP_TENDON_MIN, LITERATURE_GRIP_TENDON_MAX)
-        and _in_band(arm_grip_loss_pct("hand", BleedingConstants.SEVERITY_CRITICAL), LITERATURE_GRIP_NERVE_ARTERY_MIN, LITERATURE_GRIP_NERVE_ARTERY_MAX)
-        and _in_band(arm_grip_loss_pct("forearm", BleedingConstants.SEVERITY_CRITICAL), LITERATURE_GRIP_NERVE_ARTERY_MIN, LITERATURE_GRIP_NERVE_ARTERY_MAX)
+        _in_band(
+            arm_grip_loss_pct("hand", BleedingConstants.SEVERITY_MINOR),
+            LITERATURE_GRIP_MINOR_HAND_MIN,
+            LITERATURE_GRIP_MINOR_HAND_MAX
+        )
+        and _in_band(
+            arm_grip_loss_pct("hand", BleedingConstants.SEVERITY_SEVERE),
+            LITERATURE_GRIP_TENDON_MIN,
+            LITERATURE_GRIP_TENDON_MAX
+        )
+        and _in_band(
+            arm_grip_loss_pct("hand", BleedingConstants.SEVERITY_CRITICAL),
+            LITERATURE_GRIP_NERVE_ARTERY_MIN,
+            LITERATURE_GRIP_NERVE_ARTERY_MAX
+        )
+        and _in_band(
+            arm_grip_loss_pct("forearm", BleedingConstants.SEVERITY_CRITICAL),
+            LITERATURE_GRIP_NERVE_ARTERY_MIN,
+            LITERATURE_GRIP_NERVE_ARTERY_MAX
+        )
     )
 
 

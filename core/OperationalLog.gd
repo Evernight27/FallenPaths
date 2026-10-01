@@ -142,7 +142,8 @@ static func play_world(message: String) -> void:
         CombatF5SoakTrace.ingest_world_trace_line(body)
 
 
-## Call from `scenes/campaign/main.gd` when running under the editor (F5). Enables turn-pick flow logs; all lines go to Output for
+## Call from `scenes/campaign/main.gd` when running under the editor (F5). Enables turn-pick flow logs; all lines go to
+## Output for
 ## copy-paste.
 static func begin_play_session(
     main_scene: String = CombatConstants.PATH_MAIN_SCENE,
@@ -539,7 +540,8 @@ static func write_f5_soak_capture(combat_lines: PackedStringArray) -> void:
     out.append(
         (
             (
-                "%s: headless d001 capture (auto from CombatD001SoakRunner  -  validate with tools/ci/validate_f5_soak_l"
+                "%s: headless d001 capture (auto from CombatD001SoakRunner  -  validate with "
+                + "tools/ci/validate_f5_soak_l"
                 + "og.ps1)"
             )
             % TAG_SESSION_BEGIN

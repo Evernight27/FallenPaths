@@ -12,7 +12,7 @@ const PROFICIENCY_STATS := ["strength", "agility", "endurance", "intelligence", 
 ## Compute base stat + proficiency bonus for a single stat key.
 ## `stat_name` must be one of PROFICIENCY_STATS. Returns raw base + bonus as float.
 ## No stub gate here - _proficiency_bonus exists on CoreEntity (init to 0.0) even when
-## proficiency is disabled; gain path is gated at AttackResultApplier.notify_proficiency_gains_from_resolve.
+## proficiency is disabled; gain path is gated at AttackProficiencyAwarder.notify_proficiency_gains_from_resolve.
 static func get_effective_stat(entity: Node, stat_name: String) -> float:
     if entity == null or not stat_name in PROFICIENCY_STATS:
         return float(entity.get(stat_name) if entity else 0)

@@ -212,7 +212,8 @@ static func penetration_through_layers(
             continue
         var absorbed: float = minf(remaining, budget)
         var new_state: String = _merge_layer_state(prev_state, _state_from_pen(absorbed, yield_mm, rupture_mm))
-        # Ruptured layers still absorb up to their full budget -- excess pen flows deeper; ruptured state is for tracking only.
+        # Ruptured layers still absorb up to their full budget -- excess pen flows deeper; ruptured state is for
+        # tracking only.
         remaining = maxf(0.0, remaining - absorbed)
         absorbed_total += absorbed
         per_layer_absorbed.append(absorbed)

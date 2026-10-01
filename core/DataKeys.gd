@@ -164,8 +164,6 @@ const PA_PARRY_TWIST_TIME_TO_REACT: String = "parry_twist_time_to_react"
 const PA_PARRY_TWIST_READINESS: String = "parry_twist_readiness"
 const COMBATANT_SLOT_KEY: String = "slot_key"
 
-
-
 # --- Formation dict keys (formation records) ---
 const FORMATION_LINE_COHESION: String = "line_cohesion"
 const FORMATION_ENGAGEMENT_POSTURE: String = "engagement_posture"
@@ -433,7 +431,8 @@ const ARCHETYPE_WEAPON_EXTENSION_COMMIT_FRACTION: String = "weapon_extension_com
 # --- Entity stat dict keys (combatant stats_dict) ---
 const ENTITY_MELEE_SKILL: String = "melee_skill"
 
-# --- Movement policy dict keys (CombatEngagementMode.movement_policy → CombatResolveAction/CombatFormationMoveListing) ---
+# --- Movement policy dict keys (CombatEngagementMode.movement_policy → CombatResolveAction/CombatFormationMoveListing)
+# ---
 const MOVE_POLICY_ALLOW_SWAP_RANK: String = "allow_swap_rank"
 const MOVE_POLICY_ALLOW_DRAG_BACK: String = "allow_drag_back"
 const MOVE_POLICY_ALLOW_FALL_BACK: String = "allow_fall_back"
@@ -448,7 +447,8 @@ const PA_ARC_END_DEG: String = "arc_end_deg"
 
 # --- Formation dict keys (new additions) ---
 const FM_FORMATION_PLUG_FORWARD_COOLDOWN_UNTIL: String = "formation_plug_forward_cooldown_until"
-# (FM_VACANCY_LATERAL_LAST_FROM_FILE declared at line 446, FM_VACANCY_LATERAL_LAST_TO_FILE at 447, FM_VACANCY_LATERAL_REVERSE_LOCK_UNTIL at 445)
+# (FM_VACANCY_LATERAL_LAST_FROM_FILE declared at line 446, FM_VACANCY_LATERAL_LAST_TO_FILE at 447,
+# FM_VACANCY_LATERAL_REVERSE_LOCK_UNTIL at 445)
 const FM_GAP_COLUMN_FILES: String = "gap_column_files"
 
 # --- Parry/attack keys (new additions) ---
@@ -625,4 +625,3 @@ const AIM_PART_OVERRIDE: String = "_AIM_PART_OVERRIDE"
 # --- Close-quarters engagement escalation keys (CQEE) ---
 const CLOSE_QUARTERS_EXCHANGES: String = "close_quarters_exchanges"
 const CLOSE_QUARTERS_GRAPPLE_COOLDOWN: String = "close_quarters_grapple_cooldown"
-

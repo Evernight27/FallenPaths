@@ -52,26 +52,36 @@ static func _process_healing(entity: Node, seconds: float) -> void:
                 var inj: Dictionary = list[i]
                 # CAMP-SCAR-1: record what this wound left behind so the world layer can mint a scar.
                 if entity.has_method("_stash_resolved_wound"):
-                    entity._stash_resolved_wound({
-                        "part": part,
-                        "severity": str(inj.get(DataKeys.INJURY_SEVERITY, BleedingConstants.SEVERITY_MODERATE)),
-                        "injury_type": str(inj.get("injury_type", "")),
-                        "is_compound_fracture": bool(inj.get("is_compound_fracture", false)),
-                        # Infection history rides on the wound's ever_infected latch (set once at the
-                        # 0->1 flip) with the live stage/is_infected state as a floor for legacy wounds
-                        # that predate the latch. A dressing clears stage/is_infected but NOT the latch,
-                        # so a cured-then-resolved wound still reports was_infected (scar mint).
-                        "was_infected": bool(inj.get("ever_infected", false)) or (int(inj.get("infection_stage", 0)) >= 1) or bool(inj.get("is_infected", false)),
-                        "is_osteomyelitis": bool(inj.get("is_osteomyelitis", false)),
-                        # Ischemia history travels on the WOUND's own latch (set by
-                        # apply_tourniquet_ischemia_damage only when the TQ actually expires) -- NOT on
-                        # tourniquet_applied: at resolution the clamp is still in the dict until the
-                        # cleanup below (pass 17), so reading tourniquet_applied.has(part) here would
-                        # false-positive on every wound that resolves pre-expiry and mint a Volkmann
-                        # contracture (grip 0.78) on a limb whose clamp was released at healing (no
-                        # ischemic necrosis occurred).
-                        "had_ischemia": bool(inj.get("had_ischemia", false)),
-                    })
+                    (
+                        entity
+                        . _stash_resolved_wound(
+                            {
+                                "part": part,
+                                "severity": str(inj.get(DataKeys.INJURY_SEVERITY, BleedingConstants.SEVERITY_MODERATE)),
+                                "injury_type": str(inj.get("injury_type", "")),
+                                "is_compound_fracture": bool(inj.get("is_compound_fracture", false)),
+                                # Infection history rides on the wound's ever_infected latch (set once at the
+                                # 0->1 flip) with the live stage/is_infected state as a floor for legacy wounds
+                                # that predate the latch. A dressing clears stage/is_infected but NOT the latch,
+                                "was_infected":
+                                (
+                                    # so a cured-then-resolved wound still reports was_infected (scar mint).
+                                    bool(inj.get("ever_infected", false))
+                                    or (int(inj.get("infection_stage", 0)) >= 1)
+                                    or bool(inj.get("is_infected", false))
+                                ),
+                                "is_osteomyelitis": bool(inj.get("is_osteomyelitis", false)),
+                                # Ischemia history travels on the WOUND's own latch (set by
+                                # apply_tourniquet_ischemia_damage only when the TQ actually expires) -- NOT on
+                                # tourniquet_applied: at resolution the clamp is still in the dict until the
+                                # cleanup below (pass 17), so reading tourniquet_applied.has(part) here would
+                                # false-positive on every wound that resolves pre-expiry and mint a Volkmann
+                                # contracture (grip 0.78) on a limb whose clamp was released at healing (no
+                                # ischemic necrosis occurred).
+                                "had_ischemia": bool(inj.get("had_ischemia", false)),
+                            }
+                        )
+                    )
                 list.remove_at(i)
             i -= 1
         if list.is_empty():
@@ -183,7 +193,8 @@ static func _process_healing(entity: Node, seconds: float) -> void:
         var heal_speed: float = 1.0
         if entity.has_method("_get_endurance_healing_speed_mult"):
             heal_speed = entity._get_endurance_healing_speed_mult()
-        # TBI impairs recovery cascades — concussed entities heal slower (clinical evidence of delayed wound healing in TBI).
+        # TBI impairs recovery cascades — concussed entities heal slower (clinical evidence of delayed wound healing in
+        # TBI).
         var conc_info: Dictionary = EntityPainConsciousness.get_concussion_phase_info(entity)
         var conc_healing_mult: float = conc_info.get("healing_mult", 1.0)
         heal_speed *= conc_healing_mult
@@ -227,11 +238,14 @@ static func _process_healing(entity: Node, seconds: float) -> void:
             var body_max_t: int = max_tissue
             var cap_j: float = float(entity.tissue_energy_capacity_j.get(part, 0.0))
             if cap_j > 0.01:
-                entity.tissue_energy_remaining_j[part] = TissueEnergyCapacity.remaining_j_from_display_pools(
-                    body_max_t,
-                    entity.body_cutting.get(part, 0.0),
-                    entity.body_blunt.get(part, 0.0),
-                    cap_j,
+                entity.tissue_energy_remaining_j[part] = (
+                    TissueEnergyCapacity
+                    . remaining_j_from_display_pools(
+                        body_max_t,
+                        entity.body_cutting.get(part, 0.0),
+                        entity.body_blunt.get(part, 0.0),
+                        cap_j,
+                    )
                 )
         # Bone: exponential healing toward max (6 weeks duration)
         var bone_duration: float = HealingConstants.get_bone_heal_duration_seconds(part)
@@ -310,16 +324,20 @@ static func _advance_infection_legacy(entity: Node, injury: Dictionary, treated:
 ## Staged progression (CAMP-INF-1): clean(0) -> localized(1) -> septic(2).
 ## Stage 1 stalls while the part is treated (source control); a stage-0->1 flip extends the
 ## track-(a) resolution duration one-way. Stage-2 sets the entity is_septic flag.
-static func _advance_infection_stage(entity: Node, part: String, injury: Dictionary, treated: bool, per_day: float) -> void:
+static func _advance_infection_stage(
+    entity: Node, part: String, injury: Dictionary, treated: bool, per_day: float
+) -> void:
     var stage: int = _effective_infection_stage(injury)
     # Osteomyelitis (plan §10.3): an exposed-bone (compound fracture) wound that localizes
     # (stage >= 1) sequesters a chronic bone nidus. Latch the flag once; it persists for the
     # wound's life, halving bone-heal and keeping a residual festering dose while source-controlled.
-    if stage >= 1 and bool(injury.get("is_compound_fracture", false)) and not bool(injury.get("is_osteomyelitis", false)):
+    if (
+        stage >= 1
+        and bool(injury.get("is_compound_fracture", false))
+        and not bool(injury.get("is_osteomyelitis", false))
+    ):
         injury["is_osteomyelitis"] = true
-        EntityMedical.log_medical_session(
-            "%s osteomyelitis(%s): exposed bone infection" % [entity.name, part]
-        )
+        EntityMedical.log_medical_session("%s osteomyelitis(%s): exposed bone infection" % [entity.name, part])
     if stage == 0:
         # Entry-portal realism (plan §1): infection needs an open tract. A closed contusion (bruise)
         # or a clean (non-compound) fracture cannot seed — zero dose, matching the closed-wound
@@ -371,7 +389,10 @@ static func _advance_infection_stage(entity: Node, part: String, injury: Diction
             # variant on gangrene-prone wounds (crush / compound fracture / deep penetrating / low
             # perfusion). A severity-scaled roll, not a certainty. Once armed, this wound's death roll
             # uses GAS_GANGRENE_DEATH_RISK_PER_DAY (handled in _process_sepsis via _has_gangrene_focus).
-            if not injury.get("is_gas_gangrene", false) and BleedingConstants.is_gangrene_candidate(entity, part, injury):
+            if (
+                not injury.get("is_gas_gangrene", false)
+                and BleedingConstants.is_gangrene_candidate(entity, part, injury)
+            ):
                 if randf() < BleedingConstants.gangrene_candidate_roll(injury):
                     injury["is_gas_gangrene"] = true
                     EntityMedical.log_medical_session(
@@ -382,9 +403,7 @@ static func _advance_infection_stage(entity: Node, part: String, injury: Diction
             _extend_resolution_duration(injury, BleedingConstants.SEPSIS_HEAL_DURATION_MULT)
             if not entity.is_septic:
                 entity.is_septic = true
-                EntityMedical.log_medical_session(
-                    "%s sepsis(%s): infection became systemic" % [entity.name, part]
-                )
+                EntityMedical.log_medical_session("%s sepsis(%s): infection became systemic" % [entity.name, part])
         else:
             injury["sepsis_progress"] = sp
 
@@ -428,7 +447,11 @@ static func _process_sepsis(entity: Node, per_day: float) -> void:
     if not entity.is_septic:
         return
     var source_controlled: bool = _all_septic_foci_source_controlled(entity)
-    var death_risk: float = BleedingConstants.SEPSIS_DEATH_RISK_SOURCE_CONTROLLED if source_controlled else BleedingConstants.SEPSIS_DEATH_RISK_PER_DAY
+    var death_risk: float = (
+        BleedingConstants.SEPSIS_DEATH_RISK_SOURCE_CONTROLLED
+        if source_controlled
+        else BleedingConstants.SEPSIS_DEATH_RISK_PER_DAY
+    )
     if _has_gangrene_focus(entity):
         death_risk = BleedingConstants.GAS_GANGRENE_DEATH_RISK_PER_DAY
     if not entity._sepsis_dead and randf() < death_risk * per_day:
@@ -438,7 +461,9 @@ static func _process_sepsis(entity: Node, per_day: float) -> void:
         EntityMedical.log_medical_session("%s died(sepsis): systemic infection" % [entity.name])
         return
     if source_controlled:
-        entity.sepsis_resolve_progress = minf(1.0, entity.sepsis_resolve_progress + per_day * BleedingConstants.SEPSIS_RESOLVE_PER_DAY_TREATED)
+        entity.sepsis_resolve_progress = minf(
+            1.0, entity.sepsis_resolve_progress + per_day * BleedingConstants.SEPSIS_RESOLVE_PER_DAY_TREATED
+        )
         if entity.sepsis_resolve_progress >= 1.0:
             entity.is_septic = false
             entity.sepsis_resolve_progress = 0.0
@@ -502,7 +527,9 @@ static func _process_tetanus(entity: Node, per_day: float) -> void:
         EntityWounds.emit_death_once(entity)
         EntityMedical.log_medical_session("%s died(tetanus): systemic spasm" % [entity.name])
         return
-    entity.tetanus_resolve_progress = minf(1.0, entity.tetanus_resolve_progress + per_day / BleedingConstants.TETANUS_SYMPTOMATIC_DAYS)
+    entity.tetanus_resolve_progress = minf(
+        1.0, entity.tetanus_resolve_progress + per_day / BleedingConstants.TETANUS_SYMPTOMATIC_DAYS
+    )
     if entity.tetanus_resolve_progress >= 1.0:
         entity.is_tetanus = false
         entity.tetanus_resolve_progress = 0.0

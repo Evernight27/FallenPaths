@@ -1,4 +1,5 @@
 class_name BodyPartQuery
+
 extends RefCounted
 
 ## Body part lists, targeting, and part-state queries (operable vs severed/crushed/destroyed, arm/leg functionality).
@@ -8,16 +9,36 @@ extends RefCounted
 ## helpers).
 ## Canonical membership helpers: `is_arm()`, `is_leg()`, `is_vital()`, `is_limb()`  -  replace all hardcoded string
 ## comparisons.
-
 const LIMB_PARTS := [
     BodyPartConstants.PART_RIGHT_ARM,
     BodyPartConstants.PART_LEFT_ARM,
     BodyPartConstants.PART_RIGHT_LEG,
     BodyPartConstants.PART_LEFT_LEG
 ]
+
 const ARM_PARTS := [BodyPartConstants.PART_RIGHT_ARM, BodyPartConstants.PART_LEFT_ARM]
+
 const LEG_PARTS := [BodyPartConstants.PART_RIGHT_LEG, BodyPartConstants.PART_LEFT_LEG]
+
 const HEAD_CHEST_PARTS := [BodyPartConstants.PART_HEAD, BodyPartConstants.PART_CHEST]
+
+const _PART_OPERABILITY_CHANNEL_WEIGHTS: Dictionary = {
+    "cutting": 0.45,
+    "blunt": 0.35,
+    "bone": 0.20,
+}
+
+## Minimum operability threshold for a part to be considered functional (raised from 0.10 to 0.15 then 0.20).
+## At 0.20: bone alone contributes 20% (if intact) but requires some tissue to drop below threshold.
+const PART_OPERABILITY_THRESHOLD: float = 0.20
+
+## Minimum tissue factor for an arm to retain grip strength and wield a weapon.
+## Clinical basis: <15% remaining tissue means insufficient muscle/tendon integrity for grip.
+## An arm at this level may still be targeted but cannot functionally attack.
+const ARM_GRIP_TISSUE_THRESHOLD: float = 0.15
+
+## Minimum bone health ratio for any limb to remain functional (below this, structural integrity fails).
+const LIMB_BONE_FUNCTIONAL_RATIO: float = 0.15
 
 
 ## Check if a body part name is an arm (canonical  -  replaces hardcoded string comparisons).
@@ -26,16 +47,22 @@ static func is_arm(part: String) -> bool:
 
 
 ## Check if a body part name is a leg (canonical).
+
+
 static func is_leg(part: String) -> bool:
     return part in LEG_PARTS
 
 
 ## Check if a body part name is a limb (arm or leg, canonical  -  replaces LIMB_PARTS checks).
+
+
 static func is_limb(part: String) -> bool:
     return part in LIMB_PARTS
 
 
 ## Check if a body part name is head or chest (vital regions, canonical).
+
+
 static func is_vital_region(part: String) -> bool:
     return part in HEAD_CHEST_PARTS
 
@@ -70,24 +97,6 @@ static func is_part_destroyed(entity: Node, part: String) -> bool:
 ## Limb/part can still function and receive aimed blows: all channels that exist for the part must be > 0.
 ## If cutting OR blunt OR bone (when this part has bone_max > 0) reaches zero, the part is inoperable and excluded from
 ## targeting.
-
-const _PART_OPERABILITY_CHANNEL_WEIGHTS: Dictionary = {
-    "cutting": 0.45,
-    "blunt": 0.35,
-    "bone": 0.20,
-}
-
-## Minimum operability threshold for a part to be considered functional (raised from 0.10 to 0.15 then 0.20).
-## At 0.20: bone alone contributes 20% (if intact) but requires some tissue to drop below threshold.
-const PART_OPERABILITY_THRESHOLD: float = 0.20
-
-## Minimum tissue factor for an arm to retain grip strength and wield a weapon.
-## Clinical basis: <15% remaining tissue means insufficient muscle/tendon integrity for grip.
-## An arm at this level may still be targeted but cannot functionally attack.
-const ARM_GRIP_TISSUE_THRESHOLD: float = 0.15
-
-## Minimum bone health ratio for any limb to remain functional (below this, structural integrity fails).
-const LIMB_BONE_FUNCTIONAL_RATIO: float = 0.15
 
 
 static func get_part_operability(entity: Node, part: String) -> float:
@@ -219,6 +228,8 @@ static func get_arm_wound_function_mult(entity: Node, part: String) -> float:
 
 # --- Part-specific dodge modifier: attacked part's ability to get out of the way ---
 # Legs/arms: move that limb. Head/chest: bone factor (injury = harder to duck/twist).
+
+
 static func get_part_dodge_modifier(entity: Node, part: String) -> float:
     if is_leg(part):
         var leg_func: float = get_leg_functionality(entity)
@@ -236,13 +247,14 @@ static func get_part_dodge_modifier(entity: Node, part: String) -> float:
 
 # --- Leg functionality: min of both legs (both needed for gait); geometric mean when both damaged ---
 
-
 ## Torso (core) bracing functionality: structural integrity of the chest — the rib cage, sternum and
 ## core musculature a fighter braces into when parrying. 1.0 when the core is intact; drops toward 0.0
 ## as ribs/core are damaged. Combines the chest part's bone health (ribs/sternum) with its soft-tissue
 ## (cutting + blunt) remaining. Distinct from `get_leg_functionality` (base) and `get_arm_functionality`
 ## (weapon handling): this is the *center* of the brace. A species whose chest has no bone pool
 ## contributes no bone term, so a healthy chest still reads 1.0. D001-neutral at a healthy chest.
+
+
 static func get_torso_core_functionality(entity: Node) -> float:
     var part = BodyPartConstants.PART_CHEST
     if not part in entity.body_cutting:
@@ -294,6 +306,8 @@ static func get_leg_functionality(entity: Node) -> float:
 ## A destroyed leg cannot drive at all; an operable leg reports its bone factor floored at the limb
 ## ratio (a fractured-but-standing leg still bears partial weight, same floor as the symmetric blend).
 ## D001-neutral: a healthy leg is operable with a full bone factor -> 1.0.
+
+
 static func get_leg_functionality_for(entity: Node, part: String) -> float:
     if not is_part_physically_operable(entity, part):
         return 0.08
