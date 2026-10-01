@@ -18,6 +18,10 @@ const WEAPON_TRAIN_IDS: Array = ["SWORD", "SPEAR", "AXE", "MACE", "DAGGER"]
 
 const ARENA_DAY_OPTIONS: int = 5
 
+# The shared root overlay bar (PartySetup "PartyButton" + CompanyHud) lives on UIOverlayLayer
+# above this screen and occupies logical y 10..50, so the columns start below it.
+const TOP_BAR_CLEARANCE: int = 60
+
 @export var dev_research_feel: bool = false
 
 @export var dev_hit_summary: bool = true
@@ -116,7 +120,7 @@ func _build_ui() -> void:
 
     var margin := MarginContainer.new()
     margin.add_theme_constant_override("margin_left", 20)
-    margin.add_theme_constant_override("margin_top", 20)
+    margin.add_theme_constant_override("margin_top", TOP_BAR_CLEARANCE)
     margin.add_theme_constant_override("margin_right", 20)
     margin.add_theme_constant_override("margin_bottom", 20)
     root_panel.add_child(margin)
@@ -323,6 +327,10 @@ func _refresh_roster() -> void:
             continue
         var node: Node = node_ref as Node
         if node.has_method("is_dead") and node.is_dead():
+            continue
+        # XSurgeon: medical staff are not fighters and hold no lineup slot, so they are not
+        # part of the school roster. They stay visible in the party view.
+        if PlayerCompanionSetup.member_is_surgeon(node):
             continue
         _roster_box.add_child(_build_member_row(node, snap))
 
@@ -861,6 +869,9 @@ func _lineup_presets(school_id: String) -> Array:
             continue
         var node: Node = node_ref as Node
         if node.has_method("is_dead") and node.is_dead():
+            continue
+        # XSurgeon: medical staff never enter a bout lineup, so they are not a lineup preset.
+        if PlayerCompanionSetup.member_is_surgeon(node):
             continue
         var m_name: String = str((m as Dictionary).get("name", ""))
         if m_name.is_empty():

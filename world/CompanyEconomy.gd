@@ -14,8 +14,8 @@ const DEFAULT_MEDICAL_SUPPLIES: int = 15
 ## Victory med resupply per successful contract — offsets medical supply consumption from post-battle healing.
 const CONTRACT_VICTORY_MED_RESUPPLY: int = 4
 const DEFAULT_TOOL_SUPPLIES: int = 2
-## Starting food for 7-member company at 1g/day consumption = 14 days of self-sufficiency without resupply.
-const DEFAULT_FOOD_SUPPLIES: int = 14
+## Starting food for 7-member company at 1 food/member/day consumption = 10 days of self-sufficiency without resupply.
+const DEFAULT_FOOD_SUPPLIES: int = 10
 const FOOD_PER_MEMBER_PER_DAY: int = 1
 const DEFAULT_RENOWN: int = 0
 const DEFAULT_DAY_INDEX: int = 0

@@ -138,10 +138,15 @@ static func format_body_part_compact(
 
 
 ## IV-11 slice 7: roster name suffix for party leader (`PartyMenu`).
+## XSurgeon: medical staff are labelled as such so they read as staff rather than an unlabeled,
+## weaponless fighter. They are never the party leader, so the leader branch is checked first.
 static func format_party_role_suffix(member: Dictionary) -> String:
+    var node_ref: Variant = member.get("node_ref")
+    if is_instance_valid(node_ref) and node_ref is Node:
+        if PlayerCompanionSetup.member_is_surgeon(node_ref as Node):
+            return " · Surgeon"
     if member.get(DataKeys.COMBATANT_IS_PARTY_LEADER, false):
         return " · Leader"
-    var node_ref: Variant = member.get("node_ref")
     if is_instance_valid(node_ref) and node_ref is Node and node_ref.get(DataKeys.COMBATANT_IS_PARTY_LEADER) == true:
         return " · Leader"
     return ""

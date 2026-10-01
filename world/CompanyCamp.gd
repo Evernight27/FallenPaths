@@ -86,12 +86,23 @@ static func _try_merge_training_pending(world: Node2D) -> void:
             EntityProficiency.merge_weapon_training_pending(entity)
 
 
+## XSurgeon: medical staff never fight, so they take no combat drills (stat, form, or weapon).
+## Single gate for every drill surface -- the party menu's stat buttons and the gladiator school's
+## full drill chooser both read can_train_*, so this is where the surgeon is kept out of the
+## fighter drill tree. The surgeon still appears in the party view as staff; they just have no
+## fighter drills and no lineup.
+static func member_takes_fighter_drills(node_ref: Node) -> bool:
+    if node_ref == null or not is_instance_valid(node_ref):
+        return false
+    return not PlayerCompanionSetup.member_is_surgeon(node_ref)
+
+
 static func can_train_stat(world: Node2D, node_ref: Node, stat: String) -> bool:
     if not _get_state().read_stub_proficiency_enabled():
         return false
     if stat not in TRAIN_STATS:
         return false
-    if node_ref == null or not is_instance_valid(node_ref):
+    if not member_takes_fighter_drills(node_ref):
         return false
     return _get_economy().get_gold(world) >= _get_economy().TRAIN_GOLD_COST
 
@@ -131,7 +142,7 @@ static func can_train_form(world: Node2D, node_ref: Node, form: String) -> bool:
         return false
     if not form or not str(form).strip_edges():
         return false
-    if node_ref == null or not is_instance_valid(node_ref):
+    if not member_takes_fighter_drills(node_ref):
         return false
     return _get_economy().get_gold(world) >= _get_economy().TRAIN_GOLD_COST
 
@@ -172,7 +183,7 @@ static func can_train_weapon(world: Node2D, node_ref: Node, weapon_id: String) -
         return false
     if not weapon_id or not str(weapon_id).strip_edges():
         return false
-    if node_ref == null or not is_instance_valid(node_ref):
+    if not member_takes_fighter_drills(node_ref):
         return false
     return _get_economy().get_gold(world) >= _get_economy().TRAIN_GOLD_COST
 

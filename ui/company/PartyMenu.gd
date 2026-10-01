@@ -672,10 +672,20 @@ static func _stat_short(stat: String) -> String:
 
 
 ## Append the per-member drill buttons (Train STR/AGI/INT/END/PER) to a member row.
+## XSurgeon: medical staff are shown in the party view but take no fighter drills, so their row
+## gets a plain staff note instead of the STR/AGI/INT/END/PER buttons.
 func _append_train_row(v: VBoxContainer, node_ref: Node) -> void:
     if _world == null:
         return
     if not CompanyState.read_stub_proficiency_enabled():
+        return
+    if PlayerCompanionSetup.member_is_surgeon(node_ref):
+        var staff_lbl := Label.new()
+        staff_lbl.text = "Surgeon — medical staff, no combat drills"
+        staff_lbl.add_theme_font_size_override("font_size", 11)
+        staff_lbl.add_theme_color_override("font_color", Color(0.6, 0.85, 0.7))
+        PartyRowFormatter.configure_wrapped_label(staff_lbl)
+        v.add_child(staff_lbl)
         return
     var box := HBoxContainer.new()
     box.add_theme_constant_override("separation", 4)
