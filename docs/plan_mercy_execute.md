@@ -1,4 +1,4 @@
-# Mercy & Execution Plan (Quarter / Coup de Grâce)
+# Mercy & Execution Plan (Quarter / Coup de Gràce)
 
 **Date:** 2026-08-07
 **Status:** PROPOSAL — design agreed (personality + mood + situation; mid-combat + post-victory). Pending realism research + implementation.

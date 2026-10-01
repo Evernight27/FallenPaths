@@ -88,7 +88,7 @@ Headless ship audit + [#camp-playtest-acceptance](#camp-playtest-acceptance) F5.
 | Must | Gate |
 |------|------|
 | Phase 0 | `./tools/ci/run_all_combat_checks.sh` → `PHASE0: PASS` |
-| Company loop | `CompanyStateChecks` 406 |
+| Company loop | `CompanyStateChecks` 783 |
 | F5 §8 | [#camp-playtest-acceptance](#camp-playtest-acceptance) |
 | Mental stack / WF / III-4 Track A | Phase 0 harness + Live Paths |
 

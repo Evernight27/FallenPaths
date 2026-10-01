@@ -307,7 +307,7 @@ Literal mL · layer tissue · material curves · ATLS consciousness · absolute 
 
 ## Muscle fatigue (shipped)
 
-Per-limb exertion pools — **not** composure, **not** whole-body breath. Owner: `combat/flow/CombatMuscleFatigue.gd` · flag `FEATURE_MUSCLE_GROUP_FATIGUE` · harness `harness/CombatRegressionHarnessMuscleFatigueTail.gd`. Cleared at camp rest via `CoreEntity._restore_muscle_fatigue_at_camp` (wired in `CompanyCamp._restore_roster_muscle_fatigue`).
+Per-limb exertion pools — **not** composure, **not** whole-body breath. Owner: `combat/flow/CombatMuscleFatigue.gd` · flag `FEATURE_MUSCLE_GROUP_FATIGUE` · harness `harness/regression/mental_stack/MuscleFatigueTail.gd`. Cleared at camp rest via `CoreEntity._restore_muscle_fatigue_at_camp` (wired in `CompanyCamp._restore_roster_muscle_fatigue`).
 
 <a id="battle-ui"></a>
 

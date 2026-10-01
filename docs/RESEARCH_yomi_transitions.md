@@ -82,7 +82,7 @@ Group at **two levels** (see section 3):
 1. **Primary transitions**: tracked at category level (coarse) - 8-10 categories
 2. **Secondary fallback**: if a specific move within a category has strong signal, boost that individual move's probability
 
-Example: If 	hrust->thrust has count 5 but 	hrust->oberhau_feint has count 3, the category-level transition is "strike_high -> feint_high" (dominant). But within strike_high outputs, thrust dominates oberhau_feint. So when predicting *which* strike_high to throw after a high attack, prefer thrust.
+Example: If     hrust->thrust has count 5 but     hrust->oberhau_feint has count 3, the category-level transition is "strike_high -> feint_high" (dominant). But within strike_high outputs, thrust dominates oberhau_feint. So when predicting *which* strike_high to throw after a high attack, prefer thrust.
 
 ### Implementation: hierarchical smoothing
 

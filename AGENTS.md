@@ -2,7 +2,7 @@
 
 [`docs/PLANNING.md`](docs/PLANNING.md) · [`docs/AGENTS_ENTRY.md`](docs/AGENTS_ENTRY.md) · [`docs/AGENTS_API.md`](docs/AGENTS_API.md) · [`docs/LIVE_PATHS.md`](docs/LIVE_PATHS.md) · [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) · [`docs/BRIDGE_CONTRACT.md`](docs/BRIDGE_CONTRACT.md)
 
-**Prompts:** [`tools/ci/agent_prompts/README.md`](tools/ci/agent_prompts/README.md) · **Budget:** ≤1 doc section + ≤3 owning `.gd` · **Contract:** [`README#session-contract`](tools/ci/agent_prompts/README.md#session-contract)
+**Prompts:** [`tools/ci/agent_prompts/README.md`](tools/ci/agent_prompts/README.md) · **Budget:** ≤1 production code path (doc section) — research/realism docs exempt (code-motion splits exempt — one module/pass) · **Contract:** [`README#session-contract`](tools/ci/agent_prompts/README.md#session-contract)
 
 <a id="code-homes"></a>
 

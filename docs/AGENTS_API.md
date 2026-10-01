@@ -2,7 +2,7 @@
 
 **Not always-on.** Open when adding cross-cutting APIs or tracing a concern. Entry: [`../AGENTS.md`](../AGENTS.md) · prompts: [`../tools/ci/agent_prompts/README.md`](../tools/ci/agent_prompts/README.md).
 
-**Budget:** ≤1 doc section + ≤3 owning `.gd` files before first edit. Do **not** preload the module lookup table below.
+**Budget:** ≤1 production code path (doc section) before first edit — research/realism docs exempt. Do **not** preload the module lookup table below.
 
 <a id="canonical-apis"></a>
 

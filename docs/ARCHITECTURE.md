@@ -115,4 +115,18 @@ flowchart LR
 3. [`BRIDGE_CONTRACT`](BRIDGE_CONTRACT.md)
 4. Paths: [`core/ResourcePaths.gd`](../core/ResourcePaths.gd)
 
-Session budget: ≤1 doc section + ≤3 owning `.gd` before first edit.
+Session budget: read ≤1 production code path (doc section) before first edit — for behavior changes.
+
+The budget exists to stop edits that land green but dormant — a change applied to one
+of two live paths while the other was never read (see the XCamp-4p wear-path row in
+[`AGENTS_ENTRY`](AGENTS_ENTRY.md)). It governs **behavior changes** — i.e. how much production code you must have read before editing it. Research / realism anchors (`RESEARCH_*.md` + the stream's named research docs) are **outside** the budget; read as many as the change needs to stay grounded.
+
+**Exemption — pure code motion.** A split or move that edits no logic is exempt from the
+budget and is instead bounded by:
+
+- **one module per pass** — a single owning file and the files it becomes;
+- **mandatory re-gate** — `tools/ci/ci_lint.sh` plus the module's harness must be green
+  before the next module starts.
+
+The exemption ends the moment a split changes behavior. "Fixing while you're in there"
+re-enters the original budget and the ordinary stream rules.

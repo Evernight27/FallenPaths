@@ -38,7 +38,7 @@ Default: Combat + optional Expand or Playtest. Not parallel: two Expand · same-
 | A | Combat | Phase 0 |
 | B | Expand (optional) | Phase 0 |
 | C | Playtest (optional) | F5 validator |
-| D | Campaign (on demand) | Company 406 or Phase 0 |
+| D | Campaign (on demand) | Company 783 or Phase 0 |
 
 <a id="file-ownership"></a>
 
