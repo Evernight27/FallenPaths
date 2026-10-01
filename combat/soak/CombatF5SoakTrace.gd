@@ -258,8 +258,13 @@ static func log_fight_end_summary(winner: String, entering_medical_phase: bool) 
         _research_validate_hint_logged = true
         if int(_session_counts.get("research_feel", 0)) > 0:
             OperationalLog.play_combat(
-                "research_validate_hint %d research_feel lines  -  compare to docs/LIVE_PATHS.md#f5-optional-crosswalk-feel-vs-headless"
-                % int(_session_counts["research_feel"])
+                (
+                    (
+                        "research_validate_hint %d research_feel lines  -  compare to "
+                        + "docs/LIVE_PATHS.md#f5-optional-crosswalk-feel-vs-headless"
+                    )
+                    % int(_session_counts["research_feel"])
+                )
             )
         elif _get_combat_constants().combat_event_debug_verbose_active():
             OperationalLog.play_combat(
@@ -354,7 +359,9 @@ static func note_research_damage_outcome(part: String, result: Dictionary, extra
     if not OperationalLog.is_play_session_active():
         return
     var sub: String = str(extras.get(DataKeys.RESULT_HIT_SUB_REGION, ""))
-    var pen: float = float(result.get(DataKeys.RESULT_PENETRATION_TO_TISSUE_MM, extras.get(DataKeys.RESULT_PENETRATION_TO_TISSUE_MM, -1.0)))
+    var pen: float = float(
+        result.get(DataKeys.RESULT_PENETRATION_TO_TISSUE_MM, extras.get(DataKeys.RESULT_PENETRATION_TO_TISSUE_MM, -1.0))
+    )
     var ke_frac: float = float(result.get(DataKeys.RESULT_TRANSMITTED_KE_FRACTION, 1.0))
     var line: String = (
         "research_feel part=%s sub=%s cut=%.1f blunt=%.1f bone=%.1f pen_mm=%.1f ke_frac=%.2f"
@@ -448,7 +455,8 @@ static func note_concussion_entry(who: String, bone_damage_ratio: float, total_r
     if not OperationalLog.is_play_session_active():
         return
     var line: String = (
-        "concussion_entered %s bone_damage=%.2f recovery=%.1fs" % [who.strip_edges(), bone_damage_ratio, total_recovery_s]
+        "concussion_entered %s bone_damage=%.2f recovery=%.1fs"
+        % [who.strip_edges(), bone_damage_ratio, total_recovery_s]
     )
     if line == _last_concussion_entry_line:
         return

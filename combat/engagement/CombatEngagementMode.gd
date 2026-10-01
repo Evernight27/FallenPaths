@@ -154,8 +154,14 @@ static func can_stay_formation_from_snapshot(snap: Dictionary) -> bool:
         and snap.get(DataKeys.SNAPSHOT_ENEMY_ACTIVE, 0) >= min_act
         and p >= CombatConstants.FORMATION_LEAVE_MIN_FRONT_FIGHTERS_PER_SIDE
         and e >= CombatConstants.FORMATION_LEAVE_MIN_FRONT_FIGHTERS_PER_SIDE
-        and snap.get(DataKeys.SNAPSHOT_PLAYER_FRONT_FILL, 0.0) >= float(CombatConstants.FORMATION_LEAVE_MIN_FRONT_FILL_RATIO)
-        and snap.get(DataKeys.SNAPSHOT_ENEMY_FRONT_FILL, 0.0) >= float(CombatConstants.FORMATION_LEAVE_MIN_FRONT_FILL_RATIO)
+        and (
+            snap.get(DataKeys.SNAPSHOT_PLAYER_FRONT_FILL, 0.0)
+            >= float(CombatConstants.FORMATION_LEAVE_MIN_FRONT_FILL_RATIO)
+        )
+        and (
+            snap.get(DataKeys.SNAPSHOT_ENEMY_FRONT_FILL, 0.0)
+            >= float(CombatConstants.FORMATION_LEAVE_MIN_FRONT_FILL_RATIO)
+        )
         and not snapshot_is_true_duel(snap)
     )
 
@@ -212,4 +218,3 @@ static func allow_rotate_file_for_formation(manager: Node, formation_id: String)
     )
     var opp_files: int = _front_files_for_side(manager, opp_fid)
     return our_files > opp_files + int(CombatConstants.SKIRMISH_ROTATE_OUTNUMBER_FILE_MARGIN)
-

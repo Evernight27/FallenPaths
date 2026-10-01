@@ -5,7 +5,8 @@ extends RefCounted
 ## Gauge suffix order (footing): Step (PA) → ' Grd/Atk (guard line) → ' Form '
 ## **`BattleUIUpdater._compose_waiting_gauge_label`**. LIVE_PATHS **`#battle-ui`** '. **`#wf-1c--ui-surfacing`** '.
 ## **`#wf-tier-44-pa`** (Step) '. soak **`#wf-soak-audit-status`**.
-## **`active_line_for_ui`**: wind-up → **`pending_attack`** line; else **`guard_line`** — does **not** read **`weapon_form`** or PA offset.
+## **`active_line_for_ui`**: wind-up → **`pending_attack`** line; else **`guard_line`** — does **not** read
+## **`weapon_form`** or PA offset.
 ## **`weapon_form`** or PA offset.
 ## Diagram: guard **`[short]`** then form **`[Ox]`** ' **`FormationDiagramBuilder._cell_label_with_footwork`**.
 ## LIVE_PATHS **`#wf-footing-guards-stances`** '. **`#wf-guard-writers`** (L3 drift).
@@ -578,9 +579,7 @@ static func gauge_tooltip_lines(c: Dictionary, manager: Node = null) -> PackedSt
     if st in [CombatConstants.STATE_SWAP_RANK, CombatConstants.STATE_FALLING_BACK, CombatConstants.STATE_PLUG_FORWARD]:
         tips.append(
             (
-                (
-                "Formation move — heavy hits (intensity ≥ %.0f) may cancel; lighter hits extend duration."
-                )
+                ("Formation move — heavy hits (intensity ≥ %.0f) may cancel; lighter hits extend duration.")
                 % CombatConstants.FORMATION_HIT_CANCEL_INTENSITY
             )
         )
@@ -624,5 +623,3 @@ static func formation_cell_tooltip_lines(
     if not cmd.is_empty():
         lines.append("%s  -  %s" % [display_name, cmd])
     return lines
-
-

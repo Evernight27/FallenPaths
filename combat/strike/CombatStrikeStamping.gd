@@ -21,7 +21,12 @@ static func strike_measure_ratio_for_weapon_eff_dist(
 
 
 static func strike_measure_ratio_for_attack_pair(
-    manager: Node, atk: Dictionary, tgt: Dictionary, weapon: RefCounted, stamped_eff_dist: float = -1.0, reach_extension: float = 0.0
+    manager: Node,
+    atk: Dictionary,
+    tgt: Dictionary,
+    weapon: RefCounted,
+    stamped_eff_dist: float = -1.0,
+    reach_extension: float = 0.0
 ) -> float:
     if manager == null or weapon == null:
         return 1.0

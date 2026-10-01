@@ -312,7 +312,9 @@ static func plug_forward_incap_partner_hint(manager: Node, c: Dictionary, action
         var a: Dictionary = raw as Dictionary
         if a.get(DataKeys.ACTION_MOVE_ID, "") != CombatConstants.MOVE_ID_SWAP_RANK:
             continue
-        var partner: Dictionary = CombatantEntityAccess.manager_get_combatant_optional(manager, a.get(DataKeys.ACTION_TARGET_ID, -1))
+        var partner: Dictionary = CombatantEntityAccess.manager_get_combatant_optional(
+            manager, a.get(DataKeys.ACTION_TARGET_ID, -1)
+        )
         if partner.is_empty():
             continue
         if CombatantEntityAccess.rank_int(partner) >= our_rank:

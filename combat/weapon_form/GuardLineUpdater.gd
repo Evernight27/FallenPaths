@@ -45,7 +45,9 @@ static func set_guard_deflected(
     if clash_context.has(DataKeys.RESULT_CLASH_SEVERITY):
         severity = float(clash_context[DataKeys.RESULT_CLASH_SEVERITY])
     elif clash_context.has(DataKeys.CLASH_MARGIN_RATIO):
-        severity = CombatConstants.parry_deflect_severity_from_margin_ratio(float(clash_context[DataKeys.CLASH_MARGIN_RATIO]))
+        severity = CombatConstants.parry_deflect_severity_from_margin_ratio(
+            float(clash_context[DataKeys.CLASH_MARGIN_RATIO])
+        )
     # Prefer explicit contact_type from clash (e.g. parry_deflect); else derive from move_id in attack_type.
     var ct_ctx: String = str(clash_context.get(DataKeys.WEAPON_CONTACT_TYPE, "")).to_lower().strip_edges()
     var attack_move_id: String = str(clash_context.get(DataKeys.RESULT_ATTACK_TYPE, "cut"))
@@ -63,8 +65,12 @@ static func set_guard_deflected(
         blend = 0.0
     elif not def_guard.is_empty() and not clash_context.is_empty():
         var atk_angle: float = clash_context.get(DataKeys.ATTACK_ANGLE_DEG, CombatConstants.line_to_angle(atk_line))
-        var guard_angle: float = clash_context.get(DataKeys.CLASH_GUARD_ANGLE_DEG, CombatConstants.line_to_angle(def_guard))
-        var alignment: float = clash_context.get(DataKeys.CLASH_ALIGNMENT, CombatConstants.get_line_alignment(atk_line, def_guard))
+        var guard_angle: float = clash_context.get(
+            DataKeys.CLASH_GUARD_ANGLE_DEG, CombatConstants.line_to_angle(def_guard)
+        )
+        var alignment: float = clash_context.get(
+            DataKeys.CLASH_ALIGNMENT, CombatConstants.get_line_alignment(atk_line, def_guard)
+        )
         line = CombatConstants.get_deflected_line_from_angles(
             atk_angle, guard_angle, severity, deflect_contact, alignment
         )
@@ -92,7 +98,9 @@ static func set_guard_deflected(
         var angle_info: String = ""
         if not clash_context.is_empty() and clash_context.get(DataKeys.ATTACK_ANGLE_DEG, null) is float:
             var atk_a: float = float(clash_context[DataKeys.ATTACK_ANGLE_DEG])
-            var guard_a: float = clash_context.get(DataKeys.CLASH_GUARD_ANGLE_DEG, CombatConstants.line_to_angle(def_guard))
+            var guard_a: float = clash_context.get(
+                DataKeys.CLASH_GUARD_ANGLE_DEG, CombatConstants.line_to_angle(def_guard)
+            )
             angle_info = " [atk=%.0f'deg guard=%.0f'deg]" % [atk_a, guard_a]
         CombatDebug.log(
             (

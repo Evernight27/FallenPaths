@@ -306,7 +306,10 @@ static func abandonment_warranted(manager: Node, c: Dictionary) -> bool:
         if is_party_leader_combatant(c):
             if side_holding_field(manager, c):
                 return false
-            if line_cohesion_for_combatant(manager, c) > flee_line_cohesion_max(manager, c) * LEADER_COHESION_EXEMPTION_MULT:
+            if (
+                line_cohesion_for_combatant(manager, c)
+                > flee_line_cohesion_max(manager, c) * LEADER_COHESION_EXEMPTION_MULT
+            ):
                 return false
         if side_holding_field(manager, c):
             return false
@@ -419,8 +422,18 @@ static func rout_hint_when_flee_listed(manager: Node, c: Dictionary, actions: Ar
     var cas_pct: int = int(round(casualty_ratio_for_combatant(manager, c) * 100.0))
     if formation_stressed_for_rout(manager, c):
         if side_holding_field(manager, c):
-            return "Flee leaves the field (cohesion %d%%, casualties %d%%) - your side still has numbers; fall back when listed." % [coh_pct, cas_pct]
-        return "Flee leaves the field (cohesion %d%%, casualties %d%%) - fall back stays in formation when listed." % [coh_pct, cas_pct]
+            return (
+                (
+                    "Flee leaves the field (cohesion %d%%, casualties %d%%) - your side still has numbers; fall back "
+                    + "when "
+                    + "listed."
+                )
+                % [coh_pct, cas_pct]
+            )
+        return (
+            "Flee leaves the field (cohesion %d%%, casualties %d%%) - fall back stays in formation when listed."
+            % [coh_pct, cas_pct]
+        )
     return "Flee leaves the field - you are badly hurt or bleeding out."
 
 
@@ -459,7 +472,9 @@ static func rout_cognition_pressure(manager: Node, c: Dictionary) -> bool:
                 var my_slots: Dictionary = my_zg.get(DataKeys.ZONE_FORMATION, {})
                 var other_slots: Dictionary = other_zg.get(DataKeys.ZONE_FORMATION, {})
                 var self_key: Variant = FormationSlots.slot_key_for_combatant_id(manager, {"slots": my_slots}, cid)
-                var other_key: Variant = FormationSlots.slot_key_for_combatant_id(manager, {"slots": other_slots}, CombatantEntityAccess.id_int(o))
+                var other_key: Variant = FormationSlots.slot_key_for_combatant_id(
+                    manager, {"slots": other_slots}, CombatantEntityAccess.id_int(o)
+                )
                 if self_key == null or other_key == null:
                     continue
                 if self_key != other_key:
@@ -500,6 +515,3 @@ static func filter_rout_disengage_actions(manager: Node, c: Dictionary, combatan
         ):
             out.append(a)
     return out
-
-
-

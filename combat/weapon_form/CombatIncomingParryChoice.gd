@@ -57,7 +57,10 @@ static func stamp_parry_telegraph_on_pa(pa: Dictionary, move_def: Dictionary) ->
         return
     var base: float = compute_base_parry_telegraph(pa, move_def)
     pa[DataKeys.PA_PARRY_TELEGRAPH] = base
-    if not pa.get(DataKeys.ACTION_FEINT_PART, "").is_empty() or move_def.get(CombatConstants.MOVE_DEF_KEY_IS_FEINT, false):
+    if (
+        not pa.get(DataKeys.ACTION_FEINT_PART, "").is_empty()
+        or move_def.get(CombatConstants.MOVE_DEF_KEY_IS_FEINT, false)
+    ):
         var inflate: float = float(
             move_def.get("feint_parry_telegraph_mult", CombatConstants.PARRY_TELEGRAPH_FEINT_APPARENT_MULT)
         )
@@ -104,7 +107,12 @@ static func perceived_parry_telegraph(
         var def: Dictionary = CombatantEntityAccess.manager_get_combatant(manager, defender_id)
         if not def.is_empty():
             perc = clampf(
-                CombatantEntityAccess.stats_dict(def).get(DataKeys.ENTITY_PERCEPTION, CombatConstants.DEFAULT_STAT_VALUE) / 100.0,
+                (
+                    CombatantEntityAccess.stats_dict(def).get(
+                        DataKeys.ENTITY_PERCEPTION, CombatConstants.DEFAULT_STAT_VALUE
+                    )
+                    / 100.0
+                ),
                 0.0,
                 1.0
             )
@@ -126,7 +134,9 @@ static func threat_score_for_attacker(
         if defender_id >= 0
         else compute_base_parry_telegraph(pa, move_def)
     )
-    var str_val: float = CombatantEntityAccess.stats_dict(atk).get(DataKeys.ENTITY_STRENGTH, CombatConstants.DEFAULT_STAT_VALUE)
+    var str_val: float = CombatantEntityAccess.stats_dict(atk).get(
+        DataKeys.ENTITY_STRENGTH, CombatConstants.DEFAULT_STAT_VALUE
+    )
     return tele * (0.5 + str_val / 200.0)
 
 
@@ -223,7 +233,9 @@ static func _incoming_parry_estimate(manager: Node, tgt: Dictionary, attacker_id
     var archetype: Dictionary = {}
     if atk_w != null:
         var move_def: Dictionary = WeaponConstants.get_move(attack_type)
-        archetype = WeaponConstants.get_archetype(str(move_def.get(DataKeys.PA_ARCHETYPE_ID, WeaponConstants.ARCHETYPE_OVERHEAD)))
+        archetype = WeaponConstants.get_archetype(
+            str(move_def.get(DataKeys.PA_ARCHETYPE_ID, WeaponConstants.ARCHETYPE_OVERHEAD))
+        )
     var dc: Dictionary = DefenseChoiceResolver.choose_defense(
         pa, atk, tgt, targetable, attack_type, archetype, -1.0, manager
     )
@@ -233,14 +245,39 @@ static func _incoming_parry_estimate(manager: Node, tgt: Dictionary, attacker_id
     out[DataKeys.PA_PRIORITY_CD] = c_d
     if dc.get(DataKeys.PARRY_CHOICE_CAN_PARRY_IN_TIME, false) != true:
         if CombatDebug.dc_trace_active():
-            CombatDebug.combat_session("parry_est_nocan def=%s atk_id=%d type=%s p_a=%.1f c_d=%.1f can_in_time=%s" % [CombatantEntityAccess.get_display_name(tgt, -1), attacker_id, attack_type, p_a, c_d, dc.get(DataKeys.PARRY_CHOICE_CAN_PARRY_IN_TIME, false)])
+            CombatDebug.combat_session(
+                (
+                    "parry_est_nocan def=%s atk_id=%d type=%s p_a=%.1f c_d=%.1f can_in_time=%s"
+                    % [
+                        CombatantEntityAccess.get_display_name(tgt, -1),
+                        attacker_id,
+                        attack_type,
+                        p_a,
+                        c_d,
+                        dc.get(DataKeys.PARRY_CHOICE_CAN_PARRY_IN_TIME, false)
+                    ]
+                )
+            )
         return out
     var threshold: float = c_d * CombatConstants.PARRY_DODGE_STRENGTH_RATIO
     if p_a <= threshold:
         out[DataKeys.PA_VIABLE] = true
     else:
         if CombatDebug.dc_trace_active():
-            CombatDebug.combat_session("parry_est_nonviable def=%s atk_id=%d type=%s p_a=%.1f c_d=%.1f threshold=%.1f ratio=%.2f" % [CombatantEntityAccess.get_display_name(tgt, -1), attacker_id, attack_type, p_a, c_d, threshold, p_a / maxf(c_d, 0.01)])
+            CombatDebug.combat_session(
+                (
+                    "parry_est_nonviable def=%s atk_id=%d type=%s p_a=%.1f c_d=%.1f threshold=%.1f ratio=%.2f"
+                    % [
+                        CombatantEntityAccess.get_display_name(tgt, -1),
+                        attacker_id,
+                        attack_type,
+                        p_a,
+                        c_d,
+                        threshold,
+                        p_a / maxf(c_d, 0.01)
+                    ]
+                )
+            )
     return out
 
 

@@ -60,13 +60,28 @@ static func process_death_tick(manager: Node, c: Dictionary) -> String:
     # grace countdown reached 0 (combat_time), i.e. the kill landed seconds after the fatal hit.
     # vital_grace_has_elapsed() (not grace <= 0.0) excludes test-manipulated destructions where no
     # grace was ever armed (remains -1.0), so only real expiries are traced.
-    if death_scene_node != null and death_scene_node.has_method("vital_grace_has_elapsed") and death_scene_node.vital_grace_has_elapsed():
+    if (
+        death_scene_node != null
+        and death_scene_node.has_method("vital_grace_has_elapsed")
+        and death_scene_node.vital_grace_has_elapsed()
+    ):
         CombatDebug.combat_session("VITAL_GRACE_EXPIRED %s -- %s" % [who, death_reason])
     if OperationalLog.play_session_is_editor_f5():
         CombatF5SoakTrace.note_death_tick(who, death_reason)
     else:
         # Compact stable token on the always-on line; verbose numeric reason is calibration-only.
-        var death_token: String = "BLEED_OUT" if str(death_reason).to_lower().begins_with("blood_loss") else ("VITAL_DESTROYED" if (str(death_reason).to_lower().begins_with("vital_part_destroyed") or str(death_reason).to_lower().begins_with("vital_part_zero")) else "OTHER")
+        var death_token: String = (
+            "BLEED_OUT"
+            if str(death_reason).to_lower().begins_with("blood_loss")
+            else (
+                "VITAL_DESTROYED"
+                if (
+                    str(death_reason).to_lower().begins_with("vital_part_destroyed")
+                    or str(death_reason).to_lower().begins_with("vital_part_zero")
+                )
+                else "OTHER"
+            )
+        )
         if CombatDebug.dc_trace_active():
             CombatDebug.combat_session("DEATH (tick) %s  -  %s" % [who, death_reason])
         else:
@@ -260,7 +275,11 @@ static func process_receiving_medical(manager: Node, c: Dictionary, delta: float
                 CombatDebug.flow_log(
                     (
                         "receiving_care enemy id=%d actions=[%s] => pick %s"
-                        % [cid_recv, CombatDebug.format_actions_compact(actions), choice.get(DataKeys.ACTION_MOVE_ID, "")]
+                        % [
+                            cid_recv,
+                            CombatDebug.format_actions_compact(actions),
+                            choice.get(DataKeys.ACTION_MOVE_ID, "")
+                        ]
                     ),
                     "receiving_care_enemy:%d" % cid_recv
                 )
@@ -297,7 +316,9 @@ static func process_waiting(_manager: Node, c: Dictionary, delta: float) -> void
     CombatBindPressure.apply_decay(c, _manager, delta)
     # In batch/harness mode the idle offset keys and UI attention hints are never rendered — skip
     # the reconciliation + formatting to save significant per-tick time across thousands of ticks.
-    var skip_ui: bool = _manager != null and _manager.has_meta("_batch_skip_ui_tick") and bool(_manager.get_meta("_batch_skip_ui_tick"))
+    var skip_ui: bool = (
+        _manager != null and _manager.has_meta("_batch_skip_ui_tick") and bool(_manager.get_meta("_batch_skip_ui_tick"))
+    )
     if not skip_ui:
         CombatFootwork.reconcile_idle_offset(c)
         CombatUiHints.refresh_waiting_tick_stamps(_manager, c)
@@ -358,7 +379,3 @@ static func entity_has_effective_consciousness_below_threshold(c: Dictionary, th
         return false
     var eff_consciousness: float = entity_node._get_effective_consciousness()
     return eff_consciousness < threshold
-
-
-
-

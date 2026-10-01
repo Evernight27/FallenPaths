@@ -167,7 +167,14 @@ static func count_engaging_threats(manager: Node, defender_id: int) -> int:
 
 static func _surround_awareness_factor(defender: Dictionary) -> float:
     var perc_norm: float = clampf(
-        float(CombatantEntityAccess.stats_dict(defender).get(DataKeys.ENTITY_PERCEPTION, CombatConstants.DEFAULT_STAT_VALUE)) / 100.0,
+        (
+            float(
+                CombatantEntityAccess.stats_dict(defender).get(
+                    DataKeys.ENTITY_PERCEPTION, CombatConstants.DEFAULT_STAT_VALUE
+                )
+            )
+            / 100.0
+        ),
         0.0,
         1.0
     )
@@ -352,7 +359,9 @@ static func recompute_incursion_pressure(manager: Node) -> void:
                             fid,
                             formation.get(DataKeys.FORMATION_INCURSION_PRESSURE, 0.0),
                             CombatDebug.format_lane_stress(
-                                FormationSlots.formation_nested_dictionary_read(formation, DataKeys.FORMATION_LANE_STRESS_BY_FILE)
+                                FormationSlots.formation_nested_dictionary_read(
+                                    formation, DataKeys.FORMATION_LANE_STRESS_BY_FILE
+                                )
                             ),
                             mode_line,
                             our_front,

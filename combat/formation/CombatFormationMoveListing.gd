@@ -359,7 +359,11 @@ static func _append_adjacent_rank_partner_actions(
             actions,
             {"target_id": CombatantEntityAccess.id_int(ally), "move_id": CombatConstants.MOVE_ID_SWAP_RANK}
         )
-        if pc.get(DataKeys.RANK_PAIR_WE_ARE_FRONT, false) and pc.get(DataKeys.RANK_PAIR_WE_PLUG_FORWARD, false) != true and can_drag_back:
+        if (
+            pc.get(DataKeys.RANK_PAIR_WE_ARE_FRONT, false)
+            and pc.get(DataKeys.RANK_PAIR_WE_PLUG_FORWARD, false) != true
+            and can_drag_back
+        ):
             if front_rank_paired_retreat_action_legal(manager, c, ally, zone_geometry_line_context_cache):
                 _append_formation_action(
                     manager,

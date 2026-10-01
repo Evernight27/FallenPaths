@@ -59,6 +59,3 @@ static func surround_load_from_threat_entries(entries: Array) -> Dictionary:
     out[DataKeys.SURROUND_THREAT_WEIGHT_SUM] = total
     out[DataKeys.ARC_OCCUPANCY_BLOCKED] = blocked_n
     return out
-
-
-

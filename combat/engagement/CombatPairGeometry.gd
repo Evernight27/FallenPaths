@@ -108,7 +108,9 @@ static func melee_reach_covers_eff_dist(melee_range: float, eff_dist: float) -> 
 static func effective_pair_file_spacing_equivalent(
     manager: Node, a: Dictionary, b: Dictionary, formation_a_cache: Variant = null, formation_b_cache: Variant = null
 ) -> float:
-    return effective_pair_geometry(manager, a, b, formation_a_cache, formation_b_cache).get(DataKeys.PAIR_FILE_SPACING_EQUIV, 0.0)
+    return effective_pair_geometry(manager, a, b, formation_a_cache, formation_b_cache).get(
+        DataKeys.PAIR_FILE_SPACING_EQUIV, 0.0
+    )
 
 
 static func effective_pair_eff_dist(

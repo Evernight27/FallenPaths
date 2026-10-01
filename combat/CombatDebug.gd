@@ -1,4 +1,5 @@
 class_name CombatDebug
+
 extends RefCounted
 
 ## Log tiers: `COMBAT_EVENT_DEBUG` alone → `flow_log_turn` lists actions + pick. With `COMBAT_EVENT_DEBUG_VERBOSE`,
@@ -6,7 +7,8 @@ extends RefCounted
 ## `flow_log`: skip_turn, afterblow, close contest, incursion, formation rejects, resolve edge cases.
 ## `COMBAT_DEBUG` → per-hit / armor / wind-up (`CombatDebug.log`, EntityDamage traces).
 ## Unconditional `[Combat]` lines stay for phase boundaries, deaths, and UI-adjacent events (see grep print("[Combat")).
-## Play session (editor F5): **`combat_session`** / **`world_session`** → `FP_COMBAT` / `FP_WORLD` on stdout (copy Godot Output).
+## Play session (editor F5): **`combat_session`** / **`world_session`** → `FP_COMBAT` / `FP_WORLD` on stdout (copy Godot
+## Output).
 ## Godot Output).
 ## Invariant / logic faults: **`operational_warn`** (`FP_WARN`; always on).
 ## Conditional combat logging. Only logs when CombatConstants.COMBAT_DEBUG is true.
@@ -14,11 +16,15 @@ extends RefCounted
 ## flow_log: verbose pipeline; use `dedupe_key` on poll-heavy paths (see `COMBAT_FLOW_LOG_SUPPRESS_REPEATED`).
 ## `clear_flow_log_dedup` on combat start/stop.
 ## flow_log_turn: logs turn pick line when COMBAT_EVENT_DEBUG alone is true.
-
 static var _flow_log_last_by_key: Dictionary = {}
+
 static var _flow_log_event_last_by_key: Dictionary = {}
+
 static var _last_medical_session_line: String = ""
+
 static var _last_combat_session_line: String = ""
+
+static var _session_sink: Variant = null
 
 
 ## Always emitted (grep `FP_WARN`). Use for suspicious but non-fatal state.
@@ -27,6 +33,8 @@ static func operational_warn(msg: String) -> void:
 
 
 ## `[Combat.Flow]` when `COMBAT_EVENT_DEBUG` is on (turn picks use the same tier).
+
+
 static func flow_log_event(msg: String, dedupe_key: String = "") -> void:
     if not CombatConstants.combat_event_debug_active():
         return
@@ -40,6 +48,8 @@ static func flow_log_event(msg: String, dedupe_key: String = "") -> void:
 
 ## Stale/blocked picks: flow log + **`skip_turn`**. Pass **`operational=true`** for invariant faults (grep
 ## **`FP_WARN`**).
+
+
 static func resolve_action_rejected(
     manager: Node, attacker_id: int, move_id: String, reason: String, operational: bool = false
 ) -> void:
@@ -62,6 +72,8 @@ static func resolve_action_rejected(
 
 
 ## After instant actions (focus line): clear gauge and schedule the next **`EVENT_ACTION_READY`**.
+
+
 static func finish_instant_turn_and_schedule_ready(manager: Node, combatant: Dictionary) -> void:
     if manager == null or combatant.is_empty():
         return
@@ -72,10 +84,10 @@ static func finish_instant_turn_and_schedule_ready(manager: Node, combatant: Dic
 ## Optional file sink for `combat_session` lines (set by tools/combat_tuning; null in production/harness).
 ## When set, `[Combat]` session lines are written to the sink instead of stdout so tuning runs keep
 ## the Output panel compact — the sink owns the full verbose log.
-static var _session_sink: Variant = null
-
 
 ## Milestone combat lines during editor play (`FP_COMBAT`); falls back to `[Combat]` elsewhere.
+
+
 static func combat_session(msg: String) -> void:
     if msg == _last_combat_session_line:
         return
@@ -89,6 +101,8 @@ static func combat_session(msg: String) -> void:
 
 
 ## Hemostasis / pressure / dressings — always `FP_COMBAT` in play session (grep `medical` or `FP_COMBAT`).
+
+
 static func medical_session(msg: String) -> void:
     var line: String = "medical %s" % msg.strip_edges()
     if OperationalLog.is_play_session_active() and line == _last_medical_session_line:
@@ -98,6 +112,8 @@ static func medical_session(msg: String) -> void:
 
 
 ## Overworld / encounter lines during editor play (`FP_WORLD`).
+
+
 static func world_session(msg: String) -> void:
     if OperationalLog.is_play_session_active():
         OperationalLog.play_world(msg)
@@ -111,6 +127,8 @@ static func log(msg: String) -> void:
 
 
 ## Calibration logs: alignment, parry_c_d, variance, remaining_ratio. Only when COMBAT_DEBUG_CALIBRATION.
+
+
 static func calibration_log(msg: String) -> void:
     if CombatConstants.COMBAT_DEBUG_CALIBRATION:
         print("[Combat.Cal] ", msg)
@@ -119,11 +137,15 @@ static func calibration_log(msg: String) -> void:
 ## True when the verbose defense-choice pipeline trace (dc_pre_align/defense_choose/dc_enter_def/dc_sub/dc_out)
 ## should be emitted. Off by default so the always-on session log carries only the condensed `dc` outcome line;
 ## flip COMBAT_DEBUG_CALIBRATION to restore the full per-stage decision trace for deep debugging.
+
+
 static func dc_trace_active() -> bool:
     return CombatConstants.COMBAT_DEBUG_CALIBRATION
 
 
 ## True when `flow_log` prints (both event-debug toggles on). Use to skip expensive log prep work.
+
+
 static func flow_verbose_enabled() -> bool:
     return CombatConstants.combat_event_debug_verbose_active()
 
@@ -141,6 +163,8 @@ static func clear_flow_log_dedup() -> void:
 ## Verbose flow. Pass `dedupe_key` for lines that may repeat unchanged every frame (e.g. `get_available_actions`,
 ## incursion snapshot); identical consecutive lines for that key are dropped when `COMBAT_FLOW_LOG_SUPPRESS_REPEATED` is
 ## on.
+
+
 static func flow_log(msg: String, dedupe_key: String = "") -> void:
     if not flow_verbose_enabled():
         return
@@ -154,17 +178,23 @@ static func flow_log(msg: String, dedupe_key: String = "") -> void:
 
 ## Unconditional harness diagnostic log — always prints regardless of quiet mode or debug flags.
 ## Use for critical path diagnostics in headless harness runs (winner checks, hit outcomes, AI commits).
+
+
 static func harness_diag(msg: String) -> void:
     print("[Combat.Harness] ", msg)
 
 
 ## Vacancy plug / rank-0 reconcile. Toggle `CombatConstants.COMBAT_FORMATION_VACANCY_DEBUG`.
+
+
 static func formation_vacancy_log(msg: String) -> void:
     if CombatConstants.COMBAT_FORMATION_VACANCY_DEBUG:
         print("[Combat.Formation] ", msg)
 
 
 ## One-line summary of build() output for logs (move_id@target_id[:part]).
+
+
 static func format_actions_compact(actions: Array) -> String:
     var parts: PackedStringArray = []
     for a in actions:
@@ -226,6 +256,8 @@ static func _is_non_damage_turn_pick(move_id: String) -> bool:
 
 
 ## Short suffix for battle row gauge (non-damaging picks).
+
+
 static func turn_pick_kind_suffix(move_id: String) -> String:
     if move_id.begins_with("focus_"):
         return " . Focus"
@@ -275,6 +307,8 @@ static func flow_log_turn(
 
 
 ## lane_stress_by_file or similar: file index -> float
+
+
 static func format_lane_stress(by_file: Dictionary) -> String:
     if by_file.is_empty():
         return ""
@@ -285,6 +319,8 @@ static func format_lane_stress(by_file: Dictionary) -> String:
 
 
 ## Verbose `get_available_actions` summary + optional listing diagnostic (`COMBAT_EVENT_DEBUG_VERBOSE`).
+
+
 static func log_available_actions_build(
     manager: Node,
     combatant_id: int,
@@ -407,6 +443,3 @@ static func _format_depth_polearm_melee_context_debug(
             " ; ".join(bits)
         ]
     )
-
-
-

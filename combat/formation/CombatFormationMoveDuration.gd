@@ -96,7 +96,9 @@ static func estimate_adjacent_rank_pair_duration_s(
     var kind_mult: float = (
         CombatConstants.DRAG_BACK_DURATION_MULT if move_kind == CombatConstants.FORMATION_MOVE_KIND_DRAG_BACK else 1.0
     )
-    var duration: float = _agi_scale_s(initiator) * lane_foot * pressure_mod * kind_mult * _armor_mult(initiator, partner)
+    var duration: float = (
+        _agi_scale_s(initiator) * lane_foot * pressure_mod * kind_mult * _armor_mult(initiator, partner)
+    )
     # Muscle fatigue: fatigued legs make formation reposition moves slower. step_speed_mult is a SPEED factor in
     # [floor, 1.0], so divide the duration by it (duration ∝ 1/speed) — the old multiply inverted this and made
     # exhausted units reposition FASTER.
@@ -188,7 +190,9 @@ static func preview_lane_pressure_for_combatant(manager: Node, c: Dictionary) ->
     var f: int = CombatantEntityAccess.file_int(c)
     out[DataKeys.DURATION_LANE_FOOT] = ZoneOfControl.get_lane_and_footing_duration_multiplier(manager, fid, f)
     out[DataKeys.DURATION_PRESSURE_MOD] = ZoneOfControl.get_opponent_pressure_duration_multiplier(manager, fid)
-    out[DataKeys.DURATION_CONTROLLING_FRONT] = (ZoneOfControl.get_opponent_controlling_disengage_pressure_mult(manager, fid) > 1.01)
+    out[DataKeys.DURATION_CONTROLLING_FRONT] = (
+        ZoneOfControl.get_opponent_controlling_disengage_pressure_mult(manager, fid) > 1.01
+    )
     out[DataKeys.DURATION_ARMOR_MULT] = _armor_mult(c)
     out[DataKeys.DURATION_VALUE_S] = estimate_solo_fall_back_duration_s(manager, c)
     return out

@@ -99,7 +99,7 @@ static func pick_highest_medical(actions: Array, combatant_id: int, manager: Nod
     for a in actions:
         if a is not Dictionary:
             continue
-        var w: float = CombatAIActionWeights._get_medical_weight(a as Dictionary, combatant_id, manager)
+        var w: float = CombatMedicalWeighting.compute_weight(a as Dictionary, combatant_id, manager)
         if w > best_w:
             best_w = w
             best = a.duplicate()
@@ -159,7 +159,9 @@ static func resolve_picked_turn(
             manager, combatant_id, "pass", "medical coordination blocked stale pick"
         )
     elif not committed:
-        CombatAIActionWeights._verify_turn_committed_after_resolve(manager, combatant_id, choice.get(DataKeys.ACTION_MOVE_ID, ""))
+        CombatAIActionWeights._verify_turn_committed_after_resolve(
+            manager, combatant_id, choice.get(DataKeys.ACTION_MOVE_ID, "")
+        )
     if not log_side.is_empty() and committed:
         CombatDebug.flow_log_turn(log_side, combatant_id, actions, choice, manager)
 
@@ -250,7 +252,7 @@ static func _add_attack_target_part(choice: Dictionary, manager: Node, attacker_
 
 
 static func _get_medical_weight(a: Dictionary, combatant_id: int, manager: Node) -> float:
-    return CombatAIActionWeights._get_medical_weight(a, combatant_id, manager)
+    return CombatMedicalWeighting.compute_weight(a, combatant_id, manager)
 
 
 ## Tier 4.2: after **`AttackResultApplier`** **`parry_deflect`**, record defender tick on **`attacker`** for

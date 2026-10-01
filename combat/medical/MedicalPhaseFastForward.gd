@@ -7,7 +7,9 @@ const CombatConstantsScript := preload("res://combat/CombatConstants.gd")
 
 ## Medical phase queries: danger, urgency, untreated wounds, end-of-phase, ally medical actions, campaign
 ## **`batch_resolve_on_campaign_exit`**.
-## Footing: halting wind-up on phase entry → **`CombatFootwork.clear_on_exchange_end`** per combatant · **`return_to_waiting`** on idle reset — LIVE_PATHS **`#wf-tier-44-pa`** (clear). Does **not** change **`weapon_form`** / home guard.
+## Footing: halting wind-up on phase entry → **`CombatFootwork.clear_on_exchange_end`** per combatant ·
+## **`return_to_waiting`** on idle reset — LIVE_PATHS **`#wf-tier-44-pa`** (clear). Does **not** change
+## **`weapon_form`** / home guard.
 ## **`CombatFootwork.clear_on_exchange_end`** per combatant ·. **`return_to_waiting`** on idle reset
 ## — §" LIVE_PATHS **`#wf-tier-44-pa`** (clear). Does **not** change **`weapon_form`** / home guard.
 ## Manager must have: combatants (Array), medical_phase (bool), medical_phase_winner (String), get_health_entity(node)
@@ -40,21 +42,31 @@ static func _batch_apply_direct_pressure(
         if MedicalPhaseBatchResolve._get_company_state().read_stub_proficiency_enabled():
             var perf_entity = CombatantEntityAccess.get_entity_from_manager(manager, performer)
             var tgt_entity = CombatantEntityAccess.get_entity_from_manager(manager, target)
-            if perf_entity != null and "_proficiency_bonus" in perf_entity and EntityProficiency.is_stat_gain_tracked(perf_entity):
+            if (
+                perf_entity != null
+                and "_proficiency_bonus" in perf_entity
+                and EntityProficiency.is_stat_gain_tracked(perf_entity)
+            ):
                 Proficiency.award_stat_gain(
                     perf_entity,
                     "intelligence",
                     Proficiency.GAIN_MEDICAL_ACTION_BASE * Proficiency.GAIN_DIRECT_PRESSURE_INT_MULT
                 )
-            if tgt_entity != null and "_proficiency_bonus" in tgt_entity and EntityProficiency.is_stat_gain_tracked(tgt_entity):
+            if (
+                tgt_entity != null
+                and "_proficiency_bonus" in tgt_entity
+                and EntityProficiency.is_stat_gain_tracked(tgt_entity)
+            ):
                 # Enduring blood peril scales with how badly the patient is bleeding (deep hemorrhage
                 # trains more endurance than a light scratch) — matches the wind-up and batch paths.
                 Proficiency.award_stat_gain(
                     tgt_entity,
                     "endurance",
-                    Proficiency.GAIN_BLOOD_PERIL_BASE
-                    * Proficiency.GAIN_DIRECT_PRESSURE_PATIENT_END_MULT
-                    * EntityProficiency.blood_peril_end_factor(float(tgt_entity.blood_volume))
+                    (
+                        Proficiency.GAIN_BLOOD_PERIL_BASE
+                        * Proficiency.GAIN_DIRECT_PRESSURE_PATIENT_END_MULT
+                        * EntityProficiency.blood_peril_end_factor(float(tgt_entity.blood_volume))
+                    )
                 )
     return applied
 
@@ -82,14 +94,15 @@ static func _batch_outcome_for_method(
 
 ## Returns the medical item type multiplier for batch resolve proficiency gains.
 static func _get_batch_item_mult(move_id: String) -> float:
+    const CC := CombatConstantsScript
     match move_id:
-        CombatConstantsScript.MOVE_ID_BANDAGE_SELF, CombatConstantsScript.MOVE_ID_BANDAGE_ALLY, CombatConstantsScript.MOVE_TARGET_APPLY_BANDAGE:
+        CC.MOVE_ID_BANDAGE_SELF, CC.MOVE_ID_BANDAGE_ALLY, CC.MOVE_TARGET_APPLY_BANDAGE:
             return Proficiency.get_medical_item_mult("bandage")
-        CombatConstantsScript.MOVE_ID_PACK_WOUND, CombatConstantsScript.MOVE_ID_PACK_ALLY, CombatConstantsScript.MOVE_TARGET_APPLY_PACKING:
+        CC.MOVE_ID_PACK_WOUND, CC.MOVE_ID_PACK_ALLY, CC.MOVE_TARGET_APPLY_PACKING:
             return Proficiency.get_medical_item_mult("pack")
-        CombatConstantsScript.MOVE_TARGET_APPLY_STABILIZE, CombatConstantsScript.MOVE_ID_STABILIZE_WOUND, CombatConstantsScript.MOVE_ID_STABILIZE_ALLY:
+        CC.MOVE_TARGET_APPLY_STABILIZE, CC.MOVE_ID_STABILIZE_WOUND, CC.MOVE_ID_STABILIZE_ALLY:
             return Proficiency.get_medical_item_mult("pack")
-        CombatConstantsScript.MOVE_ID_APPLY_TOURNIQUET, CombatConstantsScript.MOVE_ID_APPLY_TOURNIQUET_ALLY:
+        CC.MOVE_ID_APPLY_TOURNIQUET, CC.MOVE_ID_APPLY_TOURNIQUET_ALLY:
             return Proficiency.get_medical_item_mult("tourniquet")
         _:
             return 1.0
@@ -273,7 +286,10 @@ static func _has_pending_recovery_end(manager: Node, combatant_id: int) -> bool:
         if raw is not Dictionary:
             continue
         var ev: Dictionary = raw
-        if ev.get(DataKeys.EVENT_TYPE, "") == CombatConstants.EVENT_RECOVERY_END and int(ev.get(DataKeys.EVENT_COMBATANT_ID, -1)) == combatant_id:
+        if (
+            ev.get(DataKeys.EVENT_TYPE, "") == CombatConstants.EVENT_RECOVERY_END
+            and int(ev.get(DataKeys.EVENT_COMBATANT_ID, -1)) == combatant_id
+        ):
             return true
     return false
 

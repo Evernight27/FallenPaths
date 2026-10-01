@@ -26,8 +26,18 @@ static func process_event_queue(manager: Node) -> void:
                     var wait_s: float = resolve_at - clk
                     var atk_name: String = ""
                     if not CombatantEntityAccess.manager_get_combatant(manager, cid_head).is_empty():
-                        atk_name = CombatantEntityAccess.get_display_name(CombatantEntityAccess.manager_get_combatant(manager, cid_head), cid_head)
-                    CombatDebug.harness_diag("event_queue_blocked melee_attack id=%d name=%s resolve_at=%.3f clock=%.3f wait=%.3fs queue_size=%d" % [cid_head, atk_name, resolve_at, clk, wait_s, manager.event_queue.size()])
+                        atk_name = CombatantEntityAccess.get_display_name(
+                            CombatantEntityAccess.manager_get_combatant(manager, cid_head), cid_head
+                        )
+                    CombatDebug.harness_diag(
+                        (
+                            (
+                                "event_queue_blocked melee_attack id=%d name=%s resolve_at=%.3f clock=%.3f wait=%.3fs "
+                                + "queue_size=%d"
+                            )
+                            % [cid_head, atk_name, resolve_at, clk, wait_s, manager.event_queue.size()]
+                        )
+                    )
             break
         var ev: Dictionary = manager.event_queue.pop_front() as Dictionary
         handle_event(manager, ev)

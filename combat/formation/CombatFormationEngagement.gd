@@ -62,7 +62,9 @@ static func _compute_line_cohesion(manager: Node, fid: String, form: Dictionary,
         var files: int = maxi(1, int(form.get(DataKeys.FORMATION_FILES, 1)))
         front_fill = clampf(float(n_front) / float(files), 0.0, 1.0)
     var lane_stress_avg: float = _avg_lane_stress(form)
-    var morale: float = clampf(form.get(DataKeys.FORMATION_MORALE_COHESION_FACTOR, 1.0), CombatConstants.MORALE_COHESION_FACTOR_MIN, 1.0)
+    var morale: float = clampf(
+        form.get(DataKeys.FORMATION_MORALE_COHESION_FACTOR, 1.0), CombatConstants.MORALE_COHESION_FACTOR_MIN, 1.0
+    )
     var raw: float = (
         (CombatConstants.COHESION_BASE_FLOOR + CombatConstants.COHESION_FILL_SCALE * front_fill)
         * (1.0 - CombatConstants.COHESION_LANE_STRESS_WEIGHT * lane_stress_avg)

@@ -132,11 +132,7 @@ static func facing_turn_depth(c: Dictionary) -> float:
 ## FACING_TURN_PARRY_CAPACITY_MULT_MIN as the facing depth rises. Distinct axis from off-balance,
 ## so it never stacks into a double stagger. D001-neutral: front-on fights never stamp a facing turn.
 static func facing_turn_parry_capacity_mult(c: Dictionary) -> float:
-    return lerpf(
-        1.0,
-        CombatConstantsParry.FACING_TURN_PARRY_CAPACITY_MULT_MIN,
-        facing_turn_depth(c)
-    )
+    return lerpf(1.0, CombatConstantsParry.FACING_TURN_PARRY_CAPACITY_MULT_MIN, facing_turn_depth(c))
 
 
 ## Apply an off-balance window from a single event, extending if the fighter is already off-balance.
@@ -228,10 +224,14 @@ static func apply_facing_turn(c: Dictionary, angle: String) -> float:
 ## and the head-impact startle floor. The hit path in the applier multiplies nothing else, so this
 ## is the single place to read or tune "how long does a hit stagger someone". `ke_j <= 0` keeps the
 ## impulse term neutral; a missing/unknown engagement angle keeps orientation neutral ("front").
-static func hit_off_balance_window(intensity: float, part: String, outcome: String, c: Dictionary, ke_j: float = -1.0) -> float:
+static func hit_off_balance_window(
+    intensity: float, part: String, outcome: String, c: Dictionary, ke_j: float = -1.0
+) -> float:
     var engagement_angle: String = str(c.get(DataKeys.PA_ENGAGEMENT_ANGLE, "front"))
     var armor_ratio: float = (
-        CombatConstants.armor_burden_mass_ratio_for_combatant(c) if CombatConstants.is_feature_armor_burden_enabled() else 0.0
+        CombatConstants.armor_burden_mass_ratio_for_combatant(c)
+        if CombatConstants.is_feature_armor_burden_enabled()
+        else 0.0
     )
     var leg: float = CombatantEntityAccess.get_leg_functionality(c)
     var window: float = (
@@ -272,9 +272,7 @@ static func off_balance_recovery_mult(c: Dictionary) -> float:
     # Concussion: impaired balance (balance_mult < 1 while concussed, 1.0 otherwise) slows re-rooting.
     var entity: Node = CombatantEntityAccess.combat_body(c)
     if entity != null:
-        var balance: float = float(
-            EntityPainConsciousness.get_concussion_phase_info(entity).get("balance_mult", 1.0)
-        )
+        var balance: float = float(EntityPainConsciousness.get_concussion_phase_info(entity).get("balance_mult", 1.0))
         if balance < 0.999:
             m /= balance
     return clampf(m, CombatConstantsParry.OFF_BALANCE_RECOVERY_MIN, CombatConstantsParry.OFF_BALANCE_RECOVERY_MAX)

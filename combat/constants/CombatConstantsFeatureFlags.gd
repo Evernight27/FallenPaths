@@ -389,12 +389,8 @@ static func initiative_score_for_combatant(combatant: Dictionary) -> float:
     if combatant.is_empty():
         return 0.0
     var stats: Dictionary = CombatantEntityAccess.stats_dict(combatant)
-    var agi: float = stats.get(
-        DataKeys.ENTITY_AGILITY, CombatConstants.DEFAULT_STAT_VALUE
-    )
-    var perc: float = stats.get(
-        DataKeys.ENTITY_PERCEPTION, CombatConstants.DEFAULT_STAT_VALUE
-    )
+    var agi: float = stats.get(DataKeys.ENTITY_AGILITY, CombatConstants.DEFAULT_STAT_VALUE)
+    var perc: float = stats.get(DataKeys.ENTITY_PERCEPTION, CombatConstants.DEFAULT_STAT_VALUE)
     var rank_factor: float = maxf(0.65, 1.2 - float(CombatantEntityAccess.rank_int(combatant)) * 0.18)
     var armor_factor: float = 1.0 / maxf(0.01, armor_burden_action_ready_mult(combatant))
     return CombatConstantsParry.stats_factor_agi_perc(agi, perc) * rank_factor * armor_factor
@@ -405,12 +401,12 @@ static func compare_combatants_for_initiative_order(a: Dictionary, b: Dictionary
     var sb: float = initiative_score_for_combatant(b)
     if sa != sb:
         return sa > sb
-    var agi_a: int = int(CombatantEntityAccess.stats_dict(a).get(
-        DataKeys.ENTITY_AGILITY, CombatConstants.DEFAULT_STAT_VALUE
-    ))
-    var agi_b: int = int(CombatantEntityAccess.stats_dict(b).get(
-        DataKeys.ENTITY_AGILITY, CombatConstants.DEFAULT_STAT_VALUE
-    ))
+    var agi_a: int = int(
+        CombatantEntityAccess.stats_dict(a).get(DataKeys.ENTITY_AGILITY, CombatConstants.DEFAULT_STAT_VALUE)
+    )
+    var agi_b: int = int(
+        CombatantEntityAccess.stats_dict(b).get(DataKeys.ENTITY_AGILITY, CombatConstants.DEFAULT_STAT_VALUE)
+    )
     if agi_a != agi_b:
         return agi_a > agi_b
     return CombatantEntityAccess.id_int(a) < CombatantEntityAccess.id_int(b)
@@ -675,25 +671,28 @@ static func set_feature_wounded_defender_caution_load(enabled: bool) -> void:
 
 static func arm_wound_degradation_doc_sync_line() -> String:
     return (
-        "arm wound degradation: feature=%s penalty_per_unit=%.2f floor=%.2f "
-        + "sub=hand%.2f/forearm%.2f/elbow%.2f/upper_arm%.2f "
-        + "sev=minor%.2f/moderate%.2f/severe%.2f/critical%.2f "
-        + "parry_ratio=%.2f "
-        + "slice1=get_arm_wound_function_mult"
-    ) % [
-        "on" if FEATURE_ARM_WOUND_DEGRADATION else "off",
-        ARM_WOUND_GRIP_PENALTY_PER_UNIT,
-        ARM_WOUND_GRIP_FLOOR,
-        float(ARM_WOUND_GRIP_SUB_REGION_WEIGHT["hand"]),
-        float(ARM_WOUND_GRIP_SUB_REGION_WEIGHT["forearm"]),
-        float(ARM_WOUND_GRIP_SUB_REGION_WEIGHT["elbow"]),
-        float(ARM_WOUND_GRIP_SUB_REGION_WEIGHT["upper_arm"]),
-        float(ARM_WOUND_GRIP_SEVERITY_WEIGHT[BleedingConstants.SEVERITY_MINOR]),
-        float(ARM_WOUND_GRIP_SEVERITY_WEIGHT[BleedingConstants.SEVERITY_MODERATE]),
-        float(ARM_WOUND_GRIP_SEVERITY_WEIGHT[BleedingConstants.SEVERITY_SEVERE]),
-        float(ARM_WOUND_GRIP_SEVERITY_WEIGHT[BleedingConstants.SEVERITY_CRITICAL]),
-        ARM_WOUND_GRIP_PARRY_PENALTY_RATIO,
-    ]
+        (
+            "arm wound degradation: feature=%s penalty_per_unit=%.2f floor=%.2f "
+            + "sub=hand%.2f/forearm%.2f/elbow%.2f/upper_arm%.2f "
+            + "sev=minor%.2f/moderate%.2f/severe%.2f/critical%.2f "
+            + "parry_ratio=%.2f "
+            + "slice1=get_arm_wound_function_mult"
+        )
+        % [
+            "on" if FEATURE_ARM_WOUND_DEGRADATION else "off",
+            ARM_WOUND_GRIP_PENALTY_PER_UNIT,
+            ARM_WOUND_GRIP_FLOOR,
+            float(ARM_WOUND_GRIP_SUB_REGION_WEIGHT["hand"]),
+            float(ARM_WOUND_GRIP_SUB_REGION_WEIGHT["forearm"]),
+            float(ARM_WOUND_GRIP_SUB_REGION_WEIGHT["elbow"]),
+            float(ARM_WOUND_GRIP_SUB_REGION_WEIGHT["upper_arm"]),
+            float(ARM_WOUND_GRIP_SEVERITY_WEIGHT[BleedingConstants.SEVERITY_MINOR]),
+            float(ARM_WOUND_GRIP_SEVERITY_WEIGHT[BleedingConstants.SEVERITY_MODERATE]),
+            float(ARM_WOUND_GRIP_SEVERITY_WEIGHT[BleedingConstants.SEVERITY_SEVERE]),
+            float(ARM_WOUND_GRIP_SEVERITY_WEIGHT[BleedingConstants.SEVERITY_CRITICAL]),
+            ARM_WOUND_GRIP_PARRY_PENALTY_RATIO,
+        ]
+    )
 
 
 ## Parry counterstrike window: partial-parry **bind** grants the riposte chain (counterstrike) window.
@@ -711,9 +710,12 @@ static func set_feature_parry_counterstrike_window_load(enabled: bool) -> void:
 
 static func parry_counterstrike_doc_sync_line() -> String:
     return (
-        "parry counterstrike window: feature=%s slice1=bind_grants_riposte_chain_until "
-        + "window=riposte_chain_window_s windup_mult=riposte_chain_windup_mult"
-    ) % ("on" if FEATURE_PARRY_COUNTERSTRIKE_WINDOW else "off")
+        (
+            "parry counterstrike window: feature=%s slice1=bind_grants_riposte_chain_until "
+            + "window=riposte_chain_window_s windup_mult=riposte_chain_windup_mult"
+        )
+        % ("on" if FEATURE_PARRY_COUNTERSTRIKE_WINDOW else "off")
+    )
 
 
 static func is_feature_hit_continuation_window_enabled() -> bool:
@@ -738,13 +740,16 @@ static func set_feature_measure_damage_commit_load(enabled: bool) -> void:
 
 static func measure_damage_commit_doc_sync_line() -> String:
     return (
-        "measure damage commit: feature=%s over_reach_floor=%.2f under_reach_floor=%.2f "
-        + "slice1=strike_out_of_measure_damage_reduction"
-    ) % [
-        "on" if FEATURE_MEASURE_DAMAGE_COMMIT else "off",
-        CombatConstantsDamage.MEASURE_DMG_OVER_REACH_FLOOR,
-        CombatConstantsDamage.MEASURE_DMG_UNDER_REACH_FLOOR,
-    ]
+        (
+            "measure damage commit: feature=%s over_reach_floor=%.2f under_reach_floor=%.2f "
+            + "slice1=strike_out_of_measure_damage_reduction"
+        )
+        % [
+            "on" if FEATURE_MEASURE_DAMAGE_COMMIT else "off",
+            CombatConstantsDamage.MEASURE_DMG_OVER_REACH_FLOOR,
+            CombatConstantsDamage.MEASURE_DMG_UNDER_REACH_FLOOR,
+        ]
+    )
 
 
 ## Mercy & execution (docs/plan_mercy_execute.md): execute-vs-spare decisions are feature-gated for harness toggling.

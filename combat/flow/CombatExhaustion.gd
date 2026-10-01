@@ -29,7 +29,9 @@ static func apply_exertion_from_stamina_spend(manager: Node, combatant: Dictiona
     var ms_gain: float = CombatConstantsStamina.metabolic_stress_gain_from_stamina_spend(stamina_spent, end_stat)
     ms_gain *= _medical_exertion_gain_mult(manager, combatant)
     var cur_ms: float = combatant.get(CombatConstantsStamina.COMBATANT_KEY_METABOLIC_STRESS, 0.0)
-    combatant[CombatConstantsStamina.COMBATANT_KEY_METABOLIC_STRESS] = clampf(cur_ms + ms_gain, 0.0, CombatConstantsStamina.METABOLIC_STRESS_MAX)
+    combatant[CombatConstantsStamina.COMBATANT_KEY_METABOLIC_STRESS] = clampf(
+        cur_ms + ms_gain, 0.0, CombatConstantsStamina.METABOLIC_STRESS_MAX
+    )
     clamp_stamina_to_effective_max(combatant)
 
 

@@ -162,8 +162,11 @@ static func get_hit_chance_performance_modifier(combatant: Dictionary) -> float:
         base_mod = node._get_hit_chance_performance_modifier()
     elif node.has_method("get_performance_modifier"):
         base_mod = node.get_performance_modifier()
-    return base_mod * CombatConstantsStamina.exhaustion_performance_mult(
-        combatant.get(CombatConstantsStamina.COMBATANT_KEY_EXHAUSTION, 0.0)
+    return (
+        base_mod
+        * CombatConstantsStamina.exhaustion_performance_mult(
+            combatant.get(CombatConstantsStamina.COMBATANT_KEY_EXHAUSTION, 0.0)
+        )
     )
 
 
@@ -180,8 +183,11 @@ static func get_action_bar_performance_modifier(combatant: Dictionary) -> float:
         base_mod = node._get_action_bar_performance_modifier()
     elif node.has_method("get_performance_modifier"):
         base_mod = node.get_performance_modifier()
-    return base_mod * CombatConstantsStamina.exhaustion_performance_mult(
-        combatant.get(CombatConstantsStamina.COMBATANT_KEY_EXHAUSTION, 0.0)
+    return (
+        base_mod
+        * CombatConstantsStamina.exhaustion_performance_mult(
+            combatant.get(CombatConstantsStamina.COMBATANT_KEY_EXHAUSTION, 0.0)
+        )
     )
 
 
@@ -443,9 +449,7 @@ static func get_dodge_chance_with_windup(combatant: Dictionary, attacker_windup_
     if node == null or not node.has_method("_get_dodge_chance"):
         return 0.0
     var entity: Node = CombatantEntityAccess.combat_body(combatant)
-    return EntityPainConsciousness.get_dodge_chance_with_windup(
-        entity if entity != null else node, attacker_windup_override
-    )
+    return EntityParryDodge.get_dodge_chance_with_windup(entity if entity != null else node, attacker_windup_override)
 
 
 ## Returns blood volume 0 - 100 from node. Default 100.0 if unavailable.

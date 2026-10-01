@@ -164,7 +164,13 @@ static func _log_soak_coverage_camp_supplement() -> void:
     if not optional_missing.is_empty():
         var missing_str := ", ".join(optional_missing)
         OperationalLog.play_combat(
-            "soak_coverage camp hint optional still missing: %s  -  separate F5 runs or docs/f5_soak_log.camp_full.example.txt" % [missing_str]
+            (
+                (
+                    "soak_coverage camp hint optional still missing: %s  -  separate F5 runs or "
+                    + "docs/f5_soak_log.camp_full.example.txt"
+                )
+                % [missing_str]
+            )
         )
         for track_id in optional_missing:
             var hint: String = str(_CAMP_OPTIONAL_PLAY_HINTS.get(track_id, ""))

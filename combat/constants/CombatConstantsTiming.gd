@@ -14,7 +14,8 @@ const RECOVERY_COMMITMENT_SCALE_S: float = 0.5
 ## Models biomechanical reality — a strike that penetrates carries force forward, delaying blade repositioning.
 const RECOVERY_EXTRA_HIT_S: float = 0.12
 const RECOVERY_EXTRA_NEGLIGIBLE_CHIP_S: float = -0.06
-const RECOVERY_EXTRA_DEFLECTED_BASE_S: float = -0.04  # deflecting recovers faster (redirected opponent's energy; HEMA Farbenschlagen principle)
+const RECOVERY_EXTRA_DEFLECTED_BASE_S: float = -0.04
+# deflecting recovers faster (redirected opponent's energy; HEMA Farbenschlagen principle)
 const RECOVERY_DEFLECT_MOMENTUM_SCALE_S: float = 0.15
 ## Glancing blows vs penetrating hits: glances have higher base recovery (0.25 > 0.12).
 ## Design rationale: a glance that doesn't fully connect means the attacker's blade slid past —

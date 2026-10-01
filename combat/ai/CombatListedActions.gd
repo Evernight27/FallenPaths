@@ -246,6 +246,3 @@ static func filter_actions(actions: Array, keep_predicate: Callable) -> Array:
         if keep_predicate.call(a):
             out.append(a)
     return out
-
-
-

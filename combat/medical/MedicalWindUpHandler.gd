@@ -138,7 +138,8 @@ static func _finish_medical_procedure(
         )
         var self_id: int = _get_entity_access().id_int(c)
         (
-            manager.emit_signal(
+            manager
+            . emit_signal(
                 "action_resolved",
                 self_id,
                 tgt_cid,
@@ -209,16 +210,13 @@ static func _proficiency_medical_gains(
         EntityProficiency.award_stat_gain(
             tgt_entity,
             "endurance",
-            EntityProficiency.GAIN_BLOOD_PERIL_BASE
-            * EntityProficiency.GAIN_MEDICAL_PATIENT_END_MULT
-            * EntityProficiency.blood_peril_end_factor(float(tgt_entity.blood_volume))
+            (
+                EntityProficiency.GAIN_BLOOD_PERIL_BASE
+                * EntityProficiency.GAIN_MEDICAL_PATIENT_END_MULT
+                * EntityProficiency.blood_peril_end_factor(float(tgt_entity.blood_volume))
+            )
         )
 
     # Record this medic action for post-combat INT floor bonus (per-entity tracking).
     if world != null:
         CampaignEncounterBridge.record_medic_action(world, perf_entity)
-
-
-
-
-

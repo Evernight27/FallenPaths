@@ -5,7 +5,8 @@ const INSTANT_FAST_FORWARD_MAX_SECONDS: float = 7200.0
 ## Harness-only cap for sim_cap termination tests (`instant_complete_on_early_exit(mgr, cap)`).
 const INSTANT_FAST_FORWARD_INTERACTIVE_MAX_SECONDS: float = 600.0
 ## Wall-clock budget per frame while interactive fast-forward runs on **`CombatManager`**.
-## 22,000 μs = 22 ms/frame targets ~45 FPS during medical phase processing, leaving ~18 ms for rendering in a 60 Hz loop.
+## 22,000 μs = 22 ms/frame targets ~45 FPS during medical phase processing, leaving ~18 ms for rendering in a 60 Hz
+## loop.
 const INTERACTIVE_FAST_FORWARD_FRAME_BUDGET_US: int = 22000
 const INSTANT_FAST_FORWARD_STAGNANT_LIMIT: int = 48
 const INSTANT_FAST_FORWARD_MAX_ITERATIONS: int = 100000
@@ -298,12 +299,15 @@ static func _batch_medical_actions_for_part(manager: Node, performer_id: int, ta
         if raw_act is not Dictionary:
             continue
         var act: Dictionary = raw_act
-        out.append(
-            {
-                "target_id": target_id,
-                "move_id": act.get(DataKeys.ACTION_MOVE_ID, ""),
-                "target_part": str(act.get("target_part", part)),
-            }
+        (
+            out
+            . append(
+                {
+                    "target_id": target_id,
+                    "move_id": act.get(DataKeys.ACTION_MOVE_ID, ""),
+                    "target_part": str(act.get("target_part", part)),
+                }
+            )
         )
     return out
 
@@ -356,7 +360,11 @@ static func _batch_apply_medical_action(
             failed.remove_at(idx)
         # XCamp-4: proficiency gains for batch medical actions.
         if MedicalPhaseBatchResolve._get_company_state().read_stub_proficiency_enabled():
-            if perf_entity != null and "_proficiency_bonus" in perf_entity and EntityProficiency.is_stat_gain_tracked(perf_entity):
+            if (
+                perf_entity != null
+                and "_proficiency_bonus" in perf_entity
+                and EntityProficiency.is_stat_gain_tracked(perf_entity)
+            ):
                 EntityProficiency.award_stat_gain(
                     perf_entity,
                     "intelligence",
@@ -368,13 +376,19 @@ static func _batch_apply_medical_action(
             # above, so awarding both to the same entity is correct, not a double-count. Scaled by how
             # badly the patient is bleeding — enduring a deep hemorrhage trains more endurance than a
             # light scratch.
-            if tgt_entity != null and "_proficiency_bonus" in tgt_entity and EntityProficiency.is_stat_gain_tracked(tgt_entity):
+            if (
+                tgt_entity != null
+                and "_proficiency_bonus" in tgt_entity
+                and EntityProficiency.is_stat_gain_tracked(tgt_entity)
+            ):
                 EntityProficiency.award_stat_gain(
                     tgt_entity,
                     "endurance",
-                    EntityProficiency.GAIN_BLOOD_PERIL_BASE
-                    * EntityProficiency.GAIN_MEDICAL_PATIENT_END_MULT
-                    * EntityProficiency.blood_peril_end_factor(float(tgt_entity.blood_volume))
+                    (
+                        EntityProficiency.GAIN_BLOOD_PERIL_BASE
+                        * EntityProficiency.GAIN_MEDICAL_PATIENT_END_MULT
+                        * EntityProficiency.blood_peril_end_factor(float(tgt_entity.blood_volume))
+                    )
                 )
     else:
         var failed_mut: Array = CombatantEntityAccess.nested_array_for_mutation(target, "failed_medical_parts")

@@ -17,7 +17,9 @@ const _WINNER_TRIAGE_BUSY_STATES: Array[String] = [
 
 ## Medical phase queries: danger, urgency, untreated wounds, end-of-phase, ally medical actions, campaign
 ## **`batch_resolve_on_campaign_exit`**.
-## Footing: halting wind-up on phase entry → **`CombatFootwork.clear_on_exchange_end`** per combatant · **`return_to_waiting`** on idle reset — LIVE_PATHS **`#wf-tier-44-pa`** (clear). Does **not** change **`weapon_form`** / home guard.
+## Footing: halting wind-up on phase entry → **`CombatFootwork.clear_on_exchange_end`** per combatant ·
+## **`return_to_waiting`** on idle reset — LIVE_PATHS **`#wf-tier-44-pa`** (clear). Does **not** change
+## **`weapon_form`** / home guard.
 ## **`CombatFootwork.clear_on_exchange_end`** per combatant ·. **`return_to_waiting`** on idle reset
 ## — § LIVE_PATHS **`#wf-tier-44-pa`** (clear). Does **not** change **`weapon_form`** / home guard.
 ## Manager must have: combatants (Array), medical_phase (bool), medical_phase_winner (String), get_health_entity(node)
@@ -160,7 +162,10 @@ static func halt_losing_side_combat(manager: Node) -> void:
         MedicalPhaseBatchResolve._get_counter_tempo().clear_window(c)
         MedicalPhaseBatchResolve._get_counter_tempo().clear_riposte_chain(c)
         FlurryBind.clear(c)
-        if c.get(DataKeys.COMBATANT_COMBAT_ABSENT, false) or CombatantEntityAccess.state_str(c) == CombatConstants.STATE_FLED:
+        if (
+            c.get(DataKeys.COMBATANT_COMBAT_ABSENT, false)
+            or CombatantEntityAccess.state_str(c) == CombatConstants.STATE_FLED
+        ):
             c[DataKeys.SNAPSHOT_COMBAT_ABSENT] = true
             c.state = CombatConstants.STATE_FLED
             Footwork.reconcile_idle_offset(c)
@@ -170,7 +175,8 @@ static func halt_losing_side_combat(manager: Node) -> void:
         MedicalPhaseBatchResolve._get_counter_tempo().clear_window(c)
         MedicalPhaseBatchResolve._get_counter_tempo().clear_riposte_chain(c)
         var had_fled: bool = (
-            c.get(DataKeys.COMBATANT_COMBAT_ABSENT, false) or CombatantEntityAccess.state_str(c) == CombatConstants.STATE_FLED
+            c.get(DataKeys.COMBATANT_COMBAT_ABSENT, false)
+            or CombatantEntityAccess.state_str(c) == CombatConstants.STATE_FLED
         )
         MedicalPhaseBatchResolve._reset_fled_and_combat_absent(c)
         # Fled winners: triage needs them on-field (`is_alive_in_combat`); suspend bleed ticks only
@@ -204,11 +210,10 @@ static func can_end_medical_phase(manager: Node) -> bool:
         if not CombatantEntityAccess.is_standing_combatant(c):
             if CombatConstantsFeatureFlags.is_feature_mercy_execute_enabled():
                 return false
-            else:
-                var entity: Node = CombatantEntityAccess.get_entity_from_manager(manager, c)
-                if entity != null and entity.has_method("_get_total_bleeding_rate"):
-                    if entity._get_total_bleeding_rate() > BleedingConstants.BLEEDING_RATE_EPSILON:
-                        return false
+            var entity: Node = CombatantEntityAccess.get_entity_from_manager(manager, c)
+            if entity != null and entity.has_method("_get_total_bleeding_rate"):
+                if entity._get_total_bleeding_rate() > BleedingConstants.BLEEDING_RATE_EPSILON:
+                    return false
     return true
 
 
@@ -502,7 +507,11 @@ static func fast_forward_advance_time_slice(
             "break_reason": "medical_phase_cleared",
         }
     var slice_start_usec: int = Time.get_ticks_usec()
-    while manager.medical_phase and not can_end_medical_phase(manager) and float(sim_state[DataKeys.SIM_STATE_SIM_SECONDS]) < sim_cap:
+    while (
+        manager.medical_phase
+        and not can_end_medical_phase(manager)
+        and float(sim_state[DataKeys.SIM_STATE_SIM_SECONDS]) < sim_cap
+    ):
         if Time.get_ticks_usec() - slice_start_usec >= budget_usec:
             return {
                 "continue_loop": true,

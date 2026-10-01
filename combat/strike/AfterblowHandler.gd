@@ -80,8 +80,16 @@ static func try_afterblow(
         # Not hindered  -  allow
         return _execute_afterblow(manager, tgt, 0.0)
     var part_relevance: float = _get_part_relevance(hit_part, attacking_arm, _get_supporting_leg(tgt_n))
-    var severity: float = clampf(total_dmg / CombatAfterblowConstants.AFTERBLOW_DAMAGE_HINDER_THRESHOLD, 0.0, CombatAfterblowConstants.AFTERBLOW_SEVERITY_MAX)
-    var outcome_mult: float = CombatAfterblowConstants.AFTERBLOW_GLANCING_OUTCOME_MULT if outcome == "glancing" or outcome == "negligible" else 1.0
+    var severity: float = clampf(
+        total_dmg / CombatAfterblowConstants.AFTERBLOW_DAMAGE_HINDER_THRESHOLD,
+        0.0,
+        CombatAfterblowConstants.AFTERBLOW_SEVERITY_MAX
+    )
+    var outcome_mult: float = (
+        CombatAfterblowConstants.AFTERBLOW_GLANCING_OUTCOME_MULT
+        if outcome == "glancing" or outcome == "negligible"
+        else 1.0
+    )
     var hindrance: float = clampf(part_relevance * severity * intensity * outcome_mult, 0.0, 1.0)
 
     if hindrance >= CombatAfterblowConstants.AFTERBLOW_HINDRANCE_BLOCK:
@@ -141,9 +149,7 @@ static func _execute_afterblow(manager: Node, tgt: Dictionary, hindrance: float)
     # KE scales linearly with damage_mult, which is physically consistent with momentum transfer.
     var stored_intensity: float = pa.get(CombatConstants.PA_KEY_INTENSITY, 0.5)
     var archetype: Dictionary = CombatantEntityAccess.nested_dictionary_read(pa, "archetype")
-    var weapon_ctx: Variant = CombatantEntityAccess.get_weapon_from_node(
-        CombatantEntityAccess.scene_node(tgt)
-    )
+    var weapon_ctx: Variant = CombatantEntityAccess.get_weapon_from_node(CombatantEntityAccess.scene_node(tgt))
     if not archetype.is_empty() and weapon_ctx != null:
         var move_id: String = pa.get(DataKeys.ATTACK_ATTACK_TYPE, "")
         var v_base: float = WeaponDamageHelper.velocity_m_s_from_intensity(
@@ -159,7 +165,10 @@ static func _execute_afterblow(manager: Node, tgt: Dictionary, hindrance: float)
     if CombatDebug.flow_verbose_enabled():
         var tgt_name: String = CombatantEntityAccess.get_display_name(tgt, tgt_id)
         CombatDebug.flow_log(
-            "afterblow %s completes hindrance=%.2f dmg_mult=%.2f" % [tgt_name, hindrance, pa[DataKeys.PA_AFTERBLOW_DAMAGE_MULT]]
+            (
+                "afterblow %s completes hindrance=%.2f dmg_mult=%.2f"
+                % [tgt_name, hindrance, pa[DataKeys.PA_AFTERBLOW_DAMAGE_MULT]]
+            )
         )
     manager._execute_attack(tgt_id)
     return true

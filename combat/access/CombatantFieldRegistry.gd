@@ -55,6 +55,3 @@ const FIELDS: Dictionary = {
     "damage_dealt_by_id": {"owner": OWNER_STRIKE, "writers": "AttackResultApplier (ledger) · CombatExecute (reads)"},
     "prisoner": {"owner": OWNER_MEDICAL, "writers": "MedicalPhase / victory mop-up"},
 }
-
-
-

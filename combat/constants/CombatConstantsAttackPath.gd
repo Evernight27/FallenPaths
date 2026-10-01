@@ -1,13 +1,18 @@
 class_name CombatConstantsAttackPath
+
 extends RefCounted
 
 ## Attack path tables and geometry functions extracted from CombatConstants.gd.
 ## Canonical source for body-part paths, angles, alignment, deflection logic.
-
 const PARRY_ALIGNMENT_FLOOR := 0.0
+
 const GEOMETRIC_LEAK_MAX := 0.25
-## Non-linear geometric leak: alignment loss follows a square curve so high-alignment parries (HEMA "on the blade") are clean, while oblique angles produce proportionally more leak than linear scaling would suggest. Formula: pow(1-align, 2) * GEOMETRIC_LEAK_MAX.
+
+## Non-linear geometric leak: alignment loss follows a square curve so high-alignment parries (HEMA "on the blade") are
+## clean, while oblique angles produce proportionally more leak than linear scaling would suggest. Formula: pow(1-align,
+## 2) * GEOMETRIC_LEAK_MAX.
 const PARRY_GEOMETRY_VARIANCE_BASE := 0.08
+
 ## Fatigue-driven aim drift: the intended-part boost is multiplied by lerp(this, 1.0, stamina_ratio).
 ## A fresh attacker (stamina 1.0) aims precisely (boost x1.0); an exhausted one (stamina 0.0)
 ## aims at 80% precision (boost x0.80), so the landing part drifts off the aimed part a bit more
@@ -16,6 +21,7 @@ const PARRY_GEOMETRY_VARIANCE_BASE := 0.08
 ## rather than shifting which part is aimed at — the aimed part stays the modal outcome even when
 ## exhausted, just with somewhat wider scatter.
 const AIM_DRIFT_FATIGUE_FLOOR := 0.8
+
 ## Aim-leak near-miss falloff: the probability that leaks off the aimed part (the
 ## (1—aim_share) remainder) decays with blade-path distance from that part,
 ## 1/(1 + K*d) where d = number of path positions from the aimed part. Path order
@@ -24,26 +30,36 @@ const AIM_DRIFT_FATIGUE_FLOOR := 0.8
 ## fatigue widens it (K drops -> flatter falloff, misses spread to more distant parts),
 ## matching the sports-science finding that fatigue raises the spread of the aim error.
 const LEAK_PROXIMITY_FALLOFF_K := 0.7
+
 const LEAK_PROXIMITY_FALLOFF_K_FATIGUED := 0.25
 
 const PARRY_OPPOSITE_DEFLECT_SEVERITY_CUT := 0.65
+
 const PARRY_OPPOSITE_DEFLECT_SEVERITY_THRUST := 0.5
+
 const PARRY_OPPOSITE_DEFLECT_SEVERITY_BLUNT := 0.8
 
 const DEFLECTED_GUARD_FROM_ATTACK: Dictionary = {"high": "low", "low": "high", "left": "right", "right": "left"}
+
 const LINE_ADJACENTS: Dictionary = {
     "high": ["left", "right"], "low": ["left", "right"], "left": ["high", "low"], "right": ["high", "low"]
 }
+
 const DODGE_END_GUARD_FROM_ATTACK: Dictionary = {"high": "low", "low": "high", "left": "right", "right": "left"}
+
 const GUARD_DEFAULT := "high"
 
 # Option 6: Path + Guard Intercept — blade path per attack_line; guard determines intercept point.
 # Path order = blade travel; early parts = first contact when guard puts limbs in the way.
 # High alignment (same line) = early intercept (arms/limbs); low alignment = blade gets through (center mass).
 const ATTACK_PATH_HIGH: Array = ["left_arm", "right_arm", "head", "chest", "left_leg", "right_leg"]  # descending
+
 const ATTACK_PATH_LOW: Array = ["left_leg", "right_leg", "left_arm", "right_arm", "chest", "head"]  # rising
+
 const ATTACK_PATH_LEFT: Array = ["left_arm", "left_leg", "chest", "head", "right_arm", "right_leg"]  # from left
+
 const ATTACK_PATH_RIGHT: Array = ["right_arm", "right_leg", "chest", "head", "left_arm", "left_leg"]  # from right
+
 const ATTACK_PATHS: Dictionary = {
     "high": ATTACK_PATH_HIGH, "low": ATTACK_PATH_LOW, "left": ATTACK_PATH_LEFT, "right": ATTACK_PATH_RIGHT
 }
@@ -128,6 +144,7 @@ const DIAGONAL_WEIGHTS: Dictionary = {
 
 # Intercept: alignment 1.0 = hit early parts (indices 0..2); alignment 0.0 = full path (0..5)
 const PATH_INTERCEPT_EARLY_MAX := 2
+
 const PATH_INTERCEPT_FULL_MAX := 5
 
 ## Angle (degrees) from defender guard line to attacker attack line.
@@ -139,47 +156,71 @@ const LINE_ANGLE_DEG: Dictionary = {
 }
 
 const LINE_TO_ANGLE_DEG: Dictionary = {"high": 0.0, "right": 90.0, "low": 180.0, "left": 270.0}
+
 const ANGLE_VARIANCE_DEG: float = 8.0
+
 const ANGLE_VARIANCE_STAMINA_AT_ZERO_MULT: float = 1.6
+
 const ANGLE_VARIANCE_OFF_BALANCE_MULT: float = 1.35
+
 const ANGLE_VARIANCE_MASS_REFERENCE_KG: float = 1.0
+
 const ANGLE_VARIANCE_MASS_SCALE: float = 0.1
 
 const GUARD_WOBBLE_MAX_DEG: float = 12.0
+
 const GUARD_WOBBLE_READINESS_SCALE: float = 1.0
+
 const GUARD_WOBBLE_MASS_REFERENCE_KG: float = 1.0
+
 const GUARD_WOBBLE_MASS_SCALE: float = 0.08
 
 const ARC_SPAN_LATE_PARRY_THRESHOLD_DEG: float = 50.0
+
 const ARC_SPAN_LATE_PARRY_PENALTY_MAX: float = 0.25
 
 const DODGE_FULL_THRESHOLD := 0.55
+
 ## Dodge outcome threshold: randf() < this value → full dodge; otherwise partial (glancing) dodge.
 ## Game-feel tuning: ~55% of successful dodges roll as full evasions for average combatants, with the remainder
 ## producing partial dodges that reduce but don't eliminate hit damage. Higher values make dodges feel more reliable.
 const DODGE_PARTIAL_RATIO_MIN := 0.4
+
 const PARRY_FOLLOW_THROUGH_DODGE_EFFICIENCY := 0.67
+
 const PARRY_FOLLOW_THROUGH_PARTIAL_MIN := 0.5
+
 const PARRY_PARTIAL_MAX_RATIO := 0.85
+
 const PARRY_FOLLOW_THROUGH_THRUST_PENALTY := 0.12
+
 const PARRY_FOLLOW_THROUGH_CUT_BONUS := 0.05
+
 const RECOVERY_AGILITY_MIN := 0.7
+
 const RECOVERY_AGILITY_MAX := 1.3
 
 const WEAK_EXPOSURE_BY_ARCH: Dictionary = {
     "overhead": 1.0, "heavy_blunt": 0.0, "slash": 0.5, "stab": 0.75, "pommel_strike": 0.0, "quick_slash": 0.3
 }
+
 const DEFENDER_STRONG_BONUS: float = 0.12
+
 const PARRY_STRONG_CONTACT_BY_ARCH: Dictionary = {
     "overhead": 1.12, "heavy_blunt": 1.08, "slash": 1.0, "stab": 1.02, "pommel_strike": 1.0, "quick_slash": 0.95
 }
+
 ## Forte/schwach bonus scales with blade flexibility. A flexible blade (long/thin) flexes more under load,
 ## so its forte/schwach difference is larger; a stiff blade (short/thick) flexes less. Slenderness =
 ## blade_length_cm / blade_width_cm. Reference calibrated to SWORD (90cm / 2.0cm = 45) so D001 (SWORD-only)
 ## is unaffected. Flexible blades (high slenderness) get up to FLEX_FACTOR_MAX; stiff blades get FLEX_FACTOR_MIN.
-const FLEX_REFERENCE_SLENDERNess := 45.0
+const FLEX_REFERENCE_SLENDERNESS := 45.0
+
 const FLEX_FACTOR_MIN := 0.5
+
 const FLEX_FACTOR_MAX := 1.5
+
+const HIT_SUB_REGION_SEED_MULTIPLIER: int = 31
 
 
 static func flex_factor_for_slenderness(slenderness: float) -> float:
@@ -187,7 +228,7 @@ static func flex_factor_for_slenderness(slenderness: float) -> float:
     ## At the reference slenderness (45, SWORD) -> 1.0. More slender (flexible) -> up to 1.5; stiffer -> down to 0.5.
     if slenderness <= 0.0:
         return 1.0
-    return clampf(slenderness / FLEX_REFERENCE_SLENDERNess, FLEX_FACTOR_MIN, FLEX_FACTOR_MAX)
+    return clampf(slenderness / FLEX_REFERENCE_SLENDERNESS, FLEX_FACTOR_MIN, FLEX_FACTOR_MAX)
 
 
 static func _iv6_bubble_pair(parts: Array, before: String, after: String) -> Array:
@@ -421,7 +462,9 @@ static func get_attack_angle_deg(
         var ob_depth: float = float(variance_context.get(DataKeys.VAR_CTX_OFF_BALANCE, 0.0))
         if ob_depth > 0.0:
             mult *= lerpf(1.0, ANGLE_VARIANCE_OFF_BALANCE_MULT, ob_depth)
-        var mass_kg: float = float(variance_context.get(DataKeys.VAR_CTX_WEAPON_MASS_KG, ANGLE_VARIANCE_MASS_REFERENCE_KG))
+        var mass_kg: float = float(
+            variance_context.get(DataKeys.VAR_CTX_WEAPON_MASS_KG, ANGLE_VARIANCE_MASS_REFERENCE_KG)
+        )
         if mass_kg > 0 and ANGLE_VARIANCE_MASS_REFERENCE_KG > 0:
             var mass_mult: float = 1.0 + (mass_kg - ANGLE_VARIANCE_MASS_REFERENCE_KG) * ANGLE_VARIANCE_MASS_SCALE
             mult *= maxf(0.7, mass_mult)
@@ -444,7 +487,9 @@ static func get_guard_angle_deg(combatant: Dictionary, wobble_context: Dictionar
     var readiness: float = wobble_context.get(DataKeys.WOBBLE_CONTEXT_PARRY_READINESS, 1.0)
     if readiness < 1.0 and GUARD_WOBBLE_MAX_DEG > 0:
         var wobble: float = GUARD_WOBBLE_MAX_DEG * (1.0 - readiness * GUARD_WOBBLE_READINESS_SCALE)
-        var mass_kg: float = float(wobble_context.get(DataKeys.WOBBLE_CONTEXT_DEFENDER_MASS_KG, GUARD_WOBBLE_MASS_REFERENCE_KG))
+        var mass_kg: float = float(
+            wobble_context.get(DataKeys.WOBBLE_CONTEXT_DEFENDER_MASS_KG, GUARD_WOBBLE_MASS_REFERENCE_KG)
+        )
         if mass_kg > 0 and GUARD_WOBBLE_MASS_REFERENCE_KG > 0:
             var mass_mult: float = 1.0 + (mass_kg - GUARD_WOBBLE_MASS_REFERENCE_KG) * GUARD_WOBBLE_MASS_SCALE
             wobble *= maxf(0.7, mass_mult)
@@ -492,5 +537,3 @@ static func get_line_alignment_with_deflect(
     var align_from: float = get_line_alignment(attack_line, from_line)
     var align_to: float = get_line_alignment(attack_line, guard_line)
     return lerpf(align_from, align_to, blend)
-
-const HIT_SUB_REGION_SEED_MULTIPLIER: int = 31

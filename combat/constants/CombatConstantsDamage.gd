@@ -45,7 +45,8 @@ const MEASURE_HIT_CHANCE_FLOOR := 0.55
 ## attacker's natural measure — a "half-step" strike that cannot generate full speed/angle.
 ## Milder than the over-extension penalty (0.80 vs 0.55 floor) because under-reach is recoverable
 ## by committing harder, whereas over-extension is a geometric dead-end.
-## Formula: lerp(1.0, FLOOR, clampf((1.0 - ratio) / (1.0 - RATIO_MIN), 0, 1)) — full penalty at ratio <= RATIO_MIN (0.75).
+## Formula: lerp(1.0, FLOOR, clampf((1.0 - ratio) / (1.0 - RATIO_MIN), 0, 1)) — full penalty at ratio <= RATIO_MIN
+## (0.75).
 const MEASURE_UNDER_REACH_HIT_CHANCE_FLOOR := 0.80
 
 ## Measure-ratio *damage* penalty (heuristic). A strike out of measure — over-extended (ratio > 1.0) or

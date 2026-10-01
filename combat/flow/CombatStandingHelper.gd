@@ -32,6 +32,3 @@ static func get_winner(combatants: Array) -> String:
         if b == 0:
             return sides_list[0]
     return ""
-
-
-

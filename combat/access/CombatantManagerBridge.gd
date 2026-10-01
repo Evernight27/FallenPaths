@@ -68,7 +68,10 @@ static func has_left_battlefield(combatant: Dictionary) -> bool:
 
 ## Returns true if combatant's node is incapacitated (consciousness/cowering) or has yielded.
 static func is_incapacitated(combatant: Dictionary) -> bool:
-    if bool(combatant.get(DataKeys.COMBATANT_YIELDED, false)) or str(combatant.get(DataKeys.COMBATANT_STATE, "")) == "yielded":
+    if (
+        bool(combatant.get(DataKeys.COMBATANT_YIELDED, false))
+        or str(combatant.get(DataKeys.COMBATANT_STATE, "")) == "yielded"
+    ):
         return true
     if str(combatant.get(DataKeys.COMBATANT_STATE, "")) == "cowering":
         return true

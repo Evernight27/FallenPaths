@@ -115,7 +115,8 @@ static func apply_flee(manager: Node, combatant_id: int) -> void:
         manager.recompute_zoc_and_distance()
         CombatEventScheduler.reschedule_back_rank_turns(manager, fid)
     (
-        manager.emit_signal(
+        manager
+        . emit_signal(
             "action_resolved",
             combatant_id,
             combatant_id,

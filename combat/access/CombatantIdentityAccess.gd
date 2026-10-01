@@ -116,6 +116,7 @@ static func is_on_side(combatant: Dictionary, side: String) -> bool:
 
 ## Alive combatant on the **opposite** side from `side_str`. (Convenience — mirrors `is_living_same_side`.)
 
+
 static func is_living_opponent_of_by_side(combatant: Dictionary, my_side: String) -> bool:
     if not alive_bool(combatant):
         return false
@@ -166,7 +167,10 @@ static func is_formation_command_issuer(combatant: Dictionary) -> bool:
 static func is_formation_telegraph_leader(combatant: Dictionary) -> bool:
     if combatant.is_empty():
         return false
-    return combatant.get(DataKeys.COMBATANT_IS_PARTY_LEADER, false) or combatant.get(DataKeys.COMBATANT_IS_ENEMY_LEADER, false)
+    return (
+        combatant.get(DataKeys.COMBATANT_IS_PARTY_LEADER, false)
+        or combatant.get(DataKeys.COMBATANT_IS_ENEMY_LEADER, false)
+    )
 
 
 ## Opponent side label for **`actor`** (`player` →f→s'f→s' -> `enemy`, else `player`).
@@ -296,8 +300,12 @@ static func get_display_name(combatant: Variant, fallback_id: int = -1) -> Strin
 
 ## Returns true if combatant's node has a weapon.
 static func sync_close_distance_pair(atk: Dictionary, tgt: Dictionary, attacker_id: int, target_id: int) -> void:
-    nested_dictionary_for_mutation(atk, DataKeys.COMBATANT_DISTANCE_TO)[target_id] = CombatConstantsDistance.DISTANCE_CLOSE
-    nested_dictionary_for_mutation(tgt, DataKeys.COMBATANT_DISTANCE_TO)[attacker_id] = CombatConstantsDistance.DISTANCE_CLOSE
+    nested_dictionary_for_mutation(atk, DataKeys.COMBATANT_DISTANCE_TO)[target_id] = (
+        CombatConstantsDistance.DISTANCE_CLOSE
+    )
+    nested_dictionary_for_mutation(tgt, DataKeys.COMBATANT_DISTANCE_TO)[attacker_id] = (
+        CombatConstantsDistance.DISTANCE_CLOSE
+    )
 
 
 static func formation_morale_cohesion_factor(manager: Node, c: Dictionary) -> float:
@@ -307,7 +315,11 @@ static func formation_morale_cohesion_factor(manager: Node, c: Dictionary) -> fl
     if fid.is_empty():
         return 1.0
     var form: Dictionary = _get_formation_slots().formation_record_for_manager(manager, fid)
-    return clampf(form.get(DataKeys.FORMATION_MORALE_COHESION_FACTOR, 1.0), CombatConstantsEngagement.MORALE_COHESION_FACTOR_MIN, 1.0)
+    return clampf(
+        form.get(DataKeys.FORMATION_MORALE_COHESION_FACTOR, 1.0),
+        CombatConstantsEngagement.MORALE_COHESION_FACTOR_MIN,
+        1.0
+    )
 
 ## Returns leg functionality 0 - 1. Default 1.0 if unavailable.
 

@@ -30,7 +30,9 @@ static func resolve(manager: Node, attacker_id: int, target_id: int, move_id: St
     ):
         var mercy_execute: bool = (
             move_id == CombatConstants.MOVE_ID_EXECUTE
-            and CombatExecute.is_downed_opponent_of(manager, atk, CombatantEntityAccess.manager_get_combatant(manager, target_id))
+            and CombatExecute.is_downed_opponent_of(
+                manager, atk, CombatantEntityAccess.manager_get_combatant(manager, target_id)
+            )
         )
         if not ((use_counter_tempo and CounterTempo.can_act(manager, atk)) or mercy_execute):
             return false
@@ -63,7 +65,11 @@ static func resolve(manager: Node, attacker_id: int, target_id: int, move_id: St
             # fast-forward) fire here.
             if CompanyState.read_stub_proficiency_enabled():
                 var perf_node := CombatantEntityAccess.get_entity_from_manager(manager, atk)
-                if perf_node != null and "_proficiency_bonus" in perf_node and EntityProficiency.is_stat_gain_tracked(perf_node):
+                if (
+                    perf_node != null
+                    and "_proficiency_bonus" in perf_node
+                    and EntityProficiency.is_stat_gain_tracked(perf_node)
+                ):
                     EntityProficiency.award_stat_gain(
                         perf_node,
                         "intelligence",
@@ -108,8 +114,7 @@ static func resolve(manager: Node, attacker_id: int, target_id: int, move_id: St
         # penalty also drops immediately (a deliberate re-root measurably reduces current imbalance).
         atk[DataKeys.PA_OFF_BALANCE_UNTIL] = now + remaining * 0.5
         CombatDebug.flow_log_event(
-            "regain_footing id=%d cut=%.2fs" % [attacker_id, remaining * 0.5],
-            "regain_footing:%d" % attacker_id
+            "regain_footing id=%d cut=%.2fs" % [attacker_id, remaining * 0.5], "regain_footing:%d" % attacker_id
         )
         # Costs the fighter's turn like WAIT (skip_turn resets gauge + schedules re-ready).
         manager.skip_turn(attacker_id, "regain_footing", "re-root off-balance")
@@ -204,13 +209,22 @@ static func resolve(manager: Node, attacker_id: int, target_id: int, move_id: St
         return _commit_close_attempt_resolve(manager, attacker_id, target_id)
     if CombatConstants.is_formation_reposition_move(move_id):
         var move_policy: Dictionary = CombatEngagementMode.movement_policy(manager)
-        if move_id == CombatConstants.MOVE_ID_SWAP_RANK and not move_policy.get(DataKeys.MOVE_POLICY_ALLOW_SWAP_RANK, false):
+        if (
+            move_id == CombatConstants.MOVE_ID_SWAP_RANK
+            and not move_policy.get(DataKeys.MOVE_POLICY_ALLOW_SWAP_RANK, false)
+        ):
             CombatDebug.resolve_action_rejected(manager, attacker_id, move_id, "movement policy blocks swap_rank")
             return false
-        if move_id == CombatConstants.MOVE_ID_DRAG_BACK and not move_policy.get(DataKeys.MOVE_POLICY_ALLOW_DRAG_BACK, false):
+        if (
+            move_id == CombatConstants.MOVE_ID_DRAG_BACK
+            and not move_policy.get(DataKeys.MOVE_POLICY_ALLOW_DRAG_BACK, false)
+        ):
             CombatDebug.resolve_action_rejected(manager, attacker_id, move_id, "movement policy blocks drag_back")
             return false
-        if move_id == CombatConstants.MOVE_ID_FALL_BACK and not move_policy.get(DataKeys.MOVE_POLICY_ALLOW_FALL_BACK, false):
+        if (
+            move_id == CombatConstants.MOVE_ID_FALL_BACK
+            and not move_policy.get(DataKeys.MOVE_POLICY_ALLOW_FALL_BACK, false)
+        ):
             # Cowering solo retreat is listed without stable-line policy (`formation_retreat_only` in builder).
             var cowering_solo_retreat: bool = (
                 target_id == attacker_id
@@ -411,10 +425,13 @@ static func resolve(manager: Node, attacker_id: int, target_id: int, move_id: St
         if wind_st != CombatConstants.STATE_WAITING:
             reason = "wind_up did not produce STATE_WIND_UP (state=%s duration=%.1f)" % [wind_st, atk.state_duration]
         else:
-            reason = "wind_up did not start: gauge=%.1f threshold=%s" % [
-                CombatantEntityAccess.gauge_float(atk),
-                CombatConstants.GAUGE_FULL_THRESHOLD,
-            ]
+            reason = (
+                "wind_up did not start: gauge=%.1f threshold=%s"
+                % [
+                    CombatantEntityAccess.gauge_float(atk),
+                    CombatConstants.GAUGE_FULL_THRESHOLD,
+                ]
+            )
         CombatDebug.flow_log_event(
             "resolve_action_silent_fail id=%d move=%s reason=%s" % [attacker_id, move_id, reason],
             "silent_fail:%d:%s" % [attacker_id, move_id]
@@ -465,7 +482,9 @@ static func _resolve_execute(manager: Node, attacker_id: int, target_id: int, at
     # HEMA realism: a staggered fighter's center of gravity is compromised, so the committed finishing
     # strike can fumble. Fades with depth (a nearly-settled fighter finishes reliably); on fumble the turn
     # is consumed but the target stays downed, so the attacker can re-attempt once settled.
-    var exec_fumble_chance: float = PassiveParryContext.off_balance_depth(atk) * CombatConstants.OFF_BALANCE_EXECUTE_FAIL_CHANCE_MAX
+    var exec_fumble_chance: float = (
+        PassiveParryContext.off_balance_depth(atk) * CombatConstants.OFF_BALANCE_EXECUTE_FAIL_CHANCE_MAX
+    )
     if exec_fumble_chance > 0.0 and randf() < exec_fumble_chance:
         var fumble_who: String = CombatantEntityAccess.get_display_name(atk, attacker_id)
         var fumble_tgt_name: String = CombatantEntityAccess.get_display_name(tgt, target_id)

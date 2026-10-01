@@ -134,7 +134,13 @@ static func _log_hit_coverage_hint() -> void:
     var avoided_note: String = ""
     if avoided > 0:
         avoided_note = " strike_avoided=%d" % avoided
-    var coverage_hint = "hit_coverage_hint hit_resolve=0 turn_ready=%d%s  -  grep strike_avoided reason= parry_partial rem=; formation-only or all avoids/parries" % [turns, avoided_note]
+    var coverage_hint = (
+        (
+            "hit_coverage_hint hit_resolve=0 turn_ready=%d%s  -  grep strike_avoided reason= parry_partial rem=; "
+            + "formation-only or all avoids/parries"
+        )
+        % [turns, avoided_note]
+    )
     OperationalLog.play_combat(coverage_hint)
 
 
@@ -297,7 +303,13 @@ static func _log_soak_coverage() -> void:
     if ok:
         var profile_str := ", ".join(profiles)
         OperationalLog.play_combat(
-            "soak_coverage pass this fight matches D-001 validator for %s  -  still grep FP_ERROR SCRIPT_ERROR in Output" % [profile_str]
+            (
+                (
+                    "soak_coverage pass this fight matches D-001 validator for %s  -  still grep FP_ERROR "
+                    + "SCRIPT_ERROR in Output"
+                )
+                % [profile_str]
+            )
         )
     if CombatF5SoakTraceRollups._camp_trace_pending_for_supplement():
         CombatF5SoakTraceUiMatch._log_soak_coverage_camp_supplement()

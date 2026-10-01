@@ -486,7 +486,9 @@ static func abort_pair(manager: Node, init, partner, reason: String = "") -> voi
     if not partner.is_empty() and CombatantEntityAccess.alive_bool(partner) and pair_state_ok(partner):
         _set_combatant_waiting(partner)
     # Keep a brief local guard after abort so the same pair does not instantly requeue under churn.
-    var until: float = CombatantEntityAccess.combat_clock_float(manager) + CombatConstants.FORMATION_PAIR_ABORT_RETRY_COOLDOWN_S
+    var until: float = (
+        CombatantEntityAccess.combat_clock_float(manager) + CombatConstants.FORMATION_PAIR_ABORT_RETRY_COOLDOWN_S
+    )
     if not init.is_empty() and CombatantEntityAccess.alive_bool(init):
         init[DataKeys.FM_PAIR_ABORT_COOLDOWN_UNTIL] = until
     if not partner.is_empty() and CombatantEntityAccess.alive_bool(partner):
@@ -505,7 +507,9 @@ static func abort_solo_formation_move(manager: Node, init, reason: String = "") 
         and CombatantEntityAccess.state_str(init) == CombatConstants.STATE_FALLING_BACK
     ):
         _set_combatant_waiting(init)
-    var until: float = CombatantEntityAccess.combat_clock_float(manager) + CombatConstants.FORMATION_PAIR_ABORT_RETRY_COOLDOWN_S
+    var until: float = (
+        CombatantEntityAccess.combat_clock_float(manager) + CombatConstants.FORMATION_PAIR_ABORT_RETRY_COOLDOWN_S
+    )
     if CombatantEntityAccess.alive_bool(init):
         init[DataKeys.FM_PAIR_ABORT_COOLDOWN_UNTIL] = until
 
@@ -907,13 +911,3 @@ static func on_combatant_died(manager: Node, c: Dictionary) -> void:
     CombatEventScheduler.reschedule_back_rank_turns(manager, fid_geom)
     if fid_home != fid_geom:
         CombatEventScheduler.reschedule_back_rank_turns(manager, fid_home)
-
-
-
-
-
-
-
-
-
-

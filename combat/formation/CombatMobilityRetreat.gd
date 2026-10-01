@@ -71,11 +71,17 @@ static func resolve_move_allowed_when_cannot_melee(move_id: String, target_id: i
         return true
     if CombatConstants.is_leader_formation_command_move(move_id) and target_id == attacker_id:
         return true
-    return target_id == attacker_id and move_id in [
-        CombatConstants.MOVE_ID_FALL_BACK,
-        CombatConstants.MOVE_ID_FLEE,
-        CombatConstants.MOVE_ID_YIELD,
-    ]
+    return (
+        target_id == attacker_id
+        and (
+            move_id
+            in [
+                CombatConstants.MOVE_ID_FALL_BACK,
+                CombatConstants.MOVE_ID_FLEE,
+                CombatConstants.MOVE_ID_YIELD,
+            ]
+        )
+    )
 
 
 static func is_offensive_melee_move_id(move_id: String) -> bool:
@@ -102,7 +108,15 @@ static func sync_cowering_state_if_no_functional_arm(c: Dictionary) -> void:
     var st: String = CombatantEntityAccess.state_str(c)
     if st == CombatConstants.STATE_COWERING:
         return
-    if st in [CombatConstants.STATE_WIND_UP, CombatConstants.STATE_RECOVERING, CombatConstants.STATE_DEAD, CombatConstants.STATE_FALLING_BACK]:
+    if (
+        st
+        in [
+            CombatConstants.STATE_WIND_UP,
+            CombatConstants.STATE_RECOVERING,
+            CombatConstants.STATE_DEAD,
+            CombatConstants.STATE_FALLING_BACK
+        ]
+    ):
         return
     CombatFootwork.return_to_cowering(c)
 

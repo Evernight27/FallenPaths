@@ -31,7 +31,9 @@ static func is_weapon_near_body(combatant: Dictionary) -> bool:
         var cause: String = CombatConstants.normalize_recovery_cause(combatant.get(DataKeys.ATTACK_RECOVERY_CAUSE, ""))
         if cause == "attack_deflect":
             return true
-        var last_move: String = str(combatant.get(DataKeys.PA_LAST_MOVE_ID, combatant.get(DataKeys.ATTACK_LAST_MOVE_ID, ""))).strip_edges()
+        var last_move: String = (
+            str(combatant.get(DataKeys.PA_LAST_MOVE_ID, combatant.get(DataKeys.ATTACK_LAST_MOVE_ID, ""))).strip_edges()
+        )
         if last_move.is_empty():
             return true
         return false
@@ -66,6 +68,7 @@ static func _commit_fraction_for_weapon_extension(pa: Dictionary) -> float:
     if not mid.is_empty():
         return commit_fraction_from_move_def(WeaponConstants.get_move(mid))
     return CombatConstants.WEAPON_EXTENDED_COMMIT_FRACTION
+
 
 ## Multiplier on defender **`parry_c_d`** when the blade is extended (recovering from own attack, etc.).
 static func parry_capacity_mult_for_defender(defender: Dictionary) -> float:

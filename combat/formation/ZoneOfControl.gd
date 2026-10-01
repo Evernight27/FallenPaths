@@ -12,7 +12,8 @@ extends RefCounted
 ##
 ## Zone geometry API (home **`formation_id`** only):
 ## - **`zone_geometry_fid_str`** / **`formation_for_combatant_cached`**
-## - One resolve: **`zone_geometry_line_context`** → **`zone_geometry_fid_from_pack`** / **`zone_geometry_formation_from_pack`**
+## - One resolve: **`zone_geometry_line_context`** → **`zone_geometry_fid_from_pack`** /
+## **`zone_geometry_formation_from_pack`**
 ## **`zone_geometry_formation_from_pack`**
 ## - Per-pass cache: **`zone_geometry_line_context_by_combatant_id`**
 ## - Pair: **`zone_geometry_for_pair`** + **`zone_geometry_*_from_pair_pack`**
@@ -626,7 +627,8 @@ static func _opponent_front_rank_pressure_scan(manager: Node, fid: String) -> Di
             out[DataKeys.ZONE_ALL_DEFENSIVE] = false
         if CombatWeaponForm.controlling_pressure_active(c):
             out[DataKeys.ZONE_CONTROLLING_DISENGAGE_MULT] = maxf(
-                float(out[DataKeys.ZONE_CONTROLLING_DISENGAGE_MULT]), CombatWeaponForm.opponent_disengage_pressure_mult(stance)
+                float(out[DataKeys.ZONE_CONTROLLING_DISENGAGE_MULT]),
+                CombatWeaponForm.opponent_disengage_pressure_mult(stance)
             )
     return out
 

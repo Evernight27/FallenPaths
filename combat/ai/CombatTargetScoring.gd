@@ -16,7 +16,8 @@ extends RefCounted
 ## **`depth_polearm_lane_open`** alone).
 ## 5. `CombatResolveAction` → melee wind-up → `on_combat_commitment`; close → `CombatEngagementResolver`
 ## (success → commitment + clear close block; fail → per-target cooldown).
-## 6. `set_formation_doctrine` → clears commitments on that formation (doctrine change); death → `clear_all_targeting_state_for_dead_defender`.
+## 6. `set_formation_doctrine` → clears commitments on that formation (doctrine change); death →
+## `clear_all_targeting_state_for_dead_defender`.
 ## `clear_all_targeting_state_for_dead_defender`.
 ##
 ## **Doctrine:** `DOCTRINE_PINCH_CENTER` / `HOLD_LANE` steer **listed** melee/close weights and ordering;
@@ -59,7 +60,6 @@ static func prune_expired_commitments(manager: Node) -> void:
         var t: Dictionary = CombatantEntityAccess.manager_get_combatant(manager, tid)
         if t.is_empty() or not CombatantEntityAccess.is_standing_combatant(t):
             c[DataKeys.DOCTRINE_TARGET_COMMIT_ID] = -1
-
 
 
 static func on_combat_commitment(manager: Node, attacker_id: int, target_id: int) -> void:
@@ -168,7 +168,8 @@ static func _enemy_front_file_center(manager: Node, enemy_side: String) -> float
     return (float(lo) + float(hi)) * 0.5
 
 
-## Optional **`eff_dist_cache`**: **`effective_pair_geometry` → `eff_dist`** when the caller already computed pair geometry (e.g. **`hostile_pair_targeting_weight_mult`**).
+## Optional **`eff_dist_cache`**: **`effective_pair_geometry` → `eff_dist`** when the caller already computed pair
+## geometry (e.g. **`hostile_pair_targeting_weight_mult`**).
 ## geometry (e.g. **`hostile_pair_targeting_weight_mult`**).
 static func soft_geometry_score(
     manager: Node, actor: Dictionary, opp: Dictionary, eff_dist_cache: Variant = null

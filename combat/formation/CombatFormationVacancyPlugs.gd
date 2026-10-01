@@ -45,6 +45,7 @@ static func formation_plug_layer_blocked(manager: Node, c: Dictionary, actions: 
         return true
     return false
 
+
 ## MS-L5: true when plug cognition should run (not blocked and at least one listed plug move).
 static func formation_plug_layer_eligible(manager: Node, c: Dictionary, combatant_id: int, actions: Array) -> bool:
     if formation_plug_layer_blocked(manager, c, actions, combatant_id):
@@ -295,6 +296,7 @@ static func reconcile_vacancy_plugs_formation(manager: Node, fid: String) -> boo
         FormationSlots.refresh_gap_column_topology(formation)
     return any
 
+
 ## Returns `formation_id` strings whose `reconcile_vacancy_plugs_formation` made a change this pass.
 static func reconcile_vacancy_plugs_track_changed_fids(manager: Node) -> Array:
     var changed_fids: Array = []
@@ -305,6 +307,7 @@ static func reconcile_vacancy_plugs_track_changed_fids(manager: Node) -> Array:
             changed_fids.append(str(fk))
     debug_verify_vacancy_invariants_after_reconcile(manager)
     return changed_fids
+
 
 ## Entry point: full pass when `COMBAT_VACANCY_RECONCILE_DIRTY_ONLY` is false; otherwise only
 ## `Combatmanager._get_vacancy_dirty_fids()` (cleared as processed).
@@ -345,6 +348,7 @@ static func reconcile_vacancy_plugs_all_formations(manager: Node) -> bool:
         manager.mark_all_formations_vacancy_dirty()
     return not reconcile_vacancy_plugs(manager).is_empty()
 
+
 ## Shared tail for vacancy reconcile: ZoC/distance, surgical back-rank `action_ready` bump, optional
 ## `formation_changed`.
 ## Call with `emit_formation_changed_signals=false` when the caller emits those signals separately (e.g.
@@ -363,6 +367,7 @@ static func finish_vacancy_reconcile_follow_up(
         var fk: String = str(fv)
         if manager.formations is Dictionary and (manager.formations as Dictionary).has(fk):
             manager.formation_changed.emit(fk)
+
 
 ## Debug-only: after a full reconcile pass, rank 0 in a column should not stay empty if a non-intruded ally
 ## could step up (same rules as `apply_vacancy_plug_same_file`). Intruder-only deeper ranks are allowed.
@@ -397,7 +402,16 @@ static func debug_verify_vacancy_invariants_after_reconcile(manager: Node) -> vo
                     has_promotable_deeper = true
                     break
             if has_promotable_deeper:
-                push_error("CombatFormationFlow: vacancy invariant failed after reconcile (rank 0 empty, deeper ally available) fid=%s file=%d" % [fid_str, file])
+                push_error(
+                    (
+                        (
+                            "CombatFormationFlow: vacancy invariant failed after reconcile (rank 0 empty, deeper ally "
+                            + "available) fid=%s file=%d"
+                        )
+                        % [fid_str, file]
+                    )
+                )
+
 
 ## Death-triggered same-file micro-plug (bounded steps) after corpse is written to **`slot_obstacles`**.
 static func run_death_column_micro_plug(
@@ -444,9 +458,3 @@ static func run_death_column_micro_plug(
         if not moved_step_d:
             break
     FormationVacancyDonorScoring._vacancy_lateral_end_tracking(manager)
-
-
-
-
-
-

@@ -5,7 +5,8 @@ extends RefCounted
 ## envelop) so melee can threaten.
 ## Footing: reads **`form_str`** for close/evasion pressure only — not **`guard_line`** or Tier 4.4 PA. LIVE_PATHS
 ## **`#wf-pick-vs-strike`** . **`#wf-assign-form-contract`**.
-## Not line-crash / breach fiction (removed D-008). Listing: `CombatMeleeListing`; resolve: `CombatResolveAction` → `CombatManager._resolve_close_attempt`.
+## Not line-crash / breach fiction (removed D-008). Listing: `CombatMeleeListing`; resolve: `CombatResolveAction` →
+## `CombatManager._resolve_close_attempt`.
 
 
 static func _finish_close_attempt_turn(manager: Node, atk: Dictionary, attacker_id: int) -> void:
@@ -37,12 +38,12 @@ static func resolve_close_attempt(manager: Node, attacker_id: int, target_id: in
     var melee_range: float = CombatantEntityAccess.weapon_melee_reach(atk)
     var atk_stats := CombatantEntityAccess.stats_dict(atk)
     var tgt_stats := CombatantEntityAccess.stats_dict(tgt)
-    var str_val: float = float(
-        atk_stats.get(DataKeys.ENTITY_STRENGTH, CombatConstants.DEFAULT_STAT_VALUE)
-    )
+    var str_val: float = float(atk_stats.get(DataKeys.ENTITY_STRENGTH, CombatConstants.DEFAULT_STAT_VALUE))
     var agi_def: float = float(tgt_stats.get(DataKeys.ENTITY_AGILITY, CombatConstants.DEFAULT_STAT_VALUE))
     var pressure: float = (
-        str_val * CombatConstants.stamina_factor(CombatantEntityAccess.stamina_ratio(atk)) * (melee_range / CombatConstantsCloseSlots.CLOSE_CONTEST_MELEE_RANGE_NORMALIZER)
+        str_val
+        * CombatConstants.stamina_factor(CombatantEntityAccess.stamina_ratio(atk))
+        * (melee_range / CombatConstantsCloseSlots.CLOSE_CONTEST_MELEE_RANGE_NORMALIZER)
     )
     pressure *= CombatWeaponForm.mod(
         CombatantEntityAccess.form_str(atk), "close_attempt", CombatantEntityAccess.get_weapon(atk)
@@ -52,9 +53,7 @@ static func resolve_close_attempt(manager: Node, attacker_id: int, target_id: in
     pressure *= PassiveParryContext.off_balance_penalty_mult(atk, CombatConstants.OFF_BALANCE_CLOSE_PRESSURE_MULT)
     # Tier 2.1 v2: the lead leg drives the closing step-in; a wounded lead leg weakens the lunge.
     # Persistent deficit (unlike the fading off-balance term). D001-neutral at full lead-leg health.
-    pressure *= CombatConstants.close_advance_lead_leg_mult(
-        CombatantEntityAccess.get_lead_leg_functionality(atk)
-    )
+    pressure *= CombatConstants.close_advance_lead_leg_mult(CombatantEntityAccess.get_lead_leg_functionality(atk))
     var evasion: float = agi_def * CombatConstants.stamina_factor(CombatantEntityAccess.stamina_ratio(tgt))
     evasion *= CombatWeaponForm.mod(
         CombatantEntityAccess.form_str(tgt), "evasion", CombatantEntityAccess.get_weapon(tgt)
@@ -64,7 +63,9 @@ static func resolve_close_attempt(manager: Node, attacker_id: int, target_id: in
         evasion /= CombatWeaponForm.opponent_close_evasion_divisor(CombatantEntityAccess.form_str(tgt))
     var ctx_tgt: Dictionary = ZoneOfControl.zone_geometry_line_context(manager, tgt)
     var form_geom: Dictionary = ZoneOfControl.zone_geometry_formation_from_pack(ctx_tgt)
-    var density: String = str(form_geom.get(DataKeys.FORMATION_DENSITY, "normal")) if not form_geom.is_empty() else "normal"
+    var density: String = (
+        str(form_geom.get(DataKeys.FORMATION_DENSITY, "normal")) if not form_geom.is_empty() else "normal"
+    )
     evasion *= CombatConstants.get_density_close_mod(density)
     var success: bool = randf() < pressure / (pressure + maxf(evasion, 1.0))
     if CombatDebug.flow_verbose_enabled():
@@ -153,9 +154,3 @@ static func _reject_close_attempt_slots_full(
         CombatantEntityAccess.combat_clock_float(manager) + CombatConstants.CLOSE_ATTEMPT_SAME_TARGET_COOLDOWN_S
     )
     _finish_close_attempt_turn(manager, atk, attacker_id)
-
-
-
-
-
-

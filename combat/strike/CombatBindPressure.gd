@@ -4,11 +4,17 @@
 class_name CombatBindPressure
 extends RefCounted
 
-
 ## V5 HEMA realism: blade feel (Waffenfühlen) — Perception and Intelligence scale bind contest power.
 
+
 static func blade_feel_atk_mult_full(perc: float, int_val: float) -> float:
-    return 1.0 + CombatConstants.BLADE_FEEL_PERC_SCALE * ((perc / 100.0) + CombatConstants.BLADE_FEEL_INT_SCALE * (int_val / 100.0))
+    return (
+        1.0
+        + (
+            CombatConstants.BLADE_FEEL_PERC_SCALE
+            * ((perc / 100.0) + CombatConstants.BLADE_FEEL_INT_SCALE * (int_val / 100.0))
+        )
+    )
 
 
 static func blade_feel_atk_mult(perc: float) -> float:
@@ -102,7 +108,11 @@ static func has_wrestling_available(c: Dictionary) -> bool:
 static func set_after_parry_bind(target: Dictionary, manager: Node, attacker_id: int, control: float) -> void:
     if target.is_empty() or manager == null:
         return
-    var pressure: float = clampf((control - CombatConstants.PARRY_BIND_CONTROL_THRESHOLD) / (1.0 - CombatConstants.PARRY_BIND_CONTROL_THRESHOLD), 0.2, 0.8)
+    var pressure: float = clampf(
+        (control - CombatConstants.PARRY_BIND_CONTROL_THRESHOLD) / (1.0 - CombatConstants.PARRY_BIND_CONTROL_THRESHOLD),
+        0.2,
+        0.8
+    )
     var clock: float = CombatantEntityAccess.combat_clock_float(manager)
     target[DataKeys.BIND_PRESSURE_VALUE] = pressure
     target[DataKeys.BIND_PRESSURE_UNTIL] = clock + CombatConstants.BIND_PRESSURE_DURATION_S
@@ -153,7 +163,10 @@ static func apply_decay(combatant: Dictionary, manager: Node, delta: float) -> v
     else:
         val -= base_decay
     # Check for wrestling transition opportunity — high sustained pressure means blade is locked but opponent is tiring.
-    if val >= CombatConstants.BIND_WRESTLING_TRANSITION_THRESHOLD and not combatant.has(DataKeys.BIND_WRESTLING_AVAILABLE):
+    if (
+        val >= CombatConstants.BIND_WRESTLING_TRANSITION_THRESHOLD
+        and not combatant.has(DataKeys.BIND_WRESTLING_AVAILABLE)
+    ):
         combatant[DataKeys.BIND_WRESTLING_AVAILABLE] = true
     # Clear wrestling flag if pressure dropped below threshold.
     if val < CombatConstants.BIND_STATE_HARD_THRESHOLD:
@@ -345,8 +358,12 @@ static func resolve_bind_void(manager: Node, attacker_id: int, target_id: int) -
     var tgt_stats := CombatantEntityAccess.stats_dict(tgt)
     var atk_agi: float = float(atk_stats.get(DataKeys.ENTITY_AGILITY, CombatConstants.DEFAULT_STAT_VALUE))
     var tgt_skill: float = CombatantEntityAccess.melee_skill_value(tgt)
-    var void_power: float = atk_agi * 2.0 + float(atk_stats.get(DataKeys.ENTITY_STRENGTH, CombatConstants.DEFAULT_STAT_VALUE))
-    var hold_power: float = tgt_skill * 2.0 + float(tgt_stats.get(DataKeys.ENTITY_STRENGTH, CombatConstants.DEFAULT_STAT_VALUE))
+    var void_power: float = (
+        atk_agi * 2.0 + float(atk_stats.get(DataKeys.ENTITY_STRENGTH, CombatConstants.DEFAULT_STAT_VALUE))
+    )
+    var hold_power: float = (
+        tgt_skill * 2.0 + float(tgt_stats.get(DataKeys.ENTITY_STRENGTH, CombatConstants.DEFAULT_STAT_VALUE))
+    )
     # V5 HEMA realism: Perception scales blade feel (Waffenfühlen) in bind contests.
     var atk_perc_v: float = float(atk_stats.get(DataKeys.ENTITY_PERCEPTION, CombatConstants.DEFAULT_STAT_VALUE))
     var tgt_perc_v: float = float(tgt_stats.get(DataKeys.ENTITY_PERCEPTION, CombatConstants.DEFAULT_STAT_VALUE))
@@ -364,7 +381,9 @@ static func resolve_bind_void(manager: Node, attacker_id: int, target_id: int) -
             loa -= CombatConstants.LATERAL_STEP_DELTA
         else:
             loa += CombatConstants.LATERAL_STEP_DELTA
-        atk[DataKeys.BIND_LANE_OFFSET] = clampf(loa, -CombatConstants.LANE_OFFSET_ABS_MAX, CombatConstants.LANE_OFFSET_ABS_MAX)
+        atk[DataKeys.BIND_LANE_OFFSET] = clampf(
+            loa, -CombatConstants.LANE_OFFSET_ABS_MAX, CombatConstants.LANE_OFFSET_ABS_MAX
+        )
         ## B3: angular advantage from void — stepping outside closes opponent's strong side.
         atk[DataKeys.BIND_ANGULAR_ADVANTAGE_UNTIL] = clock + CombatConstants.ANGULAR_ADVANTAGE_DURATION_S
         atk[DataKeys.BIND_ANGULAR_ADVANTAGE_TARGET_ID] = target_id
@@ -432,8 +451,12 @@ static func resolve_bind_wind(manager: Node, attacker_id: int, target_id: int) -
     var tgt_stats := CombatantEntityAccess.stats_dict(tgt)
     var atk_skill: float = CombatantEntityAccess.melee_skill_value(atk)
     var tgt_skill: float = CombatantEntityAccess.melee_skill_value(tgt)
-    var wind_power: float = atk_skill * 3.0 + float(atk_stats.get(DataKeys.ENTITY_AGILITY, CombatConstants.DEFAULT_STAT_VALUE))
-    var hold_power: float = tgt_skill * 3.0 + float(tgt_stats.get(DataKeys.ENTITY_STRENGTH, CombatConstants.DEFAULT_STAT_VALUE))
+    var wind_power: float = (
+        atk_skill * 3.0 + float(atk_stats.get(DataKeys.ENTITY_AGILITY, CombatConstants.DEFAULT_STAT_VALUE))
+    )
+    var hold_power: float = (
+        tgt_skill * 3.0 + float(tgt_stats.get(DataKeys.ENTITY_STRENGTH, CombatConstants.DEFAULT_STAT_VALUE))
+    )
     # V5 HEMA realism: Perception scales blade feel (Waffenfühlen) in bind contests.
     var atk_perc_w: float = float(atk_stats.get(DataKeys.ENTITY_PERCEPTION, CombatConstants.DEFAULT_STAT_VALUE))
     var tgt_perc_w: float = float(tgt_stats.get(DataKeys.ENTITY_PERCEPTION, CombatConstants.DEFAULT_STAT_VALUE))
@@ -445,7 +468,9 @@ static func resolve_bind_wind(manager: Node, attacker_id: int, target_id: int) -
     atk[DataKeys.COMBATANT_STAMINA] = atk[DataKeys.COMBATANT_BREATH]
     if randf() < wind_chance:
         var cur_side: String = str(atk.get(DataKeys.BIND_CONTROL_SIDE, DataKeys.BIND_SIDE_CENTRE))
-        var new_side: String = DataKeys.BIND_SIDE_RIGHT if cur_side == DataKeys.BIND_SIDE_LEFT else DataKeys.BIND_SIDE_LEFT
+        var new_side: String = (
+            DataKeys.BIND_SIDE_RIGHT if cur_side == DataKeys.BIND_SIDE_LEFT else DataKeys.BIND_SIDE_LEFT
+        )
         atk[DataKeys.BIND_CONTROL_SIDE] = new_side
         var val: float = clampf(float(atk.get(DataKeys.BIND_PRESSURE_VALUE, 0.3)) + 0.1, 0.0, 1.0)
         atk[DataKeys.BIND_PRESSURE_VALUE] = val
@@ -478,7 +503,9 @@ static func resolve_bind_wrestle(manager: Node, attacker_id: int, target_id: int
         return
     if MedicalPhaseController.combat_resolution_blocked(manager):
         manager.emit_signal(
-            "action_resolved", attacker_id, target_id,
+            "action_resolved",
+            attacker_id,
+            target_id,
             {"outcome": "bind_wrestle_failed", "dmg": 0, "died": false, "reason": "medical_blocked"}
         )
         _schedule_ready(manager, attacker_id)
@@ -487,7 +514,9 @@ static func resolve_bind_wrestle(manager: Node, attacker_id: int, target_id: int
     var tgt: Dictionary = CombatantEntityAccess.manager_get_combatant(manager, target_id)
     if atk.is_empty() or tgt.is_empty() or not CombatantEntityAccess.are_alive_opponents(atk, tgt):
         manager.emit_signal(
-            "action_resolved", attacker_id, target_id,
+            "action_resolved",
+            attacker_id,
+            target_id,
             {"outcome": "bind_wrestle_failed", "dmg": 0, "died": false, "reason": "target_invalid"}
         )
         _schedule_ready(manager, attacker_id)
@@ -495,7 +524,9 @@ static func resolve_bind_wrestle(manager: Node, attacker_id: int, target_id: int
     var band: String = CombatantEntityAccess.distance_to_opponent_band(atk, target_id)
     if band != CombatConstants.DISTANCE_CLOSE:
         manager.emit_signal(
-            "action_resolved", attacker_id, target_id,
+            "action_resolved",
+            attacker_id,
+            target_id,
             {"outcome": "bind_wrestle_failed", "dmg": 0, "died": false, "reason": "not_close"}
         )
         _schedule_ready(manager, attacker_id)
@@ -503,7 +534,9 @@ static func resolve_bind_wrestle(manager: Node, attacker_id: int, target_id: int
     var clock: float = CombatantEntityAccess.combat_clock_float(manager)
     if not is_in_bind(atk, clock) or not has_wrestling_available(atk):
         manager.emit_signal(
-            "action_resolved", attacker_id, target_id,
+            "action_resolved",
+            attacker_id,
+            target_id,
             {"outcome": "bind_wrestle_failed", "dmg": 0, "died": false, "reason": "no_wrestling_available"}
         )
         _schedule_ready(manager, attacker_id)
@@ -544,8 +577,15 @@ static func resolve_bind_wrestle(manager: Node, attacker_id: int, target_id: int
         PassiveParryContext.apply_off_balance_window(tgt, bind_ob_total)
         _clear_bind_state(atk)
         manager.emit_signal(
-            "action_resolved", attacker_id, target_id,
-            {"outcome": "bind_wrestle_success", "dmg": 0, "died": false, "off_balance_s": CombatConstants.BIND_WRESTLE_TARGET_OFF_BALANCE_S}
+            "action_resolved",
+            attacker_id,
+            target_id,
+            {
+                "outcome": "bind_wrestle_success",
+                "dmg": 0,
+                "died": false,
+                "off_balance_s": CombatConstants.BIND_WRESTLE_TARGET_OFF_BALANCE_S
+            }
         )
     else:
         # Failure: the grab slips. The binder loses pressure and the bind may break.
@@ -554,7 +594,9 @@ static func resolve_bind_wrestle(manager: Node, attacker_id: int, target_id: int
         if val < CombatConstants.BIND_STATE_LIGHT_THRESHOLD:
             _clear_bind_state(atk)
         manager.emit_signal(
-            "action_resolved", attacker_id, target_id,
+            "action_resolved",
+            attacker_id,
+            target_id,
             {"outcome": "bind_wrestle_failed", "dmg": 0, "died": false, "pressure": val}
         )
     atk[DataKeys.BIND_ACTION_COOLDOWN_UNTIL] = clock + CombatConstants.BIND_ACTION_COOLDOWN_S
@@ -585,6 +627,3 @@ static func _clear_bind_state(c: Dictionary) -> void:
 
 static func _schedule_ready(manager: Node, combatant_id: int) -> void:
     CombatEventScheduler.schedule_action_ready(manager, combatant_id, CombatConstants.READY_DELAY_CLOSE_ATTEMPT_S)
-
-
-

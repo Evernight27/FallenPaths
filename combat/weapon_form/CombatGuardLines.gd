@@ -288,7 +288,9 @@ static func arm_interpose_eval(
 ## Written to PA_FEINT_OPEN_LINE_DURATION_S at the stamp site and read back by open_line_openness
 ## so the decay is computed over the same window the stamp actually opened.
 static func open_line_duration_s(intensity: float, is_circumscription: bool) -> float:
-    var d: float = CombatConstants.FEINT_OPEN_LINE_DURATION_S + clampf(intensity, 0.0, 1.0) * OPEN_LINE_DURATION_INTENSITY_SCALE_S
+    var d: float = (
+        CombatConstants.FEINT_OPEN_LINE_DURATION_S + clampf(intensity, 0.0, 1.0) * OPEN_LINE_DURATION_INTENSITY_SCALE_S
+    )
     if is_circumscription:
         d += CIRCUMSCRIPTION_OPEN_LINE_DURATION_EXTRA_S
     return minf(d, OPEN_LINE_DURATION_MAX_S)

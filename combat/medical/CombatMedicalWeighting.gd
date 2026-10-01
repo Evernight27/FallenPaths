@@ -145,8 +145,16 @@ static func _compute_out_of_peril_dampening(tgt: Dictionary, mid: String, manage
             total_bleed_r = entity._get_total_bleeding_rate()
         if mid == CombatConstants.MOVE_ID_STABILIZE_WOUND or mid == CombatConstants.MOVE_ID_STABILIZE_ALLY:
             return w * MedicalPhaseBatchResolve.MEDICAL_AI_WEIGHT_STABILIZE_OUT_OF_PERIL
-        if mid == CombatConstants.MOVE_ID_BANDAGE_SELF or mid == CombatConstants.MOVE_ID_PACK_WOUND or mid == CombatConstants.MOVE_ID_BANDAGE_ALLY or mid == CombatConstants.MOVE_ID_PACK_ALLY:
-            if total_bleed_r > BleedingConstants.BLEEDING_RATE_EPSILON and total_bleed_r < BleedingConstants.TOURNIQUET_BLEEDING_RATE_THRESHOLD:
+        if (
+            mid == CombatConstants.MOVE_ID_BANDAGE_SELF
+            or mid == CombatConstants.MOVE_ID_PACK_WOUND
+            or mid == CombatConstants.MOVE_ID_BANDAGE_ALLY
+            or mid == CombatConstants.MOVE_ID_PACK_ALLY
+        ):
+            if (
+                total_bleed_r > BleedingConstants.BLEEDING_RATE_EPSILON
+                and total_bleed_r < BleedingConstants.TOURNIQUET_BLEEDING_RATE_THRESHOLD
+            ):
                 return w  # Don't dampen — slow bleeds need attention
             return w * MedicalPhaseBatchResolve.MEDICAL_AI_WEIGHT_DRESSING_OUT_OF_PERIL
     return w

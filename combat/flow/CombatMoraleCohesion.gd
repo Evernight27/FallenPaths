@@ -32,7 +32,9 @@ static func apply_to_formations(manager: Node) -> void:
             continue
         var side: String = FormationSlots.formation_side_str(form, fid)
         var factor: float = _resolve_morale_cohesion_factor(manager, enc, side)
-        form[DataKeys.FORMATION_MORALE_COHESION_FACTOR] = clampf(factor, CombatConstants.MORALE_COHESION_FACTOR_MIN, 1.0)
+        form[DataKeys.FORMATION_MORALE_COHESION_FACTOR] = clampf(
+            factor, CombatConstants.MORALE_COHESION_FACTOR_MIN, 1.0
+        )
 
 
 static func _resolve_morale_cohesion_factor(manager: Node, enc: Dictionary, side: String) -> float:

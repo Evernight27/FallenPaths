@@ -72,7 +72,9 @@ static func max_close_slots_for_defender(manager: Node, defender: Dictionary) ->
         return CombatConstants.CLOSE_SLOTS_PER_TARGET
     var ctx: Dictionary = ZoneOfControl.zone_geometry_line_context(manager, defender)
     var form_geom: Dictionary = ZoneOfControl.zone_geometry_formation_from_pack(ctx)
-    var density: String = str(form_geom.get(DataKeys.FORMATION_DENSITY, "normal")) if not form_geom.is_empty() else "normal"
+    var density: String = (
+        str(form_geom.get(DataKeys.FORMATION_DENSITY, "normal")) if not form_geom.is_empty() else "normal"
+    )
     return CombatConstants.max_close_slots_for_density(density)
 
 
@@ -199,9 +201,22 @@ static func append_melee_vs_enemy_line_rank(
                 for move_id in move_ids:
                     if WeaponConstants.is_parry_move(move_id):
                         continue
-                    if (move_id == CombatConstants.MOVE_ID_BIND_PRESS or move_id == CombatConstants.MOVE_ID_BIND_VOID or move_id == CombatConstants.MOVE_ID_BIND_WIND) and not CombatBindPressure.is_in_bind(c, CombatantEntityAccess.combat_clock_float(manager)):
+                    if (
+                        (
+                            move_id == CombatConstants.MOVE_ID_BIND_PRESS
+                            or move_id == CombatConstants.MOVE_ID_BIND_VOID
+                            or move_id == CombatConstants.MOVE_ID_BIND_WIND
+                        )
+                        and not CombatBindPressure.is_in_bind(c, CombatantEntityAccess.combat_clock_float(manager))
+                    ):
                         continue
-                    if move_id == CombatConstants.MOVE_ID_BIND_WRESTLE and (not CombatBindPressure.is_in_bind(c, CombatantEntityAccess.combat_clock_float(manager)) or not CombatBindPressure.has_wrestling_available(c)):
+                    if (
+                        move_id == CombatConstants.MOVE_ID_BIND_WRESTLE
+                        and (
+                            not CombatBindPressure.is_in_bind(c, CombatantEntityAccess.combat_clock_float(manager))
+                            or not CombatBindPressure.has_wrestling_available(c)
+                        )
+                    ):
                         continue
                     actions.append({"target_id": CombatantEntityAccess.id_int(opp), "move_id": move_id})
             elif attempt_close_listed_for_pair(manager, c, CombatantEntityAccess.id_int(opp), dist):
@@ -248,10 +263,7 @@ static func append_melee_actions_for_combatant(
 ## Mercy execute listing: one entry per downed opponent in reach — bypasses living-hostile
 ## and rank gates (the target has already been beaten down; only reach + attacking arm apply).
 static func append_execute_actions_for_combatant(
-    manager: Node,
-    c: Dictionary,
-    combatants: Array,
-    actions: Array
+    manager: Node, c: Dictionary, combatants: Array, actions: Array
 ) -> void:
     if not CombatConstantsFeatureFlags.is_feature_mercy_execute_enabled():
         return
@@ -276,15 +288,23 @@ static func append_execute_actions_for_combatant(
         for existing in actions:
             if existing is not Dictionary:
                 continue
-            if str(existing.get("move_id", "")) == CombatConstants.MOVE_ID_EXECUTE and int(existing.get("target_id", -1)) == opp_id:
+            if (
+                str(existing.get("move_id", "")) == CombatConstants.MOVE_ID_EXECUTE
+                and int(existing.get("target_id", -1)) == opp_id
+            ):
                 already = true
                 break
         if already:
             continue
-        actions.append({
-            "target_id": opp_id,
-            "move_id": CombatConstants.MOVE_ID_EXECUTE,
-        })
+        (
+            actions
+            . append(
+                {
+                    "target_id": opp_id,
+                    "move_id": CombatConstants.MOVE_ID_EXECUTE,
+                }
+            )
+        )
 
 
 ## Whether any downed opponent is in execute reach. Used by the action-build counter-tempo gate to keep the
@@ -310,7 +330,9 @@ static func downed_opponent_in_reach(manager: Node, c: Dictionary, combatants: A
 
 
 ## Reach check for an execute (downed target): mop-up band or geometric reach covering eff dist.
-static func execute_target_in_reach(manager: Node, attacker: Dictionary, defender: Dictionary, melee_range: float) -> bool:
+static func execute_target_in_reach(
+    manager: Node, attacker: Dictionary, defender: Dictionary, melee_range: float
+) -> bool:
     if manager == null or attacker.is_empty() or defender.is_empty():
         return false
     var dist: String = CombatantEntityAccess.distance_to_opponent_band(attacker, CombatantEntityAccess.id_int(defender))

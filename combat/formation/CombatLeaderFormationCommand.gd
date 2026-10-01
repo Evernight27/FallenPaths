@@ -114,8 +114,3 @@ static func apply_leader_command(manager: Node, combatant_id: int, move_id: Stri
         CombatConstants.MOVE_ID_ORDER_PINCH_CENTER:
             return apply_order_pinch_center(manager, combatant_id)
     return false
-
-
-
-
-

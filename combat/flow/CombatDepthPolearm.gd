@@ -190,6 +190,3 @@ static func depth_polearm_targetable_parts_filter(
             continue
         out.append(p)
     return out if not out.is_empty() else targetable
-
-
-

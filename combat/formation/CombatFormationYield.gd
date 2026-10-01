@@ -46,7 +46,3 @@ static func apply_yield(manager: Node, combatant_id: int) -> void:
     var winner: String = manager._check_for_winner() if manager.has_method("_check_for_winner") else ""
     if not winner.is_empty() and manager.has_method("_end_combat_phase"):
         manager._end_combat_phase(winner, null)
-
-
-
-

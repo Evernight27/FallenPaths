@@ -50,8 +50,12 @@ static func resolve_hit_part(
         alignment_context.get(DataKeys.ALIGNMENT_ATTACK_ANGLE_DEG, null) is float
         and alignment_context.get(DataKeys.ALIGNMENT_GUARD_ANGLE_DEG, null) is float
     ):
-        atk_line_path = CombatConstants.angle_to_nearest_line(float(alignment_context[DataKeys.ALIGNMENT_ATTACK_ANGLE_DEG]))
-        guard_line_path = CombatConstants.angle_to_nearest_line(float(alignment_context[DataKeys.ALIGNMENT_GUARD_ANGLE_DEG]))
+        atk_line_path = CombatConstants.angle_to_nearest_line(
+            float(alignment_context[DataKeys.ALIGNMENT_ATTACK_ANGLE_DEG])
+        )
+        guard_line_path = CombatConstants.angle_to_nearest_line(
+            float(alignment_context[DataKeys.ALIGNMENT_GUARD_ANGLE_DEG])
+        )
     var path: Array = CombatConstants.get_attack_path(atk_line_path, guard_line_path)
     if path.is_empty():
         return BodyPartConstants.get_weighted_random_part(targetable)
@@ -98,7 +102,9 @@ static func resolve_hit_part(
     if not ai_weighted:
         for p in path_segment:
             part_weights[p] = 1.0
-    var recovery_cause: String = CombatConstants.normalize_recovery_cause(defender_ctx.get(DataKeys.ATTACK_RECOVERY_CAUSE, ""))
+    var recovery_cause: String = CombatConstants.normalize_recovery_cause(
+        defender_ctx.get(DataKeys.ATTACK_RECOVERY_CAUSE, "")
+    )
     var passive_parry: bool = defender_ctx.get(CombatConstants.PA_KEY_PASSIVE_PARRY_ATTEMPTED, false)
     # Reaction-state modifiers are relative multipliers (not absolute overwrites) so they bias on
     # top of whatever base is in use (rich AI-pick or flat 1.0) instead of clobbering it.
@@ -163,12 +169,20 @@ static func resolve_hit_part(
             if ent != null:
                 var prof_01: float = clampf(
                     (
-                        EntityProficiency.intended_part_boost_mult(
-                            ent, _weapon_id_for_attacker(attacker), CombatantEntityAccess.form_str(attacker)
+                        (
+                            EntityProficiency.intended_part_boost_mult(
+                                ent, _weapon_id_for_attacker(attacker), CombatantEntityAccess.form_str(attacker)
+                            )
+                            - EntityProficiency.PROF_INTENDED_PART_BOOST_MIN
                         )
-                        - EntityProficiency.PROF_INTENDED_PART_BOOST_MIN
-                    )
-                    / maxf(EntityProficiency.PROF_INTENDED_PART_BOOST_MAX - EntityProficiency.PROF_INTENDED_PART_BOOST_MIN, 0.01),
+                        / maxf(
+                            (
+                                EntityProficiency.PROF_INTENDED_PART_BOOST_MAX
+                                - EntityProficiency.PROF_INTENDED_PART_BOOST_MIN
+                            ),
+                            0.01
+                        )
+                    ),
                     0.0,
                     1.0
                 )
@@ -181,9 +195,7 @@ static func resolve_hit_part(
         var stamina_ratio: float = 1.0
         if not attacker.is_empty():
             stamina_ratio = CombatantEntityAccess.stamina_ratio(attacker)
-        var fatigue_factor: float = lerpf(
-            CombatConstantsAttackPath.AIM_DRIFT_FATIGUE_FLOOR, 1.0, stamina_ratio
-        )
+        var fatigue_factor: float = lerpf(CombatConstantsAttackPath.AIM_DRIFT_FATIGUE_FLOOR, 1.0, stamina_ratio)
         var aim_share: float = clampf((align_share + skill_aim_lift) * fatigue_factor, 0.30, 0.90)
         # Near-miss falloff on the leak: the (1 - aim_share) remainder spreads across the other
         # in-path parts, weighted by 1/(1 + K*d) where d is blade-path distance from the aimed
@@ -224,9 +236,7 @@ static func resolve_hit_part(
             flat = false
             break
     var part: String = (
-        BodyPartConstants.get_weighted_random_part(path_segment)
-        if flat
-        else WeightedSample.pick_random(part_weights)
+        BodyPartConstants.get_weighted_random_part(path_segment) if flat else WeightedSample.pick_random(part_weights)
     )
     if part.is_empty():
         part = BodyPartConstants.get_weighted_random_part(path_segment)
@@ -238,7 +248,10 @@ static func resolve_hit_part(
         ):
             angle_info = (
                 " (atk=%.0fdeg guard=%.0fdeg)"
-                % [float(alignment_context[DataKeys.ALIGNMENT_ATTACK_ANGLE_DEG]), float(alignment_context[DataKeys.ALIGNMENT_GUARD_ANGLE_DEG])]
+                % [
+                    float(alignment_context[DataKeys.ALIGNMENT_ATTACK_ANGLE_DEG]),
+                    float(alignment_context[DataKeys.ALIGNMENT_GUARD_ANGLE_DEG])
+                ]
             )
         CombatDebug.log(
             (
@@ -268,8 +281,12 @@ static func path_intercept_max_index(
         alignment_context.get(DataKeys.ALIGNMENT_ATTACK_ANGLE_DEG, null) is float
         and alignment_context.get(DataKeys.ALIGNMENT_GUARD_ANGLE_DEG, null) is float
     ):
-        atk_line_path = CombatConstants.angle_to_nearest_line(float(alignment_context[DataKeys.ALIGNMENT_ATTACK_ANGLE_DEG]))
-        guard_line_path = CombatConstants.angle_to_nearest_line(float(alignment_context[DataKeys.ALIGNMENT_GUARD_ANGLE_DEG]))
+        atk_line_path = CombatConstants.angle_to_nearest_line(
+            float(alignment_context[DataKeys.ALIGNMENT_ATTACK_ANGLE_DEG])
+        )
+        guard_line_path = CombatConstants.angle_to_nearest_line(
+            float(alignment_context[DataKeys.ALIGNMENT_GUARD_ANGLE_DEG])
+        )
     var path: Array = CombatConstants.get_attack_path(atk_line_path, guard_line_path)
     return intercept_max_index_for_alignment(path, alignment)
 
@@ -286,8 +303,12 @@ static func path_segment_for_strike(
         alignment_context.get(DataKeys.ALIGNMENT_ATTACK_ANGLE_DEG, null) is float
         and alignment_context.get(DataKeys.ALIGNMENT_GUARD_ANGLE_DEG, null) is float
     ):
-        atk_line_path = CombatConstants.angle_to_nearest_line(float(alignment_context[DataKeys.ALIGNMENT_ATTACK_ANGLE_DEG]))
-        guard_line_path = CombatConstants.angle_to_nearest_line(float(alignment_context[DataKeys.ALIGNMENT_GUARD_ANGLE_DEG]))
+        atk_line_path = CombatConstants.angle_to_nearest_line(
+            float(alignment_context[DataKeys.ALIGNMENT_ATTACK_ANGLE_DEG])
+        )
+        guard_line_path = CombatConstants.angle_to_nearest_line(
+            float(alignment_context[DataKeys.ALIGNMENT_GUARD_ANGLE_DEG])
+        )
     var path: Array = CombatConstants.get_attack_path(atk_line_path, guard_line_path)
     if path.is_empty():
         return targetable.duplicate()
@@ -318,18 +339,13 @@ static func _weapon_id_for_attacker(attacker: Dictionary) -> String:
 
 
 ## Vitals-finish exploit: mult for a defender part whose head/chest tissue is already damaged.
-## Pristine vitals return 1.0; focus ramps linearly to `WOUNDED_VITAL_TOP_MULT` once the part is `WOUNDED_VITAL_RAMP_RATIO`
+## Pristine vitals return 1.0; focus ramps linearly to `WOUNDED_VITAL_TOP_MULT` once the part is
+## `WOUNDED_VITAL_RAMP_RATIO`
 ## destroyed. Only head/chest (kill/incapacitation vitals) are pressed.
 static func _wounded_vitals_part_mult(defender: Dictionary, part: String) -> float:
     if not CombatConstants.FEATURE_WOUNDED_VITALS_EXPLOIT:
         return 1.0
-    if (
-        defender.is_empty()
-        or not (
-            part == BodyPartConstants.PART_HEAD
-            or part == BodyPartConstants.PART_CHEST
-        )
-    ):
+    if defender.is_empty() or not (part == BodyPartConstants.PART_HEAD or part == BodyPartConstants.PART_CHEST):
         return 1.0
     var ent: CoreEntity = CombatantEntityAccess.scene_entity(defender)
     if ent == null:
@@ -357,9 +373,8 @@ static func part_weights_for_ai_pick(
     alignment: float = -1.0,
     alignment_context: Dictionary = {}
 ) -> Dictionary:
-    var weights: Dictionary = {}
     if path_segment.is_empty():
-        return weights
+        return {}
     var wid_pick: String = _weapon_id_for_attacker(attacker)
     if move_id.is_empty():
         move_id = str(move_def.get(DataKeys.MOVE_DEF_ID, ""))
@@ -369,85 +384,34 @@ static func part_weights_for_ai_pick(
         else move_def.get(DataKeys.MOVE_DEF_PREFERRED_PARTS, [])
     )
     var contact_type: String = str(move_def.get(DataKeys.WEAPON_CONTACT_TYPE, "")).to_lower()
-    var focus_part: String = CombatAttention.get_focus_part(defender) if CombatAttention.enabled() else ""
-    var focus_line: String = CombatConstants.PART_TO_LINE.get(focus_part, "")
-    var dom_line: String = ""
-    var dom_count: int = 0
-    if CombatAttention.enabled() and attacker_id >= 0:
-        dom_line = CombatAttention.dominant_attack_line_toward_defender(defender, attacker_id)
-        if not dom_line.is_empty():
-            dom_count = CombatAttention.line_count_toward_defender(defender, attacker_id, dom_line)
-    var form: String = CombatantEntityAccess.form_str(attacker)
-    var weapon_id: String = wid_pick
-    var ent: CoreEntity = CombatantEntityAccess.scene_entity(attacker)
-    var form_prof_tier: float = EntityProficiency.form_proficiency_tier(ent, form) if ent != null else 0.0
-    var weapon_prof_tier: float = EntityProficiency.weapon_proficiency_tier(ent, weapon_id) if ent != null else 0.0
-    var prof_aim_mult: float = EntityProficiency.proficiency_aim_part_mult(ent, weapon_id, form) if ent != null else 1.0
+    # preferred_mult is the only stat the shared loop needs from the caller (declared-line intel
+    # tier); perception / focus / yomi tiers are resolved inside _compute_weights_for_segment so
+    # the declared-line and diagonal-variance paths both run the same single source-of-truth loop.
     var stats: Dictionary = CombatantEntityAccess.stats_dict(attacker)
-    var perception: float = float(stats.get(DataKeys.ENTITY_PERCEPTION, CombatConstants.DEFAULT_STAT_VALUE))
     var intelligence: float = float(stats.get(DataKeys.ENTITY_INTELLIGENCE, CombatConstants.DEFAULT_STAT_VALUE))
-    var perc_tier: float = _stat_exploit_tier(perception)
-    var intel_tier: float = _stat_exploit_tier(intelligence)
-    var off_focus_mult: float = lerpf(
-        CombatConstants.AI_PICK_NOVICE_OFF_FOCUS_MULT, CombatConstants.AI_PICK_OFF_FOCUS_PART_MULT, perc_tier
-    )
-    var on_focus_penalty: float = lerpf(
-        CombatConstants.AI_PICK_NOVICE_ON_FOCUS_LINE_PENALTY_MULT,
-        CombatConstants.AI_PICK_ON_FOCUS_LINE_PENALTY_MULT,
-        perc_tier
-    )
-    var yomi_habit_mult: float = lerpf(
-        CombatConstants.AI_PICK_NOVICE_YOMI_HABIT_MULT, CombatConstants.AI_PICK_YOMI_HABIT_LINE_PART_MULT, perc_tier
-    )
-    var yomi_counter_mult: float = lerpf(
-        CombatConstants.AI_PICK_NOVICE_YOMI_COUNTER_MULT, CombatConstants.AI_PICK_YOMI_COUNTER_LINE_PART_MULT, perc_tier
-    )
     var preferred_mult: float = lerpf(
-        CombatConstants.AI_PICK_NOVICE_PREFERRED_MULT, CombatConstants.PREFERRED_PART_BONUS_MULT, intel_tier
+        CombatConstants.AI_PICK_NOVICE_PREFERRED_MULT,
+        CombatConstants.PREFERRED_PART_BONUS_MULT,
+        _stat_exploit_tier(intelligence)
     )
     # XCamp-6 (gladiator): the school fighter's scouted tendency names the body part it
     # favors; boost that part's pick weight so the tendency shows up in the target mix.
-    var tend_part: String = str(CombatConstantsAIWeights.school_tendency_dict(attacker).get("target_part", "")).strip_edges()
-    for p in path_segment:
-        var w: float = BodyPartConstants.BODY_PART_TARGET_WEIGHTS.get(p, 1.0)
-        var wid_mult: float = BodyPartConstants.weapon_part_target_mult(weapon_id, p, contact_type)
-        if not depth_allows_low and (p == BodyPartConstants.PART_LEFT_LEG or p == BodyPartConstants.PART_RIGHT_LEG):
-            wid_mult = 1.0
-        w *= wid_mult
-        w *= CombatWeaponForm.target_part_weight_mult(
-            form, p, form_prof_tier, CombatantEntityAccess.get_weapon(attacker)
-        )
-        if not move_id.is_empty():
-            w *= CombatWeaponForm.move_family_part_weight_mult(
-                form, move_id, p, CombatantEntityAccess.get_weapon(attacker)
-            )
-        w *= lerpf(1.0, prof_aim_mult, weapon_prof_tier * 0.5 + form_prof_tier * 0.5)
-        var raw_weight: float = w
-        var anatomy_base: float = BodyPartConstants.BODY_PART_TARGET_WEIGHTS.get(p, 1.0)
-        w = minf(raw_weight, anatomy_base * MAX_PRE_INT_WEIGHT_MULT)
-        if preferred.has(p):
-            w *= preferred_mult
-        # Vitals-finish exploit: AI presses the defender's already-damaged head/chest.
-        w *= _wounded_vitals_part_mult(defender, p)
-        var part_line: String = CombatConstants.PART_TO_LINE.get(p, "")
-        if not focus_part.is_empty():
-            if p == focus_part and part_line == attack_line:
-                w *= on_focus_penalty
-            elif part_line != focus_line or p != focus_part:
-                w *= off_focus_mult
-        if not dom_line.is_empty() and dom_count >= CombatConstants.YOMI_FOCUS_DRIFT_MIN_LINE_COUNT:
-            var habit_part: String = str(CombatConstants.LINE_TO_DEFAULT_PART.get(dom_line, ""))
-            if attack_line == dom_line and p == habit_part:
-                w *= yomi_habit_mult
-            elif attack_line != dom_line:
-                w *= yomi_counter_mult
-        for pg in CombatWeaponForm.preferred_guards(form):
-            if pg == attack_line or str(CombatConstants.LINE_TO_DEFAULT_PART.get(pg, "")) == p:
-                w *= CombatConstants.AI_FOCUS_LINE_FORM_PREFERRED_MULT
-                break
-        if not tend_part.is_empty() and p == tend_part:
-            w *= CombatConstantsAIWeights.SCHOOL_TENDENCY_TARGET_PART_MULT
-        weights[p] = maxf(w, 0.001)
+    var tend_part: String = (
+        str(CombatConstantsAIWeights.school_tendency_dict(attacker).get("target_part", "")).strip_edges()
+    )
+    var weights: Dictionary = _compute_weights_for_segment(
+        path_segment,
+        attack_line,
+        move_def,
+        attacker,
+        defender,
+        attacker_id,
+        move_id,
+        preferred_mult,
+        preferred,
+        depth_allows_low,
+        tend_part
+    )
     # D3: Armor doctrine — boost gap targets when using half_sword/mordhau against armored opponent.
     CombatArmorDoctrine.apply_armor_bias_to_weights(attacker, defender, weights, contact_type)
     # Diagonal variance: blend across resolved lines instead of using declared attack_line weights.
@@ -465,7 +429,8 @@ static func part_weights_for_ai_pick(
         targetable,
         guard_line,
         alignment,
-        alignment_context
+        alignment_context,
+        tend_part
     )
     return weights
 
@@ -579,7 +544,8 @@ static func _apply_diagonal_variance_weights(
     targetable: Array = [],
     guard_line: String = "",
     alignment: float = -1.0,
-    alignment_context: Dictionary = {}
+    alignment_context: Dictionary = {},
+    tend_part: String = ""
 ) -> Dictionary:
     if move_id.is_empty():
         return weights
@@ -588,6 +554,7 @@ static func _apply_diagonal_variance_weights(
     var diagonal_dist: Dictionary = _get_diagonal_resolve_distribution(move_id, guard_line)
     if diagonal_dist.is_empty():
         return weights
+    var contact_type: String = str(move_def.get(DataKeys.WEAPON_CONTACT_TYPE, "")).to_lower()
     var expected_weights: Dictionary = {}
     var can_segment_per_line: bool = not targetable.is_empty() and alignment >= 0.0
     for resolved_line in diagonal_dist.keys():
@@ -608,8 +575,10 @@ static func _apply_diagonal_variance_weights(
             move_id,
             preferred_mult,
             preferred,
-            depth_allows_low
+            depth_allows_low,
+            tend_part
         )
+        CombatArmorDoctrine.apply_armor_bias_to_weights(attacker, defender, line_w, contact_type)
         for p in line_w.keys():
             expected_weights[p] = expected_weights.get(p, 0.0) + line_w[p] * diagonal_dist[resolved_line]
     var result: Dictionary = {}
@@ -624,7 +593,10 @@ static func _apply_diagonal_variance_weights(
     return result
 
 
-## Extract weight computation loop for use by diagonal variance blending.
+## Single source of truth for the per-part target weight loop. Used by both the declared-line
+## AI pick (part_weights_for_ai_pick) and the diagonal-variance blend, so the school-tendency,
+## focus, yomi, preferred-part, wounded-vitals, and proficiency multipliers stay in one place.
+## Note: armor doctrine bias is applied by the caller, not here.
 static func _compute_weights_for_segment(
     path_segment: Array,
     resolved_line: String,
@@ -635,7 +607,8 @@ static func _compute_weights_for_segment(
     move_id: String,
     preferred_mult: float,
     preferred: Array,
-    depth_allows_low: bool = true
+    depth_allows_low: bool = true,
+    tend_part: String = ""
 ) -> Dictionary:
     var weights: Dictionary = {}
     if path_segment.is_empty():
@@ -719,8 +692,7 @@ static func _compute_weights_for_segment(
             if pg == resolved_line or str(CombatConstants.LINE_TO_DEFAULT_PART.get(pg, "")) == p:
                 w *= CombatConstants.AI_FOCUS_LINE_FORM_PREFERRED_MULT
                 break
+        if not tend_part.is_empty() and p == tend_part:
+            w *= CombatConstantsAIWeights.SCHOOL_TENDENCY_TARGET_PART_MULT
         weights[p] = maxf(w, 0.001)
-    # D3: Armor doctrine — boost gap targets when using half_sword/mordhau against armored opponent.
-    var contact_type2: String = str(move_def.get(DataKeys.WEAPON_CONTACT_TYPE, "")).to_lower()
-    CombatArmorDoctrine.apply_armor_bias_to_weights(attacker, defender, weights, contact_type2)
     return weights

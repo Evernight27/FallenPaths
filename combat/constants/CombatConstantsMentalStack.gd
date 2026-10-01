@@ -112,7 +112,8 @@ const GUARD_PRIORITY_YOMI_BASE := 0.55
 const GUARD_PRIORITY_YOMI_PER_LINE_COUNT := 0.05
 const GUARD_PRIORITY_YOMI_CAP := 0.8
 const GUARD_PRIORITY_MIN_LINE_COUNT := 2
-const GUARD_PRIORITY_MID_BAND_MULT := 0.85  # MID-range attackers scored at 85% of CLOSE to keep guard priority active in formation combat
+const GUARD_PRIORITY_MID_BAND_MULT := 0.85
+# MID-range attackers scored at 85% of CLOSE to keep guard priority active in formation combat
 const GUARD_PRIORITY_FOCUS_WEIGHT_TOP := 18.0  # focus-line weight multiplier at max priority
-const GUARD_PRIORITY_SWITCH_COUNT_MARGIN := 1  # drift holds the current read until the new line is observed this much more
-
+const GUARD_PRIORITY_SWITCH_COUNT_MARGIN := 1
+# drift holds the current read until the new line is observed this much more

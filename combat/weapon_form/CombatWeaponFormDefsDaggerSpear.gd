@@ -579,7 +579,7 @@ static func _balanced_entry(display: String) -> Dictionary:
         "wait_weight_mult": 1.0,
         "stamina_cost_mult": _stamina_for_pressure("neutral"),
         "cooldown_modifiers": {"windup": 1.0, "recovery": 1.0},
-        "mod": CombatWeaponFormDefsSwordAxeMace._neutral_mod(),
+        "mod": CombatWeaponFormDefsShared._neutral_mod(),
         "move_family_mult": {},
         "move_id_mult": {},
         "signature": {"move_ids": {}, "contact_types": {}, "lines": {"high": 0.35}, "feint_bias": 0.1},

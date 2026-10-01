@@ -71,7 +71,13 @@ static func start(
     var pr_raw: Variant = c.get("pending_retry", null)
     if pr_raw is Dictionary:
         var pr: Dictionary = pr_raw
-        if not pr.is_empty() and (pr.get(DataKeys.ACTION_TARGET_ID, -1) != target_combatant_id or pr.get(DataKeys.ACTION_PART, "") != target_part):
+        if (
+            not pr.is_empty()
+            and (
+                pr.get(DataKeys.ACTION_TARGET_ID, -1) != target_combatant_id
+                or pr.get(DataKeys.ACTION_PART, "") != target_part
+            )
+        ):
             c[DataKeys.PA_PENDING_RETRY] = {}
     var who_name: String = CombatantEntityAccess.get_display_name(c, combatant_id)
     # Bandage/pack/tourniquet: free treater's other holds; keep compression on the wound being dressed.
@@ -121,13 +127,21 @@ static func start(
             var perf_entity = CombatantEntityAccess.get_entity_from_manager(manager, c)
             var tgt_entity = CombatantEntityAccess.get_entity_from_manager(manager, target_node)
             if CompanyState.read_stub_proficiency_enabled():
-                if perf_entity != null and "_proficiency_bonus" in perf_entity and EntityProficiency.is_stat_gain_tracked(perf_entity):
+                if (
+                    perf_entity != null
+                    and "_proficiency_bonus" in perf_entity
+                    and EntityProficiency.is_stat_gain_tracked(perf_entity)
+                ):
                     EntityProficiency.award_stat_gain(
                         perf_entity,
                         "intelligence",
                         EntityProficiency.GAIN_MEDICAL_ACTION_BASE * EntityProficiency.GAIN_DIRECT_PRESSURE_INT_MULT
                     )
-                if tgt_entity != null and "_proficiency_bonus" in tgt_entity and EntityProficiency.is_stat_gain_tracked(tgt_entity):
+                if (
+                    tgt_entity != null
+                    and "_proficiency_bonus" in tgt_entity
+                    and EntityProficiency.is_stat_gain_tracked(tgt_entity)
+                ):
                     # XCamp-4: the patient's blood-peril awareness — how badly they're bleeding is how
                     # hard they train (blood_peril_end_factor), matching MedicalWindUpHandler /
                     # MedicalPhaseBatchResolve / MedicalPhaseFastForward.
@@ -174,7 +188,9 @@ static func start(
     # HEMA: a medic who is off-balance works slower — hands unsteady, center of gravity off.
     # Divide by the penalty factor (0.90 -> ~11% slower); fades with depth like the strike wind-up.
     if PassiveParryContext.is_off_balance(c):
-        duration /= PassiveParryContext.off_balance_penalty_mult(c, CombatConstants.OFF_BALANCE_MEDICAL_WINDUP_SLOW_MULT)
+        duration /= PassiveParryContext.off_balance_penalty_mult(
+            c, CombatConstants.OFF_BALANCE_MEDICAL_WINDUP_SLOW_MULT
+        )
     if not OperationalLog.is_play_session_active():
         CombatDebug.combat_session(
             "medical %s starting %s on part=%s => wind_up=%.1fs" % [who_name, medical_id, target_part, duration]
@@ -194,6 +210,3 @@ static func start(
         target_node.receiving_medical_count = target_node.get(DataKeys.PA_RECEIVING_MEDICAL_COUNT, 0) + 1
         target_node.state = CombatConstants.STATE_RECEIVING_MEDICAL_ATTENTION
         target_node.gauge = 100.0
-
-
-

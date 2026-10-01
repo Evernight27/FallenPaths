@@ -32,7 +32,10 @@ static func depth_polearm_thrust_closing_factor(ctx: Dictionary) -> float:
     if atk_type.is_empty():
         return 1.0
     var md: Dictionary = WeaponConstants.get_move(atk_type)
-    if str(md.get(DataKeys.WEAPON_CONTACT_TYPE, WeaponConstants.ATTACK_TYPE_CUT)).to_lower() != WeaponConstants.ATTACK_TYPE_STAB:
+    if (
+        str(md.get(DataKeys.WEAPON_CONTACT_TYPE, WeaponConstants.ATTACK_TYPE_CUT)).to_lower()
+        != WeaponConstants.ATTACK_TYPE_STAB
+    ):
         return 1.0
     var lane: String = str(ctx.get("depth_polearm_lane_type", "")).strip_edges()
     if lane == "over_shoulder":

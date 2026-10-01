@@ -13,7 +13,8 @@ static func formation_side_str(formation: Dictionary, default_side: String = "")
     return str(formation.get("side", default_side))
 
 
-## Ensures `formation[DataKeys.FORMATION_SLOTS]` exists and returns it  -  avoids mutating a fresh `{}` from `Dictionary.get(..., {})`.
+## Ensures `formation[DataKeys.FORMATION_SLOTS]` exists and returns it - avoids mutating a fresh `{}` from
+## `Dictionary.get(..., {})`.
 static func formation_slots_dict(formation: Dictionary) -> Dictionary:
     if not formation.has("slots"):
         formation[DataKeys.FORMATION_SLOTS] = {}
