@@ -3,12 +3,10 @@ extends PopupPanel
 
 # Simple party menu that displays member info (body parts: cutting + blunt)
 var content_vbox: VBoxContainer
-var _end_day_button: Button
 var _camp_heal_button: Button
 var _hire_button: Button
 var _hire_surgeon_button: Button
 var _new_company_button: Button
-var _fight_duel_button: Button
 var _autosave_footer_label: Label
 var _title_label: Label
 var _world: Node2D
@@ -18,6 +16,10 @@ var _field_care_notice: String = ""
 
 func _ready() -> void:
     min_size = Vector2(420, 440)
+    var panel_style := StyleBoxFlat.new()
+    panel_style.bg_color = Color(0.08, 0.07, 0.09, 1.0)
+    panel_style.set_content_margin_all(0.0)
+    add_theme_stylebox_override("panel", panel_style)
 
     var margin := MarginContainer.new()
     margin.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -50,12 +52,6 @@ func _ready() -> void:
     content_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
     scroll.add_child(content_vbox)
 
-    _end_day_button = Button.new()
-    _end_day_button.text = CompanyState.format_end_day_button_label()
-    _end_day_button.visible = false
-    _end_day_button.pressed.connect(_on_end_day_pressed)
-    content_vbox.add_child(_end_day_button)
-
     _camp_heal_button = Button.new()
     _camp_heal_button.text = CompanyState.format_camp_rest_button_label(null, true)
     _camp_heal_button.visible = false
@@ -79,12 +75,6 @@ func _ready() -> void:
     _new_company_button.visible = false
     _new_company_button.pressed.connect(_on_new_company_pressed)
     content_vbox.add_child(_new_company_button)
-
-    _fight_duel_button = Button.new()
-    _fight_duel_button.text = "Fight Duel"
-    _fight_duel_button.visible = false
-    _fight_duel_button.pressed.connect(_on_fight_duel_pressed)
-    content_vbox.add_child(_fight_duel_button)
 
     _autosave_footer_label = Label.new()
     _autosave_footer_label.visible = false
@@ -117,12 +107,10 @@ func show_party(world: Node2D, members: Array) -> void:
         )
     for child in content_vbox.get_children():
         if (
-            child == _end_day_button
-            or child == _camp_heal_button
+            child == _camp_heal_button
             or child == _hire_button
             or child == _hire_surgeon_button
             or child == _new_company_button
-            or child == _fight_duel_button
             or child == _autosave_footer_label
         ):
             continue
@@ -402,10 +390,6 @@ func show_party(world: Node2D, members: Array) -> void:
         var menu_footer: String = CompanyState.format_party_menu_footer(world)
         _autosave_footer_label.visible = not menu_footer.is_empty()
         _autosave_footer_label.text = menu_footer
-    if _end_day_button != null:
-        _end_day_button.visible = CompanyState.can_offer_end_day(world)
-        _end_day_button.text = CompanyState.format_end_day_button_label(world)
-        _end_day_button.tooltip_text = CompanyState.format_end_day_tooltip(world)
     if _camp_heal_button != null:
         var ready_camp: bool = CompanyState.camp_heal_ready(world, true)
         _camp_heal_button.visible = CompanyState.should_show_party_camp_rest_button(world)
@@ -433,17 +417,6 @@ func show_party(world: Node2D, members: Array) -> void:
         _hire_surgeon_button.tooltip_text = CompanyState.format_surgeon_hire_tooltip(world, true)
     if _new_company_button != null:
         _new_company_button.visible = CompanyState.can_offer_new_campaign_from_menu()
-    if _fight_duel_button != null:
-        var duel_ready: bool = CompanyState.can_start_duel(world)
-        _fight_duel_button.visible = world != null
-        _fight_duel_button.disabled = not duel_ready
-        if duel_ready:
-            _fight_duel_button.text = "Fight Duel"
-        else:
-            _fight_duel_button.text = (
-                "Fight Duel (%s)" % str(CampaignEncounterBridge.can_enter_combat(world).get("message", "unavailable"))
-            )
-        _fight_duel_button.tooltip_text = ("1v1 sword duel. Leader only, party fights on the unit AI.")
     var opening: bool = not visible
     popup_centered()
     self.grab_focus()
@@ -543,19 +516,6 @@ func _refresh_party_view() -> void:
     CompanyState.refresh_hud(_world)
 
 
-func _on_end_day_pressed() -> void:
-    if _world == null:
-        return
-    if CompanyState.request_end_day(_world):
-        CompanyState.refresh_hud(_world)
-        hide()
-    elif OperationalLog.is_play_session_active():
-        var block_hint: String = CompanyState.format_party_end_day_unavailable_hint(_world)
-        if block_hint.is_empty():
-            block_hint = "End day unavailable (check camp tile or day-tick mode)."
-        OperationalLog.play_world("End day blocked — " + str(block_hint))
-
-
 func _on_camp_heal_pressed() -> void:
     if _world == null:
         return
@@ -605,15 +565,6 @@ func _on_new_company_pressed() -> void:
         return
     hide()
     CompanyState.request_new_campaign(_world)
-
-
-func _on_fight_duel_pressed() -> void:
-    if _world == null:
-        return
-    if CompanyState.start_duel(_world):
-        hide()
-    elif OperationalLog.is_play_session_active():
-        OperationalLog.play_world("Fight duel blocked.")
 
 
 func _append_last_battle_banner(world: Node) -> void:

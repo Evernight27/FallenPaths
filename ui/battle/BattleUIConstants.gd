@@ -5,7 +5,8 @@ extends RefCounted
 ## Body part lists use BodyPartConstants; this file holds battle-specific UI values.
 
 # Body bar dimensions
-const BODY_BAR_CELL_WIDTH := 56
+## Wide enough for the compact "Hd 30|0|0" readout at the enlarged body-label font size.
+const BODY_BAR_CELL_WIDTH := 96
 const BODY_BAR_HEIGHT := 12
 const GAUGE_WIDTH := 160
 ## Wide enough for counter + attention + footwork fragments (`clip_text` still on label).

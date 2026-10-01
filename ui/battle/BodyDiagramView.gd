@@ -10,8 +10,8 @@ extends Control
 
 const ART_W: float = 100.0
 const ART_H: float = 160.0
-const MIN_W: float = 78.0
-const MIN_H: float = 126.0
+const MIN_W: float = 150.0
+const MIN_H: float = 240.0
 
 const OUTLINE: Color = Color(0.02, 0.02, 0.04)
 const BACKDROP: Color = Color(0.07, 0.08, 0.1)
@@ -67,14 +67,18 @@ func _draw() -> void:
     var head_c: Vector2 = _art(50.0, 18.0)
     var radius: float = 9.0 * _scale
     draw_circle(head_c, radius, _region_color("head"))
-    draw_arc(head_c, radius, 0.0, TAU, 24, OUTLINE, 1.0 * _scale, true)
+    draw_arc(head_c, radius, 0.0, TAU, 24, OUTLINE, _outline_w(), true)
+
+
+func _outline_w() -> float:
+    return maxf(1.5, 1.6 * _scale)
 
 
 func _draw_polygon(poly: PackedVector2Array, part: String) -> void:
     if poly.size() < 3:
         return
     draw_colored_polygon(poly, _region_color(part))
-    draw_polyline(_closed(poly), OUTLINE, 1.0, true)
+    draw_polyline(_closed(poly), OUTLINE, _outline_w(), true)
 
 
 func _closed(poly: PackedVector2Array) -> PackedVector2Array:

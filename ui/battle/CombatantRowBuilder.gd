@@ -106,23 +106,37 @@ static func create_row(id: int, node: Node, list: Control, id_to_controls: Dicti
     # Fallout-style free human silhouette colored by per-part health, with a compact numeric
     # readout (cut|blunt|bone) beside it. The diagram replaces the old six per-part progress bars.
     var body_hbox = HBoxContainer.new()
-    body_hbox.add_theme_constant_override("separation", 8)
+    body_hbox.add_theme_constant_override("separation", 12)
     var body_diagram = BodyDiagramView.new()
     body_hbox.add_child(body_diagram)
+    # Legend over the label columns names the three compact values so the pipes are readable.
+    var legend_col = VBoxContainer.new()
+    legend_col.add_theme_constant_override("separation", 6)
+    var legend_lbl = Label.new()
+    legend_lbl.name = "BodyLegend"
+    legend_lbl.text = PartyRowFormatter.BODY_COMPACT_LEGEND
+    legend_lbl.custom_minimum_size = Vector2(
+        BattleUIConstants.BODY_BAR_CELL_WIDTH * BodyPartConstants.BODY_BAR_COLUMNS.size(), 0
+    )
+    legend_lbl.add_theme_font_size_override("font_size", 11)
+    legend_lbl.add_theme_color_override("font_color", Color(0.7, 0.75, 0.8))
+    legend_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+    legend_col.add_child(legend_lbl)
     var body_labels := {}
     for column_parts in BodyPartConstants.BODY_BAR_COLUMNS:
         var col_vbox = VBoxContainer.new()
-        col_vbox.add_theme_constant_override("separation", 2)
+        col_vbox.add_theme_constant_override("separation", 6)
         for part in column_parts:
             var lbl = Label.new()
             lbl.name = "lbl_%s" % part
             lbl.text = BodyPartConstants.BODY_LABELS.get(part, part)
             lbl.custom_minimum_size = Vector2(BattleUIConstants.BODY_BAR_CELL_WIDTH, 0)
-            lbl.add_theme_font_size_override("font_size", 9)
+            lbl.add_theme_font_size_override("font_size", 14)
             lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
             col_vbox.add_child(lbl)
             body_labels[part] = lbl
-        body_hbox.add_child(col_vbox)
+        legend_col.add_child(col_vbox)
+    body_hbox.add_child(legend_col)
     row.add_child(body_hbox)
     if list != null:
         list.add_child(row)

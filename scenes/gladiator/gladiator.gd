@@ -165,12 +165,10 @@ func _build_left_column(left: VBoxContainer) -> void:
     left.add_child(company_buttons)
     company_buttons.add_child(_mk_button("Hire rookie", _on_hire))
     company_buttons.add_child(_mk_button("Hire surgeon", _on_hire_surgeon))
-    company_buttons.add_child(_mk_button("Manage company", _on_manage_company))
 
     var day_buttons := HBoxContainer.new()
     left.add_child(day_buttons)
     day_buttons.add_child(_mk_button("End day", _on_end_day))
-    day_buttons.add_child(_mk_button("Camp rest", _on_camp_rest))
 
     left.add_child(_mk_sep())
     left.add_child(_mk_label("ARENA NIGHT", 19, Color(0.93, 0.78, 0.45)))
@@ -537,23 +535,13 @@ func _build_school_card(summary: Dictionary) -> Control:
 func _on_end_day() -> void:
     if _busy:
         return
-    if CompanyState.try_advance_day(self):
-        _log("Advanced to day %d." % CompanyState.get_day_index(self))
-    else:
-        _log("The day could not be advanced.")
-    rebuild_all()
-
-
-func _on_camp_rest() -> void:
-    if _busy:
-        return
     var res: Dictionary = CompanyGladiator.rest_day(self)
     if str(res.get("kind", "")) == "camp_rest":
-        _log("Camp rest: the company heals, trains, and recovers morale. Day %d." % int(res.get("day", 0)))
+        _log("The company rests: wounds heal, drills take hold, morale recovers. Day %d." % int(res.get("day", 0)))
     else:
         _log(
             (
-                "Couldn't rest (wounds need tending or a med supply) - the day ended instead. Day %d."
+                "The day ended (wounds need tending or a med supply before a full rest). Day %d."
                 % int(res.get("day", 0))
             )
         )
@@ -595,15 +583,11 @@ func _on_hire_surgeon() -> void:
     rebuild_all()
 
 
-func _on_manage_company() -> void:
+func _on_party_button_pressed() -> void:
     var menu: Variant = get_meta("party_menu") if has_meta("party_menu") else null
     var pm: Variant = get_meta("party_manager") if has_meta("party_manager") else null
     if menu is Node and pm != null and (menu as Node).has_method("show_party"):
         (menu as Node).show_party(self, pm.get_members())
-
-
-func _on_party_button_pressed() -> void:
-    _on_manage_company()
 
 
 func _on_scout(school_id: String, chooser: OptionButton) -> void:

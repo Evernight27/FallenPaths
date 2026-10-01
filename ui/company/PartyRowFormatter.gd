@@ -17,6 +17,11 @@ const BODY_LABELS_SHORT := {
     "head": "Hd", "chest": "Ch", "right_arm": "RA", "left_arm": "LA", "left_leg": "LL", "right_leg": "RL"
 }
 
+## Column header for the three compact body-part values, so the readout is self-explanatory:
+## cut tissue remaining | blunt tissue remaining | bone remaining. Position-for-position with
+## `format_body_part_compact`'s pipe-separated cells.
+const BODY_COMPACT_LEGEND := "cut|blunt|bone"
+
 
 ## Read-only body stat dicts from a party/battle member row.
 static func read_body_stat_dicts(row: Dictionary) -> Dictionary:
